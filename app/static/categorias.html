@@ -1,0 +1,37 @@
+<style>
+    .categorias-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; }
+    #lista-categorias { list-style: none; margin: 0; padding: 0; }
+    #lista-categorias li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 15px;
+        border-bottom: 1px solid #ddd;
+        font-size: 1.1em;
+    }
+    #lista-categorias li:first-child { border-top: 1px solid #ddd; }
+    #lista-categorias li:hover { background-color: #f9f9f9; }
+    #lista-categorias button {
+        margin-left: 5px;
+        padding: 6px 10px;
+        font-size: 0.9em;
+    }
+    #form-add-categoria { display: flex; flex-direction: column; }
+    @media (max-width: 768px) { .categorias-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="categorias-grid">
+    <div class="card">
+        <h2>Listado de Categorías</h2>
+        <ul id="lista-categorias">
+            </ul>
+    </div>
+    <div class="card">
+        <h2>Añadir Nueva Categoría</h2>
+        <form id="form-add-categoria">
+            <label for="categoria-nombre">Nombre de la Categoría:</label>
+            <input type="text" id="categoria-nombre" name="nombre" required>
+            <button type="submit">Guardar Categoría</button>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/jspdf-autotable@3.5.23/dist/jspdf.plugin.autotable.js"></script>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="/static/css/reportes.css"> <!-- Estilos específicos para los reportes-->
+    <link rel="stylesheet" href="/static/css/proveedores.css"> <!-- Estilos específicos para proveedores-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión | Baboons</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Roboto', sans-serif; margin: 0; background-color: #f0f2f5; }
+        header { background-color: #2c3e50; color: white; padding: 15px 30px; display: flex; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        header h1 { font-family: 'Bebas Neue', sans-serif; margin: 0; font-size: 1.8em; }
+        nav { margin-left: auto; }
+        nav a { color: white; text-decoration: none; margin-left: 20px; font-weight: bold; padding: 8px 12px; border-radius: 5px; transition: background-color 0.3s; }
+        nav a:hover, nav a.active { background-color: #34495e; }
+        main { padding: 30px; }
+        /* --- Estilos para el Menú Desplegable --- */
+        /* Contenedor principal del dropdown */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        /* El contenido del menú que estará oculto por defecto */
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #34495e; /* Mismo color que el hover de los otros botones */
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+            border-radius: 5px;
+        }
+        /* Los enlaces dentro del desplegable */
+        .dropdown-content a {
+            color: white;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block; /* Para que ocupen todo el ancho */
+            text-align: left;
+            margin-left: 0; /* Reseteamos el margen */
+        }
+        /* Cambia el color de los enlaces del desplegable al pasar el mouse */
+        .dropdown-content a:hover {
+            background-color: #2c3e50;
+        }
+        /* ✨ La Magia: Muestra el menú desplegable cuando se pasa el mouse sobre el contenedor */
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+        #notification-container {
+         position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+        }
+        .toast-notification {
+            color: #fff; padding: 15px 20px; border-radius: 8px; margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0;
+            transform: translateX(100%); animation: slideIn 0.5s forwards;
+        }
+        .toast-notification.success { background-color: #28a745; }
+        .toast-notification.warning { background-color: #ffc107; color: #333; }
+        .toast-notification.error { background-color: #dc3545; }
+        @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideOut { to { opacity: 0; transform: translateX(100%); } }
+    </style>
+</head>
+<div id="notification-container"></div>
+<body>
+
+<header>
+    <h1>Multinegocio Baboons</h1>
+<nav>
+    <a href="#" onclick="loadContent(event, 'static/dashboard.html', this)"> 🖥️ Dashboard</a>
+    <a href="#" onclick="loadContent(event, 'static/inventario.html', this)" class="active">📦 Inventario</a>     
+    <div class="dropdown">
+        <a href="#" class="dropbtn">📥 Ingresos ▾</a>
+        <div class="dropdown-content">
+            <!-- <a href="#" onclick="loadContent(event, 'static/ingresos.html', this)">Nuevo Ingreso</a> -->
+            <a href="#" onclick="console.log('1. Clic en el menú Ingresos...'); loadContent(event, 'static/ingresos.html', this)">Nuevo Ingreso</a>
+            <a href="#" onclick="loadContent(event, 'static/historial_ingresos.html', this)">Ver Historial</a>
+        </div>
+    </div>
+    
+    <div class="dropdown">
+        <a href="#" class="dropbtn">💰 Ventas ▾</a>
+        <div class="dropdown-content">
+            <a href="#" onclick="loadContent(event, 'static/ventas.html', this)">Nueva Venta</a>
+            <a href="#" onclick="loadContent(event, 'static/historial_ventas.html', this)">Historial de Ventas</a>
+        </div>
+    </div>
+
+    <a href="#" onclick="loadContent(event, 'static/clientes.html', this)">🧑‍🤝‍🧑 Clientes</a>
+
+    <div class="dropdown">
+        <a href="#" class="dropbtn">⚙️ Configuración ▾</a>
+        <div class="dropdown-content">
+            <a href="#" onclick="loadContent(event, 'static/caja.html', this)">💼 Gestión de Caja</a>             
+            <a href="#" onclick="loadContent(event, 'static/negocios.html', this)" id="negocios-link">🏢 Negocios</a>
+            <a href="#" onclick="loadContent(event, 'static/usuarios.html', this)" id="usuarios-link">👥 Usuarios</a>
+            <a href="#" onclick="loadContent(event, 'static/proveedores.html', this)">🚚 Proveedores</a>
+            <a href="#" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a>
+            <a href="#" onclick="loadContent(event, 'static/configuracion.html', this)">⚙️ Seteos Varios</a>
+        </div>
+    </div>
+    
+    <div class="dropdown">
+        <a href="#" class="dropbtn">📑 Reportes</a>
+        <div class="dropdown-content">
+            <a href="#" onclick="loadContent(event, 'static/reportes.html', this)">💰Ventas Diarias</a> 
+            <a href="#" onclick="loadContent(event, 'static/reporte_caja.html', this)">💼Reporte de Caja</a>
+            <a href="#" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">📈 Reporte de Ganancias</a>
+            </div>
+        </div>
+    
+    <a href="#" id="auth-link"></a> 
+</nav>
+</header>
+    <div id="business-selector-bar" style="background-color: #ecf0f1; padding: 15px 30px; border-bottom: 2px solid #bdc3c7; display: flex; align-items: center;">
+        <label for="selector-negocio" style="font-weight: bold; margin-right: 10px; font-size: 1em;">NEGOCIO ACTIVO:</label>
+        <select id="selector-negocio" style="padding: 8px; border-radius: 5px; border: 1px solid #ccc; min-width: 250px; font-size: 1em;">
+            <option value="">Seleccione un negocio para empezar...</option>
+        </select>
+    </div>
+  <main id="content-area">
+  </main>
+
+
+
+ <!-- Todo se mudo a /static/js/main.js -->
+ <script type="module" src="/static/js/main.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,60 @@
+<style>
+    .clientes-grid { 
+        display: grid; 
+        grid-template-columns: 2fr 1fr; 
+        gap: 25px; 
+    }
+    #tabla-clientes {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    #tabla-clientes th, #tabla-clientes td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    #tabla-clientes thead th {
+        background-color: #34495e;
+        color: white;
+    }
+    #form-add-cliente {
+        display: flex;
+        flex-direction: column;
+    }
+    #form-add-cliente input {
+        padding: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }
+    @media (max-width: 768px) { 
+        .clientes-grid { grid-template-columns: 1fr; } 
+    }
+</style>
+<div class="clientes-grid">
+    <div class="card">
+        <h2>Listado de Clientes</h2>
+        <table id="tabla-clientes">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Documento</th>
+                    <th>Teléfono</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <div class="card">
+        <h2>Añadir Nuevo Cliente</h2>
+        <form id="form-add-cliente">
+            <input type="text" name="nombre" placeholder="Nombre completo" required>
+            <input type="text" name="documento" placeholder="Documento (CUIT/DNI)">
+            <input type="text" name="telefono" placeholder="Teléfono">
+            <input type="email" name="email" placeholder="Email">
+            <input type="text" name="direccion" placeholder="Dirección">
+            <button type="submit">Guardar Cliente</button>
+        </form>
+    </div>
+</div>

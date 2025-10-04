@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <style>
+    /* Usamos flexbox para centrar las tarjetas de apertura/cierre */
+    #seccion-abrir-caja, #seccion-cerrar-caja {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding-top: 20px;
+    }
+
+    #seccion-abrir-caja .card, 
+    #seccion-cerrar-caja .card {
+        width: 100%;
+        max-width: 500px; /* Un ancho máximo para que no se estire demasiado */
+    }
+
+    /* Estilos para la información de la sesión abierta */
+    #info-sesion-actual {
+        background-color: #e9f7fd;
+        border-left: 5px solid #007bff;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+    }
+
+    #info-sesion-actual p {
+        margin: 5px 0;
+        font-size: 1.1em;
+    }
+
+    #info-sesion-actual strong {
+        color: #333;
+    }
+    </style>
+</head>
+
+<div class="seccion-contenido-dinamico">
+    <h2>📦 Gestión de Caja</h2>
+
+    <div id="seccion-abrir-caja" style="display: none;">
+        <div class="card">
+            <h3>Apertura de Caja</h3>
+            <p>La caja para este negocio está actualmente cerrada. Ingresa el monto inicial para comenzar.</p>
+            <form id="form-abrir-caja">
+                <div class="form-group">
+                    <label for="monto-inicial">Monto Inicial (efectivo para cambio):</label>
+                    <input type="number" id="monto-inicial" step="0.01" required placeholder="Ej: 5000.00">
+                </div>
+                <button type="submit" class="btn-primary">Abrir Caja</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="seccion-cerrar-caja" style="display: none;">
+        <div class="card">
+            <h3>Cierre de Caja</h3>
+            <div id="info-sesion-actual"></div>
+            <form id="form-cerrar-caja">
+                <div class="form-group">
+                    <label for="monto-final-contado">Monto Final Contado (dinero físico en caja):</label>
+                    <input type="number" id="monto-final-contado" step="0.01" required placeholder="Ej: 25500.50">
+                </div>
+                <button type="submit" class="btn-danger">Cerrar Caja</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-resumen-cierre" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close-button" onclick="document.getElementById('modal-resumen-cierre').style.display='none'">&times;</span>
+            <h3>Resumen del Cierre de Caja</h3>
+            <div id="contenido-resumen"></div>
+        </div>
+    </div>
+</div>

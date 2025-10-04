@@ -1,0 +1,77 @@
+<style>
+    /* Estilo general para la tabla principal */
+    #tabla-historial {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    #tabla-historial th, #tabla-historial td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+
+    /* Encabezado de la tabla principal */
+    #tabla-historial thead th {
+        background-color: #34495e; /* Azul oscuro */
+        color: white;
+    }
+
+    /* Estilo para las filas maestras (las que son clickables) */
+    .master-row {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    .master-row:hover {
+        background-color: #f5f5f5; /* Un gris claro al pasar el mouse */
+    }
+    .master-row.active {
+        background-color: #e8f4fd; /* Un azul claro cuando está seleccionada */
+    }
+
+    /* Botón para expandir/colapsar */
+    .master-row button {
+        border: 1px solid #ccc;
+        background-color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    /* Fila que contiene la tabla de detalles */
+    .detail-row td {
+        background-color: #fafafa; /* Fondo ligeramente gris para el detalle */
+        padding: 20px !important;
+    }
+
+    /* Estilo para la tabla anidada de detalles */
+    .detail-row table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .detail-row table th {
+        background-color: #95a5a6; /* Un gris más suave para el encabezado del detalle */
+        color: white;
+        padding: 10px;
+    }
+    .detail-row table td {
+        padding: 10px;
+        background-color: white;
+    }
+</style>
+
+<div class="card">
+    <h2>Historial de Ingresos de Mercadería</h2>
+    <table id="tabla-historial">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Proveedor</th>
+                <th>Referencia</th>
+                <th>Ver Detalles</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+    </table>
+</div>

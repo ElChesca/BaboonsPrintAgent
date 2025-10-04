@@ -1,0 +1,46 @@
+<div class="seccion-contenido-dinamico">
+    <h2>👥 Gestión de Proveedores</h2>
+    <div class="main-grid">
+        <div class="card">
+            <h3 id="form-proveedor-titulo">Añadir Nuevo Proveedor</h3>
+            <form id="form-proveedor">
+                <input type="hidden" id="proveedor-id">
+                <div class="form-group">
+                    <label for="proveedor-nombre">Nombre del Proveedor:</label>
+                    <input type="text" id="proveedor-nombre" required>
+                </div>
+                <div class="form-group">
+                    <label for="proveedor-contacto">Persona de Contacto:</label>
+                    <input type="text" id="proveedor-contacto">
+                </div>
+                <div class="form-group">
+                    <label for="proveedor-telefono">Teléfono:</label>
+                    <input type="tel" id="proveedor-telefono">
+                </div>
+                <div class="form-group">
+                    <label for="proveedor-email">Email:</label>
+                    <input type="email" id="proveedor-email">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Guardar</button>
+                    <button type="button" id="btn-cancelar-edicion" class="btn-secondary" style="display: none;">Cancelar</button>
+                </div>
+            </form>
+        </div>
+        <div class="card">
+            <h3>Lista de Proveedores</h3>
+            <table id="tabla-proveedores" class="tabla-bonita">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Contacto</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>

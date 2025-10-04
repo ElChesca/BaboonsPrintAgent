@@ -1,0 +1,41 @@
+<style>
+    /* Estilos para que el reporte se vea bien */
+    .filters { margin-bottom: 20px; display: flex; gap: 15px; align-items: center; }
+    #reporte-container { border: 1px solid #ccc; padding: 20px; background: white; }
+    #tabla-reporte-ventas { width: 100%; border-collapse: collapse; }
+    #tabla-reporte-ventas th, #tabla-reporte-ventas td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+    #tabla-reporte-ventas thead th { background-color: #34495e; color: white; }
+    #tabla-reporte-ventas tfoot th { text-align: right; font-size: 1.2em; padding-top: 15px; }
+</style>
+
+<div class="card">
+    <h2>Reporte de Ventas por Día</h2>
+    
+    <div class="filters">
+        <label>Desde:</label> <input type="date" id="fecha-desde">
+        <label>Hasta:</label> <input type="date" id="fecha-hasta">
+        <button id="btn-generar-reporte">Generar Reporte</button>
+        <button id="btn-exportar-pdf" style="margin-left: auto; background-color: #dc3545;">Exportar a PDF</button>
+    </div>
+    
+    <div id="reporte-container">
+        <h3 id="reporte-titulo">Reporte de Ventas</h3>
+        <table id="tabla-reporte-ventas">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Cantidad de Ventas</th>
+                    <th>Total Vendido</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="2">Total General:</th>
+                    <th id="reporte-total-general">$0.00</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,108 @@
+<style>
+    .ingreso-grid {
+        display: grid;
+        grid-template-columns: 1fr 2fr; /* Dos columnas en escritorio */
+        gap: 25px;
+    }
+    /* Estilos para los formularios y tablas dentro del módulo */
+    #form-add-item, #form-finalize-ingreso {
+        display: flex;
+        flex-direction: column;
+    }
+    input, select {
+        padding: 10px;
+        margin-top: 5px;
+        margin-bottom: 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 1em;
+    }
+    button {
+        background-color: #007bff;
+        color: white;
+        padding: 12px;
+        border: none;
+        border-radius: 5px;
+        font-size: 1.1em;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    button:hover {
+        background-color: #0056b3;
+    }
+    #staged-items-table {
+        width: 100%;
+        margin-top: 15px;
+        border-collapse: collapse;
+    }
+    #staged-items-table th, #staged-items-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    #staged-items-table th {
+        background-color: #1abc9c;
+        color: white;
+    }
+
+    /* ✨ RESPONSIVIDAD PARA CELULARES ✨ */
+    @media (max-width: 768px) {
+        .ingreso-grid {
+            grid-template-columns: 1fr; /* Una sola columna en celulares */
+        }
+    }
+</style>
+<div class="main-grid">
+    <div class="card">
+        <h2>Añadir Producto al Ingreso</h2>
+        
+        <form id="form-add-item-ingreso">
+            <div class="form-group">
+                <label for="ingreso-producto-selector">Producto:</label>
+                <select id="ingreso-producto-selector" required>
+                    <option value="">Seleccione un producto...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="ingreso-item-cantidad">Cantidad:</label>
+                <input type="number" id="ingreso-item-cantidad" step="any" value="1" required>
+            </div>
+            <div class="form-group">
+                <label for="ingreso-item-costo">Costo Unitario (Opcional):</label>
+                <input type="number" id="ingreso-item-costo" step="0.01" placeholder="Actualizará el costo del producto">
+            </div>
+            <button type="submit" class="btn-primary">Añadir a la Lista</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Ingreso de Mercadería Actual</h2>
+
+        <form id="form-finalize-ingreso">
+            <div class="form-group">
+                <label for="ingreso-proveedor-selector">Proveedor:</label>
+                <select id="ingreso-proveedor-selector" required>
+                    <option value="">Cargando proveedores...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="ingreso-referencia">N° Factura / Remito (Opcional):</label>
+                <input type="text" id="ingreso-referencia">
+            </div>
+
+            <table id="staged-items-ingreso" class="tabla-bonita">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+
+            <button type="submit" class="btn-primary" style="margin-top: 20px;">Guardar Ingreso Completo</button>
+        </form>
+    </div>
+</div>

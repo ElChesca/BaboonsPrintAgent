@@ -1,0 +1,187 @@
+<style> 
+    .venta-grid {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 25px;
+    }
+
+    /* ✨ 1. Nuevos estilos para organizar el formulario de añadir item */
+    .add-item-controls {
+        display: flex;
+        gap: 10px; /* Espacio entre los elementos */
+        align-items: flex-end; /* Alinea los elementos por la parte inferior */
+    }
+    .add-item-controls .form-group {
+        margin-bottom: 0; /* Quitamos el margen inferior de los grupos de formulario */
+    }
+    .add-item-controls .search-container {
+        flex-grow: 1; /* El buscador ocupa el espacio disponible */
+    }
+    .add-item-controls #venta-item-cantidad {
+        width: 80px; /* Un ancho fijo para la cantidad */
+    }
+    /* Fin de nuevos estilos */
+    
+    #form-finalize-venta {
+        display: flex;
+        flex-direction: column;
+    }
+    input, select, .btn-primary { /* ✨ Agregamos el botón aquí para que comparta estilos */
+        padding: 10px;
+        margin-top: 5px;
+        margin-bottom: 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 1em;
+        width: 100%; /* Hacemos que ocupen todo el ancho de su contenedor */
+        box-sizing: border-box; /* Importante para que el padding no afecte el ancho */
+    }
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+        padding: 12px;
+        border: none;
+        font-size: 1.1em;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    .btn-primary:hover {
+        background-color: #0056b3;
+    }
+    #staged-items-venta {
+        width: 100%;
+        margin-top: 15px;
+        border-collapse: collapse;
+    }
+    #staged-items-venta th, #staged-items-venta td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    #staged-items-venta thead th {
+        background-color: #28a745; /* Verde para ventas */
+        color: white;
+    }
+    #staged-items-venta tfoot th {
+        text-align: right;
+        font-size: 1.2em;
+    }
+    @media (max-width: 900px) { /* ✨ Ajustamos el punto de quiebre para mejor responsiveness */
+        .venta-grid { grid-template-columns: 1fr; }
+    }
+    .search-container { position: relative; }
+    #search-results-venta {
+        position: absolute; width: 100%; background-color: white;
+        border: 1px solid #ccc; max-height: 200px; overflow-y: auto; z-index: 100;
+    }
+    .search-item {
+        padding: 10px; cursor: pointer; display: flex; justify-content: space-between;
+    }
+    .search-item:hover { background-color: #f0f0f0; }
+    .search-item .stock { color: #888; font-size: 0.9em; }
+    #cliente-selector:disabled {
+        background-color: #e9ecef; opacity: 0.7; cursor: not-allowed;
+    }
+    /* Estilo para el banner de información de la caja en la pantalla de ventas */
+    .caja-info-banner {
+        padding: 10px 15px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+        font-size: 0.9em;
+        text-align: center;
+        border: 1px solid;
+    }
+
+    .caja-info-banner.abierta {
+        background-color: #e7f4e8;
+        border-color: #28a745;
+        color: #155724;
+    }
+
+    .caja-info-banner.cerrada {
+        background-color: #f8d7da;
+        border-color: #dc3545;
+        color: #721c24;
+        font-weight: bold;
+    }
+</style>
+
+<div class="venta-grid">
+    <div class="card">
+        <h2>Añadir Producto a la Venta</h2>
+        <form id="form-add-item-venta">
+            <div class="add-item-controls">
+                
+                <div class="form-group search-container">
+                    <label for="venta-producto-input">Buscar Producto:</label>
+                    <input type="text" id="venta-producto-input" autocomplete="off" placeholder="Escriba para buscar...">
+                    <div id="search-results-venta"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="venta-item-cantidad">Cantidad:</label>
+                    <input type="number" id="venta-item-cantidad" step="any" value="1" required>
+                </div>
+
+                <button type="submit" class="btn-primary">Añadir</button>
+
+            </div>
+        </form>
+    </div>
+
+   <div class="card">
+    <h2>Venta Actual</h2>
+    
+     <div id="info-caja-activa" class="caja-info-banner">Cargando estado de la caja...</div>
+
+        <form id="form-finalize-venta">
+            <div class="form-group">
+                <label for="cliente-selector">Cliente:</label>
+                <select id="cliente-selector">
+                    <option value="">Consumidor Final</option>
+                </select>
+            </div>
+
+            <table id="staged-items-venta">
+                <thead><tr><th>Producto</th><th>Cant.</th><th>Precio U.</th><th>Subtotal</th><th>Acc.</th></tr></thead>
+                <tbody></tbody>
+                <tfoot><tr><th colspan="3">TOTAL:</th><th id="venta-total">$0.00</th><th></th></tr></tfoot>
+            </table>
+            
+            <div class="form-group" style="margin-top: 15px;">
+                <label for="metodo-pago-selector">Forma de Pago:</label>
+                <select id="metodo-pago-selector" name="metodo_pago">
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="MP">Mercado Pago</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                    <option value="Debito">Débito</option>
+                    <option value="Transf.">Transferencia</option>
+                </select>
+            </div>
+            <div id="pago-detalles-container" style="display: none;"> <!-- Detalles de pago adicionales -->
+                <div class="form-group">
+                    <label for="pago-dni">DNI del Cliente:</label>
+                    <input type="text" id="pago-dni" placeholder="DNI del titular de la tarjeta">
+                </div>
+                <div class="form-group">
+                    <label for="pago-tarjeta">Últimos 4 Dígitos de Tarjeta:</label>
+                    <input type="text" id="pago-tarjeta" placeholder="1234" maxlength="4">
+                </div>
+                <div class="form-group">
+                    <label for="pago-cupon">Nro. Cupón/Transacción:</label>
+                    <input type="text" id="pago-cupon" placeholder="Número de referencia del pago">
+                </div>
+                <div class="form-group">
+                    <label for="pago-banco">Banco:</label>
+                    <input type="text" id="pago-banco" placeholder="Banco emisor">
+                </div>
+            </div>
+            <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" id="btn-finalize-sale" class="btn-primary" style="flex-grow: 1;">Finalizar Venta</button>
+                <button type="submit" id="btn-finalize-and-print" class="btn-secondary" style="flex-grow: 1;">Finalizar e Imprimir Ticket</button>
+            </div>
+            
+            
+        </form>
+    </div>
+</div>
