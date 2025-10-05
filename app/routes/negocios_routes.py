@@ -1,5 +1,5 @@
 # app/routes/negocios_routes.py
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, jsonify
 from app.database import get_db
 from app.auth_decorator import token_required
 
