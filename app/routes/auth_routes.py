@@ -56,3 +56,27 @@ def login():
         return jsonify({'token': token})
 
     return jsonify({'message': 'Contraseña incorrecta'}), 401
+
+# ATENCIÓN: BORRAR O COMENTAR ESTA RUTA DESPUÉS DE USARLA
+@bp.route('/setup/create_admin/<username>/<password>', methods=['GET'])
+def create_admin_temp(username, password):
+    db_cursor = get_db()
+    try:
+        # Borramos el usuario anterior si existe, para empezar de cero limpio
+        db_cursor.execute('DELETE FROM usuarios WHERE nombre = %s', (username,))
+        
+        # Creamos el hash usando la misma instancia de bcrypt de la aplicación
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+        
+        # Insertamos el nuevo usuario admin
+        db_cursor.execute(
+            'INSERT INTO usuarios (nombre, password, rol) VALUES (%s, %s, %s)',
+            (username, hashed_password, 'admin')
+        )
+        # Importante: con psycopg2, el commit se hace sobre la conexión
+        db_cursor.connection.commit()
+        
+        return jsonify({'message': f"Usuario '{username}' creado con éxito. ¡Ya puedes iniciar sesión!"}), 201
+    except Exception as e:
+        db_cursor.connection.rollback()
+        return jsonify({'error': str(e)}), 500
