@@ -6,14 +6,17 @@ from .auth_routes import token_required
 bp = Blueprint('negocios', __name__)
 
 # --- Rutas para Negocios ---
+# app/routes/negocios_routes.py
+from flask import Blueprint, jsonify
+from app import get_db
+from .auth_routes import token_required
+
+bp = Blueprint('negocios', __name__)
+
 @bp.route('/negocios', methods=['GET'])
 @token_required
 def get_negocios(current_user):
-    """
-    Obtiene los negocios asignados al usuario actual.
-    """
     db = get_db()
-    # ✨ Sintaxis corregida para PostgreSQL (%s y separación de comandos)
     db.execute(
         """
         SELECT n.id, n.nombre 
