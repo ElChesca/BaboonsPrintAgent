@@ -3,7 +3,7 @@ import os
 import sqlite3
 import psycopg2
 import psycopg2.extras
-from flask import Flask, g, send_from_directory
+from flask import Flask, g, render_template
 from .extensions import bcrypt # Asumo que tienes un archivo app/extensions.py con: from flask_bcrypt import Bcrypt; bcrypt = Bcrypt()
 
 # --- LÓGICA DE LA BASE DE DATOS (AHORA ES FLEXIBLE) ---
@@ -29,15 +29,14 @@ def close_connection(e=None):
         db.close()
 
 # --- FÁBRICA DE LA APLICACIÓN ---
-def create_app():    
-    app = Flask(__name__, static_folder='static') # Ajustamos la ruta de static
+def create_app():
+    # ✨ 2. Simplificamos la creación de la app. Flask encontrará 'static' y 'templates' por defecto.
+    app = Flask(__name__)
+    
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'tu-clave-secreta-para-desarrollo')
     
     bcrypt.init_app(app)
-
-    # ✨ El decorador se registra aquí, dentro de la función create_app
     app.teardown_appcontext(close_connection)
-
     # --- REGISTRO DE BLUEPRINTS ---
     with app.app_context():
         from .routes.auth_routes import bp as auth_blueprint
@@ -68,14 +67,11 @@ def create_app():
         app.register_blueprint(report_blueprint, url_prefix='/api')
         app.register_blueprint(proveedor_blueprint, url_prefix='/api')
 
-   # ✨ CAMBIO CLAVE: Esta única ruta servirá nuestro index.html desde la raíz.
+# --- RUTA PRINCIPAL ---
+    # ✨ 3. Cambiamos send_static_file por render_template, la forma correcta.
     @app.route('/')
     def serve_index():
-        return app.send_static_file('index.html')
-
-    # ✨ (Opcional pero recomendado) Ruta "catch-all" para que el refresco de página funcione bien
-    @app.route('/<path:path>')
-    def serve_fallback(path):
-        return app.send_static_file('index.html')
+        # render_template busca automáticamente en la carpeta /app/templates
+        return render_template('index.html')
 
     return app
