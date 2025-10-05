@@ -68,9 +68,11 @@ def create_app():
         app.register_blueprint(report_blueprint, url_prefix='/api')
         app.register_blueprint(proveedor_blueprint, url_prefix='/api')
 
-   # --- RUTA PARA SERVIR EL FRONTEND ---   
-    # Asumimos que tu index.html principal también está en la carpeta /app/static
+   # --- RUTA PARA SERVIR EL FRONTEND ---     
+# Dentro de create_app() en app/__init__.py
     @app.route('/')
     def serve_index():
-         return send_from_directory('..', 'index.html')
-    return app
+        # Construimos una ruta absoluta al directorio raíz del proyecto
+        root_dir = os.path.dirname(os.path.abspath(os.path.join(__file__, '..')))
+        return send_from_directory(root_dir, 'index.html')
+
