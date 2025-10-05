@@ -6,21 +6,24 @@ from .auth_routes import token_required
 bp = Blueprint('negocios', __name__)
 
 # --- Rutas para Negocios ---
-
 @bp.route('/negocios', methods=['GET'])
 @token_required
 def get_negocios(current_user):
-    """Devuelve una lista de negocios según los permisos del usuario."""
+    """
+    Obtiene los negocios asignados al usuario actual.
+    """
     db = get_db()
-    
-    if current_user['rol'] == 'admin':
-        negocios = db.execute('SELECT * FROM negocios ORDER BY nombre').fetchall()
-    else:
-        negocios = db.execute(
-            'SELECT n.* FROM negocios n JOIN usuarios_negocios un ON n.id = un.negocio_id WHERE un.usuario_id = ? ORDER BY n.nombre',
-            (current_user['id'],)
-        ).fetchall()
-        
+    # ✨ Sintaxis corregida para PostgreSQL (%s y separación de comandos)
+    db.execute(
+        """
+        SELECT n.id, n.nombre 
+        FROM negocios n 
+        JOIN usuarios_negocios un ON n.id = un.negocio_id 
+        WHERE un.usuario_id = %s
+        """,
+        (current_user['id'],)
+    )
+    negocios = db.fetchall()
     return jsonify([dict(row) for row in negocios])
 
 @bp.route('/negocios', methods=['POST'])
