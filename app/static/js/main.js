@@ -22,7 +22,53 @@ export const appState = {
 };
 
 async function poblarSelectorNegocios() {
-    // ... (esta función se queda como está en tu última versión funcional)
+    const selectorNegocio = document.getElementById('selector-negocio');
+    if (!selectorNegocio) {
+        console.error("CRÍTICO: No se encontró el elemento #selector-negocio en index.html");
+        return;
+    }
+
+    try {
+        const negocios = await fetchData('/api/negocios');
+        
+        selectorNegocio.innerHTML = ''; // Limpia el "Cargando..."
+
+        if (!negocios || negocios.length === 0) {
+            selectorNegocio.innerHTML = '<option value="">No tienes negocios asignados</option>';
+            appState.negocioActivoId = null;
+            return;
+        }
+
+        negocios.forEach(negocio => {
+            const option = new Option(negocio.nombre, negocio.id);
+            selectorNegocio.appendChild(option);
+        });
+
+        const idPrevio = appState.negocioActivoId;
+        let idSeleccionado = null;
+        if (idPrevio && negocios.some(n => n.id == idPrevio)) {
+            idSeleccionado = idPrevio;
+        } else {
+            idSeleccionado = negocios[0].id;
+        }
+        
+        selectorNegocio.value = idSeleccionado;
+        
+        if (appState.negocioActivoId !== idSeleccionado || !appState.negocioActivoId) {
+            selectorNegocio.dispatchEvent(new Event('change'));
+        } else {
+            const activeLink = document.querySelector('nav a.active, .dropdown-content a.active');
+            if (activeLink) {
+                 const pageFile = activeLink.getAttribute('onclick').match(/'(.*?\.html)'/)[1];
+                 inicializarModulo(pageFile);
+            }
+        }
+        appState.negocioActivoId = selectorNegocio.value;
+
+    } catch (error) {
+        console.error("Error al poblar selector de negocios:", error);
+        selectorNegocio.innerHTML = '<option value="">Error al cargar negocios</option>';
+    }
 }
 
 export function loadContent(event, page, clickedLink) {
