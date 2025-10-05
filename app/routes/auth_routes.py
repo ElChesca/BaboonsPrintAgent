@@ -1,6 +1,6 @@
 # app/routes/auth_routes.py
 from flask import Blueprint, request, jsonify, g
-from app import get_db, bcrypt # ✨ CORREGIDO AQUÍ
+from app import get_db, bcrypt
 import jwt
 import datetime
 from functools import wraps

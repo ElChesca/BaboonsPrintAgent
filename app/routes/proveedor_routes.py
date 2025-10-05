@@ -1,5 +1,4 @@
-# app/routes/proveedor_routes.py
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 from app import get_db
 from .auth_routes import token_required
 
@@ -9,10 +8,11 @@ bp = Blueprint('proveedores', __name__)
 @token_required
 def get_proveedores(current_user, negocio_id):
     db = get_db()
-    proveedores = db.execute(
-        'SELECT * FROM proveedores WHERE negocio_id = ? ORDER BY nombre',
+    db.execute(
+        'SELECT * FROM proveedores WHERE negocio_id = %s ORDER BY nombre',
         (negocio_id,)
-    ).fetchall()
+    )
+    proveedores = db.fetchall()
     return jsonify([dict(row) for row in proveedores])
 
 @bp.route('/negocios/<int:negocio_id>/proveedores', methods=['POST'])

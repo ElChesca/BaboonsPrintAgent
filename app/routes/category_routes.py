@@ -1,5 +1,4 @@
-# app/routes/category_routes.py
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 from app import get_db
 from .auth_routes import token_required
 
@@ -8,9 +7,9 @@ bp = Blueprint('categories', __name__)
 @bp.route('/categorias', methods=['GET'])
 @token_required
 def get_categorias(current_user):
-    """Obtiene todas las categorías de productos."""
     db = get_db()
-    categorias = db.execute('SELECT * FROM productos_categoria ORDER BY nombre').fetchall()
+    db.execute('SELECT * FROM productos_categoria ORDER BY nombre')
+    categorias = db.fetchall()
     return jsonify([dict(row) for row in categorias])
 
 @bp.route('/categorias', methods=['POST'])
