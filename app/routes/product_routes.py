@@ -35,21 +35,20 @@ def get_productos(current_user, negocio_id):
 @token_required
 def get_producto_por_id(current_user, producto_id):
     db = get_db()
-    
-    # ✨ Consulta explícita para asegurarnos de traer todos los campos que necesitamos
-    producto = db.execute(
+    # --- CORRECCIÓN ---
+    db.execute(
         """
         SELECT id, nombre, stock, precio_venta, precio_costo, unidad_medida, 
                categoria_id, stock_minimo, sku, codigo_barras, proveedor_id
         FROM productos 
-        WHERE id = ?
+        WHERE id = %s
         """,
         (producto_id,)
-    ).fetchone()
-
+    )
+    producto = db.fetchone()
+    # --------------------
     if producto is None:
         return jsonify({'error': 'Producto no encontrado'}), 404
-        
     return jsonify(dict(producto))
 
 
