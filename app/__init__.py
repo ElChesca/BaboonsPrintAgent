@@ -82,5 +82,45 @@ def create_app():
         # Si no, devuelve el index para que el router de JS se encargue.
         else:
             return app.send_static_file('index.html')
+# En app/__init__.py, dentro de create_app()
 
+    # ... (aquí está tu @app.route('/') que sirve el index)
+
+    # ✨ CÓDIGO DE DEPURACIÓN TEMPORAL ✨
+    @app.route('/debug-fs')
+    def debug_filesystem():
+        import os
+
+        output = {
+            "current_working_directory": os.getcwd(),
+            "project_root_contents": [],
+            "app_folder_contents": [],
+            "app_static_contents": [],
+            "app_templates_contents": "No existe o no se pudo leer."
+        }
+
+        try:
+            output["project_root_contents"] = os.listdir('.')
+        except Exception as e:
+            output["project_root_contents"] = f"Error: {str(e)}"
+
+        try:
+            output["app_folder_contents"] = os.listdir('app')
+        except Exception as e:
+            output["app_folder_contents"] = f"Error: {str(e)}"
+
+        try:
+            output["app_static_contents"] = os.listdir('app/static')
+        except Exception as e:
+            output["app_static_contents"] = f"Error: {str(e)}"
+
+        try:
+            output["app_templates_contents"] = os.listdir('app/templates')
+        except Exception as e:
+            output["app_templates_contents"] = f"Error: {str(e)}"
+
+        return jsonify(output)
+
+    # Esta debe ser la última línea
+    
     return app
