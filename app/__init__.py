@@ -30,16 +30,7 @@ def close_connection(e=None):
 
 # --- FÁBRICA DE LA APLICACIÓN ---
 def create_app():
-  # --- ✨ INICIO DE LA CORRECCIÓN ✨ ---
-    # 1. Obtenemos la ruta absoluta al directorio donde está este archivo (__init__.py)
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-
-    # 2. Le decimos a Flask explícitamente dónde están las carpetas 'templates' y 'static'
-    app = Flask(__name__, 
-                template_folder=os.path.join(base_dir, 'templates'),
-                static_folder=os.path.join(base_dir, 'static'))
-
-    # --- ✨ FIN DE LA CORRECCIÓN ✨ ---    
+    app = Flask(__name__, static_folder='static')
     
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'tu-clave-secreta-para-desarrollo')
     
@@ -75,11 +66,21 @@ def create_app():
         app.register_blueprint(report_blueprint, url_prefix='/api')
         app.register_blueprint(proveedor_blueprint, url_prefix='/api')
 
-# --- RUTA PRINCIPAL ---
-    # ✨ 3. Cambiamos send_static_file por render_template, la forma correcta.
+  # --- RUTAS PARA SERVIR EL FRONTEND ---
     @app.route('/')
     def serve_index():
-        # render_template busca automáticamente en la carpeta /app/templates
-        return render_template('index.html')
+        # Sirve el index.html directamente desde la carpeta 'static'
+        return app.send_static_file('index.html')
+
+    @app.route('/<path:path>')
+    def serve_fallback(path):
+        # Esta ruta "catch-all" es por si el usuario refresca la página
+        # en una ruta del frontend como /inventario. Siempre devuelve el index.html.
+        # Primero chequea si es un archivo estático real (como un css o js).
+        if os.path.exists(os.path.join(app.static_folder, path)):
+            return app.send_static_file(path)
+        # Si no, devuelve el index para que el router de JS se encargue.
+        else:
+            return app.send_static_file('index.html')
 
     return app
