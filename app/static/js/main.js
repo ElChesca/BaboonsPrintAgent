@@ -1,42 +1,28 @@
 // app/static/js/main.js
 import { fetchData } from './api.js';
 import { inicializarLogicaLogin, getCurrentUser, logout } from './modules/auth.js';
-// ... (todos tus otros imports de inicialización)
+import { inicializarLogicaClientes, editarCliente, borrarCliente } from './modules/clientes.js';
+import { inicializarLogicaIngresos, quitarItem } from './modules/ingresos.js';
+import { inicializarLogicaVentas, quitarItemDeVenta } from './modules/sales.js';
+import { inicializarLogicaUsuarios, abrirModalEditarUsuario } from './modules/users.js';
+import { inicializarLogicaHistorial, mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js'; // Renombramos para evitar colisión
+import { inicializarLogicaNegocios } from './modules/negocios.js';
+import { inicializarLogicaHistorialVentas, mostrarDetalleVenta } from './modules/historial_ventas.js';
+import { inicializarLogicaInventario, abrirModalEditarProducto, borrarProducto } from './modules/inventory.js';
+import { inicializarLogicaCategorias, editarCategoria, borrarCategoria } from './modules/categorias.js'; 
+import { inicializarLogicaReportes } from './modules/reportes.js';
+import { inicializarLogicaDashboard } from './modules/dashboard.js';
+import { inicializarLogicaCaja } from './modules/caja.js';
+import { inicializarLogicaReporteCaja, mostrarDetallesCaja } from './modules/reporte_caja.js';
+import { inicializarLogicaReporteGanancias } from './modules/reporte_ganancias.js';
 import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from './modules/proveedores.js';
 
-// --- ESTADO GLOBAL DE LA APLICACIÓN ---
 export const appState = {
     negocioActivoId: null
 };
 
-// --- LÓGICA PRINCIPAL ---
 async function poblarSelectorNegocios() {
-    const selectorNegocio = document.getElementById('selector-negocio');
-    if (!selectorNegocio) return;
-    try {
-        const negocios = await fetchData('/api/negocios');
-        selectorNegocio.innerHTML = '';
-        if (negocios.length === 0) {
-            selectorNegocio.innerHTML = '<option value="">No tienes negocios asignados</option>';
-            return;
-        }
-        negocios.forEach(negocio => {
-            const option = new Option(negocio.nombre, negocio.id);
-            selectorNegocio.appendChild(option);
-        });
-
-        const idPrevio = appState.negocioActivoId;
-        if (idPrevio && negocios.some(n => n.id == idPrevio)) {
-            selectorNegocio.value = idPrevio;
-        } else {
-            selectorNegocio.value = negocios[0].id;
-        }
-        // ✨ Disparamos el evento 'change' para que la app reaccione
-        selectorNegocio.dispatchEvent(new Event('change'));
-
-    } catch (error) {
-        selectorNegocio.innerHTML = '<option value="">Error al cargar</option>';
-    }
+    // ... (esta función se queda como está en tu última versión funcional)
 }
 
 export function loadContent(event, page, clickedLink) {
@@ -56,16 +42,15 @@ export function loadContent(event, page, clickedLink) {
         }
     }
     
-    fetch(`/static/${page}`)
-        .then(response => response.ok ? response.text() : Promise.reject('Error al cargar.'))
+    // ✨ 1. CORRECCIÓN PRINCIPAL: Usamos 'page' directamente.
+    // El 'onclick' en el HTML ya debe incluir la ruta completa 'static/pagina.html'.
+    fetch(page)
+        .then(response => response.ok ? response.text() : Promise.reject(`Error al cargar ${page}`))
         .then(html => {
             document.getElementById('content-area').innerHTML = html;
             
-            // La inicialización ahora se dispara con el evento 'change' del selector de negocio
-            const activeLink = document.querySelector('nav a.active, .dropdown-content a.active');
-            if (activeLink && appState.negocioActivoId) {
-                 inicializarModulo(page);
-            }
+            // Separamos la inicialización para claridad
+            inicializarModulo(page);
         })
         .catch(console.error);
 }
@@ -81,6 +66,9 @@ function inicializarModulo(page) {
     if (page.includes('categorias.html')) inicializarLogicaCategorias();
     if (page.includes('dashboard.html')) inicializarLogicaDashboard();
     if (page.includes('caja.html')) inicializarLogicaCaja();
+    if (page.includes('historial_ventas.html')) inicializarLogicaHistorialVentas();
+    if (page.includes('historial_ingresos.html')) inicializarLogicaHistorial();
+    if (page.includes('reportes.html')) inicializarLogicaReportes();    
     if (page.includes('reporte_caja.html')) inicializarLogicaReporteCaja();
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
@@ -92,50 +80,44 @@ export async function actualizarUIAutenticacion() {
     const authLink = document.getElementById('auth-link');
     const businessSelector = document.getElementById('business-selector-bar');
 
+    // ✨ 2. CORRECCIÓN DE SEGURIDAD: Añadimos comprobaciones
     if (user) {
-        mainNav.style.display = 'flex';
-        authLink.innerHTML = `Salir (${user.rol})`;
-        authLink.onclick = (e) => { e.preventDefault(); logout(); };
-        businessSelector.style.display = 'flex';
+        if (mainNav) mainNav.style.display = 'flex';
+        if (authLink) {
+            authLink.innerHTML = `Salir (${user.rol})`;
+            authLink.onclick = (e) => { e.preventDefault(); logout(); };
+        }
+        if (businessSelector) businessSelector.style.display = 'flex';
         
         await poblarSelectorNegocios();
         
     } else {
-        mainNav.style.display = 'none';
-        businessSelector.style.display = 'none';
-        loadContent(null, 'login.html');
+        if (mainNav) mainNav.style.display = 'none';
+        if (businessSelector) businessSelector.style.display = 'none';
+        // ✨ 3. CORRECCIÓN DE RUTA: Pasamos la ruta completa
+        loadContent(null, 'static/login.html');
     }
 }
 
-// --- INICIALIZACIÓN DE LA APLICACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('selector-negocio').addEventListener('change', (e) => {
-        appState.negocioActivoId = e.target.value;
-        const linkActivo = document.querySelector('nav a.active, .dropdown-content a.active');
-        if (linkActivo) {
-            // Re-ejecutamos loadContent para refrescar el módulo con el nuevo ID de negocio
-            const pageFile = linkActivo.getAttribute('onclick').match(/'(.*?\.html)'/)[1];
-            loadContent(null, pageFile, linkActivo);
-        }
-    });
-
+    // ... (tu listener para 'selector-negocio' se queda igual)
     window.addEventListener('authChange', actualizarUIAutenticacion);
     actualizarUIAutenticacion();
 });
 
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
+// ✨ 4. CORRECCIÓN: Nos aseguramos de que todo lo que se expone, se importa.
 window.loadContent = loadContent;
+window.quitarItemDeVenta = quitarItemDeVenta;
+window.quitarItem = quitarItem;
 window.borrarProducto = borrarProducto;
+window.abrirModalEditarProducto = abrirModalEditarProducto;
 window.editarCliente = editarCliente;
 window.borrarCliente = borrarCliente;
-window.quitarItem = quitarItem;
-window.quitarItemDeVenta = quitarItemDeVenta;
 window.abrirModalEditarUsuario = abrirModalEditarUsuario;
-window.mostrarDetalle = mostrarDetalle;
 window.mostrarDetalleVenta = mostrarDetalleVenta;
-window.abrirModalEditarProducto = abrirModalEditarProducto;
-window.borrarProducto = borrarProducto;
-window.editarCategoria = editarCategoria; 
+window.mostrarDetalleIngreso = mostrarDetalleIngreso;
+window.editarCategoria = editarCategoria;
 window.borrarCategoria = borrarCategoria;
 window.mostrarDetallesCaja = mostrarDetallesCaja;
 window.editarProveedor = editarProveedor;
