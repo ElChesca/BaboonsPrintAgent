@@ -42,16 +42,18 @@ export function inicializarLogicaLogin() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const emailUsuario = document.getElementById('email-login')?.value; // Usamos ?. para seguridad
-        const passwordUsuario = document.getElementById('password-login')?.value;
+        // ✨ Leemos desde los IDs correctos y definitivos ✨
+        const nombreUsuario = document.getElementById('login-nombre').value;
+        const passwordUsuario = document.getElementById('login-password').value;
 
-        if (!emailUsuario || !passwordUsuario) {
+        if (!nombreUsuario || !passwordUsuario) {
             mostrarNotificacion('Por favor, complete ambos campos.', 'error');
             return;
         }
 
+        // Creamos el payload con la clave "nombre" que el backend espera
         const payload = {
-            nombre: emailUsuario,
+            nombre: nombreUsuario,
             password: passwordUsuario
         };
 
