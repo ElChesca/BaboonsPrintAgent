@@ -11,7 +11,6 @@ bp = Blueprint('products', __name__)
 @token_required
 def get_productos(current_user, negocio_id):
     db = get_db()
-    # ✨ Consulta actualizada para unir con proveedores y categorías
     query = """
         SELECT
             p.*,
@@ -24,11 +23,14 @@ def get_productos(current_user, negocio_id):
         LEFT JOIN
             proveedores prov ON p.proveedor_id = prov.id
         WHERE
-            p.negocio_id = ?
+            p.negocio_id = %s -- ✨ Cambio 1: Parámetro para PostgreSQL
         ORDER BY
             p.nombre
     """
-    productos = db.execute(query, (negocio_id,)).fetchall()
+    # ✨ Cambio 2: Se separa la ejecución de la obtención de resultados
+    db.execute(query, (negocio_id,))
+    productos = db.fetchall()
+    
     return jsonify([dict(row) for row in productos])
 
 @bp.route('/productos/<int:producto_id>', methods=['GET'])

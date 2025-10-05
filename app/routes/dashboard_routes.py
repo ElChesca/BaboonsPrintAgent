@@ -1,9 +1,12 @@
 # app/routes/dashboard_routes.py
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from app import get_db
 from .auth_routes import token_required
 
 bp = Blueprint('dashboard', __name__)
+
+@bp.route('/negocios/<int:negocio_id>/dashboard/stats', methods=['GET'])
+@token_required
 def get_dashboard_stats(current_user, negocio_id):
     db = get_db()
 

@@ -11,7 +11,7 @@ bp = Blueprint('clientes', __name__)
 @token_required
 def get_clientes(current_user, negocio_id):
     db = get_db()
-    clientes = db.execute('SELECT id, nombre FROM clientes WHERE negocio_id = ? ORDER BY nombre', (negocio_id,)).fetchall()
+    clientes = db.execute('SELECT * FROM clientes WHERE negocio_id = ?', (negocio_id,)).fetchall()
     return jsonify([dict(row) for row in clientes])
 
 @bp.route('/negocios/<int:negocio_id>/clientes', methods=['POST'])

@@ -1,48 +1,49 @@
-# app/routes/auth_routes.py
-from flask import Blueprint, request, jsonify, g
-from app import get_db, bcrypt
-import jwt
-import datetime
-from functools import wraps
-import os
+# app/routes/dashboard_routes.py
+from flask import Blueprint, jsonify
+from app import get_db
+from .auth_routes import token_required
 
-bp = Blueprint('auth', __name__)
-
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.headers.get('x-access-token')
-        if not token:
-            return jsonify({'message': 'Token no encontrado'}), 401
-        try:
-            SECRET_KEY = os.environ.get('SECRET_KEY', 'tu-clave-secreta-para-desarrollo')
-            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            db = get_db()
-            db.execute('SELECT * FROM usuarios WHERE id = %s', (data['id'],))
-            current_user = db.fetchone()
-        except Exception as e:
-            return jsonify({'message': 'Token inválido o expirado'}), 401
-        if not current_user:
-            return jsonify({'message': 'Token de usuario no encontrado'}), 401
-        return f(dict(current_user), *args, **kwargs)
-    return decorated
-
-@bp.route('/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    if not data or not data.get('nombre') or not data.get('password'):
-        return jsonify({'message': 'Credenciales incompletas'}), 401
-    
+bp = Blueprint('dashboard', __name__)
+def get_dashboard_stats(current_user, negocio_id):
     db = get_db()
-    db.execute('SELECT * FROM usuarios WHERE email = %s', (data['nombre'],))
-    user = db.fetchone()
 
-    if not user or not bcrypt.check_password_hash(user['password'], data['password']):
-        return jsonify({'message': 'Usuario o contraseña incorrectos'}), 401
+    # 1. Ventas Totales del Día
+    db.execute(
+        "SELECT SUM(total) as total FROM ventas WHERE negocio_id = %s AND fecha::date = CURRENT_DATE",
+        (negocio_id,)
+    )
+    ventas_row = db.fetchone()
+    ventas_hoy = ventas_row['total'] if ventas_row and ventas_row['total'] is not None else 0
 
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'tu-clave-secreta-para-desarrollo')
-    token = jwt.encode({
-        'id': user['id'],
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=8)
-    }, SECRET_KEY, algorithm="HS256")
-    return jsonify({'token': token})
+    # 2. Conteo de Productos con Bajo Stock
+    db.execute(
+        "SELECT COUNT(*) as count FROM productos WHERE negocio_id = %s AND stock <= stock_minimo AND stock > 0",
+        (negocio_id,)
+    )
+    bajo_stock_count = db.fetchone()['count']
+
+    # 3. Conteo Total de Clientes
+    db.execute(
+        "SELECT COUNT(*) as count FROM clientes WHERE negocio_id = %s",
+        (negocio_id,)
+    )
+    total_clientes = db.fetchone()['count']
+
+    # 4. Últimas 5 Ventas
+    db.execute(
+        """
+        SELECT v.id, v.fecha, c.nombre as cliente_nombre, v.total 
+        FROM ventas v LEFT JOIN clientes c ON v.cliente_id = c.id
+        WHERE v.negocio_id = %s ORDER BY v.fecha DESC LIMIT 5
+        """,
+        (negocio_id,)
+    )
+    ultimas_ventas = db.fetchall()
+
+    stats = {
+        'ventas_hoy': round(ventas_hoy, 2),
+        'productos_bajo_stock': bajo_stock_count,
+        'total_clientes': total_clientes,
+        'actividad_reciente': [dict(row) for row in ultimas_ventas]
+    }
+    return jsonify(stats)
