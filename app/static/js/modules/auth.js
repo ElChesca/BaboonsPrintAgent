@@ -1,12 +1,16 @@
 // app/static/js/modules/auth.js
 
-// NO importamos nada desde main.js para evitar el ciclo
+// ✨ 1. AÑADIMOS LAS IMPORTACIONES QUE FALTABAN
+import { mostrarNotificacion } from './notifications.js';
+// La librería jwt-decode se carga desde el index.html, pero la declaramos para claridad.
+const jwt_decode = window.jwt_decode;
 
 export function getAuthHeaders() {
     const token = localStorage.getItem('jwt_token');
     const headers = { 'Content-Type': 'application/json' };
     if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        // ✨ 2. USAMOS EL NOMBRE DE HEADER CORRECTO QUE ESPERA EL BACKEND
+        headers['x-access-token'] = token;
     }
     return headers;
 }
@@ -15,9 +19,12 @@ export function getCurrentUser() {
     const token = localStorage.getItem('jwt_token');
     if (!token) return null;
     try {
-        return jwt_decode(token); 
+        // ✨ 3. Nos aseguramos de que jwt_decode esté disponible
+        if (typeof jwt_decode === 'function') {
+            return jwt_decode(token); 
+        }
+        return null;
     } catch (e) {
-        // Si el token es inválido, forzamos el logout
         logout();
         return null;
     }
@@ -25,29 +32,46 @@ export function getCurrentUser() {
 
 export function logout() {
     localStorage.removeItem('jwt_token');
-    // Anunciamos globalmente que el estado de autenticación ha cambiado
     window.dispatchEvent(new Event('authChange'));
 }
 
 export function inicializarLogicaLogin() {
     const form = document.getElementById('form-login');
     if (!form) return;
+    
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const response = await fetch('/api/login', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email: form.email.value, password: form.password.value })
-        });
-        if (response.ok) {
+        
+        const emailUsuario = document.getElementById('email-login')?.value; // Usamos ?. para seguridad
+        const passwordUsuario = document.getElementById('password-login')?.value;
+
+        if (!emailUsuario || !passwordUsuario) {
+            mostrarNotificacion('Por favor, complete ambos campos.', 'error');
+            return;
+        }
+
+        const payload = {
+            nombre: emailUsuario,
+            password: passwordUsuario
+        };
+
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
             const data = await response.json();
-            localStorage.setItem('jwt_token', data.token);
-            // Anunciamos globalmente que el estado de autenticación ha cambiado
-            window.dispatchEvent(new Event('authChange'));
-        } else {
-            const errorDiv = document.getElementById('login-error');
-            errorDiv.textContent = 'Error: Usuario o contraseña incorrectos.';
-            errorDiv.style.display = 'block';
+
+            if (response.ok) {
+                localStorage.setItem('jwt_token', data.token);
+                window.dispatchEvent(new Event('authChange'));
+            } else {
+                mostrarNotificacion(data.message || 'Error de autenticación', 'error');
+            }
+        } catch (error) {
+            mostrarNotificacion('Error de conexión con el servidor.', 'error');
         }
     });
 }
