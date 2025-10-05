@@ -71,3 +71,24 @@ def actualizar_negocio(current_user, id):
         return jsonify({'message': 'Negocio actualizado con éxito'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+    
+# --- ✨ RUTA DE PRUEBA TEMPORAL ---
+# ATENCIÓN: BORRAR O COMENTAR DESPUÉS DE USARLA
+@bp.route('/test-db-connection', methods=['GET'])
+def test_db_connection():
+    print("--- INICIANDO PRUEBA DE CONEXIÓN A LA DB ---")
+    try:
+        db_cursor = get_db()
+        print("PASO 1: get_db() funcionó.")
+
+        db_cursor.execute('SELECT * FROM negocios')
+        print("PASO 2: La consulta SELECT * FROM negocios se ejecutó.")
+
+        negocios = db_cursor.fetchall()
+        print(f"PASO 3: Se encontraron {len(negocios)} negocios.")
+
+        return jsonify([dict(row) for row in negocios])
+    except Exception as e:
+        print(f"--- ERROR EN LA PRUEBA DE CONEXIÓN ---: {str(e)}")
+        return jsonify({'error': str(e)}), 500
