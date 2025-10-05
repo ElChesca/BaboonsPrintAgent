@@ -1,6 +1,6 @@
 # app/routes/auth_routes.py
 from flask import Blueprint, request, jsonify, g
-from app import get_cursor, bcrypt
+from app import get_db, bcrypt # ✨ CORREGIDO AQUÍ
 import jwt
 import datetime
 from functools import wraps
@@ -17,7 +17,7 @@ def token_required(f):
         try:
             SECRET_KEY = os.environ.get('SECRET_KEY', 'tu-clave-secreta-para-desarrollo')
             data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            db = get_cursor()
+            db = get_db()
             db.execute('SELECT * FROM usuarios WHERE id = %s', (data['id'],))
             current_user = db.fetchone()
         except Exception as e:
@@ -33,7 +33,7 @@ def login():
     if not data or not data.get('nombre') or not data.get('password'):
         return jsonify({'message': 'Credenciales incompletas'}), 401
     
-    db = get_cursor()
+    db = get_db()
     db.execute('SELECT * FROM usuarios WHERE email = %s', (data['nombre'],))
     user = db.fetchone()
 
