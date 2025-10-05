@@ -76,3 +76,5 @@ def create_app():
         root_dir = os.path.dirname(os.path.abspath(os.path.join(__file__, '..')))
         return send_from_directory(root_dir, 'index.html')
 
+  # ✨ ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ AL FINAL DE LA FUNCIÓN Y BIEN INDENTADA ✨
+    return app
