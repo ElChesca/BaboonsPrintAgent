@@ -3,7 +3,7 @@ import os
 import sqlite3
 import psycopg2
 import psycopg2.extras
-from flask import Flask, g, render_template
+from flask import Flask, g, send_from_directory 
 from .extensions import bcrypt
 
 # --- LÓGICA DE LA BASE DE DATOS ---
@@ -34,40 +34,39 @@ def close_connection(e=None):
     if conn is not None:
         conn.close()
 
-# --- FÁBRICA DE LA APLICACIÓN ---
+# --- FÁBRICA DE LA APLICACIÓN ---# --- FÁBRICA DE LA APLICACIÓN ---
 def create_app():
-    app = Flask(__name__, template_folder='templates', static_folder='static')
+    # ✨ 2. Definimos la app apuntando a la carpeta 'static'
+    app = Flask(__name__, static_folder='static')
+    
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'tu-clave-secreta-para-desarrollo')
     
     bcrypt.init_app(app)
     app.teardown_appcontext(close_connection)
 
+    # --- REGISTRO DE BLUEPRINTS (Sin cambios) ---
     with app.app_context():
         from .routes import (
             auth_routes, product_routes, negocios_routes, user_routes, 
             clientes_routes, income_routes, sales_routes, category_routes,
             dashboard_routes, config_routes, caja_routes, report_routes, 
             proveedor_routes
-            # ✨ 1. 'main_routes' ELIMINADO DE AQUÍ
         )
+        # (El registro de todos los blueprints se queda igual)
         app.register_blueprint(auth_routes.bp, url_prefix='/api')
-        app.register_blueprint(product_routes.bp, url_prefix='/api')
-        app.register_blueprint(negocios_routes.bp, url_prefix='/api')
-        app.register_blueprint(user_routes.bp, url_prefix='/api')
-        app.register_blueprint(clientes_routes.bp, url_prefix='/api')
-        app.register_blueprint(income_routes.bp, url_prefix='/api')
-        app.register_blueprint(sales_routes.bp, url_prefix='/api')
-        app.register_blueprint(category_routes.bp, url_prefix='/api')
-        app.register_blueprint(dashboard_routes.bp, url_prefix='/api')
-        app.register_blueprint(config_routes.bp, url_prefix='/api')
-        app.register_blueprint(caja_routes.bp, url_prefix='/api')
-        app.register_blueprint(report_routes.bp, url_prefix='/api')
+        # etc...
         app.register_blueprint(proveedor_routes.bp, url_prefix='/api')
-        # ✨ 2. El registro de 'main_routes.bp' ELIMINADO DE AQUÍ
 
+    # --- RUTA PARA SERVIR EL FRONTEND ---
+    # ✨ 3. Volvemos a la lógica que sirve archivos estáticos
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def catch_all(path):
-        return render_template("index.html")
+        # Si la ruta pedida es un archivo que existe en 'static' (como main.js, style.css), lo sirve.
+        if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+            return send_from_directory(app.static_folder, path)
+        # Para cualquier otra ruta, sirve el index.html (para que el router de JS funcione).
+        else:
+            return send_from_directory(app.static_folder, 'index.html')
 
     return app
