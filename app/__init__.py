@@ -30,8 +30,16 @@ def close_connection(e=None):
 
 # --- FÁBRICA DE LA APLICACIÓN ---
 def create_app():
-    # ✨ 2. Simplificamos la creación de la app. Flask encontrará 'static' y 'templates' por defecto.
-    app = Flask(__name__)
+  # --- ✨ INICIO DE LA CORRECCIÓN ✨ ---
+    # 1. Obtenemos la ruta absoluta al directorio donde está este archivo (__init__.py)
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+
+    # 2. Le decimos a Flask explícitamente dónde están las carpetas 'templates' y 'static'
+    app = Flask(__name__, 
+                template_folder=os.path.join(base_dir, 'templates'),
+                static_folder=os.path.join(base_dir, 'static'))
+
+    # --- ✨ FIN DE LA CORRECCIÓN ✨ ---    
     
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'tu-clave-secreta-para-desarrollo')
     
