@@ -56,27 +56,44 @@ def login():
         return jsonify({'token': token})
 
     return jsonify({'message': 'Contraseña incorrecta'}), 401
+# app/routes/auth_routes.py
+# ... (el resto de tus funciones va aquí arriba) ...
 
+# --- ✨ RUTA DE DIAGNÓSTICO TEMPORAL ---
 # ATENCIÓN: BORRAR O COMENTAR ESTA RUTA DESPUÉS DE USARLA
-@bp.route('/setup/create_admin/<username>/<password>', methods=['GET'])
-def create_admin_temp(username, password):
-    db_cursor = get_db()
+@bp.route('/debug-login/<username>/<password>')
+def debug_login(username, password):
+    print("--- INICIANDO DIAGNÓSTICO DE LOGIN ---")
+    
     try:
-        # Borramos el usuario anterior si existe, para empezar de cero limpio
-        db_cursor.execute('DELETE FROM usuarios WHERE nombre = %s', (username,))
+        db_cursor = get_db()
+        print("PASO 1: Conexión a la base de datos obtenida.")
+
+        # Buscamos al usuario
+        print(f"PASO 2: Buscando usuario '{username}' en la base de datos...")
+        db_cursor.execute('SELECT * FROM usuarios WHERE nombre = %s', (username,))
+        user = db_cursor.fetchone()
+
+        if not user:
+            print("PASO 3: ¡FALLO! Usuario no encontrado.")
+            return jsonify({'resultado': 'Usuario no encontrado'}), 404
         
-        # Creamos el hash usando la misma instancia de bcrypt de la aplicación
-        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-        
-        # Insertamos el nuevo usuario admin
-        db_cursor.execute(
-            'INSERT INTO usuarios (nombre, password, rol) VALUES (%s, %s, %s)',
-            (username, hashed_password, 'admin')
-        )
-        # Importante: con psycopg2, el commit se hace sobre la conexión
-        db_cursor.connection.commit()
-        
-        return jsonify({'message': f"Usuario '{username}' creado con éxito. ¡Ya puedes iniciar sesión!"}), 201
+        print("PASO 3: ¡ÉXITO! Usuario encontrado.")
+        user_dict = dict(user)
+        print(f"PASO 4: Datos del usuario recuperados. Hash guardado: {user_dict.get('password')}")
+
+        # Comparamos la contraseña
+        print(f"PASO 5: Comparando la contraseña proporcionada ('{password}') con el hash guardado...")
+        password_matches = bcrypt.check_password_hash(user_dict['password'], password)
+
+        if password_matches:
+            print("PASO 6: ¡ÉXITO! Las contraseñas coinciden.")
+            return jsonify({'resultado': 'Login exitoso', 'usuario': user_dict['nombre']})
+        else:
+            print("PASO 6: ¡FALLO! Las contraseñas NO coinciden.")
+            return jsonify({'resultado': 'Contraseña incorrecta'}), 401
+
     except Exception as e:
-        db_cursor.connection.rollback()
+        print(f"--- ERROR INESPERADO DURANTE EL DIAGNÓSTICO ---")
+        print(str(e))
         return jsonify({'error': str(e)}), 500
