@@ -68,13 +68,14 @@ def create_app():
         app.register_blueprint(report_blueprint, url_prefix='/api')
         app.register_blueprint(proveedor_blueprint, url_prefix='/api')
 
-   # --- RUTA PARA SERVIR EL FRONTEND ---     
-# Dentro de create_app() en app/__init__.py
+   # ✨ CAMBIO CLAVE: Esta única ruta servirá nuestro index.html desde la raíz.
     @app.route('/')
     def serve_index():
-        # Construimos una ruta absoluta al directorio raíz del proyecto
-        root_dir = os.path.dirname(os.path.abspath(os.path.join(__file__, '..')))
-        return send_from_directory(root_dir, 'index.html')
+        return app.send_static_file('index.html')
 
-  # ✨ ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ AL FINAL DE LA FUNCIÓN Y BIEN INDENTADA ✨
+    # ✨ (Opcional pero recomendado) Ruta "catch-all" para que el refresco de página funcione bien
+    @app.route('/<path:path>')
+    def serve_fallback(path):
+        return app.send_static_file('index.html')
+
     return app
