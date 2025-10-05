@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, g
 from app.database import get_db
-from .auth_routes import token_required
+from app.auth_decorator import token_required
 
 bp = Blueprint('categories', __name__)
 

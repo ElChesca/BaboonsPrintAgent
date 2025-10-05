@@ -1,7 +1,7 @@
 # app/routes/negocios_routes.py
 from flask import Blueprint, request, jsonify
 from app.database import get_db
-from .auth_routes import token_required
+from app.auth_decorator import token_required
 
 bp = Blueprint('negocios', __name__)
 
