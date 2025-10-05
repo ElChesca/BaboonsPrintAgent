@@ -1,35 +1,41 @@
 # app/__init__.py
-import sqlite3
 import os
+import sqlite3
+import psycopg2
+import psycopg2.extras
 from flask import Flask, g, send_from_directory
-from .extensions import bcrypt # Importamos bcrypt desde el archivo de extensiones
+from .extensions import bcrypt # Asumo que tienes un archivo app/extensions.py con: from flask_bcrypt import Bcrypt; bcrypt = Bcrypt()
 
-# --- LÓGICA DE LA BASE DE DATOS ---
-DATABASE_PATH = os.environ.get('DATABASE_PATH', 'inventario.db')
-
+# --- LÓGICA DE LA BASE DE DATOS (AHORA ES FLEXIBLE) ---
 def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        # ✨ 3. Usa la nueva variable DATABASE_PATH aquí
-        db = g._database = sqlite3.connect(DATABASE_PATH)
-        db.row_factory = sqlite3.Row
-    return db
+    if 'db' not in g:
+        # Si estamos en producción (Render), usamos la URL de PostgreSQL
+        if 'DATABASE_URL' in os.environ:
+            g.db = psycopg2.connect(os.environ['DATABASE_URL'])
+            g.cursor = g.db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        # Si estamos en local, usamos el archivo SQLite
+        else:
+            g.db = sqlite3.connect('inventario.db', detect_types=sqlite3.PARSE_DECLTYPES)
+            g.db.row_factory = sqlite3.Row
+            g.cursor = g.db.cursor()
+    return g.cursor
 
-def close_connection(exception):
-    db = getattr(g, '_database', None)
+def close_connection(e=None):
+    cursor = g.pop('cursor', None)
+    if cursor is not None:
+        cursor.close()
+    db = g.pop('db', None)
     if db is not None:
         db.close()
 
-# --- FÁBRICA DE LA APLICACIÓN (UNA SOLA VEZ) ---
-def create_app():
-    # Creamos la instancia de la aplicación
-    app = Flask(__name__, static_folder='static')
-    app.config['SECRET_KEY'] = 'tu-clave-secreta-larga-y-dificil'
+# --- FÁBRICA DE LA APLICACIÓN ---
+def create_app():    
+    app = Flask(__name__, static_folder='static') # Ajustamos la ruta de static
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'tu-clave-secreta-para-desarrollo')
     
-    # Inicializamos las extensiones
     bcrypt.init_app(app)
 
-    # Registramos las funciones de la base de datos
+    # ✨ El decorador se registra aquí, dentro de la función create_app
     app.teardown_appcontext(close_connection)
 
     # --- REGISTRO DE BLUEPRINTS ---
@@ -62,10 +68,9 @@ def create_app():
         app.register_blueprint(report_blueprint, url_prefix='/api')
         app.register_blueprint(proveedor_blueprint, url_prefix='/api')
 
-    # --- RUTAS PRINCIPALES ---
+   # --- RUTA PARA SERVIR EL FRONTEND ---   
+    # Asumimos que tu index.html principal también está en la carpeta /app/static
     @app.route('/')
     def serve_index():
-        # index.html está en la raíz, un nivel "arriba" de la carpeta 'app'
-        return send_from_directory('..', 'index.html')
-
+         return send_from_directory('..', 'index.html')
     return app
