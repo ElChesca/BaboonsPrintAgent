@@ -1,6 +1,6 @@
 # app/routes/user_routes.py
 from flask import Blueprint, request, jsonify
-from app import get_db, bcrypt
+from app.database import get_db, bcrypt
 from .auth_routes import token_required
 
 bp = Blueprint('users', __name__)

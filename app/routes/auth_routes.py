@@ -1,7 +1,12 @@
 # app/routes/dashboard_routes.py
 from flask import Blueprint, jsonify
-from app import get_db
 from .auth_routes import token_required
+from app.database import get_db # ✨ ¡CORRECCIÓN CLAVE!
+from app.extensions import bcrypt # ✨ ¡CORRECCIÓN CLAVE!
+import jwt
+import datetime
+from functools import wraps
+import os
 
 bp = Blueprint('dashboard', __name__)
 def get_dashboard_stats(current_user, negocio_id):

@@ -1,126 +1,42 @@
 # app/__init__.py
 import os
-import sqlite3
-import psycopg2
-import psycopg2.extras
-from flask import Flask, g, render_template
-from .extensions import bcrypt # Asumo que tienes un archivo app/extensions.py con: from flask_bcrypt import Bcrypt; bcrypt = Bcrypt()
+from flask import Flask, render_template
+from .extensions import bcrypt
+from .database import close_connection # Importa la función de cierre
 
-# --- LÓGICA DE LA BASE DE DATOS (AHORA ES FLEXIBLE) ---
-def get_db():
-    if 'db' not in g:
-        # Si estamos en producción (Render), usamos la URL de PostgreSQL
-        if 'DATABASE_URL' in os.environ:
-            g.db = psycopg2.connect(os.environ['DATABASE_URL'])
-            g.cursor = g.db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # Si estamos en local, usamos el archivo SQLite
-        else:
-            g.db = sqlite3.connect('inventario.db', detect_types=sqlite3.PARSE_DECLTYPES)
-            g.db.row_factory = sqlite3.Row
-            g.cursor = g.db.cursor()
-    return g.cursor
-
-def close_connection(e=None):
-    cursor = g.pop('cursor', None)
-    if cursor is not None:
-        cursor.close()
-    db = g.pop('db', None)
-    if db is not None:
-        db.close()
-
-# --- FÁBRICA DE LA APLICACIÓN ---
 def create_app():
-    app = Flask(__name__, static_folder='static')
-    
+    app = Flask(__name__, template_folder='templates', static_folder='static')
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'tu-clave-secreta-para-desarrollo')
     
     bcrypt.init_app(app)
     app.teardown_appcontext(close_connection)
-    # --- REGISTRO DE BLUEPRINTS ---
+
     with app.app_context():
-        from .routes.auth_routes import bp as auth_blueprint
-        from .routes.product_routes import bp as product_blueprint
-        from .routes.negocios_routes import bp as negocio_blueprint
-        from .routes.user_routes import bp as user_blueprint 
-        from .routes.clientes_routes import bp as clientes_blueprint
-        from .routes.income_routes import bp as income_blueprint
-        from .routes.sales_routes import bp as sales_blueprint
-        from .routes.category_routes import bp as category_blueprint
-        from .routes.dashboard_routes import bp as dashboard_blueprint
-        from .routes.config_routes import bp as config_blueprint
-        from .routes.caja_routes import bp as caja_blueprint
-        from .routes.report_routes import bp as report_blueprint    
-        from .routes.proveedor_routes import bp as proveedor_blueprint
-        
-        app.register_blueprint(auth_blueprint, url_prefix='/api')
-        app.register_blueprint(product_blueprint, url_prefix='/api')
-        app.register_blueprint(negocio_blueprint, url_prefix='/api')
-        app.register_blueprint(user_blueprint, url_prefix='/api')
-        app.register_blueprint(clientes_blueprint, url_prefix='/api')
-        app.register_blueprint(income_blueprint, url_prefix='/api')
-        app.register_blueprint(sales_blueprint, url_prefix='/api')
-        app.register_blueprint(category_blueprint, url_prefix='/api')
-        app.register_blueprint(dashboard_blueprint, url_prefix='/api')
-        app.register_blueprint(config_blueprint, url_prefix='/api')  
-        app.register_blueprint(caja_blueprint, url_prefix='/api')
-        app.register_blueprint(report_blueprint, url_prefix='/api')
-        app.register_blueprint(proveedor_blueprint, url_prefix='/api')
+        from .routes import (
+            auth_routes, product_routes, negocios_routes, user_routes, 
+            clientes_routes, income_routes, sales_routes, category_routes,
+            dashboard_routes, config_routes, caja_routes, report_routes, 
+            proveedor_routes, main_routes
+        )
+        # Registramos todos los blueprints
+        app.register_blueprint(auth_routes.bp, url_prefix='/api')
+        app.register_blueprint(product_routes.bp, url_prefix='/api')
+        app.register_blueprint(negocios_routes.bp, url_prefix='/api')
+        app.register_blueprint(user_routes.bp, url_prefix='/api')
+        app.register_blueprint(clientes_routes.bp, url_prefix='/api')
+        app.register_blueprint(income_routes.bp, url_prefix='/api')
+        app.register_blueprint(sales_routes.bp, url_prefix='/api')
+        app.register_blueprint(category_routes.bp, url_prefix='/api')
+        app.register_blueprint(dashboard_routes.bp, url_prefix='/api')
+        app.register_blueprint(config_routes.bp, url_prefix='/api')
+        app.register_blueprint(caja_routes.bp, url_prefix='/api')
+        app.register_blueprint(report_routes.bp, url_prefix='/api')
+        app.register_blueprint(proveedor_routes.bp, url_prefix='/api')
+        app.register_blueprint(main_routes.bp)
 
-  # --- RUTAS PARA SERVIR EL FRONTEND ---
-    @app.route('/')
-    def serve_index():
-        # Sirve el index.html directamente desde la carpeta 'static'
-        return app.send_static_file('index.html')
-
+    @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
-    def serve_fallback(path):
-        # Esta ruta "catch-all" es por si el usuario refresca la página
-        # en una ruta del frontend como /inventario. Siempre devuelve el index.html.
-        # Primero chequea si es un archivo estático real (como un css o js).
-        if os.path.exists(os.path.join(app.static_folder, path)):
-            return app.send_static_file(path)
-        # Si no, devuelve el index para que el router de JS se encargue.
-        else:
-            return app.send_static_file('index.html')
-# En app/__init__.py, dentro de create_app()
+    def catch_all(path):
+        return render_template("index.html")
 
-    # ... (aquí está tu @app.route('/') que sirve el index)
-
-    # ✨ CÓDIGO DE DEPURACIÓN TEMPORAL ✨
-    @app.route('/debug-fs')
-    def debug_filesystem():
-        import os
-
-        output = {
-            "current_working_directory": os.getcwd(),
-            "project_root_contents": [],
-            "app_folder_contents": [],
-            "app_static_contents": [],
-            "app_templates_contents": "No existe o no se pudo leer."
-        }
-
-        try:
-            output["project_root_contents"] = os.listdir('.')
-        except Exception as e:
-            output["project_root_contents"] = f"Error: {str(e)}"
-
-        try:
-            output["app_folder_contents"] = os.listdir('app')
-        except Exception as e:
-            output["app_folder_contents"] = f"Error: {str(e)}"
-
-        try:
-            output["app_static_contents"] = os.listdir('app/static')
-        except Exception as e:
-            output["app_static_contents"] = f"Error: {str(e)}"
-
-        try:
-            output["app_templates_contents"] = os.listdir('app/templates')
-        except Exception as e:
-            output["app_templates_contents"] = f"Error: {str(e)}"
-
-        return jsonify(output)
-
-    # Esta debe ser la última línea
-    
     return app

@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from app import get_db
+from app.database import get_db
 from .auth_routes import token_required
 
 bp = Blueprint('reports', __name__)

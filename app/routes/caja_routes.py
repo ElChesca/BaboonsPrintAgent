@@ -1,6 +1,6 @@
 # app/routes/caja_routes.py
 from flask import Blueprint, jsonify, request
-from app import get_db
+from app.database import get_db
 from .auth_routes import token_required
 import datetime
 
