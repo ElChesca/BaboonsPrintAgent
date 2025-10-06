@@ -4,6 +4,8 @@ import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
 import { fetchData } from '../api.js';
 
+
+
 let stagedSaleItems = [];
 let productosVentaCache = [];
 let addItemForm = null; // ✨ 1. Declaramos la variable aquí, accesible para todos.

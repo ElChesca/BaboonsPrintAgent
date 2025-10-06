@@ -1,6 +1,9 @@
 // app/static/js/modules/clientes.js
 import { getAuthHeaders } from './auth.js';
 import { appState } from '../main.js';
+import { mostrarNotificacion } from './notifications.js';
+
+
 
 export function inicializarLogicaClientes() {
     const form = document.getElementById('form-add-cliente');

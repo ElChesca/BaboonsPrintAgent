@@ -1,3 +1,4 @@
+# app/routes/clientes_routes.py
 from flask import Blueprint, jsonify, request, g
 from app.database import get_db
 from app.auth_decorator import token_required
@@ -18,6 +19,7 @@ def create_cliente(current_user, negocio_id):
     data = request.get_json()
     if not data or not data.get('nombre'):
         return jsonify({'error': 'El nombre es obligatorio'}), 400
+    
     db = get_db()
     try:
         db.execute(
@@ -30,6 +32,7 @@ def create_cliente(current_user, negocio_id):
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
+
 
 @bp.route('/clientes/<int:cliente_id>', methods=['PUT'])
 @token_required

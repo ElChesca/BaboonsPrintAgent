@@ -3,6 +3,8 @@ import { fetchData } from '../api.js';
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
 
+
+
 export async function inicializarLogicaConfiguracion() {
     const form = document.getElementById('form-configuracion');
     if (!form) return;

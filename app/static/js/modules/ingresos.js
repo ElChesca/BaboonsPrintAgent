@@ -2,6 +2,7 @@ import { fetchData } from '../api.js';
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
 
+
 // Estas variables se quedan aquí fuera
 let stagedIncomeItems = [];
 let productosCache = [];

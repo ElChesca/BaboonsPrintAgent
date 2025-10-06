@@ -1,76 +1,64 @@
 // app/static/js/modules/categorias.js
-import { getAuthHeaders } from './auth.js';
+import { fetchData } from '../api.js';
+import { appState } from '../main.js';
+import { mostrarNotificacion } from './notifications.js';
 
-export function inicializarLogicaCategorias() {
-    const form = document.getElementById('form-add-categoria');
-    if (form) {
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const nombre = document.getElementById('categoria-nombre').value;
-            if (!nombre) return;
-            
-            const response = await fetch('/api/categorias', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ nombre })
-            });
 
-            if (response.ok) {
-                form.reset();
-                cargarCategorias();
-            } else {
-                alert('Error al crear la categoría.');
-            }
-        });
-    }
-    cargarCategorias();
-}
+
+let categoriasCache = [];
 
 async function cargarCategorias() {
-    const response = await fetch('/api/categorias', { headers: getAuthHeaders() });
-    const categorias = await response.json();
-    const ul = document.getElementById('lista-categorias');
-    if (!ul) return;
-    ul.innerHTML = '';
-    categorias.forEach(cat => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-            <span>${cat.nombre}</span>
-            <div>
-                <button onclick="editarCategoria(${cat.id}, '${cat.nombre.replace(/'/g, "\\'")}')">Editar</button>
-                <button onclick="borrarCategoria(${cat.id})">Borrar</button>
-            </div>
+    try {
+        // La URL debe incluir el negocio activo
+        categoriasCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/categorias`);
+        renderizarTabla();
+    } catch (error) {
+        mostrarNotificacion('No se pudieron cargar las categorías.', 'error');
+    }
+}
+
+function renderizarTabla() {
+    const tbody = document.querySelector('#tabla-categorias tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    categoriasCache.forEach(cat => {
+        tbody.innerHTML += `
+            <tr>
+                <td>${cat.nombre}</td>
+                <td>
+                    <button class="btn-edit btn-small">Editar</button>
+                    <button class="btn-delete btn-small">Borrar</button>
+                </td>
+            </tr>
         `;
-        ul.appendChild(li);
     });
 }
 
-export async function editarCategoria(id, nombreActual) {
-    const nuevoNombre = prompt("Nuevo nombre para la categoría:", nombreActual);
-    if (!nuevoNombre || nuevoNombre === nombreActual) return;
+export function inicializarLogicaCategorias() {
+    const form = document.getElementById('form-categoria');
+    if (!form) return;
 
-    const response = await fetch(`/api/categorias/${id}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ nombre: nuevoNombre })
+    cargarCategorias();
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nombre = document.getElementById('nombre-categoria').value;
+        if (!nombre) {
+            mostrarNotificacion('El nombre de la categoría es obligatorio.', 'warning');
+            return;
+        }
+
+        try {
+            // ✨ CORRECCIÓN: Usamos la URL correcta que incluye el negocio activo
+            await fetchData(`/api/negocios/${appState.negocioActivoId}/categorias`, {
+                method: 'POST',
+                body: JSON.stringify({ nombre })
+            });
+            mostrarNotificacion('Categoría creada con éxito.', 'success');
+            form.reset();
+            cargarCategorias(); // Recargar la lista
+        } catch (error) {
+            mostrarNotificacion('Error al crear la categoría: ' + error.message, 'error');
+        }
     });
-    if (response.ok) {
-        cargarCategorias();
-    } else {
-        alert("Error al actualizar la categoría.");
-    }
-}
-
-export async function borrarCategoria(id) {
-    if (!confirm("¿Estás seguro de que quieres eliminar esta categoría?")) return;
-
-    const response = await fetch(`/api/categorias/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-    });
-    if (response.ok) {
-        cargarCategorias();
-    } else {
-        alert("Error al eliminar la categoría.");
-    }
 }
