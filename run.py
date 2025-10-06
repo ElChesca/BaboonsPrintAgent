@@ -1,12 +1,4 @@
-from app import create_app
-import os
-
-app = create_app()
+from app import app # ✨ Cambio aquí
 
 if __name__ == '__main__':
-    # Esta parte solo se usa para desarrollo en tu máquina local.
-    # Gunicorn no la ejecutará.
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
-
-    
+    app.run(debug=True)
