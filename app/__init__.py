@@ -34,16 +34,11 @@ def create_app():
         app.register_blueprint(report_routes.bp, url_prefix='/api')
         app.register_blueprint(proveedor_routes.bp, url_prefix='/api')
 
-
-     # --- RUTA PARA SERVIR EL FRONTEND DESDE /STATIC ---
+  # --- RUTA "ATRAPA-TODO" PARA EL FRONTEND ---
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
-    def catch_all(_path): # Cambiamos 'path' a '_path'
-    # ... (el resto de la función se queda igual)
-        # Si la ruta que se pide es un archivo que existe en 'static' (como main.js, /api/login, etc.),
-        # Flask lo manejará automáticamente o los blueprints lo harán.
-        # Esta ruta solo se activa si no hay otra que coincida.
-        # Siempre devolverá el 'index.html' que está en la raíz de la carpeta 'static'.
-        return app.send_static_file('index.html')
+    def catch_all(path): # ✨ CORRECCIÓN: El parámetro debe llamarse 'path'
+        # Esta advertencia de 'path no usada' es normal y se puede ignorar.
+        return render_template("index.html")
 
     return app
