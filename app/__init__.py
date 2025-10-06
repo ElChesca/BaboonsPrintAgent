@@ -12,12 +12,14 @@ def create_app():
     app.teardown_appcontext(close_connection)
 
     with app.app_context():
+        # Lista final y correcta de todos tus blueprints de rutas
         from .routes import (
             auth_routes, product_routes, negocios_routes, user_routes, 
             clientes_routes, income_routes, sales_routes, category_routes,
             dashboard_routes, config_routes, caja_routes, report_routes, 
             proveedor_routes
         )
+        # Se registran todos los blueprints
         app.register_blueprint(auth_routes.bp, url_prefix='/api')
         app.register_blueprint(product_routes.bp, url_prefix='/api')
         app.register_blueprint(negocios_routes.bp, url_prefix='/api')
@@ -31,7 +33,8 @@ def create_app():
         app.register_blueprint(caja_routes.bp, url_prefix='/api')
         app.register_blueprint(report_routes.bp, url_prefix='/api')
         app.register_blueprint(proveedor_routes.bp, url_prefix='/api')
-    
+
+    # Ruta "catch-all" para servir el frontend
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def catch_all(path):
