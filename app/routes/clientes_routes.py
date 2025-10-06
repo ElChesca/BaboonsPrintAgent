@@ -33,7 +33,6 @@ def create_cliente(current_user, negocio_id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-
 @bp.route('/clientes/<int:cliente_id>', methods=['PUT'])
 @token_required
 def update_cliente(current_user, cliente_id):
