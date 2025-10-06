@@ -15,7 +15,7 @@ def get_db_conn():
             g.db_conn.row_factory = sqlite3.Row
     return g.db_conn
 
-def get_db():
+def get_db(): # Devuelve el cursor
     if 'db_cursor' not in g:
         conn = get_db_conn()
         if isinstance(conn, psycopg2.extensions.connection):
