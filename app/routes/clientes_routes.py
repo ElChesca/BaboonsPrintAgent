@@ -1,18 +1,8 @@
-# app/routes/clientes_routes.py
 from flask import Blueprint, jsonify, request, g
 from app.database import get_db
 from app.auth_decorator import token_required
 
 bp = Blueprint('clientes', __name__)
-
-@bp.route('/negocios/<int:negocio_id>/clientes', methods=['GET'])
-@token_required
-def get_clientes(current_user, negocio_id):
-    db = get_db()
-    db.execute('SELECT * FROM clientes WHERE negocio_id = %s ORDER BY nombre', (negocio_id,))
-    clientes = db.fetchall()
-    return jsonify([dict(row) for row in clientes])
-
 
 @bp.route('/negocios/<int:negocio_id>/clientes', methods=['GET'])
 @token_required
