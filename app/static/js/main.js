@@ -123,17 +123,26 @@ export async function actualizarUIAutenticacion() {
             authLink.innerHTML = `Salir (${user.nombre})`;
             authLink.onclick = (e) => { e.preventDefault(); logout(); };
         }
-        document.querySelectorAll('.admin-only').forEach(el => el.style.display = esAdmin() ? 'block' : 'none');
+        
+        // El 'await' aquí es crucial para asegurar que la app espere a tener la lista de negocios
         await poblarSelectorNegocios();
+        
+        const contentArea = document.getElementById('content-area');
+        if (contentArea && contentArea.innerHTML.trim() === "") {
+             loadContent(null, 'static/dashboard.html', document.querySelector('a[onclick*="dashboard.html"]'));
+        }
     } else {
         appState.userRol = null;
         if (mainNav) mainNav.style.display = 'none';
         if (businessSelector) businessSelector.style.display = 'none';
+        
+        const contentArea = document.getElementById('content-area');
+        if(contentArea) contentArea.innerHTML = "";
         loadContent(null, 'static/login.html');
     }
 }
 
-// --- INICIALIZACIÓN ---
+// --- INICIALIZACIÓN ---// --- PUNTO DE ENTRADA ---
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('selector-negocio').addEventListener('change', (e) => {
         appState.negocioActivoId = e.target.value;
