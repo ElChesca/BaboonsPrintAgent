@@ -20,11 +20,13 @@ function renderizarTabla() {
     if (!tbody) return;
     tbody.innerHTML = '';
     categoriasCache.forEach(cat => {
+        // Usamos JSON.stringify para pasar el nombre de forma segura si contiene comillas
+        const nombreSeguro = JSON.stringify(cat.nombre);
         tbody.innerHTML += `
             <tr>
                 <td>${cat.nombre}</td>
                 <td>
-                    <button class="btn-edit btn-small" onclick="editarCategoria(${cat.id}, '${cat.nombre.replace(/'/g, "\\'")}')">Editar</button>
+                    <button class="btn-edit btn-small" onclick="editarCategoria(${cat.id}, ${nombreSeguro})">Editar</button>
                     <button class="btn-delete btn-small" onclick="borrarCategoria(${cat.id})">Borrar</button>
                 </td>
             </tr>
@@ -45,6 +47,10 @@ async function guardarCategoria(e) {
     const data = {
         nombre: nombreInput.value
     };
+    if (!data.nombre) {
+        mostrarNotificacion('El nombre es obligatorio.', 'warning');
+        return;
+    }
 
     const esEdicion = !!id;
     const url = esEdicion ? `/api/categorias/${id}` : `/api/negocios/${appState.negocioActivoId}/categorias`;
