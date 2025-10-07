@@ -2,6 +2,7 @@
 import { fetchData } from '../api.js';
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
+import { appState, esAdmin } from '../main.js'; // ✨ Importamos esAdmin
 
 let form, tituloForm, idInput, nombreInput, btnCancelar;
 let categoriasCache = [];
@@ -93,6 +94,12 @@ export async function borrarCategoria(id) {
 export function inicializarLogicaCategorias() {
     form = document.getElementById('form-categoria');
     if (!form) return;
+
+    // ✨ Ocultamos el formulario si no es admin
+    if (!esAdmin()) {
+        const cardForm = form.closest('.card');
+        if (cardForm) cardForm.style.display = 'none';
+    }
 
     tituloForm = document.getElementById('form-categoria-titulo');
     idInput = document.getElementById('categoria-id');

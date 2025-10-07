@@ -19,7 +19,14 @@ import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from '
 
 export const appState = {
     negocioActivoId: null
+    userRol: null // ✨ Guardamos el rol del usuario aquí
 };
+
+// ✨ Nueva función para chequear permisos
+export function esAdmin() {
+    return appState.userRol === 'admin';
+}
+
 
 async function poblarSelectorNegocios() {
     const selectorNegocio = document.getElementById('selector-negocio');
@@ -87,23 +94,43 @@ function inicializarModulo(page) {
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();        
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
 }
+
 export async function actualizarUIAutenticacion() {
     const user = getCurrentUser();
+    const mainNav = document.getElementById('main-nav');
     const authLink = document.getElementById('auth-link');
     const businessSelector = document.getElementById('business-selector-bar');
-    const mainNav = document.querySelector('nav'); 
 
-    if (user && user.nombre) { // ✨ Verificamos que 'user.nombre' exista
-        if(mainNav) mainNav.style.display = 'flex';
-        if(businessSelector) businessSelector.style.display = 'flex';
+    if (user && user.nombre) {
+        // --- Si el usuario está logueado ---
+        appState.userRol = user.rol;
+        if (mainNav) mainNav.style.display = 'flex';
+        if (businessSelector) businessSelector.style.display = 'flex';
         if (authLink) {
-            authLink.innerHTML = `Salir (${user.nombre})`; // Usamos user.nombre
+            authLink.innerHTML = `Salir (${user.nombre})`;
             authLink.onclick = (e) => { e.preventDefault(); logout(); };
         }
+        
+        // Carga la lista de negocios en el selector
         await poblarSelectorNegocios();
+        
+        // ✨ CORRECCIÓN CLAVE:
+        // Verificamos si ya hay un contenido principal. Si no lo hay (primer login),
+        // cargamos el Dashboard por defecto.
+        const contentArea = document.getElementById('content-area');
+        if (contentArea && contentArea.innerHTML.trim() === "") {
+             loadContent(null, 'static/dashboard.html');
+        }
+
     } else {
-        if(mainNav) mainNav.style.display = 'none';
-        if(businessSelector) businessSelector.style.display = 'none';
+        // --- Si el usuario NO está logueado ---
+        appState.userRol = null;
+        if (mainNav) mainNav.style.display = 'none';
+        if (businessSelector) businessSelector.style.display = 'none';
+        
+        // Limpiamos el contenido principal y cargamos solo el login
+        const contentArea = document.getElementById('content-area');
+        if(contentArea) contentArea.innerHTML = "";
         loadContent(null, 'static/login.html');
     }
 }
