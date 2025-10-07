@@ -59,3 +59,40 @@ def add_producto(current_user, negocio_id):
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
+
+@bp.route('/productos/<int:producto_id>', methods=['PUT'])
+@token_required
+def update_producto(current_user, producto_id):
+    if current_user['rol'] != 'admin':
+        return jsonify({'message': 'Solo un Admin puede modificar'}), 403
+    
+    update_data = request.get_json()
+    campos_validos = [
+        'nombre', 'stock', 'precio_venta', 'precio_costo', 'unidad_medida', 
+        'categoria_id', 'stock_minimo', 'sku', 'codigo_barras', 'proveedor_id'
+    ]
+    fields = [f"{key} = %s" for key in update_data.keys() if key in campos_validos]
+    values = [value for key, value in update_data.items() if key in campos_validos]
+    
+    if not fields:
+        return jsonify({'error': 'No hay campos válidos para actualizar'}), 400
+    
+    values.append(producto_id)
+    db = get_db()
+    db.execute(f"UPDATE productos SET {', '.join(fields)} WHERE id = %s", tuple(values))
+    g.db_conn.commit()
+    
+    db.execute('SELECT * FROM productos WHERE id = %s', (producto_id,))
+    producto_actualizado = db.fetchone()
+    return jsonify(dict(producto_actualizado))
+
+@bp.route('/productos/<int:producto_id>', methods=['DELETE'])
+@token_required
+def delete_producto(current_user, producto_id):
+    if current_user['rol'] != 'admin':
+        return jsonify({'message': 'Acción no permitida'}), 403
+    
+    db = get_db()
+    db.execute('DELETE FROM productos WHERE id = %s', (producto_id,))
+    g.db_conn.commit()
+    return jsonify({'mensaje': 'Producto eliminado con éxito'})

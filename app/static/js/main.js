@@ -21,7 +21,6 @@ export const appState = {
     negocioActivoId: null
 };
 // En app/static/js/main.js
-
 async function poblarSelectorNegocios() {
     const selectorNegocio = document.getElementById('selector-negocio');
     if (!selectorNegocio) {
@@ -32,18 +31,17 @@ async function poblarSelectorNegocios() {
     try {
         const negocios = await fetchData('/api/negocios');
         
-        // ✨ LA CORRECCIÓN CLAVE: Verificamos si la respuesta es realmente un Array
-        if (!Array.isArray(negocios)) {
-            console.error('Error Crítico: La respuesta de /api/negocios no es una lista (array). Datos recibidos:', negocios);
-            selectorNegocio.innerHTML = '<option value="">Error: formato de datos incorrecto</option>';
-            return; // Detenemos la ejecución aquí para evitar el crash
-        }
-
         selectorNegocio.innerHTML = ''; // Limpia el "Cargando..."
 
-        if (negocios.length === 0) {
+        if (!negocios || negocios.length === 0) {
             selectorNegocio.innerHTML = '<option value="">No tienes negocios asignados</option>';
             appState.negocioActivoId = null;
+            // Forzamos la recarga del módulo actual para que muestre el estado "sin negocio"
+            const linkActivo = document.querySelector('nav a.active, .dropdown-content a.active');
+            if (linkActivo) {
+                 const pageFile = linkActivo.getAttribute('onclick').match(/'(.*?\.html)'/)[1];
+                 loadContent(null, pageFile, linkActivo);
+            }
             return;
         }
 
@@ -61,11 +59,18 @@ async function poblarSelectorNegocios() {
         
         selectorNegocio.value = idSeleccionado;
         
-        // Actualizamos el estado global
-        appState.negocioActivoId = idSeleccionado;
-        
-        // Disparamos el evento 'change' para que el resto de la app reaccione
-        selectorNegocio.dispatchEvent(new Event('change'));
+        // Disparamos el evento 'change' solo si el ID es nuevo o no había ninguno
+        if (appState.negocioActivoId !== idSeleccionado) {
+            selectorNegocio.dispatchEvent(new Event('change'));
+        } else {
+            // Si el ID es el mismo, pero el módulo no cargó (primer login), forzamos la carga
+            appState.negocioActivoId = idSeleccionado;
+            const activeLink = document.querySelector('nav a.active, .dropdown-content a.active');
+            if (activeLink) {
+                 const pageFile = activeLink.getAttribute('onclick').match(/'(.*?\.html)'/)[1];
+                 inicializarModulo(pageFile);
+            }
+        }
 
     } catch (error) {
         console.error("Error al poblar selector de negocios:", error);
