@@ -1,11 +1,11 @@
 # app/routes/auth_routes.py
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from app.database import get_db
 from app.extensions import bcrypt
+from app.auth_decorator import token_required
 import jwt
 import datetime
 import os
-
 
 bp = Blueprint('auth', __name__)
 
@@ -22,9 +22,15 @@ def login():
     if not user or not bcrypt.check_password_hash(user['password'], data['password']):
         return jsonify({'message': 'Usuario o contraseña incorrectos'}), 401
 
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'tu-clave-secreta-para-desarrollo')
-    token = jwt.encode({
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'tu-clave-secreta')
+    
+    # ✨ CORRECCIÓN CLAVE: Añadimos 'nombre' al contenido del token
+    token_payload = {
         'id': user['id'],
+        'rol': user['rol'],
+        'nombre': user['nombre'], # <--- LÍNEA AÑADIDA
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=8)
-    }, SECRET_KEY, algorithm="HS256")
+    }
+    token = jwt.encode(token_payload, SECRET_KEY, algorithm="HS256")
+    
     return jsonify({'token': token})

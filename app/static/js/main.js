@@ -87,28 +87,23 @@ function inicializarModulo(page) {
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();        
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
 }
-
 export async function actualizarUIAutenticacion() {
-    const user = getCurrentUser(); // Esta función ahora devolverá los datos correctos
-    const mainNav = document.getElementById('main-nav');
+    const user = getCurrentUser();
     const authLink = document.getElementById('auth-link');
     const businessSelector = document.getElementById('business-selector-bar');
+    const mainNav = document.querySelector('nav'); 
 
-    if (user) {
-        if (mainNav) mainNav.style.display = 'flex';
-        if (businessSelector) businessSelector.style.display = 'flex';
-        
+    if (user && user.nombre) { // ✨ Verificamos que 'user.nombre' exista
+        if(mainNav) mainNav.style.display = 'flex';
+        if(businessSelector) businessSelector.style.display = 'flex';
         if (authLink) {
-            // ✨ CORRECCIÓN CLAVE: Usamos 'user.nombre' que viene en el token ✨
-            authLink.innerHTML = `Salir (${user.nombre || 'Usuario'})`;
+            authLink.innerHTML = `Salir (${user.nombre})`; // Usamos user.nombre
             authLink.onclick = (e) => { e.preventDefault(); logout(); };
         }
-        
         await poblarSelectorNegocios();
-        
     } else {
-        if (mainNav) mainNav.style.display = 'none';
-        if (businessSelector) businessSelector.style.display = 'none';
+        if(mainNav) mainNav.style.display = 'none';
+        if(businessSelector) businessSelector.style.display = 'none';
         loadContent(null, 'static/login.html');
     }
 }
