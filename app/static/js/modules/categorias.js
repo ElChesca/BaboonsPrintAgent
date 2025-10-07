@@ -1,8 +1,7 @@
 // app/static/js/modules/categorias.js
 import { fetchData } from '../api.js';
-import { appState } from '../main.js';
+import { appState, esAdmin } from '../main.js'; 
 import { mostrarNotificacion } from './notifications.js';
-import { appState, esAdmin } from '../main.js'; // ✨ Importamos esAdmin
 
 let form, tituloForm, idInput, nombreInput, btnCancelar;
 let categoriasCache = [];
