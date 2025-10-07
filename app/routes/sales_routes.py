@@ -20,7 +20,8 @@ def registrar_venta(current_user, negocio_id):
         return jsonify({'error': 'La caja está cerrada. No se pueden registrar ventas.'}), 409
 
     # Valida stock si es necesario
-    config_row = db.execute("SELECT valor FROM configuraciones WHERE negocio_id = %s AND clave = 'vender_stock_negativo'", (negocio_id,)).fetchone()
+    db.execute("SELECT valor FROM configuraciones WHERE negocio_id = %s AND clave = 'vender_stock_negativo'", (negocio_id,))
+    config_row = db.fetchone()
     permitir_negativo = config_row and config_row['valor'] == 'Si'
     
     if not permitir_negativo:
@@ -39,7 +40,6 @@ def registrar_venta(current_user, negocio_id):
         )
         venta_id = db.fetchone()['id']
 
-        # Guardar detalles de pago si existen
         pago_detalle = data.get('pago_detalle')
         if pago_detalle:
             db.execute(
