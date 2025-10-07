@@ -1,5 +1,7 @@
 // app/static/js/modules/auth.js
 import { mostrarNotificacion } from './notifications.js';
+
+// La librería jwt-decode se carga globalmente desde index.html
 const jwt_decode = window.jwt_decode;
 
 export function getAuthHeaders() {
@@ -13,14 +15,20 @@ export function getAuthHeaders() {
 
 export function getCurrentUser() {
     const token = localStorage.getItem('jwt_token');
-    if (!token) return null;
+    if (!token) {
+        return null;
+    }
     try {
+        // Aseguramos que la función exista antes de llamarla
         if (typeof jwt_decode === 'function') {
             return jwt_decode(token); 
+        } else {
+            console.error("La librería jwt-decode no está cargada.");
+            logout();
+            return null;
         }
-        console.error("jwt_decode no es una función. Asegúrate de que la librería esté cargada.");
-        return null;
     } catch (e) {
+        console.error("Error al decodificar el token:", e);
         logout();
         return null;
     }
@@ -37,6 +45,7 @@ export function inicializarLogicaLogin() {
     
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
         const nombreUsuario = document.getElementById('login-nombre')?.value;
         const passwordUsuario = document.getElementById('login-password')?.value;
 
@@ -52,6 +61,7 @@ export function inicializarLogicaLogin() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+
             const data = await response.json();
             if (response.ok) {
                 localStorage.setItem('jwt_token', data.token);

@@ -89,22 +89,26 @@ function inicializarModulo(page) {
 }
 
 export async function actualizarUIAutenticacion() {
-    const user = getCurrentUser();
+    const user = getCurrentUser(); // Esta función ahora devolverá los datos correctos
+    const mainNav = document.getElementById('main-nav');
     const authLink = document.getElementById('auth-link');
     const businessSelector = document.getElementById('business-selector-bar');
-    const mainNav = document.querySelector('nav'); // Buscamos el nav principal
 
     if (user) {
-        if(mainNav) mainNav.style.display = 'flex';
-        if(businessSelector) businessSelector.style.display = 'flex';
+        if (mainNav) mainNav.style.display = 'flex';
+        if (businessSelector) businessSelector.style.display = 'flex';
+        
         if (authLink) {
-            authLink.innerHTML = `Salir (${user.rol})`; // Vuelve a mostrar el rol
+            // ✨ CORRECCIÓN CLAVE: Usamos 'user.nombre' que viene en el token ✨
+            authLink.innerHTML = `Salir (${user.nombre || 'Usuario'})`;
             authLink.onclick = (e) => { e.preventDefault(); logout(); };
         }
+        
         await poblarSelectorNegocios();
+        
     } else {
-        if(mainNav) mainNav.style.display = 'none';
-        if(businessSelector) businessSelector.style.display = 'none';
+        if (mainNav) mainNav.style.display = 'none';
+        if (businessSelector) businessSelector.style.display = 'none';
         loadContent(null, 'static/login.html');
     }
 }
