@@ -9,11 +9,18 @@ let proveedoresCache = [];
 
 async function poblarSelectores() {
     try {
-        // Cargar categorías y proveedores en paralelo para más eficiencia
-        [categoriasCache, proveedoresCache] = await Promise.all([
-            fetchData('/api/categorias'),
+        if (!appState.negocioActivoId) {
+            throw new Error("No hay un negocio activo seleccionado.");
+        }
+        
+        // ✨ CORRECCIÓN CLAVE: Ambas llamadas ahora usan el negocio activo correctamente
+        const [categoriasResponse, proveedoresResponse] = await Promise.all([
+            fetchData(`/api/negocios/${appState.negocioActivoId}/categorias`),
             fetchData(`/api/negocios/${appState.negocioActivoId}/proveedores`)
         ]);
+
+        categoriasCache = Array.isArray(categoriasResponse) ? categoriasResponse : [];
+        proveedoresCache = Array.isArray(proveedoresResponse) ? proveedoresResponse : [];
 
         // Poblar selectores de Categoría
         const catAdd = document.getElementById('categoria_id');
@@ -38,12 +45,10 @@ async function poblarSelectores() {
                 provEdit.innerHTML += optionHtml;
             });
         }
-
     } catch (error) {
         mostrarNotificacion("Error al cargar datos para formularios: " + error.message, 'error');
     }
 }
-
 async function fetchProductos() {
     if (!appState.negocioActivoId) {
         productosCache = [];

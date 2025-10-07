@@ -88,6 +88,8 @@ export async function borrarCategoria(id) {
     }
 }
 
+
+
 export function inicializarLogicaCategorias() {
     form = document.getElementById('form-categoria');
     if (!form) return;
