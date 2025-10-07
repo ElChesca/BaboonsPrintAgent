@@ -69,3 +69,47 @@ def get_reporte_ganancias(current_user, negocio_id):
     
     reporte = db.execute(query, tuple(params)).fetchall()
     return jsonify([dict(row) for row in reporte])
+
+
+@bp.route('/negocios/<int:negocio_id>/ventas', methods=['GET'])
+@token_required
+def get_historial_ventas(current_user, negocio_id):
+    db = get_db()
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+    
+    query = """
+        SELECT v.id, v.fecha, v.total, c.nombre as cliente_nombre
+        FROM ventas v
+        LEFT JOIN clientes c ON v.cliente_id = c.id
+        WHERE v.negocio_id = %s
+    """
+    params = [negocio_id]
+
+    if fecha_desde:
+        query += ' AND v.fecha::date >= %s'
+        params.append(fecha_desde)
+    if fecha_hasta:
+        query += ' AND v.fecha::date <= %s'
+        params.append(fecha_hasta)
+    
+    query += ' ORDER BY v.fecha DESC'
+    
+    db.execute(query, tuple(params))
+    ventas = db.fetchall()
+    return jsonify([dict(row) for row in ventas])
+
+@bp.route('/ventas/<int:venta_id>/detalles', methods=['GET'])
+@token_required
+def get_detalles_venta(current_user, venta_id):
+    db = get_db()
+    db.execute(
+        """
+        SELECT d.cantidad, d.precio_unitario, p.nombre 
+        FROM ventas_detalle d JOIN productos p ON d.producto_id = p.id
+        WHERE d.venta_id = %s
+        """,
+        (venta_id,)
+    )
+    detalles = db.fetchall()
+    return jsonify([dict(row) for row in detalles])

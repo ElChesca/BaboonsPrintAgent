@@ -28,13 +28,14 @@ export function esAdmin() {
     return appState.userRol === 'admin';
 }
 
+// En app/static/js/main.js
 async function poblarSelectorNegocios() {
     const selectorNegocio = document.getElementById('selector-negocio');
     if (!selectorNegocio) return;
     try {
         const negocios = await fetchData('/api/negocios');
         selectorNegocio.innerHTML = '';
-        if (!Array.isArray(negocios) || negocios.length === 0) {
+        if (!negocios || negocios.length === 0) {
             selectorNegocio.innerHTML = '<option value="">No hay negocios asignados</option>';
             return;
         }
@@ -42,8 +43,23 @@ async function poblarSelectorNegocios() {
             const option = new Option(negocio.nombre, negocio.id);
             selectorNegocio.appendChild(option);
         });
-        selectorNegocio.value = negocios[0].id;
-        selectorNegocio.dispatchEvent(new Event('change'));
+
+        // ✨ CORRECCIÓN LÓGICA: Esta parte es la clave
+        let idSeleccionado = negocios[0].id; // Por defecto el primero
+        if (appState.negocioActivoId && negocios.some(n => n.id == appState.negocioActivoId)) {
+            idSeleccionado = appState.negocioActivoId;
+        }
+        
+        selectorNegocio.value = idSeleccionado;
+
+        // Disparamos el evento 'change' solo si el ID es realmente nuevo
+        if (appState.negocioActivoId !== idSeleccionado) {
+            appState.negocioActivoId = idSeleccionado;
+            selectorNegocio.dispatchEvent(new Event('change'));
+        } else {
+            appState.negocioActivoId = idSeleccionado;
+        }
+
     } catch (error) {
         selectorNegocio.innerHTML = '<option value="">Error al cargar</option>';
     }
