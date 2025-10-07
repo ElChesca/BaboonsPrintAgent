@@ -30,31 +30,56 @@
     @media (max-width: 768px) { 
         .clientes-grid { grid-template-columns: 1fr; } 
     }
-</style>
-<div class="clientes-grid">
-    <div class="card">
-        <h2>Listado de Clientes</h2>
-        <table id="tabla-clientes">
-            <thead>
-                <tr>
-                    <th>Nombre</th>
-                    <th>Documento</th>
-                    <th>Teléfono</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-    <div class="card">
-        <h2>Añadir Nuevo Cliente</h2>
-        <form id="form-add-cliente">
-            <input type="text" name="nombre" placeholder="Nombre completo" required>
-            <input type="text" name="documento" placeholder="Documento (CUIT/DNI)">
-            <input type="text" name="telefono" placeholder="Teléfono">
-            <input type="email" name="email" placeholder="Email">
-            <input type="text" name="direccion" placeholder="Dirección">
-            <button type="submit">Guardar Cliente</button>
-        </form>
+</style><div class="seccion-contenido-dinamico">
+    <h2>🧑‍🤝‍🧑 Gestión de Clientes</h2>
+    <div class="main-grid">
+        <div class="card">
+            <h3 id="form-cliente-titulo">Añadir Nuevo Cliente</h3>
+            <form id="form-cliente">
+                <input type="hidden" id="cliente-id">
+                <div class="form-group">
+                    <label for="cliente-nombre">Nombre Completo:</label>
+                    <input type="text" id="cliente-nombre" required>
+                </div>
+                <div class="form-group">
+                    <label for="cliente-dni">Documento (CUIT/DNI):</label>
+                    <input type="text" id="cliente-dni">
+                </div>
+                <div class="form-group">
+                    <label for="cliente-telefono">Teléfono:</label>
+                    <input type="tel" id="cliente-telefono">
+                </div>
+                <div class="form-group">
+                    <label for="cliente-email">Email:</label>
+                    <input type="email" id="cliente-email">
+                </div>
+                <div class="form-group">
+                    <label for="cliente-direccion">Dirección:</label>
+                    <input type="text" id="cliente-direccion">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Guardar</button>
+                    <button type="button" id="btn-cancelar-edicion-cliente" class="btn-secondary" style="display: none;">Cancelar</button>
+                </div>
+            </form>
+        </div>
+        <div class="card">
+            <h3>Lista de Clientes</h3>
+            <div class="form-group">
+                <input type="text" id="buscador-clientes" placeholder="Buscar por nombre o DNI...">
+            </div>
+            <table id="tabla-clientes" class="tabla-bonita">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Documento</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 </div>
