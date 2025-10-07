@@ -18,7 +18,7 @@ import { inicializarLogicaReporteGanancias } from './modules/reporte_ganancias.j
 import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from './modules/proveedores.js';
 
 export const appState = {
-    negocioActivoId: null
+    negocioActivoId: null,
     userRol: null // ✨ Guardamos el rol del usuario aquí
 };
 
@@ -28,24 +28,57 @@ export function esAdmin() {
 }
 
 
+// En app/static/js/main.js
+
 async function poblarSelectorNegocios() {
     const selectorNegocio = document.getElementById('selector-negocio');
-    if (!selectorNegocio) return;
+    if (!selectorNegocio) {
+        console.error("CRÍTICO: No se encontró el elemento #selector-negocio en index.html");
+        return;
+    }
+
     try {
         const negocios = await fetchData('/api/negocios');
-        selectorNegocio.innerHTML = '';
-        if (!negocios || negocios.length === 0) {
+        
+        selectorNegocio.innerHTML = ''; // Limpia el contenido previo
+
+        if (!Array.isArray(negocios) || negocios.length === 0) {
             selectorNegocio.innerHTML = '<option value="">No hay negocios asignados</option>';
+            appState.negocioActivoId = null; 
+            // Si no hay negocios, no podemos cargar nada más, pero no disparamos 'change'.
             return;
         }
+
         negocios.forEach(negocio => {
             const option = new Option(negocio.nombre, negocio.id);
             selectorNegocio.appendChild(option);
         });
-        selectorNegocio.value = negocios[0].id;
-        selectorNegocio.dispatchEvent(new Event('change'));
+
+        // Lógica para preseleccionar el negocio
+        const idPrevio = appState.negocioActivoId;
+        let idSeleccionado = negocios[0].id; // Por defecto el primero
+        if (idPrevio && negocios.some(n => n.id == idPrevio)) {
+            idSeleccionado = idPrevio;
+        }
+        
+        selectorNegocio.value = idSeleccionado;
+        
+        // Si el estado global no coincide con lo seleccionado, actualizamos y disparamos el cambio
+        if (appState.negocioActivoId !== idSeleccionado) {
+            appState.negocioActivoId = idSeleccionado;
+            selectorNegocio.dispatchEvent(new Event('change'));
+        } else {
+            // Si ya estaba bien, pero el módulo no cargó (ej. primer login), lo forzamos
+            const activeLink = document.querySelector('nav a.active, .dropdown-content a.active');
+            if (activeLink) {
+                 const pageFile = activeLink.getAttribute('onclick').match(/'(.*?\.html)'/)[1];
+                 inicializarModulo(pageFile); // Llamamos a la carga de datos del módulo actual
+            }
+        }
+
     } catch (error) {
-        selectorNegocio.innerHTML = '<option value="">Error al cargar</option>';
+        console.error("Error al poblar selector de negocios:", error);
+        selectorNegocio.innerHTML = '<option value="">Error al cargar negocios</option>';
     }
 }
 

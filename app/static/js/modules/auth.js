@@ -1,7 +1,7 @@
 // app/static/js/modules/auth.js
 import { mostrarNotificacion } from './notifications.js';
 
-// La librería jwt-decode se carga globalmente desde index.html
+// La librería jwt-decode se carga globalmente desde index.html, la hacemos accesible.
 const jwt_decode = window.jwt_decode;
 
 export function getAuthHeaders() {
@@ -19,17 +19,17 @@ export function getCurrentUser() {
         return null;
     }
     try {
-        // Aseguramos que la función exista antes de llamarla
+        // Aseguramos que la función jwt_decode exista antes de llamarla
         if (typeof jwt_decode === 'function') {
             return jwt_decode(token); 
         } else {
-            console.error("La librería jwt-decode no está cargada.");
-            logout();
+            console.error("La librería jwt-decode no está cargada correctamente.");
+            logout(); // Forzamos logout si la librería no está
             return null;
         }
     } catch (e) {
         console.error("Error al decodificar el token:", e);
-        logout();
+        logout(); // Forzamos logout si el token es inválido
         return null;
     }
 }
