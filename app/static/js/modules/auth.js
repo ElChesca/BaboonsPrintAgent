@@ -1,15 +1,11 @@
 // app/static/js/modules/auth.js
-
-// ✨ 1. AÑADIMOS LAS IMPORTACIONES QUE FALTABAN
 import { mostrarNotificacion } from './notifications.js';
-// La librería jwt-decode se carga desde el index.html, pero la declaramos para claridad.
 const jwt_decode = window.jwt_decode;
 
 export function getAuthHeaders() {
     const token = localStorage.getItem('jwt_token');
     const headers = { 'Content-Type': 'application/json' };
     if (token) {
-        // ✨ 2. USAMOS EL NOMBRE DE HEADER CORRECTO QUE ESPERA EL BACKEND
         headers['x-access-token'] = token;
     }
     return headers;
@@ -19,10 +15,10 @@ export function getCurrentUser() {
     const token = localStorage.getItem('jwt_token');
     if (!token) return null;
     try {
-        // ✨ 3. Nos aseguramos de que jwt_decode esté disponible
         if (typeof jwt_decode === 'function') {
             return jwt_decode(token); 
         }
+        console.error("jwt_decode no es una función. Asegúrate de que la librería esté cargada.");
         return null;
     } catch (e) {
         logout();
@@ -41,21 +37,14 @@ export function inicializarLogicaLogin() {
     
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
-        // ✨ Leemos desde los IDs correctos y definitivos ✨
-        const nombreUsuario = document.getElementById('login-nombre').value;
-        const passwordUsuario = document.getElementById('login-password').value;
+        const nombreUsuario = document.getElementById('login-nombre')?.value;
+        const passwordUsuario = document.getElementById('login-password')?.value;
 
         if (!nombreUsuario || !passwordUsuario) {
             mostrarNotificacion('Por favor, complete ambos campos.', 'error');
             return;
         }
-
-        // Creamos el payload con la clave "nombre" que el backend espera
-        const payload = {
-            nombre: nombreUsuario,
-            password: passwordUsuario
-        };
+        const payload = { nombre: nombreUsuario, password: passwordUsuario };
 
         try {
             const response = await fetch('/api/login', {
@@ -63,9 +52,7 @@ export function inicializarLogicaLogin() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-
             const data = await response.json();
-
             if (response.ok) {
                 localStorage.setItem('jwt_token', data.token);
                 window.dispatchEvent(new Event('authChange'));
