@@ -133,25 +133,34 @@ export async function actualizarUIAutenticacion() {
     const authLink = document.getElementById('auth-link');
     const businessSelector = document.getElementById('business-selector-bar');
 
-    // ✨ 2. CORRECCIÓN DE SEGURIDAD: Añadimos comprobaciones
     if (user) {
+        // Hacemos visibles los elementos de navegación si existen
         if (mainNav) mainNav.style.display = 'flex';
+        if (businessSelector) businessSelector.style.display = 'flex';
+        
         if (authLink) {
             authLink.innerHTML = `Salir (${user.rol})`;
             authLink.onclick = (e) => { e.preventDefault(); logout(); };
         }
-        if (businessSelector) businessSelector.style.display = 'flex';
         
+        // El 'await' aquí es crucial para asegurar que tengamos un negocio antes de continuar
         await poblarSelectorNegocios();
         
+        // Verificamos si ya hay un contenido cargado, si no, cargamos el dashboard
+        const contentArea = document.getElementById('content-area');
+        if (contentArea && contentArea.innerHTML.trim() === "") {
+             loadContent(null, 'static/dashboard.html');
+        }
+        
     } else {
+        // Ocultamos los elementos de navegación si existen
         if (mainNav) mainNav.style.display = 'none';
         if (businessSelector) businessSelector.style.display = 'none';
-        // ✨ 3. CORRECCIÓN DE RUTA: Pasamos la ruta completa
+        
+        // Cargamos el login
         loadContent(null, 'static/login.html');
     }
 }
-
 document.addEventListener('DOMContentLoaded', () => {
     // ... (tu listener para 'selector-negocio' se queda igual)
     window.addEventListener('authChange', actualizarUIAutenticacion);
