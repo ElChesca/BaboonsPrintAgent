@@ -9,7 +9,7 @@ import { inicializarLogicaHistorial, mostrarDetalle as mostrarDetalleIngreso } f
 import { inicializarLogicaNegocios } from './modules/negocios.js';
 import { inicializarLogicaHistorialVentas, mostrarDetalleVenta } from './modules/historial_ventas.js';
 import { inicializarLogicaInventario, abrirModalEditarProducto, borrarProducto } from './modules/inventory.js';
-import { inicializarLogicaCategorias, editarCategoria, borrarCategoria } from './modules/categorias.js'; 
+import { inicializarLogicaCategorias, editarCategoria, borrarCategoria } from './modules/categorias.js';
 import { inicializarLogicaReportes } from './modules/reportes.js';
 import { inicializarLogicaDashboard } from './modules/dashboard.js';
 import { inicializarLogicaCaja } from './modules/caja.js';
@@ -17,24 +17,26 @@ import { inicializarLogicaReporteCaja, mostrarDetallesCaja } from './modules/rep
 import { inicializarLogicaReporteGanancias } from './modules/reporte_ganancias.js';
 import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from './modules/proveedores.js';
 
+// --- ESTADO GLOBAL (DECLARADO UNA SOLA VEZ) ---
 export const appState = {
     negocioActivoId: null,
     userRol: null
 };
 
+// --- FUNCIONES AUXILIARES ---
 export function esAdmin() {
     return appState.userRol === 'admin';
 }
 
+// En app/static/js/main.js
 async function poblarSelectorNegocios() {
     const selectorNegocio = document.getElementById('selector-negocio');
     if (!selectorNegocio) return;
     try {
         const negocios = await fetchData('/api/negocios');
         selectorNegocio.innerHTML = '';
-        if (!Array.isArray(negocios) || negocios.length === 0) {
+        if (!negocios || negocios.length === 0) {
             selectorNegocio.innerHTML = '<option value="">No hay negocios asignados</option>';
-            appState.negocioActivoId = null; 
             return;
         }
         negocios.forEach(negocio => {
@@ -42,33 +44,50 @@ async function poblarSelectorNegocios() {
             selectorNegocio.appendChild(option);
         });
 
-        const idPrevio = appState.negocioActivoId;
-        let idSeleccionado = negocios[0].id; 
-        if (idPrevio && negocios.some(n => n.id == idPrevio)) {
-            idSeleccionado = idPrevio;
+        // ✨ CORRECCIÓN LÓGICA: Esta parte es la clave
+        let idSeleccionado = negocios[0].id; // Por defecto el primero
+        if (appState.negocioActivoId && negocios.some(n => n.id == appState.negocioActivoId)) {
+            idSeleccionado = appState.negocioActivoId;
         }
         
         selectorNegocio.value = idSeleccionado;
-        
+
+        // Disparamos el evento 'change' solo si el ID es realmente nuevo
         if (appState.negocioActivoId !== idSeleccionado) {
             appState.negocioActivoId = idSeleccionado;
             selectorNegocio.dispatchEvent(new Event('change'));
-        } else if (!appState.negocioActivoId) {
-            selectorNegocio.dispatchEvent(new Event('change'));
         } else {
             appState.negocioActivoId = idSeleccionado;
-            const activeLink = document.querySelector('nav a.active, .dropdown-content a.active');
-            if (activeLink) {
-                 const pageFile = activeLink.getAttribute('onclick').match(/'(.*?\.html)'/)[1];
-                 inicializarModulo(pageFile);
-            }
         }
+
     } catch (error) {
-        console.error("Error al poblar selector de negocios:", error);
-        selectorNegocio.innerHTML = '<option value="">Error al cargar negocios</option>';
+        selectorNegocio.innerHTML = '<option value="">Error al cargar</option>';
     }
 }
 
+function inicializarModulo(page) {
+    if (!page) return;
+    if (page.includes('inventario.html')) inicializarLogicaInventario();
+    if (page.includes('login.html')) inicializarLogicaLogin();
+    if (page.includes('negocios.html')) inicializarLogicaNegocios();
+    if (page.includes('clientes.html')) inicializarLogicaClientes();
+    if (page.includes('ingresos.html')) inicializarLogicaIngresos();
+    if (page.includes('ventas.html')) inicializarLogicaVentas();
+    if (page.includes('usuarios.html')) inicializarLogicaUsuarios();
+    if (page.includes('historial_ingresos.html')) inicializarLogicaHistorial();
+    if (page.includes('historial_ventas.html')) inicializarLogicaHistorialVentas();
+    if (page.includes('categorias.html')) inicializarLogicaCategorias();
+    if (page.includes('dashboard.html')) inicializarLogicaDashboard();
+    if (page.includes('caja.html')) inicializarLogicaCaja();
+    if (page.includes('reporte_caja.html')) inicializarLogicaReporteCaja();
+    if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();
+    if (page.includes('proveedores.html')) inicializarLogicaProveedores();
+    if (page.includes('reportes.html')) inicializarLogicaReportes();
+        
+
+}
+
+// --- FUNCIONES PRINCIPALES DE FLUJO ---
 export function loadContent(event, page, clickedLink) {
     if (event) event.preventDefault();
     const token = localStorage.getItem('jwt_token');
@@ -84,7 +103,6 @@ export function loadContent(event, page, clickedLink) {
             parentDropdown.querySelector('.dropbtn').classList.add('active');
         }
     }
-    
     fetch(page)
         .then(response => response.ok ? response.text() : Promise.reject('Error al cargar.'))
         .then(html => {
@@ -92,14 +110,6 @@ export function loadContent(event, page, clickedLink) {
             setTimeout(() => inicializarModulo(page), 0);
         })
         .catch(console.error);
-}
-
-function inicializarModulo(page) {
-    if (!page) return;
-    if (page.includes('inventario.html')) inicializarLogicaInventario();
-    if (page.includes('login.html')) inicializarLogicaLogin();
-    // ... etc.
-    if (page.includes('proveedores.html')) inicializarLogicaProveedores();
 }
 
 export async function actualizarUIAutenticacion() {
@@ -126,6 +136,7 @@ export async function actualizarUIAutenticacion() {
     }
 }
 
+// --- INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('selector-negocio').addEventListener('change', (e) => {
         appState.negocioActivoId = e.target.value;
@@ -139,22 +150,19 @@ document.addEventListener('DOMContentLoaded', () => {
     actualizarUIAutenticacion();
 });
 
-// --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
+// --- EXPOSICIÓN DE FUNCIONES GLOBALES (SIN DUPLICADOS) ---
 window.loadContent = loadContent;
+window.quitarItemDeVenta = quitarItemDeVenta;
+window.quitarItem = quitarItem;
+window.borrarProducto = borrarProducto;
+window.abrirModalEditarProducto = abrirModalEditarProducto;
 window.editarCliente = editarCliente;
 window.borrarCliente = borrarCliente;
-window.quitarItem = quitarItem;
-window.quitarItemDeVenta = quitarItemDeVenta;
 window.abrirModalEditarUsuario = abrirModalEditarUsuario;
-window.mostrarDetalleIngreso = mostrarDetalleIngreso;
-window.iniciarEditarNegocio = inicializarLogicaNegocios;
 window.mostrarDetalleVenta = mostrarDetalleVenta;
-window.abrirModalEditarProducto = abrirModalEditarProducto;
-window.borrarProducto = borrarProducto;
+window.mostrarDetalleIngreso = mostrarDetalleIngreso;
 window.editarCategoria = editarCategoria;
 window.borrarCategoria = borrarCategoria;
 window.mostrarDetallesCaja = mostrarDetallesCaja;
 window.editarProveedor = editarProveedor;
-window.borrarProveedor = borrarProveedor;
-
-// ... (resto de tus window.functions)
+window.borrarProveedor = borrarProveedor;   
