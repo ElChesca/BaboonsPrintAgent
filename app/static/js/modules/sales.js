@@ -193,8 +193,18 @@ export function inicializarLogicaVentas() {
         productoInput.focus();
     });
 
-    document.getElementById('btn-finalize-sale').addEventListener('click', () => procesarVenta(false));
-    document.getElementById('btn-finalize-and-print').addEventListener('click', () => procesarVenta(true));
+    // document.getElementById('btn-finalize-sale').addEventListener('click', () => procesarVenta(false));
+    // document.getElementById('btn-finalize-and-print').addEventListener('click', () => procesarVenta(true));
+    // CÓDIGO CORREGIDO 👍
+    document.getElementById('btn-finalize-sale').addEventListener('click', (e) => {
+        e.preventDefault(); // <-- Evita que el formulario se envíe y recargue la página
+        procesarVenta(false);
+    });
+
+    document.getElementById('btn-finalize-and-print').addEventListener('click', (e) => {
+        e.preventDefault(); // <-- Evita que el formulario se envíe y recargue la página
+        procesarVenta(true);
+    });
 
     const metodoPagoSelector = document.getElementById('metodo-pago-selector');
     const pagoDetallesContainer = document.getElementById('pago-detalles-container');

@@ -20,14 +20,12 @@ function renderizarTabla() {
     if (!tbody) return;
     tbody.innerHTML = '';
     categoriasCache.forEach(cat => {
-        // Usamos JSON.stringify para pasar el nombre de forma segura si contiene comillas
-        const nombreSeguro = JSON.stringify(cat.nombre);
+        // La línea que creaba nombreSeguro se ha eliminado.
         tbody.innerHTML += `
             <tr>
                 <td>${cat.nombre}</td>
                 <td>
-                    <button class="btn-edit btn-small" onclick="editarCategoria(${cat.id}, ${nombreSeguro})">Editar</button>
-                    <button class="btn-delete btn-small" onclick="borrarCategoria(${cat.id})">Borrar</button>
+                    <button class="btn-edit btn-small" onclick="editarCategoria(${cat.id})">Editar</button> <button class="btn-delete btn-small" onclick="borrarCategoria(${cat.id})">Borrar</button>
                 </td>
             </tr>
         `;
@@ -66,7 +64,8 @@ async function guardarCategoria(e) {
     }
 }
 
-export function editarCategoria(id, nombreActual) {
+// CÓDIGO CORREGIDO Y MÁS LIMPIO 👍
+export function editarCategoria(id) { // <-- Solo necesitas el id
     const categoria = categoriasCache.find(c => c.id === id);
     if (!categoria) return;
 
