@@ -72,6 +72,7 @@ def registrar_venta(current_user, negocio_id):
             'venta_id': venta_id,
             'notificaciones': notificaciones
         }), 201
+    
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
