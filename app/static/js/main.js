@@ -17,7 +17,6 @@ import { inicializarLogicaReporteCaja, mostrarDetallesCaja } from './modules/rep
 import { inicializarLogicaReporteGanancias } from './modules/reporte_ganancias.js';
 import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from './modules/proveedores.js';
 
-
 // --- ESTADO GLOBAL (DECLARADO UNA SOLA VEZ) ---
 export const appState = {
     negocioActivoId: null,

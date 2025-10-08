@@ -1,130 +1,120 @@
-// app/static/js/modules/reporte_caja.js
-
 import { fetchData } from '../api.js';
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
 
-// Caché para guardar los datos y no pedirlos cada vez.
-let sesionesCache = [];
+// Variables para los elementos del DOM
+let filtroFechaDesde, filtroFechaHasta, filtroUsuario, btnFiltrar, btnExportarPDF, tablaBody;
+let reporteCache = []; // Guardamos los datos actuales para exportar
 
-/**
- * Función principal que se exporta. Se llama desde main.js cuando se carga la página de reportes.
- */
-export async function inicializarLogicaReporteCaja() {
-    // Si no estamos en la página correcta, no hacemos nada.
-    const tablaReportes = document.getElementById('tabla-reportes-caja');
-    if (!tablaReportes) return;
-
-    // Lógica para cerrar el modal de detalles
-    const modal = document.getElementById('modal-detalles-caja');
-    const closeButton = modal.querySelector('.close-button');
-    if (closeButton) {
-        closeButton.onclick = () => modal.style.display = 'none';
-    }
-    window.onclick = (event) => {
-        if (event.target == modal) {
-            modal.style.display = 'none';
-        }
-    }
-
-    // Pedimos los datos iniciales al servidor.
-    await fetchReportesCaja();
-}
-
-/**
- * Busca los datos de las sesiones de caja cerradas en el servidor.
- */
-async function fetchReportesCaja() {
-    if (!appState.negocioActivoId) {
-        mostrarNotificacion("Seleccione un negocio para ver los reportes.", "error");
-        return;
-    }
+async function poblarFiltroUsuarios() {
     try {
-        sesionesCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/reportes/caja`);
-        renderReportes();
+        const usuarios = await fetchData('/api/usuarios');
+        filtroUsuario.innerHTML = '<option value="">Todos</option>'; // Reset
+        usuarios.forEach(user => {
+            filtroUsuario.innerHTML += `<option value="${user.id}">${user.nombre}</option>`;
+        });
     } catch (error) {
-        mostrarNotificacion('No se pudieron cargar los reportes: ' + error.message, 'error');
-        const tbody = document.querySelector('#tabla-reportes-caja tbody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="8">Error al cargar los datos.</td></tr>';
+        mostrarNotificacion('No se pudieron cargar los usuarios para el filtro.', 'error');
     }
 }
 
-/**
- * Dibuja los datos de los reportes en la tabla HTML.
- */
-function renderReportes() {
-    const tbody = document.querySelector('#tabla-reportes-caja tbody');
-    if (!tbody) return;
+async function cargarReporte() {
+    const params = new URLSearchParams();
+    if (filtroFechaDesde.value) params.append('fecha_desde', filtroFechaDesde.value);
+    if (filtroFechaHasta.value) params.append('fecha_hasta', filtroFechaHasta.value);
+    if (filtroUsuario.value) params.append('usuario_id', filtroUsuario.value);
+    
+    try {
+        const url = `/api/negocios/${appState.negocioActivoId}/reportes/caja?${params.toString()}`;
+        reporteCache = await fetchData(url);
+        renderizarTabla();
+    } catch (error) {
+        mostrarNotificacion('Error al cargar el reporte: ' + error.message, 'error');
+    }
+}
 
-    if (sesionesCache.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8">No hay cierres de caja para mostrar.</td></tr>';
+function renderizarTabla() {
+    tablaBody.innerHTML = '';
+    if (reporteCache.length === 0) {        
+        tablaBody.innerHTML = '<tr><td colspan="8">No se encontraron registros...</td></tr>';      
         return;
     }
-
-    tbody.innerHTML = ''; // Limpiamos la tabla antes de dibujar
-    sesionesCache.forEach(sesion => {
-        const tr = document.createElement('tr');
-        // Usamos una clase para resaltar diferencias, similar a como se hace con el stock bajo.
-        const diferenciaClass = sesion.diferencia !== 0 ? 'stock-bajo' : '';
-        const diferenciaSigno = sesion.diferencia > 0 ? '+' : '';
-        
-        // Formateamos los valores para que se vean bien
-        const formatCurrency = (value) => `$${parseFloat(value).toFixed(2)}`;
-        const formatDate = (dateString) => new Date(dateString).toLocaleString('es-AR');
-
-        tr.innerHTML = `
-            <td>${formatDate(sesion.fecha_apertura)}</td>
-            <td>${formatDate(sesion.fecha_cierre)}</td>
-            <td>${sesion.usuario_nombre}</td>
-            <td>${formatCurrency(sesion.monto_inicial)}</td>
-            <td>${formatCurrency(sesion.monto_final_esperado)}</td>
-            <td>${formatCurrency(sesion.monto_final_contado)}</td>
-            <td class="${diferenciaClass}">${diferenciaSigno}${formatCurrency(sesion.diferencia)}</td>
-            <td><button class="btn-edit" onclick="verDetallesCaja(${sesion.id})">Ver Detalles</button></td>
+    reporteCache.forEach(sesion => {
+        const diferenciaClass = sesion.diferencia < 0 ? 'diferencia-negativa' : (sesion.diferencia > 0 ? 'diferencia-positiva' : '');
+        const fila = `
+            <tr>
+                <td>${new Date(sesion.fecha_apertura).toLocaleString('es-AR')}</td>
+                <td>${new Date(sesion.fecha_cierre).toLocaleString('es-AR')}</td>
+                <td>${sesion.usuario_nombre}</td>
+                <td>$${sesion.monto_inicial.toFixed(2)}</td>
+                <td>$${sesion.monto_final_esperado.toFixed(2)}</td>
+                <td>$${sesion.monto_final_contado.toFixed(2)}</td>
+                <td class="${diferenciaClass}">$${sesion.diferencia.toFixed(2)}</td>
+                
+                <td><button class="btn-secondary btn-small" onclick="mostrarDetallesCaja(${sesion.id})">Ver</button></td>
+            </tr>
         `;
-        tbody.appendChild(tr);
+        tablaBody.innerHTML += fila;
     });
+  
 }
 
-/**
- * Muestra el detalle de una sesión de caja específica en un modal.
- * Se expone globalmente para que el botón onclick la pueda encontrar.
- */
-window.verDetallesCaja = async function(sesionId) {
+function exportarAPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.text("Reporte de Cierres de Caja", 14, 16);
+    doc.autoTable({
+        head: [['Apertura', 'Cierre', 'Usuario', 'Inicial', 'Esperado', 'Contado', 'Diferencia']],
+        body: reporteCache.map(s => [
+            new Date(s.fecha_apertura).toLocaleString('es-AR'),
+            new Date(s.fecha_cierre).toLocaleString('es-AR'),
+            s.usuario_nombre,
+            `$${s.monto_inicial.toFixed(2)}`,
+            `$${s.monto_final_esperado.toFixed(2)}`,
+            `$${s.monto_final_contado.toFixed(2)}`,
+            `$${s.diferencia.toFixed(2)}`
+        ]),
+        startY: 20,
+    });
+
+    doc.save(`reporte_caja_${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+export function inicializarLogicaReporteCaja() {
+    filtroFechaDesde = document.getElementById('filtro-fecha-desde-caja');
+    filtroFechaHasta = document.getElementById('filtro-fecha-hasta-caja');
+    filtroUsuario = document.getElementById('filtro-usuario-caja');
+    btnFiltrar = document.getElementById('btn-filtrar-caja');
+    btnExportarPDF = document.getElementById('btn-exportar-caja-pdf');
+    tablaBody = document.querySelector('#tabla-reporte-caja tbody');
+
+    poblarFiltroUsuarios();
+    cargarReporte(); // Carga inicial sin filtros
+
+    btnFiltrar.addEventListener('click', cargarReporte);
+    btnExportarPDF.addEventListener('click', exportarAPDF);
+}
+// ✨ NUEVA FUNCIÓN PARA MOSTRAR LOS DETALLES EN EL MODAL ✨
+export async function mostrarDetallesCaja(sesionId) {
     const modal = document.getElementById('modal-detalles-caja');
     const contenido = document.getElementById('contenido-detalles-caja');
+    
     contenido.innerHTML = '<p>Cargando detalles...</p>';
     modal.style.display = 'flex';
 
     try {
-        // Buscamos los detalles de los métodos de pago
-        const desglosePagos = await fetchData(`/api/reportes/caja/${sesionId}/detalles`);
+        const detalles = await fetchData(`/api/reportes/caja/${sesionId}/detalles`);
         
-        // Buscamos la info general de la sesión que ya tenemos en caché
-        const sesionInfo = sesionesCache.find(s => s.id === sesionId);
-        if (!sesionInfo) throw new Error("No se encontró la información de la sesión.");
-
         let desgloseHtml = '<ul>';
-        if (Object.keys(desglosePagos).length > 0) {
-            for (const metodo in desglosePagos) {
-                desgloseHtml += `<li><strong>${metodo}:</strong> $${desglosePagos[metodo].toFixed(2)}</li>`;
-            }
-        } else {
-            desgloseHtml += '<li>No se registraron ventas en esta sesión.</li>';
+        for (const metodo in detalles) {
+            desgloseHtml += `<li><strong>${metodo}:</strong> $${detalles[metodo].toFixed(2)}</li>`;
         }
         desgloseHtml += '</ul>';
-
-        contenido.innerHTML = `
-            <h4>Resumen de la Sesión #${sesionInfo.id}</h4>
-            <p><strong>Usuario:</strong> ${sesionInfo.usuario_nombre}</p>
-            <p><strong>Apertura:</strong> ${new Date(sesionInfo.fecha_apertura).toLocaleString('es-AR')}</p>
-            <p><strong>Cierre:</strong> ${new Date(sesionInfo.fecha_cierre).toLocaleString('es-AR')}</p>
-            <hr>
-            <h4>Desglose de Ventas por Método de Pago</h4>
-            ${desgloseHtml}
-        `;
-
+        
+        contenido.innerHTML = desgloseHtml;
     } catch (error) {
-        contenido.innerHTML = `<p style="color: red;">Error al cargar los detalles: ${error.message}</p>`;
+        contenido.innerHTML = '<p style="color: red;">No se pudieron cargar los detalles.</p>';
+        mostrarNotificacion(error.message, 'error');
     }
 }
