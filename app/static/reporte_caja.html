@@ -1,51 +1,19 @@
-<div class="seccion-contenido-dinamico">
-    <h2>📄 Reporte de Cierres de Caja</h2>
-
-    <div class="card filtros-card">
-        <div class="filtro-grupo">
-            <label for="filtro-fecha-desde-caja">Desde:</label>
-            <input type="date" id="filtro-fecha-desde-caja">
-        </div>
-        <div class="filtro-grupo">
-            <label for="filtro-fecha-hasta-caja">Hasta:</label>
-            <input type="date" id="filtro-fecha-hasta-caja">
-        </div>
-        <div class="filtro-grupo">
-            <label for="filtro-usuario-caja">Usuario:</label>
-            <select id="filtro-usuario-caja">
-                <option value="">Todos</option>
-            </select>
-        </div>
-        <div class="filtro-acciones">
-            <button id="btn-filtrar-caja" class="btn-primary">Filtrar</button>
-            <button id="btn-exportar-caja-pdf" class="btn-secondary">Exportar a PDF</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <table id="tabla-reporte-caja" class="tabla-bonita">
-            <thead>
-                <tr>
-                    <th>Fecha Apertura</th>
-                    <th>Fecha Cierre</th>
-                    <th>Usuario</th>
-                    <th>Monto Inicial</th>
-                    <th>Monto Esperado</th>
-                    <th>Monto Contado</th>
-                    <th>Diferencia</th>
-                    <th>Detalles</th>
-                </tr>
-            </thead>
-            <tbody>
-                </tbody>
-        </table>
-    </div>
-</div>
-<div id="modal-detalles-caja" class="modal">
-    <div class="modal-content">
-        <span class="close-button" onclick="document.getElementById('modal-detalles-caja').style.display='none'">&times;</span>
-        <h3>Desglose de Métodos de Pago</h3>
-        <div id="contenido-detalles-caja">
-            </div>
-    </div>
+<div class="card">
+    <h2>Historial de Cierres de Caja</h2>
+    <table id="tabla-reportes-caja">
+        <thead>
+            <tr>
+                <th>Fecha Apertura</th>
+                <th>Fecha Cierre</th>
+                <th>Usuario</th>
+                <th>Monto Inicial</th>
+                <th>Monto Esperado</th>
+                <th>Monto Contado</th>
+                <th>Diferencia</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+    </table>
 </div>

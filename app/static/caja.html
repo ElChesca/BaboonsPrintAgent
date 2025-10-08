@@ -1,41 +1,46 @@
-<div class="seccion-contenido-dinamico">
-    <h2>📦 Gestión de Caja</h2>
-    <div class="main-grid">
-        <div class="card">
-            <div id="seccion-abrir-caja" style="display: none;">
-                <h3>Apertura de Caja</h3>
-                <p>La caja para este negocio está actualmente cerrada. Ingresa el monto inicial para comenzar.</p>
-                <form id="form-abrir-caja">
-                    <div class="form-group">
-                        <label for="monto-inicial">Monto Inicial (efectivo para cambio):</label>
-                        <input type="number" id="monto-inicial" step="0.01" required placeholder="Ej: 5000.00">
-                    </div>
-                    <button type="submit" class="btn-primary">Abrir Caja</button>
-                </form>
-            </div>
-            <div id="seccion-cerrar-caja" style="display: none;">
-                <h3>Cierre de Caja</h3>
-                <div id="info-sesion-actual"></div>
-                <form id="form-cerrar-caja">
-                    <div class="form-group">
-                        <label for="monto-final-contado">Monto Final Contado (dinero físico en caja):</label>
-                        <input type="number" id="monto-final-contado" step="0.01" required placeholder="Ej: 25500.50">
-                    </div>
-                    <button type="submit" class="btn-danger">Cerrar Caja</button>
-                </form>
-            </div>
-        </div>
-        <div class="card">
-            <h3>Historial Reciente</h3>
-            <p>(Próximamente...)</p>
-        </div>
+<style>
+    /* Puedes usar los mismos estilos generales que ya tienes. */
+    .container-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+    .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h2 { font-family: 'Bebas Neue', sans-serif; color: #333; }
+    #info-sesion-actual p { margin: 5px 0; line-height: 1.6; }
+    /* Estilos para el modal (puedes reutilizar los del módulo de productos) */
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); justify-content: center; align-items: center; }
+    .modal-content { background-color: #fefefe; padding: 25px; border-radius: 8px; width: 90%; max-width: 450px; }
+    .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+</style>
+
+<div class="container-grid">
+    <div id="seccion-abrir-caja" class="card" style="display: none;">
+        <h2>Abrir Caja</h2>
+        <p>No hay una sesión de caja activa. Ingresa el monto inicial para comenzar.</p>
+        <form id="form-abrir-caja">
+            <label for="monto-inicial">Monto Inicial en Efectivo:</label>
+            <input type="number" id="monto-inicial" name="monto_inicial" step="0.01" required placeholder="Ej: 5000.00">
+            <button type="submit">Abrir Caja</button>
+        </form>
     </div>
 
-    <div id="modal-resumen-cierre" class="modal" style="display:none;">
-        <div class="modal-content">
-            <span class="close-button" onclick="document.getElementById('modal-resumen-cierre').style.display='none'">&times;</span>
-            <h3>Resumen del Cierre de Caja</h3>
-            <div id="contenido-resumen"></div>
-        </div>
+    <div id="seccion-cerrar-caja" class="card" style="display: none;">
+        <h2>Gestión de Caja Activa</h2>
+        <div id="info-sesion-actual" style="margin-bottom: 20px; border-left: 3px solid #007bff; padding-left: 15px;">
+            </div>
+        <hr>
+        <form id="form-cerrar-caja">
+            <h3>Cerrar Caja</h3>
+            <p>Al final del día, cuenta el dinero en efectivo y regístralo aquí para cerrar la sesión actual.</p>
+            <label for="monto-final-contado">Monto Final Contado (Efectivo):</label>
+            <input type="number" id="monto-final-contado" name="monto_final_contado" step="0.01" required placeholder="Dinero contado en caja">
+            <button type="submit" class="btn-delete">Cerrar Caja y Ver Resumen</button>
+        </form>
+    </div>
+</div>
+
+<div id="modal-resumen-cierre" class="modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h2>Resumen de Cierre de Caja</h2>
+        <div id="contenido-resumen">
+            </div>
     </div>
 </div>
