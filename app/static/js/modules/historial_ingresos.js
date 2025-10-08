@@ -6,7 +6,7 @@ import { mostrarNotificacion } from './notifications.js';
 async function cargarHistorialIngresos() {
     if (!appState.negocioActivoId) return;
     try {
-        const historial = await fetchData(`/api/negresos/${appState.negocioActivoId}/ingresos`);
+        const historial = await fetchData(`/api/negocios/${appState.negocioActivoId}/ingresos`);
         const tbody = document.querySelector('#tabla-historial-ingresos tbody');
         if (!tbody) return;
 
@@ -14,11 +14,11 @@ async function cargarHistorialIngresos() {
         historial.forEach(ingreso => {
             const fecha = new Date(ingreso.fecha).toLocaleString('es-AR');
             tbody.innerHTML += `
-                <tr class="master-row" onclick="mostrarDetalle(${ingreso.id}, this)">
+                <tr class="master-row" onclick="mostrarDetalleIngreso(${ingreso.id}, this)">
                     <td>${fecha}</td>
                     <td>${ingreso.proveedor_nombre || 'N/A'}</td>
                     <td>${ingreso.referencia || '-'}</td>
-                    <td><button class="btn-secondary btn-small">🔽</button></td>
+                    <td><button class="btn-secondary btn-small">Ver Detalles</button></td>
                 </tr>
             `;
         });
@@ -27,18 +27,16 @@ async function cargarHistorialIngresos() {
     }
 }
 
-export async function mostrarDetalle(ingresoId, masterRow) {
-    // Cerramos cualquier otro detalle que esté abierto
+export async function mostrarDetalleIngreso(ingresoId, masterRow) {
     const existingDetail = document.querySelector('.detail-row');
     if (existingDetail) existingDetail.remove();
     document.querySelectorAll('.master-row').forEach(row => row.classList.remove('active'));
 
-    // Si se hace clic en la misma fila activa, solo la cerramos
     if (masterRow.classList.contains('active-temp')) {
         masterRow.classList.remove('active-temp');
         return;
     }
-    masterRow.classList.add('active-temp'); // Marcador temporal
+    masterRow.classList.add('active-temp');
 
     try {
         const detalles = await fetchData(`/api/ingresos/${ingresoId}/detalles`);
@@ -52,7 +50,7 @@ export async function mostrarDetalle(ingresoId, masterRow) {
         detailRow.className = 'detail-row';
         detailRow.innerHTML = detailHtml;
         masterRow.insertAdjacentElement('afterend', detailRow);
-        masterRow.classList.add('active'); // Marcador final
+        masterRow.classList.add('active');
     } catch (error) {
         mostrarNotificacion('No se pudieron cargar los detalles del ingreso.', 'error');
     } finally {
