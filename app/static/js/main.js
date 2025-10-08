@@ -16,8 +16,6 @@ import { inicializarLogicaCaja } from './modules/caja.js';
 import { inicializarLogicaReporteCaja, mostrarDetallesCaja } from './modules/reporte_caja.js';
 import { inicializarLogicaReporteGanancias } from './modules/reporte_ganancias.js';
 import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from './modules/proveedores.js';
-import { getAuthHeaders } from './modules/auth.js';
-import { appState } from './main.js';
 
 
 // --- ESTADO GLOBAL (DECLARADO UNA SOLA VEZ) ---
