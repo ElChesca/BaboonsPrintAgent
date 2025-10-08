@@ -16,6 +16,9 @@ import { inicializarLogicaCaja } from './modules/caja.js';
 import { inicializarLogicaReporteCaja, mostrarDetallesCaja } from './modules/reporte_caja.js';
 import { inicializarLogicaReporteGanancias } from './modules/reporte_ganancias.js';
 import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from './modules/proveedores.js';
+import { getAuthHeaders } from './modules/auth.js';
+import { appState } from './main.js';
+
 
 // --- ESTADO GLOBAL (DECLARADO UNA SOLA VEZ) ---
 export const appState = {
@@ -82,8 +85,8 @@ function inicializarModulo(page) {
     if (page.includes('reporte_caja.html')) inicializarLogicaReporteCaja();
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
-    if (page.includes('reportes.html')) inicializarLogicaReportes();
-        
+    if (page.includes('reportes.html')) inicializarLogicaReportes();    
+
 
 }
 
