@@ -1,5 +1,5 @@
 # app/routes/auth_routes.py
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify
 from app.database import get_db
 from app.extensions import bcrypt
 from app.auth_decorator import token_required
@@ -24,11 +24,12 @@ def login():
 
     SECRET_KEY = os.environ.get('SECRET_KEY', 'tu-clave-secreta')
     
-    # ✨ CORRECCIÓN CLAVE: Añadimos 'nombre' al contenido del token
+    # --- ✨ CORRECCIÓN CLAVE AQUÍ ---
+    # Añadimos el 'nombre' y 'rol' del usuario al contenido del token
     token_payload = {
         'id': user['id'],
         'rol': user['rol'],
-        'nombre': user['nombre'], # <--- LÍNEA AÑADIDA
+        'nombre': user['nombre'], # <-- ESTA LÍNEA ES LA QUE FALTABA
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=8)
     }
     token = jwt.encode(token_payload, SECRET_KEY, algorithm="HS256")

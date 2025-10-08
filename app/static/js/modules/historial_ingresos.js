@@ -27,7 +27,7 @@ async function cargarHistorialIngresos() {
     }
 }
 
-export async function mostrarDetalleIngreso(ingresoId, masterRow) {
+export async function mostrarDetalle(ingresoId, masterRow) {
     const existingDetail = document.querySelector('.detail-row');
     if (existingDetail) existingDetail.remove();
     document.querySelectorAll('.master-row').forEach(row => row.classList.remove('active'));
@@ -56,6 +56,25 @@ export async function mostrarDetalleIngreso(ingresoId, masterRow) {
     } finally {
         masterRow.classList.remove('active-temp');
     }
+}
+
+
+export function renderizarTabla() {
+    const tbody = document.querySelector('#tabla-historial-ingresos tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    historial.forEach(ingreso => {
+        const fecha = new Date(ingreso.fecha).toLocaleString('es-AR');
+        // ✨ CORRECCIÓN: Llamamos a la función con el nombre correcto 'mostrarDetalleIngreso'
+        tbody.innerHTML += `
+            <tr class="master-row" onclick="mostrarDetalleIngreso(${ingreso.id}, this)">
+                <td>${fecha}</td>
+                <td>${ingreso.proveedor_nombre || 'N/A'}</td>
+                <td>${ingreso.referencia || '-'}</td>
+                <td><button class="btn-secondary btn-small">Ver Detalles</button></td>
+            </tr>
+        `;
+    });
 }
 
 export function inicializarLogicaHistorial() {
