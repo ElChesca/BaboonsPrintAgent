@@ -1,19 +1,43 @@
+<style>
+    /* Puedes reutilizar los mismos estilos de tabla y modal que ya tienes en tu CSS principal */
+    .stock-bajo { /* Reutilizamos esta clase para resaltar diferencias de caja */
+        color: #dc3545;
+        font-weight: bold;
+    }
+</style>
+
 <div class="card">
     <h2>Historial de Cierres de Caja</h2>
-    <table id="tabla-reportes-caja">
-        <thead>
-            <tr>
-                <th>Fecha Apertura</th>
-                <th>Fecha Cierre</th>
-                <th>Usuario</th>
-                <th>Monto Inicial</th>
-                <th>Monto Esperado</th>
-                <th>Monto Contado</th>
-                <th>Diferencia</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
+    <p>Aquí puedes ver un registro de todas las sesiones de caja que han sido cerradas.</p>
+    
+    <div class="table-container">
+        <table id="tabla-reportes-caja">
+            <thead>
+                <tr>
+                    <th>Fecha Apertura</th>
+                    <th>Fecha Cierre</th>
+                    <th>Usuario</th>
+                    <th>Monto Inicial</th>
+                    <th>Monto Esperado</th>
+                    <th>Monto Contado</th>
+                    <th>Diferencia</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="8">Cargando reportes...</td>
+                </tr>
             </tbody>
-    </table>
+        </table>
+    </div>
+</div>
+
+<div id="modal-detalles-caja" class="modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h2>Detalles del Cierre de Caja</h2>
+        <div id="contenido-detalles-caja">
+            </div>
+    </div>
 </div>

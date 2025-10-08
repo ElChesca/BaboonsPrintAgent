@@ -141,4 +141,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
 window.loadContent = loadContent;
+window.editarCliente = editarCliente;
+window.borrarCliente = borrarCliente;
+window.quitarItem = quitarItem;
+window.quitarItemDeVenta = quitarItemDeVenta;
+window.abrirModalEditarUsuario = abrirModalEditarUsuario;
+window.mostrarDetalleIngreso = mostrarDetalleIngreso;
+window.iniciarEditarNegocio = inicializarLogicaNegocios;
+window.mostrarDetalleVenta = mostrarDetalleVenta;
+window.abrirModalEditarProducto = abrirModalEditarProducto;
+window.borrarProducto = borrarProducto;
+window.editarCategoria = editarCategoria;
+window.borrarCategoria = borrarCategoria;
+window.mostrarDetallesCaja = mostrarDetallesCaja;
+window.editarProveedor = editarProveedor;
+window.borrarProveedor = borrarProveedor;
+
 // ... (resto de tus window.functions)

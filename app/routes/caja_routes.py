@@ -52,31 +52,38 @@ def cerrar_caja(current_user, negocio_id):
     if monto_final_contado is None:
         return jsonify({'error': 'El monto final contado es obligatorio'}), 400
 
-    db.execute('SELECT metodo_pago, SUM(total) as total_por_metodo FROM ventas WHERE caja_sesion_id = %s GROUP BY metodo_pago', (sesion_abierta['id'],))
-    desglose_pagos_rows = db.fetchall()
-    desglose_pagos = {row['metodo_pago']: row['total_por_metodo'] for row in desglose_pagos_rows}
-    
-    total_efectivo = desglose_pagos.get('Efectivo', 0)
-    monto_inicial = sesion_abierta['monto_inicial']
-    monto_final_esperado = monto_inicial + total_efectivo
-    diferencia = float(monto_final_contado) - monto_final_esperado
+    try:
+        db.execute('SELECT metodo_pago, SUM(total) as total_por_metodo FROM ventas WHERE caja_sesion_id = %s GROUP BY metodo_pago', (sesion_abierta['id'],))
+        desglose_pagos_rows = db.fetchall()
+        desglose_pagos = {row['metodo_pago']: float(row['total_por_metodo']) for row in desglose_pagos_rows}
+        
+        total_efectivo = desglose_pagos.get('Efectivo', 0.0)
+        monto_inicial = float(sesion_abierta['monto_inicial'])
+        monto_final_esperado = monto_inicial + total_efectivo
+        diferencia = float(monto_final_contado) - monto_final_esperado
 
-    db.execute(
-        "UPDATE caja_sesiones SET fecha_cierre = %s, monto_final_contado = %s, monto_final_esperado = %s, diferencia = %s WHERE id = %s",
-        (datetime.datetime.now(), monto_final_contado, monto_final_esperado, diferencia, sesion_abierta['id'])
-    )
-    g.db_conn.commit()
+        db.execute(
+            "UPDATE caja_sesiones SET fecha_cierre = %s, monto_final_contado = %s, monto_final_esperado = %s, diferencia = %s WHERE id = %s",
+            (datetime.datetime.now(), monto_final_contado, monto_final_esperado, diferencia, sesion_abierta['id'])
+        )
+        
+        # ✨ MEJORA: Transacción completada exitosamente
+        g.db_conn.commit()
 
-    return jsonify({
-        'message': 'Caja cerrada con éxito',
-        'resumen': {
-            'monto_inicial': monto_inicial,
-            'desglose_pagos': desglose_pagos,
-            'monto_final_esperado': monto_final_esperado,
-            'monto_final_contado': float(monto_final_contado),
-            'diferencia': diferencia
-        }
-    })
+        return jsonify({
+            'message': 'Caja cerrada con éxito',
+            'resumen': {
+                'monto_inicial': monto_inicial,
+                'desglose_pagos': desglose_pagos,
+                'monto_final_esperado': monto_final_esperado,
+                'monto_final_contado': float(monto_final_contado),
+                'diferencia': diferencia
+            }
+        })
+    except Exception as e:
+        # ✨ MEJORA: Si algo falla, revertimos los cambios.
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @bp.route('/negocios/<int:negocio_id>/reportes/caja', methods=['GET'])
 @token_required
