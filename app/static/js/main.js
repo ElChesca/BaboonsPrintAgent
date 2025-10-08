@@ -18,15 +18,9 @@ import { inicializarLogicaReporteGanancias } from './modules/reporte_ganancias.j
 import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from './modules/proveedores.js';
 
 // --- ESTADO GLOBAL (DECLARADO UNA SOLA VEZ) ---
-export const appState = {
-    negocioActivoId: null,
-    userRol: null
-};
+export const appState = { negocioActivoId: null, userRol: null };
+export function esAdmin() { return appState.userRol === 'admin'; }
 
-// --- FUNCIONES AUXILIARES ---
-export function esAdmin() {
-    return appState.userRol === 'admin';
-}
 
 // En app/static/js/main.js
 async function poblarSelectorNegocios() {
@@ -82,39 +76,32 @@ function inicializarModulo(page) {
     if (page.includes('reporte_caja.html')) inicializarLogicaReporteCaja();
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
+
 }
 
 // --- FUNCIONES PRINCIPALES DE FLUJO ---
 export function loadContent(event, page, clickedLink) {
     if (event) event.preventDefault();
-    const token = localStorage.getItem('jwt_token');
-    if (!token && !page.includes('login.html')) {
-        actualizarUIAutenticacion();
-        return;
-    }
     document.querySelectorAll('nav a, .dropdown-content a').forEach(link => link.classList.remove('active'));
     if (clickedLink) {
         clickedLink.classList.add('active');
-        const parentDropdown = clickedLink.closest('.dropdown');
-        if (parentDropdown) {
-            parentDropdown.querySelector('.dropbtn').classList.add('active');
-        }
+        const parent = clickedLink.closest('.dropdown');
+        if (parent) parent.querySelector('.dropbtn').classList.add('active');
     }
     fetch(page)
-        .then(response => response.ok ? response.text() : Promise.reject('Error al cargar.'))
+        .then(res => res.ok ? res.text() : Promise.reject('Error'))
         .then(html => {
             document.getElementById('content-area').innerHTML = html;
-            setTimeout(() => inicializarModulo(page), 0);
-        })
-        .catch(console.error);
+            if (appState.negocioActivoId || page.includes('login.html')) {
+                setTimeout(() => inicializarModulo(page), 0);
+            }
+        }).catch(console.error);
 }
-
 export async function actualizarUIAutenticacion() {
     const user = getCurrentUser();
     const mainNav = document.getElementById('main-nav');
     const authLink = document.getElementById('auth-link');
     const businessSelector = document.getElementById('business-selector-bar');
-
     if (user && user.nombre) {
         appState.userRol = user.rol;
         if (mainNav) mainNav.style.display = 'flex';
@@ -123,21 +110,12 @@ export async function actualizarUIAutenticacion() {
             authLink.innerHTML = `Salir (${user.nombre})`;
             authLink.onclick = (e) => { e.preventDefault(); logout(); };
         }
-        
-        // El 'await' aquí es crucial para asegurar que la app espere a tener la lista de negocios
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = esAdmin() ? 'block' : 'none');
         await poblarSelectorNegocios();
-        
-        const contentArea = document.getElementById('content-area');
-        if (contentArea && contentArea.innerHTML.trim() === "") {
-             loadContent(null, 'static/dashboard.html', document.querySelector('a[onclick*="dashboard.html"]'));
-        }
     } else {
         appState.userRol = null;
         if (mainNav) mainNav.style.display = 'none';
         if (businessSelector) businessSelector.style.display = 'none';
-        
-        const contentArea = document.getElementById('content-area');
-        if(contentArea) contentArea.innerHTML = "";
         loadContent(null, 'static/login.html');
     }
 }
@@ -155,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('authChange', actualizarUIAutenticacion);
     actualizarUIAutenticacion();
 });
+
 
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES (SIN DUPLICADOS) ---
 window.loadContent = loadContent;
