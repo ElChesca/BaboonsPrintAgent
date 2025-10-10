@@ -75,3 +75,54 @@ def registrar_venta(current_user, negocio_id):
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
+    
+    # --- ✨ NUEVA RUTA MEJORADA PARA OBTENER EL HISTORIAL ---
+@bp.route('/negocios/<int:negocio_id>/ventas', methods=['GET'])
+@token_required
+def get_historial_ventas(current_user, negocio_id):
+    db = get_db()
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+
+    # Base de la consulta
+    query = """
+        SELECT v.id, v.fecha, v.total, v.metodo_pago, c.nombre as cliente_nombre
+        FROM ventas v
+        LEFT JOIN clientes c ON v.cliente_id = c.id
+        WHERE v.negocio_id = %s
+    """
+    params = [negocio_id]
+
+    # Añadir filtros de fecha si se proporcionan
+    if fecha_desde:
+        query += " AND v.fecha >= %s"
+        params.append(fecha_desde)
+    if fecha_hasta:
+        # Añadimos un día para incluir todo el día de la fecha 'hasta'
+        fecha_hasta_dt = datetime.datetime.strptime(fecha_hasta, '%Y-%m-%d') + datetime.timedelta(days=1)
+        query += " AND v.fecha < %s"
+        params.append(fecha_hasta_dt.strftime('%Y-%m-%d'))
+        
+    query += " ORDER BY v.fecha DESC"
+    
+    db.execute(query, tuple(params))
+    ventas = db.fetchall()
+    
+    # Convertimos los resultados a un formato JSON friendly
+    resultado_json = [dict(venta) for venta in ventas]
+    return jsonify(resultado_json)
+
+
+# --- RUTA PARA OBTENER DETALLES (Ya la tenías) ---
+@bp.route('/ventas/<int:venta_id>/detalles', methods=['GET'])
+@token_required
+def get_venta_detalles(current_user, venta_id):
+    db = get_db()
+    db.execute("""
+        SELECT vd.*, p.nombre
+        FROM ventas_detalle vd
+        JOIN productos p ON vd.producto_id = p.id
+        WHERE vd.venta_id = %s
+    """, (venta_id,))
+    detalles = db.fetchall()
+    return jsonify([dict(d) for d in detalles])
