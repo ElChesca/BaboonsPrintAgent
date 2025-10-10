@@ -86,15 +86,42 @@ function inicializarModulo(page) {
 
 
 }
+// --- ✨ FUNCIÓN AUXILIAR PARA CARGAR CSS DINÁMICAMENTE ---
+function loadPageCSS(pageName) {
+    const existingStyle = document.getElementById('page-specific-style');
+    if (existingStyle) {
+        existingStyle.remove();
+    }
 
+    if (pageName) {
+        const cssFile = `${pageName}.css`;
+        const link = document.createElement('link');
+        link.id = 'page-specific-style';
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = `/static/css/${cssFile}`;
+        // Verificamos si el archivo existe antes de añadirlo (opcional pero recomendado)
+        fetch(link.href).then(res => {
+            if (res.ok) {
+                 document.head.appendChild(link);
+            }
+        });
+    }
+}
 // --- FUNCIONES PRINCIPALES DE FLUJO ---
 export function loadContent(event, page, clickedLink) {
     if (event) event.preventDefault();
+    
+    // ✨ Extrae el nombre base (ej: 'ventas') y llama a la función para cargar su CSS.
+    const pageName = page.split('/').pop().replace('.html', '');
+    loadPageCSS(pageName);
+
     const token = localStorage.getItem('jwt_token');
     if (!token && !page.includes('login.html')) {
         actualizarUIAutenticacion();
         return;
     }
+    
     document.querySelectorAll('nav a, .dropdown-content a').forEach(link => link.classList.remove('active'));
     if (clickedLink) {
         clickedLink.classList.add('active');
@@ -103,14 +130,20 @@ export function loadContent(event, page, clickedLink) {
             parentDropdown.querySelector('.dropbtn').classList.add('active');
         }
     }
+
     fetch(page)
-        .then(response => response.ok ? response.text() : Promise.reject('Error al cargar.'))
+        .then(response => response.ok ? response.text() : Promise.reject('Error al cargar la página.'))
         .then(html => {
             document.getElementById('content-area').innerHTML = html;
             setTimeout(() => inicializarModulo(page), 0);
         })
-        .catch(console.error);
+        .catch(error => {
+            console.error(error);
+            loadPageCSS(null); // Si falla la carga, quitamos el CSS.
+        });
 }
+
+
 
 export async function actualizarUIAutenticacion() {
     const user = getCurrentUser();
