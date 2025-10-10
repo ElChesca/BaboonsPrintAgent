@@ -1,15 +1,25 @@
-  
+/* Estilos específicos para la página de ventas */
 .venta-grid {
     display: grid;
-    grid-template-columns: 3fr 2fr; /* Damos más espacio a la columna de añadir productos */
+    /* Damos un poco más de espacio a la columna de la grilla POS y añadir productos */
+    grid-template-columns: 3fr 2fr; 
     gap: 25px;
 }
 
 .add-item-controls {
     display: flex;
     gap: 10px;
-    align-items: flex-end;
+    /* Alineamos los items al inicio para que no se estiren verticalmente */
+    align-items: flex-start;
 }
+
+/* ✨ SOLUCIÓN: Hacemos que el botón se alinee al final, independientemente de la altura de los otros elementos. */
+.add-item-controls .btn-primary {
+    align-self: flex-end;
+    /* Le damos un margen superior para que se alinee bien con los campos de texto */
+    margin-top: 26px; 
+}
+
 .add-item-controls .form-group {
     margin-bottom: 0;
 }
@@ -25,63 +35,74 @@
     flex-direction: column;
 }
 
-input, select, .btn-primary, .btn-secondary {
+/* --- ✨ NUEVOS ESTILOS PARA LA GRILLA POS --- */
+#pos-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+    margin-bottom: 25px;
+}
+.pos-item {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
     padding: 10px;
-    margin-top: 5px;
-    margin-bottom: 15px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    font-size: 1em;
-    width: 100%;
-    box-sizing: border-box;
-}
-.btn-primary, .btn-secondary {
-    color: white;
-    border: none;
-    padding: 12px;
-    font-size: 1.1em;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-.btn-primary { background-color: #007bff; }
-.btn-primary:hover { background-color: #0056b3; }
-.btn-secondary { background-color: #6c757d; }
-.btn-secondary:hover { background-color: #5a6268; }
-
-.btn-primary:disabled, .btn-secondary:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
-}
-
-#staged-items-venta { width: 100%; margin-top: 15px; border-collapse: collapse; }
-#staged-items-venta th, #staged-items-venta td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-#staged-items-venta thead th { background-color: #28a745; color: white; }
-#staged-items-venta tfoot th { text-align: right; font-size: 1.2em; }
-@media (max-width: 900px) { .venta-grid { grid-template-columns: 1fr; } }
-.search-container { position: relative; }
-#search-results-venta { position: absolute; width: 100%; background-color: white; border: 1px solid #ccc; max-height: 200px; overflow-y: auto; z-index: 100; }
-.search-item { padding: 10px; cursor: pointer; display: flex; justify-content: space-between; }
-.search-item:hover { background-color: #f0f0f0; }
-.search-item .stock { color: #888; font-size: 0.9em; }
-
-/* ✨ CAMBIO: Estilo más compacto para el banner de la caja */
-.caja-info-banner {
-    padding: 8px 12px;
-    margin-bottom: 15px;
-    border-radius: 5px;
-    font-size: 0.85em; /* Más pequeño */
     text-align: center;
-    border-left-width: 5px;
-    border-left-style: solid;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 90px;
 }
-.caja-info-banner.abierta {
-    background-color: #e7f4e8;
-    border-color: #28a745;
-    color: #155724;
+.pos-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-color: #007bff;
 }
-.caja-info-banner.cerrada {
-    background-color: #f8d7da;
-    border-color: #dc3545;
-    color: #721c24;
+.pos-item-name {
+    font-weight: bold;
+    font-size: 0.9em;
+    flex-grow: 1;
+}
+.pos-item-price {
+    font-size: 0.9em;
+    color: #28a745;
     font-weight: bold;
 }
+/* --- Fin de estilos POS --- */
+
+
+/* --- ✨ NUEVOS ESTILOS PARA EL CÁLCULO DE VUELTO --- */
+#calculo-vuelto-container {
+    background-color: #e9f5ff;
+    border: 1px solid #b3d7ff;
+    border-radius: 5px;
+    padding: 15px;
+    margin-top: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+#calculo-vuelto-container .form-group {
+    margin-bottom: 0;
+    flex-grow: 1;
+    margin-right: 15px;
+}
+#calculo-vuelto-container .vuelto-display {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #0056b3;
+}
+/* --- Fin de estilos de Vuelto --- */
+
+/* Estilos que ya tenías... */
+.search-container { position: relative; }
+#search-results-venta { position: absolute; width: 100%; background-color: white; border: 1px solid #ccc; max-height: 200px; overflow-y: auto; z-index: 100;}
+.search-item { padding: 10px; cursor: pointer; display: flex; justify-content: space-between;}
+.search-item:hover { background-color: #f0f0f0; }
+.search-item .stock { color: #888; font-size: 0.9em; }
+.caja-info-banner { padding: 8px 12px; margin-bottom: 15px; border-radius: 5px; font-size: 0.85em; text-align: center; border-left-width: 5px; border-left-style: solid; }
+.caja-info-banner.abierta { background-color: #e7f4e8; border-color: #28a745; color: #155724; }
+.caja-info-banner.cerrada { background-color: #f8d7da; border-color: #dc3545; color: #721c24; font-weight: bold; }

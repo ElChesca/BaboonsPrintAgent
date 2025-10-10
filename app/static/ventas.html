@@ -1,5 +1,9 @@
 <div class="venta-grid">
     <div class="card">
+        <h2>Acceso Rápido</h2>
+        <div id="pos-grid-container">
+            </div>
+
         <h2>Añadir Producto a la Venta</h2>
         <form id="form-add-item-venta">
             <div class="add-item-controls">
@@ -19,7 +23,6 @@
 
     <div class="card">
         <h2>Venta Actual</h2>
-        
         <div id="info-caja-activa" class="caja-info-banner">Cargando estado de la caja...</div>
 
         <form id="form-finalize-venta">
@@ -47,6 +50,16 @@
                 </select>
             </div>
             
+            <div id="calculo-vuelto-container" style="display: block;"> <div class="form-group">
+                    <label for="paga-con-input">Paga con:</label>
+                    <input type="number" id="paga-con-input" step="any" placeholder="Monto del cliente...">
+                </div>
+                <div class="vuelto-display">
+                    <span>Vuelto:</span>
+                    <span id="vuelto-monto">$0.00</span>
+                </div>
+            </div>
+
             <div id="pago-detalles-container" style="display: none;">
                 </div>
             
