@@ -10,12 +10,31 @@ bp = Blueprint('caja', __name__)
 @token_required
 def get_estado_caja(current_user, negocio_id):
     db = get_db()
-    db.execute('SELECT * FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL', (negocio_id,))
+    
+    # ✨ LA MEJORA CLAVE ESTÁ AQUÍ:
+    # Hacemos un JOIN para traer el nombre del usuario en la misma consulta.
+    query = """
+        SELECT 
+            cs.*, 
+            u.nombre as usuario_nombre 
+        FROM 
+            caja_sesiones cs
+        JOIN 
+            usuarios u ON cs.usuario_id = u.id
+        WHERE 
+            cs.negocio_id = %s AND cs.fecha_cierre IS NULL
+    """
+    db.execute(query, (negocio_id,))
     sesion_abierta = db.fetchone()
+
     if sesion_abierta:
-        return jsonify({'estado': 'abierta', 'sesion': dict(sesion_abierta)})
+        return jsonify({
+            'estado': 'abierta',
+            'sesion': dict(sesion_abierta) # Devolvemos la sesión con el 'usuario_nombre' incluido
+        })
     else:
         return jsonify({'estado': 'cerrada'})
+    
 
 @bp.route('/negocios/<int:negocio_id>/caja/apertura', methods=['POST'])
 @token_required

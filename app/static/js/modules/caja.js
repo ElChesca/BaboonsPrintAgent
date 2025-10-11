@@ -1,4 +1,4 @@
-// modules/caja.js
+// app/static/js/modules/caja.js
 import { fetchData } from '../api.js';
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
@@ -8,7 +8,6 @@ async function verificarEstadoCaja() {
     const seccionCerrar = document.getElementById('seccion-cerrar-caja');
     const infoSesionEl = document.getElementById('info-sesion-actual');
 
-    // Ocultar todo al inicio para evitar parpadeos
     seccionAbrir.style.display = 'none';
     seccionCerrar.style.display = 'none';
 
@@ -16,10 +15,13 @@ async function verificarEstadoCaja() {
         const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/caja/estado`);
         if (data.estado === 'abierta') {
             const fechaApertura = new Date(data.sesion.fecha_apertura).toLocaleString('es-AR');
-            const usuarioResponse = await fetchData(`/api/usuarios/${data.sesion.usuario_id}`);
+            
+            // ✨ LA CORRECCIÓN ESTÁ AQUÍ:
+            // Ya no necesitamos la segunda llamada a la API. Usamos el nombre que ya viene en la respuesta.
+            // const usuarioResponse = await fetchData(`/api/usuarios/${data.sesion.usuario_id}`);
             
             infoSesionEl.innerHTML = `
-                <p><strong>Caja abierta por:</strong> ${usuarioResponse.nombre}</p>
+                <p><strong>Caja abierta por:</strong> ${data.sesion.usuario_nombre || 'Usuario desconocido'}</p>
                 <p><strong>Fecha de apertura:</strong> ${fechaApertura}</p>
                 <p><strong>Monto inicial:</strong> $${data.sesion.monto_inicial.toFixed(2)}</p>
             `;
@@ -33,7 +35,6 @@ async function verificarEstadoCaja() {
 }
 
 export function inicializarLogicaCaja() {
-    // Si el contenedor principal no existe, no hacer nada.
     const formAbrir = document.getElementById('form-abrir-caja');
     if (!formAbrir) return;
 
@@ -41,7 +42,6 @@ export function inicializarLogicaCaja() {
     const modalResumen = document.getElementById('modal-resumen-cierre');
     const contenidoResumenEl = document.getElementById('contenido-resumen');
     
-    // Ejecución inicial al cargar la página
     verificarEstadoCaja();
 
     formAbrir.addEventListener('submit', async (e) => {
@@ -53,7 +53,7 @@ export function inicializarLogicaCaja() {
             });
             mostrarNotificacion('Caja abierta con éxito.', 'success');
             formAbrir.reset();
-            verificarEstadoCaja(); // Actualiza la vista
+            verificarEstadoCaja();
         } catch (error) {
             mostrarNotificacion(error.message, 'error');
         }
@@ -86,7 +86,7 @@ export function inicializarLogicaCaja() {
             `;
             modalResumen.style.display = 'flex';
             formCerrar.reset();
-            verificarEstadoCaja(); // Actualiza la vista al estado "cerrada"
+            verificarEstadoCaja();
         } catch (error) {
             mostrarNotificacion(error.message, 'error');
         }

@@ -7,7 +7,22 @@ export function inicializarLogicaHistorialVentas() {
     if (btnFiltrar) {
         btnFiltrar.addEventListener('click', cargarHistorialVentas);
     }
-    cargarHistorialVentas(); // Carga inicial
+    // Carga inicial al entrar en la página
+    cargarHistorialVentas();
+
+    // ✨ MEJORA: Añadimos un listener único a la tabla para manejar todos los clics
+    const tabla = document.querySelector('#tabla-historial-ventas tbody');
+    if (tabla) {
+        tabla.addEventListener('click', (e) => {
+            // Buscamos la fila 'master-row' más cercana al elemento clickeado
+            const fila = e.target.closest('tr.master-row');
+            if (fila) {
+                const ventaId = fila.dataset.ventaId;
+                // Llamamos a la función global que está en window
+                window.mostrarDetalleVenta(ventaId, fila);
+            }
+        });
+    }
 }
 
 async function cargarHistorialVentas() {
@@ -26,8 +41,13 @@ async function cargarHistorialVentas() {
     }
     
     try {
+        // ✨ LA CORRECCIÓN CLAVE ESTÁ AQUÍ:
+        // Nos aseguramos de que la llamada fetch SIEMPRE incluya los headers de autenticación.
         const response = await fetch(url, { headers: getAuthHeaders() });
-        if (!response.ok) throw new Error('Error al cargar el historial.');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Error al cargar el historial.');
+        }
         const historial = await response.json();
 
         const tbody = document.querySelector('#tabla-historial-ventas tbody');
@@ -35,18 +55,15 @@ async function cargarHistorialVentas() {
         if (!tbody || !totalEl) return;
 
         tbody.innerHTML = '';
-        let totalGeneral = 0; // ✨ NUEVO: Variable para sumar el total
+        let totalGeneral = 0;
 
         historial.forEach(venta => {
-            const fecha = new Date(venta.fecha).toLocaleString('es-AR', {
-                day: '2-digit', month: '2-digit', year: 'numeric',
-                hour: '2-digit', minute: '2-digit'
-            });
-            totalGeneral += venta.total; // Sumamos al total
+            const fecha = new Date(venta.fecha).toLocaleString('es-AR');
+            totalGeneral += venta.total;
 
-            // ✨ CAMBIO: Añadimos las nuevas celdas (ID y Metodo de Pago)
+            // ✨ MEJORA: Quitamos el 'onclick' y usamos 'data-venta-id' para un código más limpio.
             tbody.innerHTML += `
-                <tr class="master-row" onclick="mostrarDetalleVenta(${venta.id}, this)">
+                <tr class="master-row" data-venta-id="${venta.id}">
                     <td>${venta.id}</td>
                     <td>${fecha}</td>
                     <td>${venta.cliente_nombre || 'Consumidor Final'}</td>
@@ -57,33 +74,29 @@ async function cargarHistorialVentas() {
             `;
         });
 
-        // ✨ NUEVO: Actualizamos el elemento del total en el tfoot
         totalEl.textContent = `$${totalGeneral.toFixed(2)}`;
 
     } catch (error) {
         console.error("Error en cargarHistorialVentas:", error);
-        // Podrías mostrar una notificación al usuario aquí
     }
 }
 
 export async function mostrarDetalleVenta(ventaId, masterRow) {
     const existingDetail = document.querySelector('.detail-row');
     if (existingDetail) existingDetail.remove();
-    
-    document.querySelectorAll('.master-row').forEach(row => row.classList.remove('active'));
 
-    if (masterRow.nextElementSibling && masterRow.nextElementSibling.classList.contains('detail-row')) {
-        // Si el detalle ya está abierto debajo de esta fila, simplemente lo cerramos y salimos.
+    if (masterRow.classList.contains('active')) {
+        masterRow.classList.remove('active');
         return;
     }
-    
+
+    document.querySelectorAll('.master-row').forEach(row => row.classList.remove('active'));
     masterRow.classList.add('active');
 
     const response = await fetch(`/api/ventas/${ventaId}/detalles`, { headers: getAuthHeaders() });
     const detalles = await response.json();
 
-    // ✨ CAMBIO: El colspan ahora es 6 para abarcar todas las columnas
-    let detailHtml = '<td colspan="6" style="background-color: #fafafa; padding: 20px;"><table style="width:100%"><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio Unit.</th></tr></thead><tbody>';
+    let detailHtml = '<td colspan="6"><table class="tabla-bonita" style="width:100%"><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio Unit.</th></tr></thead><tbody>';
     detalles.forEach(d => {
         detailHtml += `<tr><td>${d.nombre}</td><td>${d.cantidad}</td><td>$${d.precio_unitario.toFixed(2)}</td></tr>`;
     });
