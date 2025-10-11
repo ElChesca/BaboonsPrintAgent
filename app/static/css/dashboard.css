@@ -1,0 +1,106 @@
+/* Contenedor general de las secciones */
+.seccion-contenido-dinamico {
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-top: 20px; /* Espacio entre el selector de negocio y el dashboard */
+}
+
+/* Título principal del dashboard */
+.seccion-contenido-dinamico h2 {
+    color: #333;
+    font-size: 1.8em;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #007bff; /* Un toque de color */
+    padding-bottom: 10px;
+    display: flex; /* Para el icono */
+    align-items: center;
+    gap: 10px;
+}
+.seccion-contenido-dinamico h2::before {
+    content: ''; /* Aquí estaba tu icono, ahora lo ponemos directamente en el HTML */
+}
+
+/* Contenedor de las tarjetas de estadísticas */
+.dashboard-stats {
+    display: flex;
+    flex-wrap: wrap; /* Para que las tarjetas se envuelvan en pantallas pequeñas */
+    gap: 20px; /* Espacio entre las tarjetas */
+    margin-bottom: 40px;
+}
+
+/* Estilo individual de cada tarjeta de estadística */
+.stat-card {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px; /* Bordes más suaves */
+    padding: 25px;
+    text-align: center;
+    flex: 1; /* Las tarjetas ocupan el mismo espacio */
+    min-width: 250px; /* Ancho mínimo para cada tarjeta */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.08); /* Sombra más pronunciada */
+    transition: transform 0.2s ease-in-out; /* Animación al pasar el ratón */
+}
+
+.stat-card:hover {
+    transform: translateY(-5px); /* Pequeño efecto de elevación al pasar el ratón */
+}
+
+.stat-card h3 {
+    margin-top: 0;
+    color: #555;
+    font-size: 1.1em;
+    margin-bottom: 15px;
+}
+
+/* Valor numérico o monetario de la estadística */
+.stat-card p {
+    font-size: 2.8em; /* Más grande y llamativo */
+    font-weight: bold;
+    color: #007bff; /* Color primario de tu aplicación */
+    margin: 0;
+}
+
+/* Contenedor de la tabla de actividad reciente */
+.actividad-reciente {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 25px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+}
+
+.actividad-reciente h3 {
+    color: #333;
+    font-size: 1.5em;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+/* Estilos de la tabla (asumiendo que usas 'tabla-bonita' como clase) */
+.tabla-bonita {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.tabla-bonita thead tr {
+    background-color: #007bff;
+    color: white;
+}
+
+.tabla-bonita th,
+.tabla-bonita td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.tabla-bonita tbody tr:nth-child(even) {
+    background-color: #f2f2f2; /* Cebra para facilitar la lectura */
+}
+
+.tabla-bonita tbody tr:hover {
+    background-color: #e9ecef; /* Resaltar fila al pasar el ratón */
+}

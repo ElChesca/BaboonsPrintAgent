@@ -65,6 +65,9 @@ export function inicializarLogicaLogin() {
 
             localStorage.setItem('jwt_token', data.token);
             window.dispatchEvent(new Event('authChange'));
+            // Redirigir al dashboard después del login exitoso
+            const dashboardLink = document.querySelector('a[onclick*="dashboard.html"]');
+            window.loadContent(null, 'static/dashboard.html', dashboardLink);
 
         } catch (error) {
             errorMessageDiv.textContent = error.message || 'Error de conexión.';

@@ -1,21 +1,21 @@
+// app/static/js/modules/dashboard.js
 import { fetchData } from '../api.js';
-import { mostrarError } from './ui.js'; // Asumo que tienes una función así en un módulo 'ui.js'
-
+// ✨ 1. Importamos el estado global para saber qué negocio está activo
+import { appState } from '../main.js';
 
 async function cargarEstadisticas() {
     try {
-        // Seleccionamos los elementos aquí, dentro de la función,
-        // porque no existirán hasta que se cargue el HTML.
         const ventasHoyEl = document.getElementById('stat-ventas-hoy');
         const bajoStockEl = document.getElementById('stat-bajo-stock');
         const totalClientesEl = document.getElementById('stat-total-clientes');
-        const tablaActividadReciente = document.getElementById('tabla-actividad-reciente');
+        const tablaActividadReciente = document.querySelector('#tabla-actividad-reciente tbody');
         
-        // Si algún elemento no se encuentra, salimos para evitar errores.
         if (!ventasHoyEl || !bajoStockEl || !totalClientesEl || !tablaActividadReciente) return;
+        
+        // ✨ 2. Construimos la URL correcta con el ID del negocio activo
+        const stats = await fetchData(`/api/negocios/${appState.negocioActivoId}/dashboard/stats`);
 
-        const stats = await fetchData('/api/dashboard/stats');
-
+        // Ahora stats.ventas_hoy ya no será undefined
         ventasHoyEl.textContent = `$${stats.ventas_hoy.toFixed(2)}`;
         bajoStockEl.textContent = stats.productos_bajo_stock;
         totalClientesEl.textContent = stats.total_clientes;
@@ -29,7 +29,7 @@ async function cargarEstadisticas() {
                 const fila = `
                     <tr>
                         <td>${fecha}</td>
-                        <td>${venta.cliente_nombre}</td>
+                        <td>${venta.cliente_nombre || 'Consumidor Final'}</td>
                         <td>$${venta.total.toFixed(2)}</td>
                     </tr>
                 `;
@@ -37,12 +37,10 @@ async function cargarEstadisticas() {
             });
         }
     } catch (error) {
-        // mostrarError('No se pudieron cargar las estadísticas del dashboard.');
         console.error("Error al cargar stats del dashboard:", error);
     }
 }
 
-// initDashboard ahora es más simple: solo llama a la función de carga.
 export function inicializarLogicaDashboard() {
     cargarEstadisticas();
 }

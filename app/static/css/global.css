@@ -4,43 +4,40 @@ body {
     margin: 0; 
     background-color: #f0f2f5; 
 }
-
 header { 
     background-color: #2c3e50; 
     color: white; 
     padding: 15px 30px; 
     display: flex; 
     align-items: center; 
-    justify-content: space-between; /* Para separar el logo de la nav */
+    justify-content: space-between;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
+    position: sticky; /* Para que quede fija arriba */
+    top: 0;
+    z-index: 1000;
 }
-
 header h1 { 
     font-family: 'Bebas Neue', sans-serif; 
     margin: 0; 
     font-size: 1.8em; 
 }
-
 nav { 
-    display: flex; /* Usamos flexbox para alinear los items */
+    display: flex;
     align-items: center;
 }
-
 nav a { 
     color: white; 
     text-decoration: none; 
-    margin-left: 15px; /* Reducimos un poco el margen */
+    margin-left: 15px;
     font-weight: bold; 
     padding: 8px 12px; 
     border-radius: 5px; 
     transition: background-color 0.3s; 
-    white-space: nowrap; /* Evita que los nombres de los botones se partan */
+    white-space: nowrap;
 }
-
 nav a:hover, nav a.active { 
     background-color: #34495e; 
 }
-
 main { 
     padding: 30px; 
 }
@@ -74,54 +71,51 @@ main {
     display: block;
 }
 
-/* ... (Estilos de notificaciones y otros globales no cambian) ... */
-
 
 /* --- ✨ MEDIA QUERIES PARA RESPONSIVE ✨ --- */
-/* Para tablets y celulares grandes (hasta 900px) */
 @media (max-width: 900px) {
     header {
-        /* Hacemos que el logo y la nav se apilen verticalmente */
         flex-direction: column;
         align-items: flex-start;
         padding: 15px;
     }
 
     nav {
-        /* La barra de navegación ahora ocupa todo el ancho y puede hacer scroll horizontal */
         width: 100%;
-        overflow-x: auto; /* Permite deslizar los botones si no entran */
+        /* ✨ LA CORRECCIÓN CLAVE: Permite deslizar horizontalmente */
+        overflow-x: auto; 
         padding-top: 15px;
-        margin-left: -15px; /* Para alinear con el borde */
+        margin-left: -15px;
+        padding-left: 15px;
+        /* Estilo sutil para la barra de scroll en navegadores compatibles */
+        scrollbar-width: thin;
+        scrollbar-color: #34495e #2c3e50;
     }
 
-    nav a {
-        margin-left: 10px;
+    /* Ocultamos la barra de scroll por defecto para un look más limpio */
+    nav::-webkit-scrollbar {
+        height: 5px;
+    }
+    nav::-webkit-scrollbar-thumb {
+        background: #34495e;
+        border-radius: 10px;
     }
 
     main {
-        padding: 15px; /* Menos padding en pantallas chicas */
+        padding: 15px;
     }
-
-    /* Las grillas de 2 columnas se convierten en 1 columna */
     .main-grid, .venta-grid {
         grid-template-columns: 1fr;
     }
 }
-
-/* Para celulares (hasta 600px) */
 @media (max-width: 600px) {
     header h1 {
-        font-size: 1.5em; /* Título un poco más pequeño */
+        font-size: 1.5em;
     }
-
-    /* Reducimos el padding de los botones para que entren más */
     nav a {
         padding: 8px 10px;
         font-size: 0.9em;
     }
-
-    /* Ajustamos la barra del selector de negocio */
     #business-selector-bar {
         flex-direction: column;
         align-items: flex-start;
