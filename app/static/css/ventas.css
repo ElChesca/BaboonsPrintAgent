@@ -35,17 +35,17 @@
 }
 
 /* --- GRILLA PRINCIPAL --- */
+/* --- GRILLA PRINCIPAL --- */
 .pos-main-grid {
     display: grid;
-    grid-template-columns: 1fr; /* Una sola columna para apilar todo */
+    grid-template-columns: 1fr;
     gap: 15px;
 }
 .venta-panel {
     display: flex;
     flex-direction: column;
-    gap: 15px; /* Espacio entre las tarjetas de esta columna */
+    gap: 15px;
 }
-
 /* ✨ Punto 2: Estilo de botones para Acceso Rápido */
 #pos-grid-container { 
     display: grid; 
@@ -94,9 +94,8 @@
 /* Tabla Elegante y Compacta */
 .tabla-contenedor-venta {
     overflow-y: auto;
-    height: 50vh; /* Altura fija para la tabla, con scroll si es necesario */
+    height: 35vh; /* Reducimos la altura para que sea más compacta */
 }
-
 .tabla-venta-elegante {
     width: 100%;
     border-collapse: collapse;
@@ -164,6 +163,30 @@
 }
 #pos-grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
 /* Removed empty ruleset for .pos-item */
+
+/* ✨ 1. NUEVOS ESTILOS PARA EL INTERRUPTOR Y SU CONTENEDOR ✨ */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+.panel-header h3 {
+    margin: 0;
+}
+.switch-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9em;
+    color: #555;
+}
+.switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
+.slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: #28a745; }
+input:checked + .slider:before { transform: translateX(22px); }
 
 /* --- RESPONSIVE --- */
 @media (max-width: 1024px) {
