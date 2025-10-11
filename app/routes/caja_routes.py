@@ -10,9 +10,6 @@ bp = Blueprint('caja', __name__)
 @token_required
 def get_estado_caja(current_user, negocio_id):
     db = get_db()
-    
-    # ✨ LA MEJORA CLAVE ESTÁ AQUÍ:
-    # Hacemos un JOIN para traer el nombre del usuario en la misma consulta.
     query = """
         SELECT 
             cs.*, 
@@ -30,7 +27,7 @@ def get_estado_caja(current_user, negocio_id):
     if sesion_abierta:
         return jsonify({
             'estado': 'abierta',
-            'sesion': dict(sesion_abierta) # Devolvemos la sesión con el 'usuario_nombre' incluido
+            'sesion': dict(sesion_abierta)
         })
     else:
         return jsonify({'estado': 'cerrada'})
@@ -66,41 +63,62 @@ def cerrar_caja(current_user, negocio_id):
     if not sesion_abierta:
         return jsonify({'error': 'No hay ninguna caja abierta para cerrar'}), 404
 
+    # ✨ CORRECCIÓN 1: Definimos la variable 'sesion_id' a partir de la sesión que ya encontramos.
+    sesion_id = sesion_abierta['id']
+
     data = request.get_json()
     monto_final_contado = data.get('monto_final_contado')
     if monto_final_contado is None:
         return jsonify({'error': 'El monto final contado es obligatorio'}), 400
 
     try:
-        db.execute('SELECT metodo_pago, SUM(total) as total_por_metodo FROM ventas WHERE caja_sesion_id = %s GROUP BY metodo_pago', (sesion_abierta['id'],))
+        # --- OBTENEMOS TODOS LOS DATOS PARA EL CÁLCULO ---
+
+        # 1. Ventas de la sesión
+        db.execute('SELECT metodo_pago, SUM(total) as total_por_metodo FROM ventas WHERE caja_sesion_id = %s GROUP BY metodo_pago', (sesion_id,))
         desglose_pagos_rows = db.fetchall()
         desglose_pagos = {row['metodo_pago']: float(row['total_por_metodo']) for row in desglose_pagos_rows}
         
-        total_efectivo = desglose_pagos.get('Efectivo', 0.0)
+        # 2. Ajustes de Ingreso/Egreso de la sesión
+        db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM caja_ajustes WHERE caja_sesion_id = %s AND tipo = 'Ingreso'", (sesion_id,))
+        total_ingresos_ajuste = db.fetchone()['total']
+
+        db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM caja_ajustes WHERE caja_sesion_id = %s AND tipo = 'Egreso'", (sesion_id,))
+        total_egresos_ajuste = db.fetchone()['total']
+
+        # --- REALIZAMOS LOS CÁLCULOS ---
         monto_inicial = float(sesion_abierta['monto_inicial'])
-        monto_final_esperado = monto_inicial + total_efectivo
+        # ✨ CORRECCIÓN 2: Usamos la variable correcta 'total_efectivo' que ya habías definido.
+        total_efectivo = desglose_pagos.get('Efectivo', 0.0)
+        
+        monto_final_esperado = (monto_inicial + total_efectivo + total_ingresos_ajuste) - total_egresos_ajuste
         diferencia = float(monto_final_contado) - monto_final_esperado
 
+        # --- ACTUALIZAMOS LA BASE DE DATOS ---
         db.execute(
             "UPDATE caja_sesiones SET fecha_cierre = %s, monto_final_contado = %s, monto_final_esperado = %s, diferencia = %s WHERE id = %s",
-            (datetime.datetime.now(), monto_final_contado, monto_final_esperado, diferencia, sesion_abierta['id'])
+            (datetime.datetime.now(), monto_final_contado, monto_final_esperado, diferencia, sesion_id)
         )
         
-        # ✨ MEJORA: Transacción completada exitosamente
         g.db_conn.commit()
 
+        # --- PREPARAMOS LA RESPUESTA ---
+        resumen = {
+            'monto_inicial': monto_inicial,
+            'desglose_pagos': desglose_pagos,
+            'total_ingresos_ajuste': total_ingresos_ajuste,
+            'total_egresos_ajuste': total_egresos_ajuste,
+            'monto_final_esperado': monto_final_esperado,
+            'monto_final_contado': float(monto_final_contado),
+            'diferencia': diferencia
+        }
+
+        # ✨ CORRECCIÓN 3: La sintaxis para devolver el JSON del resumen es con ':'
         return jsonify({
             'message': 'Caja cerrada con éxito',
-            'resumen': {
-                'monto_inicial': monto_inicial,
-                'desglose_pagos': desglose_pagos,
-                'monto_final_esperado': monto_final_esperado,
-                'monto_final_contado': float(monto_final_contado),
-                'diferencia': diferencia
-            }
+            'resumen': resumen
         })
     except Exception as e:
-        # ✨ MEJORA: Si algo falla, revertimos los cambios.
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 

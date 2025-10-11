@@ -67,7 +67,7 @@ function inicializarModulo(page) {
     if (page.includes('reporte_caja.html')) inicializarLogicaReporteCaja();
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
-    if (page.includes('reportes.html')) inicializarLogicaReportes();
+    if (page.includes('reportes.html')) inicializarLogicaReportes();    
 }
 
 // --- ✨ FUNCIÓN RESTAURADA ---
