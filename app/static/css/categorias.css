@@ -1,4 +1,4 @@
-/* --- ESTILOS GENERALES DEL MÓDULO DE CLIENTES --- */
+/* --- ESTILOS GENERALES DEL MÓDULO DE CATEGORÍAS --- */
 
 /* La grilla principal que divide el formulario y la lista */
 .main-grid {
@@ -7,19 +7,19 @@
     gap: 25px;
 }
 
-/* --- ESTILOS PARA EL FORMULARIO DE CLIENTE --- */
-#form-cliente .form-group {
+/* --- ESTILOS PARA EL FORMULARIO DE CATEGORÍA --- */
+#form-categoria .form-group {
     margin-bottom: 20px;
 }
 
-#form-cliente label {
+#form-categoria label {
     display: block;
     margin-bottom: 5px;
     font-weight: bold;
     color: #555;
 }
 
-#form-cliente input {
+#form-categoria input {
     width: 100%;
     padding: 12px;
     border: 1px solid #ccc;
@@ -29,26 +29,14 @@
 }
 
 /* Contenedor para los botones de guardar y cancelar */
-#form-cliente .form-actions {
+#form-categoria .form-actions {
     display: flex;
     gap: 10px; /* Espacio entre los botones */
     margin-top: 20px;
 }
 
-/* --- ESTILOS PARA LA LISTA DE CLIENTES --- */
+/* --- ESTILOS PARA LA LISTA DE CATEGORÍAS --- */
 
-/* Estilo para el campo de búsqueda */
-#buscador-clientes {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    box-sizing: border-box;
-    font-size: 1em;
-    margin-bottom: 20px;
-}
-
-/* Estilos para la tabla */
 .tabla-bonita {
     width: 100%;
     border-collapse: collapse;
@@ -59,12 +47,10 @@
     padding: 12px 15px;
     text-align: left;
     border-bottom: 1px solid #ddd;
-    /* Evita que el texto largo rompa el diseño */
-    word-break: break-word; 
 }
 
 .tabla-bonita thead th {
-    background-color: #007bff; /* Azul para clientes */
+    background-color: #17a2b8; /* Un color cian/turquesa para categorías */
     color: white;
 }
 
@@ -91,24 +77,9 @@
 
 /* --- ✨ MEDIA QUERIES PARA RESPONSIVE ✨ --- */
 
-/* Para tablets y dispositivos intermedios */
 @media (max-width: 900px) {
     .main-grid {
         /* Apilamos el formulario y la lista en una sola columna */
         grid-template-columns: 1fr;
-    }
-}
-
-/* Para celulares */
-@media (max-width: 768px) {
-    .tabla-contenedor {
-        /* Permite que la tabla haga scroll horizontal en su propio contenedor */
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .tabla-bonita {
-        /* Forzamos un ancho mínimo para que el scroll se active si es necesario */
-        min-width: 700px; 
     }
 }

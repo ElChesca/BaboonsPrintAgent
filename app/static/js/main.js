@@ -16,6 +16,9 @@ import { inicializarLogicaCaja } from './modules/caja.js';
 import { inicializarLogicaReporteCaja, mostrarDetallesCaja } from './modules/reporte_caja.js';
 import { inicializarLogicaReporteGanancias } from './modules/reporte_ganancias.js';
 import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from './modules/proveedores.js';
+import { inicializarLogicaAjusteCaja } from './modules/ajuste_caja.js';
+import { inicializarLogicaHistorialAjustes } from './modules/historial_ajustes.js';
+
 
 // --- ESTADO GLOBAL ---
 export const appState = {
@@ -68,6 +71,9 @@ function inicializarModulo(page) {
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
     if (page.includes('reportes.html')) inicializarLogicaReportes();    
+    if (page.includes('ajuste_caja.html')) inicializarLogicaAjusteCaja();
+    if (page.includes('historial_ajustes.html')) inicializarLogicaHistorialAjustes();
+    
 }
 
 // --- ✨ FUNCIÓN RESTAURADA ---

@@ -1,71 +1,74 @@
-<div class="venta-grid">
-    <div class="card">
-        <h2>Acceso Rápido</h2>
-        <div id="pos-grid-container">
-            </div>
-
-        <h2>Añadir Producto a la Venta</h2>
+<div class="venta-container">
+    
+    <div class="card venta-header">
         <form id="form-add-item-venta">
-            <div class="add-item-controls">
-                <div class="form-group search-container">
-                    <label for="venta-producto-input">Buscar Producto:</label>
-                    <input type="text" id="venta-producto-input" autocomplete="off" placeholder="Escriba para buscar...">
-                    <div id="search-results-venta" style="display: none;"></div>
-                </div>
-                <div class="form-group">
-                    <label for="venta-item-cantidad">Cantidad:</label>
-                    <input type="number" id="venta-item-cantidad" step="any" value="1" required>
-                </div>
-                <button type="submit" class="btn-primary">Añadir</button>
+            <div class="form-group search-container">
+                <label for="venta-producto-input">Buscar Producto por Nombre o Código:</label>
+                <input type="text" id="venta-producto-input" autocomplete="off" placeholder="Escriba para buscar...">
+                <div id="search-results-venta" style="display: none;"></div>
             </div>
+            <div class="form-group">
+                <label for="venta-item-cantidad">Cantidad:</label>
+                <input type="number" id="venta-item-cantidad" step="any" value="1" required>
+            </div>
+            <button type="submit" class="btn-primary">Añadir</button>
         </form>
     </div>
 
-    <div class="card">
-        <h2>Venta Actual</h2>
-        <div id="info-caja-activa" class="caja-info-banner">Cargando estado de la caja...</div>
+    <div class="venta-main-grid">
+        
+        <div class="card venta-actual-panel">
+            <h3>Venta Actual</h3>
+            <div id="info-caja-activa" class="caja-info-banner">Cargando estado de la caja...</div>
+            <div class="tabla-contenedor">
+                <table id="staged-items-venta">
+                    <thead><tr><th>Producto</th><th>Cant.</th><th>Precio U.</th><th>Subtotal</th><th>Acc.</th></tr></thead>
+                    <tbody></tbody>
+                    <tfoot><tr><th colspan="3">TOTAL:</th><th id="venta-total">$0.00</th><th></th></tr></tfoot>
+                </table>
+            </div>
+        </div>
 
+        <div class="card pos-panel">
+            <h3>Acceso Rápido</h3>
+            <div id="pos-grid-container">
+                </div>
+        </div>
+
+    </div>
+
+    <div class="card venta-finalization-panel">
         <form id="form-finalize-venta">
-            <div class="form-group">
-                <label for="cliente-selector">Cliente:</label>
-                <select id="cliente-selector">
-                    <option value="">Consumidor Final</option>
-                </select>
-            </div>
-
-            <table id="staged-items-venta">
-                <thead><tr><th>Producto</th><th>Cant.</th><th>Precio U.</th><th>Subtotal</th><th>Acc.</th></tr></thead>
-                <tbody></tbody>
-                <tfoot><tr><th colspan="3">TOTAL:</th><th id="venta-total">$0.00</th><th></th></tr></tfoot>
-            </table>
-            
-            <div class="form-group" style="margin-top: 15px;">
-                <label for="metodo-pago-selector">Forma de Pago:</label>
-                <select id="metodo-pago-selector" name="metodo_pago">
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="MP">Mercado Pago</option>
-                    <option value="Tarjeta">Tarjeta</option>
-                    <option value="Debito">Débito</option>
-                    <option value="Transf.">Transferencia</option>
-                </select>
-            </div>
-            
-            <div id="calculo-vuelto-container" style="display: block;"> <div class="form-group">
+            <div class="finalization-controls">
+                <div class="form-group">
+                    <label for="cliente-selector">Cliente:</label>
+                    <select id="cliente-selector">
+                        <option value="">Consumidor Final</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="metodo-pago-selector">Forma de Pago:</label>
+                    <select id="metodo-pago-selector" name="metodo_pago">
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="MP">Mercado Pago</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Debito">Débito</option>
+                        <option value="Transf.">Transferencia</option>
+                    </select>
+                </div>
+                <div id="calculo-vuelto-container" class="form-group">
                     <label for="paga-con-input">Paga con:</label>
                     <input type="number" id="paga-con-input" step="any" placeholder="Monto del cliente...">
-                </div>
-                <div class="vuelto-display">
-                    <span>Vuelto:</span>
-                    <span id="vuelto-monto">$0.00</span>
+                    <div class="vuelto-display">
+                        <span>Vuelto:</span>
+                        <span id="vuelto-monto">$0.00</span>
+                    </div>
                 </div>
             </div>
 
-            <div id="pago-detalles-container" style="display: none;">
-                </div>
-            
-            <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
-                <button type="submit" id="btn-finalize-sale" class="btn-primary" style="flex-grow: 1;">Finalizar Venta</button>
-                <button type="submit" id="btn-finalize-and-print" class="btn-secondary" style="flex-grow: 1;">Finalizar e Imprimir Ticket</button>
+            <div class="form-actions">
+                <button type="button" id="btn-finalize-sale" class="btn-primary">Cobrar</button>
+                <button type="button" id="btn-finalize-and-print" class="btn-secondary">Cobrar e Imprimir</button>
             </div>
         </form>
     </div>
