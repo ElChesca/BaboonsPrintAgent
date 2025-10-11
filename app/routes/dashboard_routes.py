@@ -3,17 +3,14 @@ from app.database import get_db
 from app.auth_decorator import token_required
 
 bp = Blueprint('dashboard', __name__)
-
 @bp.route('/negocios/<int:negocio_id>/dashboard/stats', methods=['GET'])
 @token_required
 def get_dashboard_stats(current_user, negocio_id):
     db = get_db()
-    
     try:
-        # ✨ CORRECCIÓN: Buscamos ventas en las últimas 24 horas en lugar de 'hoy'.
-        # La sintaxis 'NOW() - INTERVAL '24 hours'' es estándar en PostgreSQL (usado por Render).
+        # ✨ CORRECCIÓN: Hacemos la consulta consciente de la zona horaria de Argentina.
         db.execute(
-            "SELECT SUM(total) as total FROM ventas WHERE negocio_id = %s AND fecha >= NOW() - INTERVAL '24 hours'",
+            "SELECT SUM(total) as total FROM ventas WHERE negocio_id = %s AND fecha AT TIME ZONE 'America/Argentina/San_Luis' >= NOW() - INTERVAL '24 hours'",
             (negocio_id,)
         )
         ventas_row = db.fetchone()
@@ -38,22 +35,20 @@ def get_dashboard_stats(current_user, negocio_id):
             'actividad_reciente': [dict(row) for row in ultimas_ventas]
         }
         return jsonify(stats)
-        
     except Exception as e:
         print(f"Error en get_dashboard_stats: {e}")
         return jsonify({'error': 'Ocurrió un error en el servidor al obtener las estadísticas.'}), 500
-    
+
 
 # --- ✨ NUEVA RUTA PARA MÉTODOS DE PAGO ---
 @bp.route('/negocios/<int:negocio_id>/dashboard/payment_methods', methods=['GET'])
 @token_required
 def get_payment_methods_stats(current_user, negocio_id):
     db = get_db()
-    # Agrupamos las ventas de los últimos 30 días por método de pago y sumamos sus totales
     query = """
         SELECT metodo_pago, SUM(total) as total
-        FROM ventas
-        WHERE negocio_id = %s AND fecha >= NOW() - INTERVAL '30 days'
+        FROM ventas        
+        WHERE negocio_id = %s AND fecha AT TIME ZONE 'America/Argentina/San_Luis' >= NOW() - INTERVAL '30 days'
         GROUP BY metodo_pago
         ORDER BY total DESC;
     """
@@ -62,20 +57,17 @@ def get_payment_methods_stats(current_user, negocio_id):
     return jsonify([dict(row) for row in data])
 
 
-# --- ✨ NUEVA RUTA PARA RANKING DE CATEGORÍAS ---
 @bp.route('/negocios/<int:negocio_id>/dashboard/category_ranking', methods=['GET'])
 @token_required
 def get_category_ranking(current_user, negocio_id):
     db = get_db()
-    # Hacemos un JOIN complejo para llegar desde la venta hasta la categoría y sumar los subtotales.
-    # Limitamos a las 5 categorías más vendidas en los últimos 30 días.
     query = """
         SELECT c.nombre, SUM(vd.subtotal) as total
         FROM ventas_detalle vd
         JOIN productos p ON vd.producto_id = p.id
         JOIN categorias c ON p.categoria_id = c.id
-        JOIN ventas v ON vd.venta_id = v.id
-        WHERE v.negocio_id = %s AND v.fecha >= NOW() - INTERVAL '30 days'
+        JOIN ventas v ON vd.venta_id = v.id        
+        WHERE v.negocio_id = %s AND v.fecha AT TIME ZONE 'America/Argentina/San_Luis' >= NOW() - INTERVAL '30 days'
         GROUP BY c.nombre
         ORDER BY total DESC
         LIMIT 5;

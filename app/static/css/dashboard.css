@@ -104,3 +104,19 @@
 .tabla-bonita tbody tr:hover {
     background-color: #e9ecef; /* Resaltar fila al pasar el ratón */
 }
+
+/* ✨ NUEVO: Estilos para la grilla de informes */
+.dashboard-grid {
+    display: grid;
+    /* Dos columnas de igual tamaño */
+    grid-template-columns: 1fr 1fr; 
+    gap: 20px;
+    margin-top: 20px;
+}
+
+/* Hacemos que la grilla sea responsiva en celulares */
+@media (max-width: 900px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr; /* Una sola columna */
+    }
+}
