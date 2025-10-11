@@ -89,3 +89,4 @@ def get_historial_ajustes(current_user, negocio_id):
     except Exception as e:
         print(f"Error en get_historial_ajustes: {e}")
         return jsonify({'error': 'Ocurrió un error al obtener el historial de ajustes.'}), 500
+    
