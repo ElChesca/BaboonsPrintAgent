@@ -4,8 +4,12 @@ import { appState } from '../main.js';
 async function cargarHistorialAjustes() {
     if (!appState.negocioActivoId) return;
 
+    // El selector busca el tbody dentro de la tabla con el ID correcto.
     const tablaBody = document.querySelector('#tabla-historial-ajustes tbody');
-    if (!tablaBody) return;
+    if (!tablaBody) {
+        console.error("Error: No se encontró el elemento 'tbody' de la tabla de historial de ajustes.");
+        return;
+    }
     
     const fechaDesde = document.getElementById('fecha-desde-ajustes').value;
     const fechaHasta = document.getElementById('fecha-hasta-ajustes').value;
@@ -19,6 +23,7 @@ async function cargarHistorialAjustes() {
     }
 
     try {
+        // Si llegamos aquí, la petición a la API se disparará.
         const ajustes = await fetchData(url);
         tablaBody.innerHTML = '';
         if (ajustes.length === 0) {
@@ -28,12 +33,12 @@ async function cargarHistorialAjustes() {
 
         ajustes.forEach(ajuste => {
             const fecha = new Date(ajuste.fecha).toLocaleString('es-AR');
-            // La lógica clave: si fecha_cierre existe, está "Rendida".
             const estado = ajuste.fecha_cierre 
                 ? '<span class="status-badge status-rendida">Rendida</span>' 
                 : '<span class="status-badge status-pendiente">Pendiente</span>';
             
-            const tipoClase = ajuste.tipo === 'Ingreso' ? 'text-success' : 'text-danger';
+            const montoClase = ajuste.tipo === 'Ingreso' ? 'text-success' : 'text-danger';
+            const montoSigno = ajuste.tipo === 'Ingreso' ? '+' : '-';
 
             const fila = `
                 <tr>
@@ -41,7 +46,7 @@ async function cargarHistorialAjustes() {
                     <td>${ajuste.usuario_nombre}</td>
                     <td>${ajuste.concepto}</td>
                     <td>${ajuste.tipo}</td>
-                    <td class="${tipoClase}">${ajuste.monto.toFixed(2)}</td>
+                    <td class="${montoClase}">${montoSigno} $${ajuste.monto.toFixed(2)}</td>
                     <td>${estado}</td>
                 </tr>
             `;

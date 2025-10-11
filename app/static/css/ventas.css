@@ -1,98 +1,146 @@
-/* --- NUEVA ESTRUCTURA GENERAL DEL MÓDULO DE VENTAS --- */
-.venta-container {
+/* --- NUEVA ESTRUCTURA GENERAL DEL POS --- */
+.pos-container {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px; /* Espacio entre las secciones principales */
 }
 
-/* 1. CABECERA DE BÚSQUEDA */
+/* Recuadro Verde: Banner de estado de caja */
+.caja-info-banner {
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-size: 0.9em;
+    text-align: center;
+    border-left: 4px solid;
+    margin-bottom: 0; /* Quitamos el margen inferior que tenía antes */
+}
+.caja-info-banner.abierta { background-color: #e7f4e8; border-color: #28a745; color: #155724; }
+.caja-info-banner.cerrada { background-color: #f8d7da; border-color: #dc3545; color: #721c24; font-weight: bold; }
+
+/* Recuadro Rojo: Cabecera de búsqueda */
 .venta-header form {
     display: flex;
     align-items: flex-end;
     gap: 15px;
 }
 .venta-header .search-container {
-    flex-grow: 1; /* El buscador ocupa el espacio principal */
+    flex-grow: 1;
 }
 .venta-header #venta-item-cantidad {
-    width: 80px;
+    width: 90px;
 }
-.venta-header .btn-primary {
-    /* Quitamos el margen superior para que se alinee con los inputs */
-    margin-top: 0; 
+.btn-add-item {
+    padding: 10px 20px !important; /* Estilo más lindo y prominente */
+    font-weight: bold;
 }
 
-/* 2. GRILLA CENTRAL (VENTA ACTUAL vs ACCESO RÁPIDO) */
-.venta-main-grid {
+/* --- GRILLA PRINCIPAL --- */
+.pos-main-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr; /* La venta actual ocupa 2/3, el POS 1/3 */
-    gap: 20px;
+    grid-template-columns: 2.5fr 1fr; /* Damos más espacio al panel de venta */
+    gap: 15px;
+    align-items: flex-start; /* Alinea los paneles por arriba */
 }
-.venta-actual-panel {
+
+/* Columna Izquierda: Panel de Venta (Amarillo + Azul) */
+.venta-panel {
     display: flex;
     flex-direction: column;
-}
-.venta-actual-panel .tabla-contenedor {
-    flex-grow: 1; /* La tabla ocupa todo el espacio vertical disponible */
-    overflow-y: auto; /* Permite scroll si hay muchos items */
-    max-height: 45vh; /* Altura máxima para evitar que crezca demasiado */
+    padding: 0 !important; /* El padding lo manejarán los elementos internos */
+    overflow: hidden; /* Para que los bordes redondeados se apliquen bien */
 }
 
-/* 3. PANEL DE FINALIZACIÓN */
-.venta-finalization-panel form {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
+/* Tabla Elegante y Compacta */
+.tabla-contenedor-venta {
+    overflow-y: auto;
+    height: 50vh; /* Altura fija para la tabla, con scroll si es necesario */
+}
+.tabla-venta-elegante {
+    width: 100%;
+    border-collapse: collapse;
+}
+.tabla-venta-elegante th, .tabla-venta-elegante td {
+    padding: 10px 15px; /* Padding compacto */
+    text-align: left;
+}
+.tabla-venta-elegante thead th {
+    background-color: #f8f9fa; /* Un gris muy claro */
+    color: #333;
+    border-bottom: 2px solid #dee2e6;
+    position: sticky; /* Cabecera fija al hacer scroll */
+    top: 0;
+}
+.tabla-venta-elegante tbody tr:nth-child(even) {
+    background-color: #f8f9fa; /* Efecto de filas alternadas */
+}
+.tabla-venta-elegante td {
+    border-bottom: 1px solid #e9ecef; /* Líneas de separación muy sutiles */
+}
+.tabla-venta-elegante .btn-quitar {
+    padding: 4px 8px; font-size: 0.8em;
+}
+
+/* Footer de la Venta (Azul) */
+.venta-footer {
+    border-top: 2px solid #dee2e6;
+    padding: 15px;
+    background-color: #f8f9fa;
+}
+.venta-total-display {
+    text-align: right;
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #007bff;
+    margin-bottom: 15px;
+}
+.venta-total-display span {
+    font-size: 0.6em;
+    color: #6c757d;
+    display: block;
+    margin-bottom: -10px;
 }
 .finalization-controls {
-    display: flex;
-    flex-grow: 1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 4 columnas para los controles */
     gap: 15px;
+    align-items: flex-end;
 }
 .finalization-controls .form-group {
-    flex: 1; /* Cada control ocupa un espacio similar */
-    margin-bottom: 0;
+    margin: 0;
 }
-.venta-finalization-panel .form-actions {
+.finalization-controls .form-actions {
     display: flex;
     gap: 10px;
 }
-
-/* --- ESTILOS COMPLEMENTARIOS (LA MAYORÍA YA LOS TENÍAS) --- */
-.caja-info-banner { /* Estilo compacto */
-    padding: 8px 12px; margin-bottom: 15px; border-radius: 5px; font-size: 0.85em; text-align: center;
-    border-left: 5px solid;
-}
-.caja-info-banner.abierta { background-color: #e7f4e8; border-color: #28a745; color: #155724; }
-.caja-info-banner.cerrada { background-color: #f8d7da; border-color: #dc3545; color: #721c24; font-weight: bold; }
-
 #calculo-vuelto-container { display: block; }
-#calculo-vuelto-container .vuelto-display { font-weight: bold; margin-top: 10px; font-size: 1.1em; }
-#calculo-vuelto-container #vuelto-monto { margin-left: 5px; }
+#calculo-vuelto-container .vuelto-display { font-weight: bold; margin-top: 5px; font-size: 0.9em; }
 
-#pos-grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
-.pos-item { background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: all 0.2s ease; display: flex; flex-direction: column; justify-content: space-between; height: 80px; }
-.pos-item:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-color: #007bff; }
-.pos-item-name { font-weight: bold; font-size: 0.85em; flex-grow: 1; }
-.pos-item-price { font-size: 0.9em; color: #28a745; font-weight: bold; }
+/* Columna Derecha: Sidebar de Acceso Rápido */
+.pos-sidebar {
+    position: sticky; /* El sidebar se queda fijo al hacer scroll */
+    top: 95px; /* Espacio para el header de la app y la barra de negocio */
+}
+#pos-grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
+.pos-item { /* Estilos sin cambios */ }
 
 /* --- RESPONSIVE --- */
-@media (max-width: 900px) {
-    .venta-main-grid {
+@media (max-width: 1024px) {
+    .pos-main-grid {
         grid-template-columns: 1fr; /* Se apila la venta y el POS */
     }
-    .venta-finalization-panel form {
-        flex-direction: column;
-        align-items: stretch;
+    .pos-sidebar {
+        position: static; /* El sidebar deja de ser fijo */
     }
     .finalization-controls {
-        flex-direction: column;
+        grid-template-columns: 1fr 1fr; /* 2 columnas en pantallas medianas */
     }
 }
 @media (max-width: 600px) {
     .venta-header form {
         flex-direction: column;
         align-items: stretch;
+    }
+    .finalization-controls {
+        grid-template-columns: 1fr; /* 1 columna en celulares */
     }
 }
