@@ -18,10 +18,18 @@
     </div>
 
     <div class="pos-main-grid">
-
         <div class="venta-panel">
             <div class="card">
-                <h3>Acceso Rápido</h3>
+                <div class="panel-header">
+                    <h3>Acceso Rápido</h3>
+                    <div class="switch-container">
+                        <label for="toggle-acceso-rapido">Mostrar</label>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-acceso-rapido" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
                 <div id="pos-grid-container"></div>
             </div>
             
@@ -49,7 +57,13 @@
                     </div>
                     <div class="form-group">
                         <label for="metodo-pago-selector">Forma de Pago</label>
-                        <select id="metodo-pago-selector" name="metodo_pago"></select>
+                        <select id="metodo-pago-selector" name="metodo_pago">
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="MP">Mercado Pago</option>
+                            <option value="Tarjeta">Tarjeta</option>
+                            <option value="Debito">Débito</option>
+                            <option value="Transf.">Transferencia</option>
+                        </select>
                     </div>
                     <div id="calculo-vuelto-container" class="form-group">
                         <label for="paga-con-input">Paga con</label>
