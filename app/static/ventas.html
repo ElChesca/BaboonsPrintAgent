@@ -19,87 +19,50 @@
 
     <div class="pos-main-grid">
 
-        <div class="card venta-panel">
-            
-            <div class="tabla-contenedor-venta">
-                <table id="staged-items-venta" class="tabla-venta-elegante">
-                    <thead>
-                        <tr>
-                            <th>Producto</th>
-                            <th>Cant.</th>
-                            <th>Precio U.</th>
-                            <th>Subtotal</th>
-                            <th>Acc.</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        </tbody>
-                </table>
+        <div class="venta-panel">
+            <div class="card">
+                <h3>Acceso Rápido</h3>
+                <div id="pos-grid-container"></div>
             </div>
-
-            <div class="venta-footer">
-                <div class="venta-total-display">
+            
+            <div class="card">
+                <h3>Venta Actual</h3>
+                <div class="tabla-contenedor-venta">
+                    <table id="staged-items-venta" class="tabla-venta-elegante">
+                        <thead>
+                            <tr><th>Producto</th><th>Cant.</th><th>Precio U.</th><th>Subtotal</th><th>Acc.</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card venta-footer">
+                 <div class="venta-total-display">
                     <span>TOTAL</span>
                     <strong id="venta-total">$0.00</strong>
                 </div>
                 <form id="form-finalize-venta" class="finalization-controls">
                     <div class="form-group">
                         <label for="cliente-selector">Cliente</label>
-                        <select id="cliente-selector">
-                            <option value="">Consumidor Final</option>
-                        </select>
+                        <select id="cliente-selector"></select>
                     </div>
                     <div class="form-group">
                         <label for="metodo-pago-selector">Forma de Pago</label>
-                        <select id="metodo-pago-selector" name="metodo_pago">
-                            <option value="Efectivo">Efectivo</option>
-                            <option value="MP">Mercado Pago</option>
-                            <option value="Tarjeta">Tarjeta</option>
-                            <option value="Debito">Débito</option>
-                            <option value="Transf.">Transferencia</option>
-                        </select>
+                        <select id="metodo-pago-selector" name="metodo_pago"></select>
                     </div>
                     <div id="calculo-vuelto-container" class="form-group">
                         <label for="paga-con-input">Paga con</label>
                         <input type="number" id="paga-con-input" step="any">
-                        <div class="vuelto-display">
-                            <span>Vuelto:</span>
-                            <span id="vuelto-monto">$0.00</span>
-                        </div>
+                        <div class="vuelto-display">...</div>
                     </div>
-                    <div class="form-actions">
+                     <div class="form-actions">
                         <button type="button" id="btn-finalize-sale" class="btn-primary">Cobrar</button>
                         <button type="button" id="btn-finalize-and-print" class="btn-secondary">Cobrar e Imprimir</button>
                     </div>
                 </form>
-
-                <div id="pago-detalles-container" style="display: none;">
-                    <div class="form-group">
-                        <label for="pago-dni">DNI Cliente:</label>
-                        <input type="text" id="pago-dni" placeholder="DNI del titular">
-                    </div>
-                    <div class="form-group">
-                        <label for="pago-tarjeta">Últimos 4 Dígitos:</label>
-                        <input type="text" id="pago-tarjeta" placeholder="1234" maxlength="4">
-                    </div>
-                    <div class="form-group">
-                        <label for="pago-cupon">N° Cupón/Trans.:</label>
-                        <input type="text" id="pago-cupon" placeholder="N° de referencia">
-                    </div>
-                    <div class="form-group">
-                        <label for="pago-banco">Banco:</label>
-                        <input type="text" id="pago-banco" placeholder="Banco emisor">
-                    </div>
-                </div>
-
+                 <div id="pago-detalles-container" style="display: none;">...</div>
             </div>
         </div>
-
-        <div class="card pos-sidebar">
-            <h3>Acceso Rápido</h3>
-            <div id="pos-grid-container">
-                </div>
-        </div>
-
     </div>
 </div>

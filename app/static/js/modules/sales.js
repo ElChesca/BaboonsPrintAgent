@@ -44,9 +44,29 @@ async function cargarDatosIniciales() {
         mostrarNotificacion('Error al cargar datos iniciales de ventas: ' + error.message, 'error');
     }
 }
+// ✨ Añadimos la función para verificar el estado de la caja.
+async function verificarEstadoCaja() {
+    const infoCajaEl = document.getElementById('info-caja-activa');
+    if (!infoCajaEl) return;
+    try {
+        const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/caja/estado`);
+        if (data.estado === 'abierta') {
+            const fechaApertura = new Date(data.sesion.fecha_apertura).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+            infoCajaEl.textContent = `Caja abierta por ${data.sesion.usuario_nombre} a las ${fechaApertura}`;
+            infoCajaEl.className = 'caja-info-banner abierta';
+        } else {
+            infoCajaEl.textContent = '¡ATENCIÓN! La caja está cerrada. No se pueden registrar ventas.';
+            infoCajaEl.className = 'caja-info-banner cerrada';
+        }
+    } catch (error) {
+        infoCajaEl.textContent = 'No se pudo verificar el estado de la caja.';
+        infoCajaEl.className = 'caja-info-banner cerrada';
+    }
+}
 
 export function inicializarLogicaVentas() {
     // 1. Carga los datos necesarios de la API
+    verificarEstadoCaja();
     cargarDatosIniciales();
     // 2. Activa todos los botones y formularios
     setupEventListeners();

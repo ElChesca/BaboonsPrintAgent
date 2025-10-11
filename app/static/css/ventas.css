@@ -2,17 +2,16 @@
 .pos-container {
     display: flex;
     flex-direction: column;
-    gap: 15px; /* Espacio entre las secciones principales */
+    gap: 15px;
 }
 
-/* Recuadro Verde: Banner de estado de caja */
+/* Recuadro Verde: Banner de estado de caja (más chico) */
 .caja-info-banner {
-    padding: 8px 12px;
-    border-radius: 5px;
-    font-size: 0.9em;
+    padding: 6px 10px; /* Más compacto */
+    font-size: 0.8em;  /* Fuente más pequeña */
     text-align: center;
+    border-radius: 5px;
     border-left: 4px solid;
-    margin-bottom: 0; /* Quitamos el margen inferior que tenía antes */
 }
 .caja-info-banner.abierta { background-color: #e7f4e8; border-color: #28a745; color: #155724; }
 .caja-info-banner.cerrada { background-color: #f8d7da; border-color: #dc3545; color: #721c24; font-weight: bold; }
@@ -24,37 +23,80 @@
     gap: 15px;
 }
 .venta-header .search-container {
-    flex-grow: 1;
+    flex-grow: 1; /* El buscador ahora es el más grande */
 }
 .venta-header #venta-item-cantidad {
     width: 90px;
 }
 .btn-add-item {
-    padding: 10px 20px !important; /* Estilo más lindo y prominente */
+    padding: 10px 20px !important;
     font-weight: bold;
+    flex-shrink: 0; /* Evita que el botón se encoja */
 }
 
 /* --- GRILLA PRINCIPAL --- */
 .pos-main-grid {
     display: grid;
-    grid-template-columns: 2.5fr 1fr; /* Damos más espacio al panel de venta */
+    grid-template-columns: 1fr; /* Una sola columna para apilar todo */
     gap: 15px;
-    align-items: flex-start; /* Alinea los paneles por arriba */
 }
-
-/* Columna Izquierda: Panel de Venta (Amarillo + Azul) */
 .venta-panel {
     display: flex;
     flex-direction: column;
-    padding: 0 !important; /* El padding lo manejarán los elementos internos */
-    overflow: hidden; /* Para que los bordes redondeados se apliquen bien */
+    gap: 15px; /* Espacio entre las tarjetas de esta columna */
 }
 
+/* ✨ Punto 2: Estilo de botones para Acceso Rápido */
+#pos-grid-container { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); 
+    gap: 10px; 
+}
+.pos-item { 
+    background-color: #fff; 
+    border: 1px solid #ddd; 
+    border-radius: 8px; 
+    padding: 10px; 
+    text-align: center; 
+    cursor: pointer; 
+    transition: all 0.2s ease; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.pos-item:hover { 
+    transform: translateY(-3px); 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+    border-color: #007bff; 
+    background-color: #f8f9fa;
+}
+.pos-item-name { font-weight: bold; font-size: 0.9em; }
+.pos-item-price { font-size: 0.9em; color: #28a745; font-weight: bold; margin-top: 5px; }
+
+
+/* Footer de la Venta */
+.venta-footer {
+    border-top: 2px solid #dee2e6;
+    padding-top: 15px;
+}
+/* Removed empty ruleset for .venta-total-display */
+.finalization-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Columnas flexibles */
+    gap: 15px;
+    align-items: flex-end;
+}
+.finalization-controls .form-group, .finalization-controls .form-actions {
+    margin: 0;
+}
 /* Tabla Elegante y Compacta */
 .tabla-contenedor-venta {
     overflow-y: auto;
     height: 50vh; /* Altura fija para la tabla, con scroll si es necesario */
 }
+
 .tabla-venta-elegante {
     width: 100%;
     border-collapse: collapse;
@@ -79,7 +121,6 @@
 .tabla-venta-elegante .btn-quitar {
     padding: 4px 8px; font-size: 0.8em;
 }
-
 /* Footer de la Venta (Azul) */
 .venta-footer {
     border-top: 2px solid #dee2e6;
@@ -112,6 +153,7 @@
     display: flex;
     gap: 10px;
 }
+
 #calculo-vuelto-container { display: block; }
 #calculo-vuelto-container .vuelto-display { font-weight: bold; margin-top: 5px; font-size: 0.9em; }
 
@@ -121,7 +163,7 @@
     top: 95px; /* Espacio para el header de la app y la barra de negocio */
 }
 #pos-grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
-.pos-item { /* Estilos sin cambios */ }
+/* Removed empty ruleset for .pos-item */
 
 /* --- RESPONSIVE --- */
 @media (max-width: 1024px) {
