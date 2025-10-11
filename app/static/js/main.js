@@ -1,3 +1,4 @@
+// app/static/js/main.js
 import { fetchData } from './api.js';
 import { inicializarLogicaLogin, getCurrentUser, logout } from './modules/auth.js';
 import { inicializarLogicaClientes, editarCliente, borrarCliente } from './modules/clientes.js';
@@ -15,6 +16,7 @@ import { inicializarLogicaCaja } from './modules/caja.js';
 import { inicializarLogicaReporteCaja, mostrarDetallesCaja } from './modules/reporte_caja.js';
 import { inicializarLogicaReporteGanancias } from './modules/reporte_ganancias.js';
 import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from './modules/proveedores.js';
+
 
 // --- ESTADO GLOBAL ---
 export const appState = {
@@ -57,7 +59,6 @@ function inicializarModulo(page) {
     if (page.includes('login.html')) inicializarLogicaLogin();
     if (page.includes('negocios.html')) inicializarLogicaNegocios();
     if (page.includes('clientes.html')) inicializarLogicaClientes();
-    // Estas son las líneas que daban error. Ahora deberían funcionar.
     if (page.includes('ingresos.html')) inicializarLogicaIngresos();
     if (page.includes('ventas.html')) inicializarLogicaVentas();
     if (page.includes('usuarios.html')) inicializarLogicaUsuarios();
@@ -71,28 +72,7 @@ function inicializarModulo(page) {
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
     if (page.includes('reportes.html')) inicializarLogicaReportes();
 }
-// --- ✨ FUNCIÓN AUXILIAR PARA CARGAR CSS DINÁMICAMENTE ---
-function loadPageCSS(pageName) {
-    const existingStyle = document.getElementById('page-specific-style');
-    if (existingStyle) {
-        existingStyle.remove();
-    }
 
-    if (pageName) {
-        const cssFile = `${pageName}.css`;
-        const link = document.createElement('link');
-        link.id = 'page-specific-style';
-        link.rel = 'stylesheet';
-        link.type = 'text/css';
-        link.href = `/static/css/${cssFile}`;
-        // Verificamos si el archivo existe antes de añadirlo (opcional pero recomendado)
-        fetch(link.href).then(res => {
-            if (res.ok) {
-                 document.head.appendChild(link);
-            }
-        });
-    }
-}
 // --- FUNCIONES PRINCIPALES DE FLUJO ---
 export function loadContent(event, page, clickedLink) {
     if (event) event.preventDefault();
@@ -182,3 +162,4 @@ window.borrarCategoria = borrarCategoria;
 window.mostrarDetallesCaja = mostrarDetallesCaja;
 window.editarProveedor = editarProveedor;
 window.borrarProveedor = borrarProveedor;   
+
