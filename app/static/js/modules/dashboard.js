@@ -1,21 +1,20 @@
-// app/static/js/modules/dashboard.js
 import { fetchData } from '../api.js';
-// ✨ 1. Importamos el estado global para saber qué negocio está activo
 import { appState } from '../main.js';
 
-async function cargarEstadisticas() {
+async function cargarEstadisticasPrincipales() {
+    // ✨ LA CORRECCIÓN CLAVE: Si no hay un negocio activo, no hacemos nada.
+    if (!appState.negocioActivoId) return;
+
     try {
         const ventasHoyEl = document.getElementById('stat-ventas-hoy');
         const bajoStockEl = document.getElementById('stat-bajo-stock');
         const totalClientesEl = document.getElementById('stat-total-clientes');
-        const tablaActividadReciente = document.querySelector('#tabla-actividad-reciente tbody');
+        const tablaActividadReciente = document.querySelector('#tabla-actividad-reciente');
         
         if (!ventasHoyEl || !bajoStockEl || !totalClientesEl || !tablaActividadReciente) return;
         
-        // ✨ 2. Construimos la URL correcta con el ID del negocio activo
         const stats = await fetchData(`/api/negocios/${appState.negocioActivoId}/dashboard/stats`);
 
-        // Ahora stats.ventas_hoy ya no será undefined
         ventasHoyEl.textContent = `$${stats.ventas_hoy.toFixed(2)}`;
         bajoStockEl.textContent = stats.productos_bajo_stock;
         totalClientesEl.textContent = stats.total_clientes;
@@ -41,55 +40,44 @@ async function cargarEstadisticas() {
     }
 }
 
-export function inicializarLogicaDashboard() {
-    cargarEstadisticas();
-}
-// ✨ NUEVA FUNCIÓN para el gráfico de métodos de pago
 async function cargarGraficoMetodosPago() {
+    // ✨ LA CORRECCIÓN CLAVE: Si no hay un negocio activo, no hacemos nada.
+    if (!appState.negocioActivoId) return;
+
     const ctx = document.getElementById('payment-methods-chart');
     if (!ctx) return;
 
     try {
         const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/dashboard/payment_methods`);
         
+        if (data.length === 0) return; // Si no hay datos, no dibujamos el gráfico.
+
         const labels = data.map(item => item.metodo_pago);
         const totals = data.map(item => item.total);
 
-        // Creamos el gráfico usando Chart.js
         new Chart(ctx, {
-            type: 'doughnut', // Tipo de gráfico: dona
+            type: 'doughnut',
             data: {
                 labels: labels,
                 datasets: [{
                     label: 'Total Vendido',
                     data: totals,
-                    backgroundColor: [
-                        'rgba(54, 162, 235, 0.7)',
-                        'rgba(255, 206, 86, 0.7)',
-                        'rgba(75, 192, 192, 0.7)',
-                        'rgba(153, 102, 255, 0.7)',
-                        'rgba(255, 99, 132, 0.7)',
-                    ],
+                    backgroundColor: ['rgba(54, 162, 235, 0.7)', 'rgba(255, 206, 86, 0.7)', 'rgba(75, 192, 192, 0.7)', 'rgba(153, 102, 255, 0.7)', 'rgba(255, 99, 132, 0.7)'],
                     borderColor: '#fff',
                     borderWidth: 2
                 }]
             },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                    }
-                }
-            }
+            options: { responsive: true, plugins: { legend: { position: 'top' } } }
         });
     } catch (error) {
         console.error("Error al cargar datos de métodos de pago:", error);
     }
 }
 
-// ✨ NUEVA FUNCIÓN para el ranking de categorías
 async function cargarRankingCategorias() {
+    // ✨ LA CORRECCIÓN CLAVE: Si no hay un negocio activo, no hacemos nada.
+    if (!appState.negocioActivoId) return;
+
     const tablaBody = document.getElementById('category-ranking-table');
     if (!tablaBody) return;
 
@@ -113,4 +101,10 @@ async function cargarRankingCategorias() {
     } catch (error) {
         console.error("Error al cargar ranking de categorías:", error);
     }
+}
+
+export function inicializarLogicaDashboard() {
+    cargarEstadisticasPrincipales();
+    cargarGraficoMetodosPago();
+    cargarRankingCategorias();
 }

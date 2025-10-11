@@ -1,36 +1,3 @@
-<style>
-    .clientes-grid { 
-        display: grid; 
-        grid-template-columns: 2fr 1fr; 
-        gap: 25px; 
-    }
-    #tabla-clientes {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    #tabla-clientes th, #tabla-clientes td {
-        padding: 12px 15px;
-        text-align: left;
-        border-bottom: 1px solid #ddd;
-    }
-    #tabla-clientes thead th {
-        background-color: #34495e;
-        color: white;
-    }
-    #form-add-cliente {
-        display: flex;
-        flex-direction: column;
-    }
-    #form-add-cliente input {
-        padding: 10px;
-        margin-bottom: 15px;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-    }
-    @media (max-width: 768px) { 
-        .clientes-grid { grid-template-columns: 1fr; } 
-    }
-</style>
 <div class="seccion-contenido-dinamico">
     <h2>🧑‍🤝‍🧑 Gestión de Clientes</h2>
     <div class="main-grid">
@@ -69,18 +36,20 @@
             <div class="form-group">
                 <input type="text" id="buscador-clientes" placeholder="Buscar por nombre o DNI...">
             </div>
-            <table id="tabla-clientes" class="tabla-bonita">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Documento</th>
-                        <th>Teléfono</th>
-                        <th>Email</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+            <div class="tabla-contenedor">        
+                <table id="tabla-clientes" class="tabla-bonita">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Documento</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

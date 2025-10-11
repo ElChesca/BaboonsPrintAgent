@@ -1,0 +1,55 @@
+.clientes-grid { 
+    display: grid; 
+    grid-template-columns: 2fr 1fr; 
+    gap: 25px; 
+}
+#tabla-clientes {
+    width: 100%;
+    border-collapse: collapse;
+}
+#tabla-clientes th, #tabla-clientes td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+#tabla-clientes thead th {
+    background-color: #34495e;
+    color: white;
+}
+#form-add-cliente {
+    display: flex;
+    flex-direction: column;
+}
+#form-add-cliente input {
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+@media (max-width: 768px) { 
+    .clientes-grid { grid-template-columns: 1fr; } 
+}
+.tabla-bonita tfoot th,
+.tabla-bonita tfoot td {
+    text-align: right;
+    font-size: 1.2em;
+    font-weight: bold;
+    padding-top: 15px;
+    border-top: 2px solid #333;
+}
+
+/* --- ✨ MEDIA QUERY PARA TABLAS ✨ --- */
+@media (max-width: 768px) {
+    .tabla-contenedor {
+        /* Permite que la tabla haga scroll horizontal en su propio contenedor */
+        overflow-x: auto;
+        /* Añade una sombra sutil para indicar que hay más contenido */
+        -webkit-overflow-scrolling: touch;
+        box-shadow: inset -10px 0px 10px -15px rgba(0,0,0,0.2);
+    }
+
+    .tabla-bonita {
+        /* Aseguramos que la tabla ocupe un mínimo para forzar el scroll si es necesario */
+        min-width: 600px;
+    }
+}
