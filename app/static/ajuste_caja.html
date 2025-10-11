@@ -1,0 +1,29 @@
+<div class="ajuste-caja-container">
+    <div class="card">
+        <h2>💸 Ajuste de Caja</h2>
+        <p>Registra un ingreso o egreso de dinero en efectivo que no corresponda a una venta (ej: pago a proveedor, fondo extra).</p>
+        
+        <form id="form-ajuste-caja">
+            <div class="form-group">
+                <label for="ajuste-tipo">Tipo de Movimiento:</label>
+                <select id="ajuste-tipo" required>
+                    <option value="Ingreso">Ingreso (Entra dinero)</option>
+                    <option value="Egreso">Egreso (Sale dinero)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="ajuste-monto">Monto:</label>
+                <input type="number" id="ajuste-monto" step="0.01" required placeholder="Ej: 500.00">
+            </div>
+            <div class="form-group">
+                <label for="ajuste-concepto">Concepto:</label>
+                <input type="text" id="ajuste-concepto" required placeholder="Ej: Pago a proveedor de limpieza">
+            </div>
+            <div class="form-group">
+                <label for="ajuste-observaciones">Observaciones (Opcional):</label>
+                <textarea id="ajuste-observaciones" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn-primary">Registrar Ajuste</button>
+        </form>
+    </div>
+</div>
