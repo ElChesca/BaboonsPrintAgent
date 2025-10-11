@@ -61,17 +61,21 @@ def get_payment_methods_stats(current_user, negocio_id):
 @token_required
 def get_category_ranking(current_user, negocio_id):
     db = get_db()
-    query = """
-        SELECT c.nombre, SUM(vd.subtotal) as total
-        FROM ventas_detalle vd
-        JOIN productos p ON vd.producto_id = p.id
-        JOIN categorias c ON p.categoria_id = c.id
-        JOIN ventas v ON vd.venta_id = v.id        
-        WHERE v.negocio_id = %s AND v.fecha AT TIME ZONE 'America/Argentina/San_Luis' >= NOW() - INTERVAL '30 days'
-        GROUP BY c.nombre
-        ORDER BY total DESC
-        LIMIT 5;
-    """
-    db.execute(query, (negocio_id,))
-    data = db.fetchall()
-    return jsonify([dict(row) for row in data])
+    try:
+        query = """
+            SELECT c.nombre, SUM(vd.subtotal) as total
+            FROM ventas_detalle vd
+            JOIN productos p ON vd.producto_id = p.id
+            JOIN categorias c ON p.categoria_id = c.id
+            JOIN ventas v ON vd.venta_id = v.id
+            WHERE v.negocio_id = %s AND v.fecha AT TIME ZONE 'America/Argentina/San_Luis' >= NOW() - INTERVAL '30 days'
+            GROUP BY c.nombre                        
+            ORDER BY SUM(vd.subtotal) DESC
+            LIMIT 5;
+        """
+        db.execute(query, (negocio_id,))
+        data = db.fetchall()
+        return jsonify([dict(row) for row in data])
+    except Exception as e:
+        print(f"Error en get_category_ranking: {e}")
+        return jsonify({'error': 'Ocurrió un error al obtener el ranking de categorías.'}), 500
