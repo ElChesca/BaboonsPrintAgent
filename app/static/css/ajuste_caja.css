@@ -1,0 +1,54 @@
+/* Contenedor principal que centra el formulario en la página */
+.ajuste-caja-container {
+    max-width: 600px; /* Un ancho máximo para que no se vea demasiado grande en pantallas de escritorio */
+    margin: 0 auto; /* Centra el contenedor horizontalmente */
+}
+
+/* Estilo para los campos del formulario */
+#form-ajuste-caja .form-group {
+    margin-bottom: 20px;
+}
+
+#form-ajuste-caja label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+/* Estilos consistentes para los inputs, select y textarea */
+#form-ajuste-caja input,
+#form-ajuste-caja select,
+#form-ajuste-caja textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box; /* Importante para que el padding no afecte el ancho total */
+    font-size: 1em;
+    font-family: 'Roboto', sans-serif; /* Asegura que la fuente sea la misma que en el resto de la app */
+}
+
+#form-ajuste-caja textarea {
+    resize: vertical; /* Permite al usuario redimensionar el campo de observaciones verticalmente */
+    min-height: 80px;
+}
+
+/* Estilo para el botón principal, consistente con el resto de la app */
+#form-ajuste-caja .btn-primary {
+    width: 100%;
+    padding: 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1.1em;
+    font-weight: bold;
+    transition: background-color 0.3s;
+    margin-top: 10px;
+}
+
+#form-ajuste-caja .btn-primary:hover {
+    background-color: #0056b3;
+}
