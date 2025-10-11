@@ -1,16 +1,16 @@
 // app/static/js/modules/auth.js
-import { mostrarNotificacion } from './notifications.js';
+import { fetchData } from '../api.js';
 
-// La librería jwt-decode se carga globalmente desde index.html, la hacemos accesible.
+// La librería jwt-decode se carga globalmente desde index.html.
 const jwt_decode = window.jwt_decode;
 
 export function getAuthHeaders() {
     const token = localStorage.getItem('jwt_token');
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) {
-        headers['x-access-token'] = token;
-    }
-    return headers;
+    // ✨ CORRECCIÓN: Unificamos el formato del token para que coincida con el backend.
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+    };
 }
 
 export function getCurrentUser() {
@@ -19,17 +19,16 @@ export function getCurrentUser() {
         return null;
     }
     try {
-        // Aseguramos que la función jwt_decode exista antes de llamarla
         if (typeof jwt_decode === 'function') {
             return jwt_decode(token); 
         } else {
             console.error("La librería jwt-decode no está cargada correctamente.");
-            logout(); // Forzamos logout si la librería no está
+            logout();
             return null;
         }
     } catch (e) {
         console.error("Error al decodificar el token:", e);
-        logout(); // Forzamos logout si el token es inválido
+        logout();
         return null;
     }
 }
@@ -40,37 +39,42 @@ export function logout() {
 }
 
 export function inicializarLogicaLogin() {
-    const form = document.getElementById('form-login');
+    // ✨ CORRECCIÓN: Usamos el ID correcto del formulario que está en tu login.html.
+    const form = document.getElementById('login-form');
     if (!form) return;
     
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const nombreUsuario = document.getElementById('login-nombre')?.value;
-        const passwordUsuario = document.getElementById('login-password')?.value;
+        // ✨ CORRECCIÓN: Usamos los IDs correctos de los campos de entrada.
+        const email = document.getElementById('email')?.value;
+        const password = document.getElementById('password')?.value;
+        const errorMessageDiv = document.getElementById('login-error-message');
 
-        if (!nombreUsuario || !passwordUsuario) {
-            mostrarNotificacion('Por favor, complete ambos campos.', 'error');
+        if (!email || !password) {
+            errorMessageDiv.textContent = 'Por favor, complete ambos campos.';
+            errorMessageDiv.style.display = 'block';
             return;
         }
-        const payload = { nombre: nombreUsuario, password: passwordUsuario };
+        
+        // El payload que espera el backend es 'email', no 'nombre'.
+        const payload = { email: email, password: password };
 
         try {
-            const response = await fetch('/api/login', {
+            // Usamos nuestra función fetchData para consistencia
+            const data = await fetchData('/api/login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
-            const data = await response.json();
-            if (response.ok) {
-                localStorage.setItem('jwt_token', data.token);
-                window.dispatchEvent(new Event('authChange'));
-            } else {
-                mostrarNotificacion(data.message || 'Error de autenticación', 'error');
-            }
+            // Si llegamos aquí, la respuesta fue exitosa (fetchData maneja los errores)
+            localStorage.setItem('jwt_token', data.token);
+            window.dispatchEvent(new Event('authChange')); // ¡Tocamos el timbre!
+
         } catch (error) {
-            mostrarNotificacion('Error de conexión con el servidor.', 'error');
+            // fetchData ya nos da el mensaje de error del servidor
+            errorMessageDiv.textContent = error.message || 'Error de conexión.';
+            errorMessageDiv.style.display = 'block';
         }
     });
 }
