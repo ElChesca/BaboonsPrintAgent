@@ -72,6 +72,26 @@
                         <button type="button" id="btn-finalize-and-print" class="btn-secondary">Cobrar e Imprimir</button>
                     </div>
                 </form>
+
+                <div id="pago-detalles-container" style="display: none;">
+                    <div class="form-group">
+                        <label for="pago-dni">DNI Cliente:</label>
+                        <input type="text" id="pago-dni" placeholder="DNI del titular">
+                    </div>
+                    <div class="form-group">
+                        <label for="pago-tarjeta">Últimos 4 Dígitos:</label>
+                        <input type="text" id="pago-tarjeta" placeholder="1234" maxlength="4">
+                    </div>
+                    <div class="form-group">
+                        <label for="pago-cupon">N° Cupón/Trans.:</label>
+                        <input type="text" id="pago-cupon" placeholder="N° de referencia">
+                    </div>
+                    <div class="form-group">
+                        <label for="pago-banco">Banco:</label>
+                        <input type="text" id="pago-banco" placeholder="Banco emisor">
+                    </div>
+                </div>
+
             </div>
         </div>
 

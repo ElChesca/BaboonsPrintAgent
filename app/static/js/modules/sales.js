@@ -270,8 +270,13 @@ export function inicializarLogicaVentas() {
     const vueltoMontoEl = document.getElementById('vuelto-monto');
     metodoPagoSelector.addEventListener('change', () => {
         const esEfectivo = metodoPagoSelector.value === 'Efectivo';
-        calculoVueltoContainer.style.display = esEfectivo ? 'flex' : 'none';
-        pagoDetallesContainer.style.display = esEfectivo ? 'none' : 'block';
+         // ✨ LA CORRECCIÓN CLAVE: Comprobamos si los elementos existen antes de usarlos.
+        if (calculoVueltoContainer) {
+            calculoVueltoContainer.style.display = esEfectivo ? 'block' : 'none';
+        }
+        if (pagoDetallesContainer) {
+            pagoDetallesContainer.style.display = esEfectivo ? 'none' : 'grid'; // Usamos 'grid' para el layout
+        }
     });
     pagaConInput.addEventListener('input', () => {
             const pagaCon = parseFloat(pagaConInput.value) || 0;

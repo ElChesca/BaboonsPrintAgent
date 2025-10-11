@@ -5,8 +5,18 @@ import datetime
 
 bp = Blueprint('ajuste_caja', __name__)
 
-@bp.route('/negocios/<int:negocio_id>/caja/ajustes', methods=['POST'])
+# ✨ LA CORRECCIÓN CLAVE: Combinamos GET y POST en una sola ruta
+@bp.route('/negocios/<int:negocio_id>/caja/ajustes', methods=['GET', 'POST'])
 @token_required
+def manejar_ajustes(current_user, negocio_id):
+    # Si la petición es de tipo POST, ejecutamos la lógica para registrar un nuevo ajuste.
+    if request.method == 'POST':
+        return registrar_ajuste(current_user, negocio_id)
+    
+    # Si la petición es de tipo GET, ejecutamos la lógica para obtener el historial.
+    if request.method == 'GET':
+        return get_historial_ajustes(current_user, negocio_id)
+
 def registrar_ajuste(current_user, negocio_id):
     data = request.get_json()
     tipo = data.get('tipo')
@@ -23,7 +33,6 @@ def registrar_ajuste(current_user, negocio_id):
 
     db = get_db()
     try:
-        # 1. Validar que haya una caja abierta
         db.execute("SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL", (negocio_id,))
         sesion_abierta = db.fetchone()
         if not sesion_abierta:
@@ -31,7 +40,6 @@ def registrar_ajuste(current_user, negocio_id):
         
         caja_sesion_id = sesion_abierta['id']
         
-        # 2. Insertar el ajuste
         db.execute(
             """
             INSERT INTO caja_ajustes (negocio_id, usuario_id, caja_sesion_id, fecha, tipo, monto, concepto, observaciones)
@@ -47,3 +55,37 @@ def registrar_ajuste(current_user, negocio_id):
         g.db_conn.rollback()
         print(f"Error en registrar_ajuste: {e}")
         return jsonify({'error': 'Ocurrió un error en el servidor.'}), 500
+
+def get_historial_ajustes(current_user, negocio_id):
+    db = get_db()
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+
+    query = """
+        SELECT 
+            ca.fecha, ca.tipo, ca.monto, ca.concepto,
+            u.nombre as usuario_nombre,
+            cs.fecha_cierre 
+        FROM caja_ajustes ca
+        JOIN usuarios u ON ca.usuario_id = u.id
+        JOIN caja_sesiones cs ON ca.caja_sesion_id = cs.id
+        WHERE ca.negocio_id = %s
+    """
+    params = [negocio_id]
+
+    if fecha_desde:
+        query += " AND DATE(ca.fecha) >= %s"
+        params.append(fecha_desde)
+    if fecha_hasta:
+        query += " AND DATE(ca.fecha) <= %s"
+        params.append(fecha_hasta)
+
+    query += " ORDER BY ca.fecha DESC"
+    
+    try:
+        db.execute(query, tuple(params))
+        ajustes = db.fetchall()
+        return jsonify([dict(row) for row in ajustes])
+    except Exception as e:
+        print(f"Error en get_historial_ajustes: {e}")
+        return jsonify({'error': 'Ocurrió un error al obtener el historial de ajustes.'}), 500
