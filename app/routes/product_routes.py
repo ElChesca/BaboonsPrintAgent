@@ -96,3 +96,35 @@ def delete_producto(current_user, producto_id):
     db.execute('DELETE FROM productos WHERE id = %s', (producto_id,))
     g.db_conn.commit()
     return jsonify({'mensaje': 'Producto eliminado con éxito'})
+
+
+# --- ✨ NUEVO ENDPOINT PARA PRODUCTOS TOP (POS) ✨ ---
+@bp.route('/negocios/<int:negocio_id>/productos/top', methods=['GET'])
+@token_required
+def get_top_productos(current_user, negocio_id):
+    # El número de productos a mostrar se puede pasar como parámetro, con 12 por defecto.
+    limit = request.args.get('limit', 12, type=int)
+    db = get_db()
+    
+    # Esta consulta cuenta cuántas veces se vendió cada producto, los ordena y trae los más vendidos.
+    query = """
+        SELECT 
+            p.id, 
+            p.nombre, 
+            p.precio_venta,
+            p.stock
+        FROM productos p
+        JOIN (
+            SELECT vd.producto_id, COUNT(vd.producto_id) as total_ventas
+            FROM ventas_detalle vd
+            JOIN ventas v ON vd.venta_id = v.id
+            WHERE v.negocio_id = %s
+            GROUP BY vd.producto_id
+            ORDER BY total_ventas DESC
+            LIMIT %s
+        ) as top_productos ON p.id = top_productos.producto_id;
+    """
+    
+    db.execute(query, (negocio_id, limit))
+    productos = db.fetchall()
+    return jsonify([dict(p) for p in productos])
