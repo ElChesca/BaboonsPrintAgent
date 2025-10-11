@@ -33,19 +33,15 @@ function renderStagedIncomeItems() {
     if (!tbody) return;
     tbody.innerHTML = '';
     stagedIncomeItems.forEach((item, index) => {
+        // ✨ MEJORA: Añadimos data-index para la delegación de eventos
         tbody.innerHTML += `
-            <tr>
+            <tr data-index="${index}">
                 <td>${item.nombre}</td>
                 <td>${item.cantidad}</td>
-                <td><button type="button" class="btn-quitar" onclick="quitarItem(${index})">Quitar</button></td>
+                <td><button type="button" class="btn-quitar">Quitar</button></td>
             </tr>
         `;
     });
-}
-
-export function quitarItem(index) {
-    stagedIncomeItems.splice(index, 1);
-    renderStagedIncomeItems();
 }
 
 export function inicializarLogicaIngresos() {
@@ -64,6 +60,12 @@ export function inicializarLogicaIngresos() {
         if (!productoId || !cantidad) return mostrarNotificacion('Seleccione producto y cantidad.', 'warning');
         
         const productoSel = productosCache.find(p => p.id == productoId);
+
+        // ✨ CORRECCIÓN: Verificamos que el producto se haya encontrado antes de usarlo
+        if (!productoSel) {
+            return mostrarNotificacion('Error: Producto no encontrado en la lista local.', 'error');
+        }
+
         stagedIncomeItems.push({
             producto_id: productoId,
             nombre: productoSel.nombre,
@@ -95,6 +97,17 @@ export function inicializarLogicaIngresos() {
             formFinalize.reset();
         } catch (error) {
             mostrarNotificacion(error.message, 'error');
+        }
+    });
+
+    // ✨ MEJORA: Listener único para toda la tabla (Delegación de Eventos)
+    const tablaItems = document.querySelector('#staged-items-ingreso tbody');
+    tablaItems.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-quitar')) {
+            const fila = e.target.closest('tr');
+            const index = parseInt(fila.dataset.index, 10);
+            stagedIncomeItems.splice(index, 1);
+            renderStagedIncomeItems();
         }
     });
 }

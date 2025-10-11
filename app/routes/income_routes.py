@@ -1,5 +1,5 @@
 # app/routes/income_routes.py
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from app.database import get_db
 from app.auth_decorator import token_required
 import datetime
@@ -13,10 +13,9 @@ bp = Blueprint('income', __name__)
 def registrar_ingreso(current_user, negocio_id):
     data = request.get_json()
     detalles = data.get('detalles')
-    proveedor_id = data.get('proveedor_id') # ✨ 1. Obtenemos el ID del proveedor
-    referencia = data.get('referencia')     # ✨ (nro_factura o remito)
+    proveedor_id = data.get('proveedor_id')
+    referencia = data.get('referencia')
 
-    # ✨ 2. Nuevas validaciones (proveedor es obligatorio)
     if not detalles:
         return jsonify({'error': 'El ingreso no tiene productos'}), 400
     if not proveedor_id:
@@ -24,35 +23,36 @@ def registrar_ingreso(current_user, negocio_id):
 
     db = get_db()
     try:
-        cursor = db.cursor()
-        # ✨ 3. INSERT actualizado para guardar el ID del proveedor y el usuario
-        cursor.execute(
-            'INSERT INTO ingresos_mercaderia (negocio_id, proveedor_id, referencia, fecha, usuario_id) VALUES (?, ?, ?, ?, ?)',
+        # ✨ CORRECCIÓN: Usamos el patrón consistente de la aplicación (%s y db.execute)
+        db.execute(
+            'INSERT INTO ingresos_mercaderia (negocio_id, proveedor_id, referencia, fecha, usuario_id) VALUES (%s, %s, %s, %s, %s) RETURNING id',
             (negocio_id, proveedor_id, referencia, datetime.datetime.now(), current_user['id'])
         )
-        ingreso_id = cursor.lastrowid
+        ingreso_id = db.fetchone()['id']
         
         for item in detalles:
-            cursor.execute(
-                'INSERT INTO ingresos_mercaderia_detalle (ingreso_id, producto_id, cantidad, precio_costo_unitario) VALUES (?, ?, ?, ?)',
+            db.execute(
+                'INSERT INTO ingresos_mercaderia_detalle (ingreso_id, producto_id, cantidad, precio_costo_unitario) VALUES (%s, %s, %s, %s)',
                 (ingreso_id, item['producto_id'], item['cantidad'], item.get('precio_costo'))
             )
             # Actualizamos el stock
-            cursor.execute(
-                'UPDATE productos SET stock = stock + ? WHERE id = ?',
+            db.execute(
+                'UPDATE productos SET stock = stock + %s WHERE id = %s',
                 (item['cantidad'], item['producto_id'])
             )
-            # ✨ Opcional pero recomendado: Actualizamos el precio de costo del producto
+            # Actualizamos el precio de costo del producto si se proporcionó
             if item.get('precio_costo') is not None:
-                cursor.execute(
-                    'UPDATE productos SET precio_costo = ? WHERE id = ?',
+                db.execute(
+                    'UPDATE productos SET precio_costo = %s WHERE id = %s',
                     (item['precio_costo'], item['producto_id'])
                 )
 
-        db.commit()
+        # ✨ CORRECCIÓN: Usamos g.db_conn.commit() para confirmar la transacción
+        g.db_conn.commit()
         return jsonify({'message': 'Ingreso registrado y stock actualizado con éxito', 'ingreso_id': ingreso_id}), 201
     except Exception as e:
-        db.rollback()
+        # ✨ CORRECCIÓN: Usamos g.db_conn.rollback() en caso de error
+        g.db_conn.rollback()
         return jsonify({'error': f'Ocurrió un error: {str(e)}'}), 500
 
 
@@ -61,8 +61,7 @@ def registrar_ingreso(current_user, negocio_id):
 def get_historial_ingresos(current_user, negocio_id):
     """Devuelve la lista maestra de ingresos, ahora con el nombre del proveedor."""
     db = get_db()
-    # ✨ 4. JOIN para obtener el nombre del proveedor a partir de su ID
-    ingresos = db.execute(
+    db.execute(
         """
         SELECT 
             i.id, i.fecha, i.referencia, p.nombre as proveedor_nombre 
@@ -71,12 +70,13 @@ def get_historial_ingresos(current_user, negocio_id):
         LEFT JOIN 
             proveedores p ON i.proveedor_id = p.id
         WHERE 
-            i.negocio_id = ? 
+            i.negocio_id = %s 
         ORDER BY 
             i.fecha DESC
         """,
         (negocio_id,)
-    ).fetchall()
+    )
+    ingresos = db.fetchall()
     return jsonify([dict(row) for row in ingresos])
 
 
@@ -85,8 +85,9 @@ def get_historial_ingresos(current_user, negocio_id):
 def get_detalles_ingreso(current_user, ingreso_id):
     """Devuelve los productos de un ingreso específico."""
     db = get_db()
-    detalles = db.execute(
-        'SELECT d.cantidad, d.precio_costo_unitario, p.nombre FROM ingresos_mercaderia_detalle d JOIN productos p ON d.producto_id = p.id WHERE d.ingreso_id = ?',
+    db.execute(
+        'SELECT d.cantidad, d.precio_costo_unitario, p.nombre FROM ingresos_mercaderia_detalle d JOIN productos p ON d.producto_id = p.id WHERE d.ingreso_id = %s',
         (ingreso_id,)
-    ).fetchall()
+    )
+    detalles = db.fetchall()
     return jsonify([dict(row) for row in detalles])

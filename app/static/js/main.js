@@ -3,7 +3,6 @@ import { fetchData } from './api.js';
 import { inicializarLogicaLogin, getCurrentUser, logout } from './modules/auth.js';
 import { inicializarLogicaClientes, editarCliente, borrarCliente } from './modules/clientes.js';
 import { inicializarLogicaIngresos, quitarItem } from './modules/ingresos.js';
-import { inicializarLogicaVentas, quitarItemDeVenta } from './modules/sales.js';
 import { inicializarLogicaUsuarios, abrirModalEditarUsuario } from './modules/users.js';
 import { inicializarLogicaHistorial, mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js';
 import { inicializarLogicaNegocios } from './modules/negocios.js';
@@ -185,7 +184,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES (SIN DUPLICADOS) ---
 window.loadContent = loadContent;
-window.quitarItemDeVenta = quitarItemDeVenta;
 window.quitarItem = quitarItem;
 window.borrarProducto = borrarProducto;
 window.abrirModalEditarProducto = abrirModalEditarProducto;
