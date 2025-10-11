@@ -17,7 +17,6 @@ import { inicializarLogicaReporteCaja, mostrarDetallesCaja } from './modules/rep
 import { inicializarLogicaReporteGanancias } from './modules/reporte_ganancias.js';
 import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from './modules/proveedores.js';
 
-
 // --- ESTADO GLOBAL ---
 export const appState = {
     negocioActivoId: null,
@@ -36,13 +35,11 @@ function loadPageCSS(pageName) {
         link.rel = 'stylesheet';
         link.type = 'text/css';
         link.href = `/static/css/${cssFile}`;
-        // Verificamos si el archivo existe antes de añadirlo.
         fetch(link.href).then(res => {
             if (res.ok) {
                  document.head.appendChild(link);
             } else {
-                // Esto ayuda a depurar el error 404
-                console.error(`Error 404: No se encontró el archivo CSS en ${link.href}`);
+                console.warn(`Advertencia: No se encontró el archivo CSS opcional en ${link.href}`);
             }
         });
     }
@@ -73,11 +70,43 @@ function inicializarModulo(page) {
     if (page.includes('reportes.html')) inicializarLogicaReportes();
 }
 
-// --- FUNCIONES PRINCIPALES DE FLUJO ---
+// --- ✨ FUNCIÓN RESTAURADA ---
+// Esta función es llamada por actualizarUIAutenticacion para llenar el selector de negocios.
+async function poblarSelectorNegocios() {
+    const selectorNegocio = document.getElementById('selector-negocio');
+    if (!selectorNegocio) return;
+    try {
+        const negocios = await fetchData('/api/negocios');
+        selectorNegocio.innerHTML = '';
+        if (!negocios || negocios.length === 0) {
+            selectorNegocio.innerHTML = '<option value="">No hay negocios asignados</option>';
+            return;
+        }
+        negocios.forEach(negocio => {
+            const option = new Option(negocio.nombre, negocio.id);
+            selectorNegocio.appendChild(option);
+        });
+        let idSeleccionado = negocios[0].id;
+        if (appState.negocioActivoId && negocios.some(n => n.id == appState.negocioActivoId)) {
+            idSeleccionado = appState.negocioActivoId;
+        }
+        selectorNegocio.value = idSeleccionado;
+        if (appState.negocioActivoId !== idSeleccionado) {
+            appState.negocioActivoId = idSeleccionado;
+            selectorNegocio.dispatchEvent(new Event('change'));
+        } else {
+            appState.negocioActivoId = idSeleccionado;
+        }
+    } catch (error) {
+        selectorNegocio.innerHTML = '<option value="">Error al cargar</option>';
+    }
+}
+
+
+// --- FUNCIÓN PRINCIPAL DE FLUJO ---
 export function loadContent(event, page, clickedLink) {
     if (event) event.preventDefault();
     
-    // ✨ Extrae el nombre base (ej: 'ventas') y llama a la función para cargar su CSS.
     const pageName = page.split('/').pop().replace('.html', '');
     loadPageCSS(pageName);
 
@@ -104,15 +133,13 @@ export function loadContent(event, page, clickedLink) {
         })
         .catch(error => {
             console.error(error);
-            loadPageCSS(null); // Si falla la carga, quitamos el CSS.
+            loadPageCSS(null);
         });
 }
 
-
-
 export async function actualizarUIAutenticacion() {
     const user = getCurrentUser();
-    const mainNav = document.getElementById('main-nav');
+    const mainNav = document.querySelector('header nav');
     const authLink = document.getElementById('auth-link');
     const businessSelector = document.getElementById('business-selector-bar');
 
@@ -124,8 +151,9 @@ export async function actualizarUIAutenticacion() {
             authLink.innerHTML = `Salir (${user.nombre})`;
             authLink.onclick = (e) => { e.preventDefault(); logout(); };
         }
-        document.querySelectorAll('.admin-only').forEach(el => el.style.display = esAdmin() ? 'block' : 'none');
-        await poblarSelectorNegocios();
+        document.querySelectorAll('.admin-only').forEach(el => esAdmin() ? el.style.display = 'block' : el.style.display = 'none');
+        // Esta es la línea que daba error. Ahora funcionará.
+        await poblarSelectorNegocios(); 
     } else {
         appState.userRol = null;
         if (mainNav) mainNav.style.display = 'none';
@@ -148,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     actualizarUIAutenticacion();
 });
 
-// --- EXPOSICIÓN DE FUNCIONES GLOBALES (SIN DUPLICADOS) ---
+// --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
 window.loadContent = loadContent;
 window.borrarProducto = borrarProducto;
 window.abrirModalEditarProducto = abrirModalEditarProducto;
@@ -161,5 +189,4 @@ window.editarCategoria = editarCategoria;
 window.borrarCategoria = borrarCategoria;
 window.mostrarDetallesCaja = mostrarDetallesCaja;
 window.editarProveedor = editarProveedor;
-window.borrarProveedor = borrarProveedor;   
-
+window.borrarProveedor = borrarProveedor;

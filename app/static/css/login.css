@@ -1,0 +1,79 @@
+/* Centra todo el contenedor del login en la página */
+.login-page-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Usamos 80vh (viewport height) para que no quede pegado al header/footer */
+    min-height: 80vh;
+}
+
+/* El contenedor principal del formulario, con estilo de "tarjeta" */
+.login-container {
+    background-color: #fff;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px; /* Un ancho máximo para que no se estire demasiado en pantallas grandes */
+    box-sizing: border-box;
+}
+
+/* Estilo para el título "Iniciar Sesión" */
+.login-container h2 {
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 25px;
+    color: #333;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5em;
+}
+
+/* Estilos para los campos de texto y botones, consistentes con el resto de la app */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+    font-size: 1em;
+}
+
+/* El botón de login ocupará todo el ancho */
+.btn-primary {
+    width: 100%;
+    padding: 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1.1em;
+    font-weight: bold;
+    transition: background-color 0.3s;
+    margin-top: 10px;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+/* Contenedor para mostrar mensajes de error (ej: "Usuario o contraseña incorrectos") */
+#login-error-message {
+    color: #dc3545; /* Rojo de error */
+    text-align: center;
+    margin-top: 15px;
+    font-weight: bold;
+    /* Por defecto está oculto hasta que el JS le ponga contenido */
+    display: none;
+}
