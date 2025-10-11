@@ -71,10 +71,7 @@
     color: #28a745;
     font-weight: bold;
 }
-/* --- Fin de estilos POS --- */
-
-
-/* --- ✨ NUEVOS ESTILOS PARA EL CÁLCULO DE VUELTO --- */
+/* --- ESTILOS PARA EL CÁLCULO DE VUELTO --- */
 #calculo-vuelto-container {
     background-color: #e9f5ff;
     border: 1px solid #b3d7ff;
@@ -91,7 +88,8 @@
     margin-right: 15px;
 }
 #calculo-vuelto-container .vuelto-display {
-    font-size: 1.5em;
+    /* ✨ CORRECCIÓN DE ESTILO: Reducimos el tamaño de la fuente para que no sea tan grande */
+    font-size: 1.3em;
     font-weight: bold;
     color: #0056b3;
 }

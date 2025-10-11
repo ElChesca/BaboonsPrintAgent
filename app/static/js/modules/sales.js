@@ -274,18 +274,27 @@ export function inicializarLogicaVentas() {
         pagoDetallesContainer.style.display = esEfectivo ? 'none' : 'block';
     });
     pagaConInput.addEventListener('input', () => {
-        const pagaCon = parseFloat(pagaConInput.value) || 0;
-        const vuelto = pagaCon - ventaTotalActual;
-        if (pagaCon === 0) {
-            vueltoMontoEl.textContent = '$0.00';
-            vueltoMontoEl.style.color = '#333';
-        } else if (vuelto >= 0) {
-            vueltoMontoEl.textContent = `$${vuelto.toFixed(2)}`;
-            vueltoMontoEl.style.color = '#28a745';
-        } else {
-            vueltoMontoEl.textContent = `Faltan $${Math.abs(vuelto).toFixed(2)}`;
-            vueltoMontoEl.style.color = '#dc3545';
-        }
-    });
+            const pagaCon = parseFloat(pagaConInput.value) || 0;
+            
+            // Si no hay nada que cobrar, el vuelto siempre es 0.
+            if (ventaTotalActual === 0) {
+                vueltoMontoEl.textContent = '$0.00';
+                vueltoMontoEl.style.color = '#333'; // Color neutro
+                return; // Salimos de la función aquí
+            }
+
+            const vuelto = pagaCon - ventaTotalActual;
+            if (pagaCon === 0) {
+                vueltoMontoEl.textContent = '$0.00';
+                vueltoMontoEl.style.color = '#333';
+            } else if (vuelto >= 0) {
+                vueltoMontoEl.textContent = `$${vuelto.toFixed(2)}`;
+                vueltoMontoEl.style.color = '#28a745'; // Verde
+            } else {
+                vueltoMontoEl.textContent = `Faltan $${Math.abs(vuelto).toFixed(2)}`;
+                vueltoMontoEl.style.color = '#dc3545'; // Rojo
+            }
+        });
+
     metodoPagoSelector.dispatchEvent(new Event('change'));
 }

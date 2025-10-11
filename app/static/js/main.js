@@ -190,3 +190,5 @@ window.borrarCategoria = borrarCategoria;
 window.mostrarDetallesCaja = mostrarDetallesCaja;
 window.editarProveedor = editarProveedor;
 window.borrarProveedor = borrarProveedor;
+window.inicializarLogicaLogin = inicializarLogicaLogin;
+window.inicializarLogicaIngresos = inicializarLogicaIngresos;
