@@ -1,54 +1,130 @@
+/* --- ESTILOS GENERALES (DESKTOP FIRST) --- */
+body { 
+    font-family: 'Roboto', sans-serif; 
+    margin: 0; 
+    background-color: #f0f2f5; 
+}
 
-body { font-family: 'Roboto', sans-serif; margin: 0; background-color: #f0f2f5; }
-header { background-color: #2c3e50; color: white; padding: 15px 30px; display: flex; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-header h1 { font-family: 'Bebas Neue', sans-serif; margin: 0; font-size: 1.8em; }
-nav { margin-left: auto; }
-nav a { color: white; text-decoration: none; margin-left: 20px; font-weight: bold; padding: 8px 12px; border-radius: 5px; transition: background-color 0.3s; }
-nav a:hover, nav a.active { background-color: #34495e; }
-main { padding: 30px; }
-/* --- Estilos para el Menú Desplegable --- */
-/* Contenedor principal del dropdown */
+header { 
+    background-color: #2c3e50; 
+    color: white; 
+    padding: 15px 30px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; /* Para separar el logo de la nav */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
+}
+
+header h1 { 
+    font-family: 'Bebas Neue', sans-serif; 
+    margin: 0; 
+    font-size: 1.8em; 
+}
+
+nav { 
+    display: flex; /* Usamos flexbox para alinear los items */
+    align-items: center;
+}
+
+nav a { 
+    color: white; 
+    text-decoration: none; 
+    margin-left: 15px; /* Reducimos un poco el margen */
+    font-weight: bold; 
+    padding: 8px 12px; 
+    border-radius: 5px; 
+    transition: background-color 0.3s; 
+    white-space: nowrap; /* Evita que los nombres de los botones se partan */
+}
+
+nav a:hover, nav a.active { 
+    background-color: #34495e; 
+}
+
+main { 
+    padding: 30px; 
+}
+
+/* --- Estilos para el Menú Desplegable (sin cambios) --- */
 .dropdown {
     position: relative;
     display: inline-block;
 }
-/* El contenido del menú que estará oculto por defecto */
 .dropdown-content {
     display: none;
     position: absolute;
-    background-color: #34495e; /* Mismo color que el hover de los otros botones */
+    background-color: #34495e;
     min-width: 160px;
     box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-    z-index: 1;
+    z-index: 100;
     border-radius: 5px;
 }
-/* Los enlaces dentro del desplegable */
 .dropdown-content a {
     color: white;
     padding: 12px 16px;
     text-decoration: none;
-    display: block; /* Para que ocupen todo el ancho */
+    display: block;
     text-align: left;
-    margin-left: 0; /* Reseteamos el margen */
+    margin-left: 0;
 }
-/* Cambia el color de los enlaces del desplegable al pasar el mouse */
 .dropdown-content a:hover {
     background-color: #2c3e50;
 }
-/* ✨ La Magia: Muestra el menú desplegable cuando se pasa el mouse sobre el contenedor */
 .dropdown:hover .dropdown-content {
     display: block;
 }
-#notification-container {
-    position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+
+/* ... (Estilos de notificaciones y otros globales no cambian) ... */
+
+
+/* --- ✨ MEDIA QUERIES PARA RESPONSIVE ✨ --- */
+/* Para tablets y celulares grandes (hasta 900px) */
+@media (max-width: 900px) {
+    header {
+        /* Hacemos que el logo y la nav se apilen verticalmente */
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 15px;
+    }
+
+    nav {
+        /* La barra de navegación ahora ocupa todo el ancho y puede hacer scroll horizontal */
+        width: 100%;
+        overflow-x: auto; /* Permite deslizar los botones si no entran */
+        padding-top: 15px;
+        margin-left: -15px; /* Para alinear con el borde */
+    }
+
+    nav a {
+        margin-left: 10px;
+    }
+
+    main {
+        padding: 15px; /* Menos padding en pantallas chicas */
+    }
+
+    /* Las grillas de 2 columnas se convierten en 1 columna */
+    .main-grid, .venta-grid {
+        grid-template-columns: 1fr;
+    }
 }
-.toast-notification {
-    color: #fff; padding: 15px 20px; border-radius: 8px; margin-top: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0;
-    transform: translateX(100%); animation: slideIn 0.5s forwards;
+
+/* Para celulares (hasta 600px) */
+@media (max-width: 600px) {
+    header h1 {
+        font-size: 1.5em; /* Título un poco más pequeño */
+    }
+
+    /* Reducimos el padding de los botones para que entren más */
+    nav a {
+        padding: 8px 10px;
+        font-size: 0.9em;
+    }
+
+    /* Ajustamos la barra del selector de negocio */
+    #business-selector-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
 }
-.toast-notification.success { background-color: #28a745; }
-.toast-notification.warning { background-color: #ffc107; color: #333; }
-.toast-notification.error { background-color: #dc3545; }
-@keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
-@keyframes slideOut { to { opacity: 0; transform: translateX(100%); } }

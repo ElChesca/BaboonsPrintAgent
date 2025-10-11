@@ -48,3 +48,19 @@
     background-color: #fafafa;
     padding: 20px !important;
 }
+
+/* --- ✨ MEDIA QUERY PARA TABLAS ✨ --- */
+@media (max-width: 768px) {
+    .tabla-contenedor {
+        /* Permite que la tabla haga scroll horizontal en su propio contenedor */
+        overflow-x: auto;
+        /* Añade una sombra sutil para indicar que hay más contenido */
+        -webkit-overflow-scrolling: touch;
+        box-shadow: inset -10px 0px 10px -15px rgba(0,0,0,0.2);
+    }
+
+    .tabla-bonita {
+        /* Aseguramos que la tabla ocupe un mínimo para forzar el scroll si es necesario */
+        min-width: 600px;
+    }
+}
