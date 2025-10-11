@@ -24,6 +24,7 @@ export function inicializarLogicaAjusteCaja() {
             mostrarNotificacion(response.message, 'success');
             form.reset();
         } catch (error) {
+            const mensajeError = error.message || "Error de red o del servidor. Intente de nuevo.";           
             mostrarNotificacion(error.message, 'error');
         }
     });
