@@ -1,4 +1,4 @@
-/* Estilos para la sección de Gestión de Proveedores */
+/* --- ESTILOS GENERALES DEL MÓDULO DE PROVEEDORES --- */
 
 .main-grid {
     display: grid;
@@ -7,7 +7,7 @@
     align-items: start;
 }
 
-/* Estilos para los formularios y tablas dentro de las tarjetas */
+/* --- ESTILOS PARA EL FORMULARIO --- */
 .card h3 {
     margin-top: 0;
     border-bottom: 1px solid #eee;
@@ -27,15 +27,78 @@
     color: #555;
 }
 
+/* ✨ ESTILOS AÑADIDOS para inputs y botones del formulario */
+#form-proveedor input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+    font-size: 1em;
+}
+
 .form-actions {
     margin-top: 20px;
     display: flex;
     gap: 10px;
 }
 
-/* Media query para hacer el layout de una sola columna en pantallas pequeñas */
+/* --- ✨ ESTILOS AÑADIDOS para la tabla de proveedores --- */
+.tabla-bonita {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabla-bonita th,
+.tabla-bonita td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    word-break: break-word; 
+}
+
+.tabla-bonita thead th {
+    background-color: #6f42c1; /* Púrpura para proveedores */
+    color: white;
+}
+
+/* Estilos para los botones de acción dentro de la tabla */
+.tabla-bonita .btn-editar,
+.tabla-bonita .btn-borrar {
+    padding: 6px 10px;
+    font-size: 0.9em;
+    margin-right: 5px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    color: white;
+}
+
+.tabla-bonita .btn-editar {
+    background-color: #ffc107;
+    color: #333;
+}
+
+.tabla-bonita .btn-borrar {
+    background-color: #dc3545;
+}
+
+
+/* --- MEDIA QUERIES PARA RESPONSIVE --- */
 @media (max-width: 900px) {
     .main-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/* ✨ MEDIA QUERY AÑADIDA para la tabla en celulares */
+@media (max-width: 768px) {
+    .tabla-contenedor {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .tabla-bonita {
+        min-width: 700px; 
     }
 }
