@@ -1,7 +1,8 @@
-// app/static/js/main.js
 import { fetchData } from './api.js';
 import { inicializarLogicaLogin, getCurrentUser, logout } from './modules/auth.js';
 import { inicializarLogicaClientes, editarCliente, borrarCliente } from './modules/clientes.js';
+import { inicializarLogicaIngresos } from './modules/ingresos.js';
+import { inicializarLogicaVentas } from './modules/sales.js';
 import { inicializarLogicaUsuarios, abrirModalEditarUsuario } from './modules/users.js';
 import { inicializarLogicaHistorial, mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js';
 import { inicializarLogicaNegocios } from './modules/negocios.js';
@@ -15,52 +16,39 @@ import { inicializarLogicaReporteCaja, mostrarDetallesCaja } from './modules/rep
 import { inicializarLogicaReporteGanancias } from './modules/reporte_ganancias.js';
 import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from './modules/proveedores.js';
 
-// --- ESTADO GLOBAL (DECLARADO UNA SOLA VEZ) ---
+// --- ESTADO GLOBAL ---
 export const appState = {
     negocioActivoId: null,
     userRol: null
 };
 
+function loadPageCSS(pageName) {
+    const existingStyle = document.getElementById('page-specific-style');
+    if (existingStyle) {
+        existingStyle.remove();
+    }
+    if (pageName) {
+        const cssFile = `${pageName}.css`;
+        const link = document.createElement('link');
+        link.id = 'page-specific-style';
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = `/static/css/${cssFile}`;
+        // Verificamos si el archivo existe antes de añadirlo.
+        fetch(link.href).then(res => {
+            if (res.ok) {
+                 document.head.appendChild(link);
+            } else {
+                // Esto ayuda a depurar el error 404
+                console.error(`Error 404: No se encontró el archivo CSS en ${link.href}`);
+            }
+        });
+    }
+}
+
 // --- FUNCIONES AUXILIARES ---
 export function esAdmin() {
     return appState.userRol === 'admin';
-}
-
-// En app/static/js/main.js
-async function poblarSelectorNegocios() {
-    const selectorNegocio = document.getElementById('selector-negocio');
-    if (!selectorNegocio) return;
-    try {
-        const negocios = await fetchData('/api/negocios');
-        selectorNegocio.innerHTML = '';
-        if (!negocios || negocios.length === 0) {
-            selectorNegocio.innerHTML = '<option value="">No hay negocios asignados</option>';
-            return;
-        }
-        negocios.forEach(negocio => {
-            const option = new Option(negocio.nombre, negocio.id);
-            selectorNegocio.appendChild(option);
-        });
-
-        // ✨ CORRECCIÓN LÓGICA: Esta parte es la clave
-        let idSeleccionado = negocios[0].id; // Por defecto el primero
-        if (appState.negocioActivoId && negocios.some(n => n.id == appState.negocioActivoId)) {
-            idSeleccionado = appState.negocioActivoId;
-        }
-        
-        selectorNegocio.value = idSeleccionado;
-
-        // Disparamos el evento 'change' solo si el ID es realmente nuevo
-        if (appState.negocioActivoId !== idSeleccionado) {
-            appState.negocioActivoId = idSeleccionado;
-            selectorNegocio.dispatchEvent(new Event('change'));
-        } else {
-            appState.negocioActivoId = idSeleccionado;
-        }
-
-    } catch (error) {
-        selectorNegocio.innerHTML = '<option value="">Error al cargar</option>';
-    }
 }
 
 function inicializarModulo(page) {
@@ -69,6 +57,7 @@ function inicializarModulo(page) {
     if (page.includes('login.html')) inicializarLogicaLogin();
     if (page.includes('negocios.html')) inicializarLogicaNegocios();
     if (page.includes('clientes.html')) inicializarLogicaClientes();
+    // Estas son las líneas que daban error. Ahora deberían funcionar.
     if (page.includes('ingresos.html')) inicializarLogicaIngresos();
     if (page.includes('ventas.html')) inicializarLogicaVentas();
     if (page.includes('usuarios.html')) inicializarLogicaUsuarios();
@@ -80,9 +69,7 @@ function inicializarModulo(page) {
     if (page.includes('reporte_caja.html')) inicializarLogicaReporteCaja();
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
-    if (page.includes('reportes.html')) inicializarLogicaReportes();    
-
-
+    if (page.includes('reportes.html')) inicializarLogicaReportes();
 }
 // --- ✨ FUNCIÓN AUXILIAR PARA CARGAR CSS DINÁMICAMENTE ---
 function loadPageCSS(pageName) {
