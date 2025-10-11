@@ -68,8 +68,8 @@ def get_category_ranking(current_user, negocio_id):
             JOIN productos p ON vd.producto_id = p.id
             JOIN categorias c ON p.categoria_id = c.id
             JOIN ventas v ON vd.venta_id = v.id
-            WHERE v.negocio_id = %s AND v.fecha AT TIME ZONE 'America/Argentina/San_Luis' >= NOW() - INTERVAL '30 days'
-            GROUP BY c.nombre                        
+            WHERE v.negocio_id = %s AND v.fecha AT TIME ZONE 'America/Argentina/San_Luis' >= NOW() - INTERVAL '30 days'                        
+            GROUP BY c.id, c.nombre
             ORDER BY SUM(vd.subtotal) DESC
             LIMIT 5;
         """
