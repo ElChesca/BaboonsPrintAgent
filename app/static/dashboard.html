@@ -1,6 +1,6 @@
-</head>
 <div id="seccion-dashboard" class="seccion-contenido-dinamico">
     <h2>📊 Dashboard Principal</h2>
+
     <div class="dashboard-stats">
         <div class="stat-card">
             <h3>Ventas de Hoy</h3>
@@ -15,17 +15,41 @@
             <p id="stat-total-clientes">0</p>
         </div>
     </div>
-    <div class="actividad-reciente">
-        <h3>Actividad Reciente</h3>
-        <table class="tabla-bonita">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Cliente</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody id="tabla-actividad-reciente"></tbody>
-        </table>
+
+    <div class="dashboard-grid">
+        <div class="stat-card">
+            <h3>Ingresos por Método de Pago (Últimos 30 días)</h3>
+            <canvas id="payment-methods-chart"></canvas>
+        </div>
+
+        <div class="stat-card">
+            <h3>Top 5 Categorías (Últimos 30 días)</h3>
+            <table class="tabla-bonita">
+                <thead>
+                    <tr>
+                        <th>Categoría</th>
+                        <th>Total Vendido</th>
+                    </tr>
+                </thead>
+                <tbody id="category-ranking-table">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="actividad-reciente stat-card">
+        <h3>Actividad Reciente (Últimas 5 ventas)</h3>
+        <div class="tabla-contenedor">
+            <table class="tabla-bonita">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-actividad-reciente"></tbody>
+            </table>
+        </div>
     </div>
 </div>

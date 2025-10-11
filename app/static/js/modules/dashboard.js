@@ -44,3 +44,73 @@ async function cargarEstadisticas() {
 export function inicializarLogicaDashboard() {
     cargarEstadisticas();
 }
+// ✨ NUEVA FUNCIÓN para el gráfico de métodos de pago
+async function cargarGraficoMetodosPago() {
+    const ctx = document.getElementById('payment-methods-chart');
+    if (!ctx) return;
+
+    try {
+        const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/dashboard/payment_methods`);
+        
+        const labels = data.map(item => item.metodo_pago);
+        const totals = data.map(item => item.total);
+
+        // Creamos el gráfico usando Chart.js
+        new Chart(ctx, {
+            type: 'doughnut', // Tipo de gráfico: dona
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Total Vendido',
+                    data: totals,
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(153, 102, 255, 0.7)',
+                        'rgba(255, 99, 132, 0.7)',
+                    ],
+                    borderColor: '#fff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error("Error al cargar datos de métodos de pago:", error);
+    }
+}
+
+// ✨ NUEVA FUNCIÓN para el ranking de categorías
+async function cargarRankingCategorias() {
+    const tablaBody = document.getElementById('category-ranking-table');
+    if (!tablaBody) return;
+
+    try {
+        const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/dashboard/category_ranking`);
+        
+        tablaBody.innerHTML = '';
+        if (data.length === 0) {
+            tablaBody.innerHTML = '<tr><td colspan="2">No hay datos de categorías.</td></tr>';
+        } else {
+            data.forEach(cat => {
+                const fila = `
+                    <tr>
+                        <td>${cat.nombre}</td>
+                        <td>$${cat.total.toFixed(2)}</td>
+                    </tr>
+                `;
+                tablaBody.innerHTML += fila;
+            });
+        }
+    } catch (error) {
+        console.error("Error al cargar ranking de categorías:", error);
+    }
+}
