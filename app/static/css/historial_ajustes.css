@@ -1,0 +1,33 @@
+.filters {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+.tabla-bonita {
+    width: 100%;
+    border-collapse: collapse;
+}
+.tabla-bonita th, .tabla-bonita td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+.tabla-bonita thead th {
+    background-color: #ffc107; /* Un color amarillo/dorado para ajustes */
+    color: #333;
+}
+/* Estilos para las etiquetas de estado */
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: bold;
+    color: white;
+}
+.status-rendida {
+    background-color: #28a745; /* Verde */
+}
+.status-pendiente {
+    background-color: #fd7e14; /* Naranja */
+}

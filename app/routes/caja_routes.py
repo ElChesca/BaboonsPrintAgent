@@ -148,3 +148,53 @@ def get_detalles_cierre_caja(current_user, sesion_id):
     desglose_pagos_rows = db.fetchall()
     desglose_pagos = {row['metodo_pago']: row['total_por_metodo'] for row in desglose_pagos_rows}
     return jsonify(desglose_pagos)
+
+
+# --- ✨ NUEVA RUTA PARA EL HISTORIAL DE AJUSTES ---
+@bp.route('/negocios/<int:negocio_id>/caja/ajustes', methods=['GET'])
+@token_required
+def get_historial_ajustes(current_user, negocio_id):
+    db = get_db()    
+    # Parámetros para el filtro de fechas (opcional pero útil)
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+    # La consulta SQL es la clave:
+    # 1. Unimos 'caja_ajustes' con 'usuarios' para obtener el nombre.
+    # 2. Unimos con 'caja_sesiones' para obtener la 'fecha_cierre'.
+    #    Si 'fecha_cierre' no es NULL, el ajuste está "Rendido".
+    query = """
+        SELECT 
+            ca.fecha,
+            ca.tipo,
+            ca.monto,
+            ca.concepto,
+            u.nombre as usuario_nombre,
+            cs.fecha_cierre 
+        FROM 
+            caja_ajustes ca
+        JOIN 
+            usuarios u ON ca.usuario_id = u.id
+        JOIN 
+            caja_sesiones cs ON ca.caja_sesion_id = cs.id
+        WHERE 
+            ca.negocio_id = %s
+    """
+    params = [negocio_id]
+
+    if fecha_desde:
+        query += " AND DATE(ca.fecha) >= %s"
+        params.append(fecha_desde)
+    if fecha_hasta:
+        query += " AND DATE(ca.fecha) <= %s"
+        params.append(fecha_hasta)
+
+    query += " ORDER BY ca.fecha DESC"
+    
+    try:
+        db.execute(query, tuple(params))
+        ajustes = db.fetchall()
+        return jsonify([dict(row) for row in ajustes])
+    except Exception as e:
+        print(f"Error en get_historial_ajustes: {e}")
+        return jsonify({'error': 'Ocurrió un error al obtener el historial de ajustes.'}), 500
+    
