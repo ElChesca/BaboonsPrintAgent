@@ -1,7 +1,7 @@
 // app/static/js/main.js
 import { fetchData } from './api.js';
 import { inicializarLogicaLogin, getCurrentUser, logout } from './modules/auth.js';
-import { inicializarLogicaClientes, editarCliente, borrarCliente } from './modules/clientes.js';
+import { inicializarLogicaClientes } from './modules/clientes.js';
 import { inicializarLogicaIngresos } from './modules/ingresos.js';
 import { inicializarLogicaVentas } from './modules/sales.js';
 import { inicializarLogicaUsuarios, abrirModalEditarUsuario } from './modules/users.js';
