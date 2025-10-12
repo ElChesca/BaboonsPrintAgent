@@ -187,6 +187,12 @@ document.addEventListener('DOMContentLoaded', () => {
         hamburgerBtn.addEventListener('click', () => {
             navContainer.classList.toggle('is-active');
         });
+        navContainer.addEventListener('click', (e) => {
+            // Si el elemento clickeado es un enlace (A), ocultamos el menú.
+            if (e.target.tagName === 'A') {
+                navContainer.classList.remove('is-active');
+            }
+        });
     }
     actualizarUIAutenticacion();
 });
