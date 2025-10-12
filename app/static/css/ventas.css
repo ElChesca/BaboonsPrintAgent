@@ -28,11 +28,6 @@
 .venta-header #venta-item-cantidad {
     width: 90px;
 }
-.btn-add-item {
-    padding: 10px 20px !important;
-    font-weight: bold;
-    flex-shrink: 0;
-}
 /* --- GRILLA PRINCIPAL --- */
 .pos-main-grid {
     display: grid;
@@ -95,7 +90,6 @@
     height: 35vh; /* Reducimos la altura para que sea más compacta */
 }
 
-
 .tabla-venta-elegante {
     width: 100%;
     border-collapse: collapse;
@@ -121,8 +115,6 @@
     padding: 4px 8px; font-size: 0.8em;
 }
 /* Footer de la Venta (Azul) */
-
-
 /* ✨ Punto c: Footer de la Venta con estilos correctos */
 .venta-footer {
     border-top: 2px solid #dee2e6;
@@ -194,6 +186,49 @@
     margin-top: 15px;
     padding-top: 15px;
     border-top: 1px dashed #ccc;
+}
+.btn-primary, .btn-secondary {
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 1em;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+    white-space: nowrap; /* Evita que el texto se parta en dos líneas */
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+.btn-primary:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+    border: 1px solid #6c757d;
+}
+.btn-secondary:hover {
+    background-color: #5a6268;
+}
+.btn-secondary:disabled {
+    background-color: #cccccc;
+    border-color: #cccccc;
+    cursor: not-allowed;
+}
+.btn-add-item {
+    padding: 10px 20px !important;
+    font-weight: bold;
+    flex-shrink: 0;
+    background-color: #cccccc;
+    border-color: #cccccc;
+    cursor: not-allowed;
 }
 
 .switch { position: relative; display: inline-block; width: 50px; height: 28px; }

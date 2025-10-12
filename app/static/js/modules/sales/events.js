@@ -33,9 +33,6 @@ async function procesarVenta(imprimir = false) {
         
         mostrarNotificacion(responseData.message || `¡Venta #${responseData.venta_id} registrada!`, 'success');
         
-        // Aquí podrías añadir la lógica para llamar a una función de generar ticket si es necesario
-        // if (imprimir) { generarTicket(...) }
-        
         state.clearSale();
         ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
         ui.resetSaleUI();
@@ -56,76 +53,94 @@ export function setupEventListeners() {
     const pagaConInput = document.getElementById('paga-con-input');
     const btnFinalizar = document.getElementById('btn-finalize-sale');
     const btnImprimir = document.getElementById('btn-finalize-and-print');
+    const toggleAccesoRapido = document.getElementById('toggle-acceso-rapido');
+    const panelAccesoRapido = document.getElementById('pos-grid-container');
     
     // --- Lógica de Listeners ---
 
     // 1. Añadir item a la venta desde el formulario principal
-    formAddItem.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const productoNombre = productoInput.value;
-        const cantidad = parseFloat(document.getElementById('venta-item-cantidad').value);
-        
-        // Buscamos el producto en nuestra caché de estado
-        const productosEncontrados = state.findProductoInCache(productoNombre);
-        const producto = productosEncontrados.find(p => p.nombre === productoNombre);
+    if (formAddItem) {
+        formAddItem.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const productoNombre = productoInput.value;
+            const cantidad = parseFloat(document.getElementById('venta-item-cantidad').value);
+            const productosEncontrados = state.findProductoInCache(productoNombre);
+            const producto = productosEncontrados.find(p => p.nombre === productoNombre);
 
-        if (!producto) {
-            return mostrarNotificacion("Producto no válido o no encontrado.", 'error');
-        }
-        
-        const result = state.addItem(producto, cantidad);
-        
-        if (result.success) {
-            ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
-            formAddItem.reset(); // Limpia el formulario de añadir
-            document.getElementById('venta-item-cantidad').value = '1'; // Resetea la cantidad a 1
-            productoInput.focus(); // Devuelve el foco al buscador
-        } else {
-            mostrarNotificacion(result.message, 'error');
-        }
-    });
+            if (!producto) {
+                return mostrarNotificacion("Producto no válido o no encontrado.", 'error');
+            }
+            
+            const result = state.addItem(producto, cantidad);
+            
+            if (result.success) {
+                ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
+                formAddItem.reset();
+                document.getElementById('venta-item-cantidad').value = '1';
+                productoInput.focus();
+            } else {
+                mostrarNotificacion(result.message, 'error');
+            }
+        });
+    }
 
     // 2. Búsqueda de productos en tiempo real
-    productoInput.addEventListener('keyup', () => {
-        const query = productoInput.value;
-        const resultados = state.findProductoInCache(query);
-        ui.renderSearchResults(resultados, (nombreSeleccionado) => {
-            productoInput.value = nombreSeleccionado;
-            // Opcional: Ocultar los resultados después de seleccionar
-            document.getElementById('search-results-venta').style.display = 'none';
+    if (productoInput) {
+        productoInput.addEventListener('keyup', () => {
+            const query = productoInput.value;
+            const resultados = state.findProductoInCache(query);
+            ui.renderSearchResults(resultados, (nombreSeleccionado) => {
+                productoInput.value = nombreSeleccionado;
+                document.getElementById('search-results-venta').style.display = 'none';
+            });
         });
-    });
+    }
 
-    // 3. Quitar un item de la venta (usando delegación de eventos)
-    tablaItems.addEventListener('click', (e) => {
-        if (e.target.classList.contains('btn-quitar')) {
-            const index = parseInt(e.target.closest('tr').dataset.index, 10);
-            state.removeItem(index);
-            ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
-        }
-    });
+    // 3. Quitar un item de la venta (delegación de eventos)
+    if (tablaItems) {
+        tablaItems.addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-quitar')) {
+                const index = parseInt(e.target.closest('tr').dataset.index, 10);
+                state.removeItem(index);
+                ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
+            }
+        });
+    }
 
     // 4. Botones para finalizar la venta
-    btnFinalizar.addEventListener('click', () => procesarVenta(false));
-    btnImprimir.addEventListener('click', () => procesarVenta(true));
+    if (btnFinalizar) btnFinalizar.addEventListener('click', () => procesarVenta(false));
+    if (btnImprimir) btnImprimir.addEventListener('click', () => procesarVenta(true));
 
     // 5. Lógica de UI para los métodos de pago
-    metodoPagoSelector.addEventListener('change', () => {
-        const esEfectivo = metodoPagoSelector.value === 'Efectivo';
-        const pagoDetallesContainer = document.getElementById('pago-detalles-container');
-        const calculoVueltoContainer = document.getElementById('calculo-vuelto-container');
-        
-        if (calculoVueltoContainer) {
-            calculoVueltoContainer.style.display = esEfectivo ? 'block' : 'none';
-        }
-        if (pagoDetallesContainer) {
-            pagoDetallesContainer.style.display = esEfectivo ? 'none' : 'grid';
-        }
-    });
+    if (metodoPagoSelector) {
+        metodoPagoSelector.addEventListener('change', () => {
+            const esEfectivo = metodoPagoSelector.value === 'Efectivo';
+            const pagoDetallesContainer = document.getElementById('pago-detalles-container');
+            const calculoVueltoContainer = document.getElementById('calculo-vuelto-container');
+            
+            if (calculoVueltoContainer) {
+                calculoVueltoContainer.style.display = esEfectivo ? 'block' : 'none';
+            }
+            if (pagoDetallesContainer) {
+                pagoDetallesContainer.style.display = esEfectivo ? 'none' : 'grid';
+            }
+        });
+    }
 
     // 6. Cálculo del vuelto en tiempo real
-    pagaConInput.addEventListener('input', () => {
-        const pagaCon = parseFloat(pagaConInput.value) || 0;
-        ui.updateVueltoDisplay(pagaCon, state.calculateTotal());
-    });
+    if (pagaConInput) {
+        pagaConInput.addEventListener('input', () => {
+            const pagaCon = parseFloat(pagaConInput.value) || 0;
+            ui.updateVueltoDisplay(pagaCon, state.calculateTotal());
+        });
+    }
+
+    // ✨ 7. LÓGICA PARA EL INTERRUPTOR DE ACCESO RÁPIDO ✨
+    if (toggleAccesoRapido && panelAccesoRapido) {
+        toggleAccesoRapido.addEventListener('change', (e) => {
+            panelAccesoRapido.style.display = e.target.checked ? 'grid' : 'none';
+        });
+        // Aseguramos que el estado inicial sea el correcto al cargar
+        panelAccesoRapido.style.display = toggleAccesoRapido.checked ? 'grid' : 'none';
+    }
 }
