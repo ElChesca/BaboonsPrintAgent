@@ -179,6 +179,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     window.addEventListener('authChange', actualizarUIAutenticacion);
+    // ✨ LÓGICA PARA EL BOTÓN HAMBURGUESA ✨
+    const hamburgerBtn = document.getElementById('hamburger-btn');
+    const navContainer = document.querySelector('.nav-container');
+
+    if (hamburgerBtn && navContainer) {
+        hamburgerBtn.addEventListener('click', () => {
+            navContainer.classList.toggle('is-active');
+        });
+    }
     actualizarUIAutenticacion();
 });
 

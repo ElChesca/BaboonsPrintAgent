@@ -19,58 +19,60 @@
 
 <body>
 
-<div id="notification-container"></div>
+    <div id="notification-container"></div>
+    <header>       
+        <h1>Multinegocio Baboons</h1>
+        <button id="hamburger-btn" class="hamburger-btn">☰</button>
+        <div class="nav-container">
+            <nav id="main-nav">
+                <a href="#" onclick="loadContent(event, 'static/dashboard.html', this)"> 🖥️ Dashboard</a>
+                <a href="#" onclick="loadContent(event, 'static/inventario.html', this)" class="active">📦 Inventario</a>
+                
+                <div class="dropdown">
+                    <a href="#" class="dropbtn">📥 Ingresos ▾</a>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="loadContent(event, 'static/ingresos.html', this)">Nuevo Ingreso</a>
+                        <a href="#" onclick="loadContent(event, 'static/historial_ingresos.html', this)">Ver Historial</a>
+                    </div>
+                </div>
+                
+                <div class="dropdown">
+                    <a href="#" class="dropbtn">💰 Ventas ▾</a>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="loadContent(event, 'static/ventas.html', this)">Nueva Venta</a>
+                        <a href="#" onclick="loadContent(event, 'static/historial_ventas.html', this)">Historial de Ventas</a>
+                    </div>
+                </div>
 
-<header>
-    <h1>Multinegocio Baboons</h1>
-    <nav>
-        <a href="#" onclick="loadContent(event, 'static/dashboard.html', this)"> 🖥️ Dashboard</a>
-        <a href="#" onclick="loadContent(event, 'static/inventario.html', this)" class="active">📦 Inventario</a>
-        
-        <div class="dropdown">
-            <a href="#" class="dropbtn">📥 Ingresos ▾</a>
-            <div class="dropdown-content">
-                <a href="#" onclick="loadContent(event, 'static/ingresos.html', this)">Nuevo Ingreso</a>
-                <a href="#" onclick="loadContent(event, 'static/historial_ingresos.html', this)">Ver Historial</a>
-            </div>
-        </div>
-        
-        <div class="dropdown">
-            <a href="#" class="dropbtn">💰 Ventas ▾</a>
-            <div class="dropdown-content">
-                <a href="#" onclick="loadContent(event, 'static/ventas.html', this)">Nueva Venta</a>
-                <a href="#" onclick="loadContent(event, 'static/historial_ventas.html', this)">Historial de Ventas</a>
-            </div>
-        </div>
+                <a href="#" onclick="loadContent(event, 'static/clientes.html', this)">🧑‍🤝‍🧑 Clientes</a>
 
-        <a href="#" onclick="loadContent(event, 'static/clientes.html', this)">🧑‍🤝‍🧑 Clientes</a>
+                <div class="dropdown">
+                    <a href="#" class="dropbtn">⚙️ Configuración ▾</a>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="loadContent(event, 'static/caja.html', this)">💼 Gestión de Caja</a>                
+                        <a href="#" onclick="loadContent(event, 'static/ajuste_caja.html', this)">💸 Ajuste de Caja</a>
+                        <a href="#" onclick="loadContent(event, 'static/historial_ajustes.html', this)">🧾 Historial de Ajustes</a>                
+                        <a href="#" onclick="loadContent(event, 'static/negocios.html', this)" id="negocios-link">🏢 Negocios</a>
+                        <a href="#" onclick="loadContent(event, 'static/usuarios.html', this)" id="usuarios-link">👥 Usuarios</a>
+                        <a href="#" onclick="loadContent(event, 'static/proveedores.html', this)">🚚 Proveedores</a>
+                        <a href="#" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a>
+                        <a href="#" onclick="loadContent(event, 'static/configuracion.html', this)">⚙️ Seteos Varios</a>
+                    </div>
+                </div>
+                
+                <div class="dropdown">
+                    <a href="#" class="dropbtn">📑 Reportes</a>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="loadContent(event, 'static/reportes.html', this)">💰Ventas Diarias</a>
+                        <a href="#" onclick="loadContent(event, 'static/reporte_caja.html', this)">💼Reporte de Caja</a>
+                        <a href="#" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">📈 Reporte de Ganancias</a>
+                    </div>
+                </div>
+                
+                <a href="#" id="auth-link"></a> 
+            </nav>
+    </header>
 
-        <div class="dropdown">
-            <a href="#" class="dropbtn">⚙️ Configuración ▾</a>
-            <div class="dropdown-content">
-                <a href="#" onclick="loadContent(event, 'static/caja.html', this)">💼 Gestión de Caja</a>                
-                <a href="#" onclick="loadContent(event, 'static/ajuste_caja.html', this)">💸 Ajuste de Caja</a>
-                <a href="#" onclick="loadContent(event, 'static/historial_ajustes.html', this)">🧾 Historial de Ajustes</a>                
-                <a href="#" onclick="loadContent(event, 'static/negocios.html', this)" id="negocios-link">🏢 Negocios</a>
-                <a href="#" onclick="loadContent(event, 'static/usuarios.html', this)" id="usuarios-link">👥 Usuarios</a>
-                <a href="#" onclick="loadContent(event, 'static/proveedores.html', this)">🚚 Proveedores</a>
-                <a href="#" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a>
-                <a href="#" onclick="loadContent(event, 'static/configuracion.html', this)">⚙️ Seteos Varios</a>
-            </div>
-        </div>
-        
-        <div class="dropdown">
-            <a href="#" class="dropbtn">📑 Reportes</a>
-            <div class="dropdown-content">
-                <a href="#" onclick="loadContent(event, 'static/reportes.html', this)">💰Ventas Diarias</a>
-                <a href="#" onclick="loadContent(event, 'static/reporte_caja.html', this)">💼Reporte de Caja</a>
-                <a href="#" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">📈 Reporte de Ganancias</a>
-            </div>
-        </div>
-        
-        <a href="#" id="auth-link"></a> 
-    </nav>
-</header>
 <div id="business-selector-bar" style="background-color: #ecf0f1; padding: 15px 30px; border-bottom: 2px solid #bdc3c7; display: flex; align-items: center;">
     <label for="selector-negocio" style="font-weight: bold; margin-right: 10px; font-size: 1em;">NEGOCIO ACTIVO:</label>
     <select id="selector-negocio" style="padding: 8px; border-radius: 5px; border: 1px solid #ccc; min-width: 250px; font-size: 1em;">

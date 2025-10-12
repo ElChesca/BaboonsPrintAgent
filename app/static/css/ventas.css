@@ -225,10 +225,8 @@
 .btn-add-item {
     padding: 10px 20px !important;
     font-weight: bold;
-    flex-shrink: 0;
-    background-color: #cccccc;
-    border-color: #cccccc;
-    cursor: not-allowed;
+    background-color: #007bff;
+    color: white;
 }
 
 .switch { position: relative; display: inline-block; width: 50px; height: 28px; }

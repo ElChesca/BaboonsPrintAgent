@@ -71,54 +71,64 @@ main {
     display: block;
 }
 
+/* ✨ ESTILOS PARA EL MENÚ HAMBURGUESA (Ocultos en escritorio) ✨ */
+.hamburger-btn {
+    display: none; /* Oculto por defecto */
+    font-size: 2em;
+    color: white;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
 
-/* --- ✨ MEDIA QUERIES PARA RESPONSIVE ✨ --- */
-@media (max-width: 900px) {
+/* --- ✨ MEDIA QUERIES PARA RESPONSIVE ✨ --- */@media (max-width: 900px) {
     header {
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row; /* Volvemos a ponerlo en fila */
+        justify-content: space-between; /* Logo a la izquierda, botón a la derecha */
+        align-items: center;
         padding: 15px;
+    }
+
+    .hamburger-btn {
+        display: block; /* Mostramos el botón hamburguesa */
+    }
+
+    .nav-container {
+        display: none; /* Ocultamos el menú por defecto */
+        position: absolute;
+        top: 70px; /* Justo debajo del header */
+        left: 0;
+        width: 100%;
+        background-color: #34495e;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        z-index: 1000;
+    }
+    
+    .nav-container.is-active {
+        display: block; /* Mostramos el menú cuando tiene la clase 'is-active' */
     }
 
     nav {
-        width: 100%;
-        /* ✨ LA CORRECCIÓN CLAVE: Permite deslizar horizontalmente */
-        overflow-x: auto; 
-        padding-top: 15px;
-        margin-left: -15px;
-        padding-left: 15px;
-        /* Estilo sutil para la barra de scroll en navegadores compatibles */
-        scrollbar-width: thin;
-        scrollbar-color: #34495e #2c3e50;
-    }
-
-    /* Ocultamos la barra de scroll por defecto para un look más limpio */
-    nav::-webkit-scrollbar {
-        height: 5px;
-    }
-    nav::-webkit-scrollbar-thumb {
-        background: #34495e;
-        border-radius: 10px;
-    }
-
-    main {
-        padding: 15px;
-    }
-    .main-grid, .venta-grid {
-        grid-template-columns: 1fr;
-    }
-}
-@media (max-width: 600px) {
-    header h1 {
-        font-size: 1.5em;
-    }
-    nav a {
-        padding: 8px 10px;
-        font-size: 0.9em;
-    }
-    #business-selector-bar {
-        flex-direction: column;
+        flex-direction: column; /* Apilamos los enlaces verticalmente */
         align-items: flex-start;
-        gap: 5px;
+        padding: 10px 0;
+    }
+
+    nav a, .dropdown {
+        width: 100%;
+        margin-left: 0;
+        padding: 15px;
+        border-bottom: 1px solid #4a617a;
+    }
+
+    .dropdown-content {
+        position: static; /* El submenú ya no es flotante */
+        display: block;
+        background-color: transparent;
+        box-shadow: none;
+        padding-left: 20px;
+    }
+    .dropdown:hover .dropdown-content {
+        display: block;
     }
 }
