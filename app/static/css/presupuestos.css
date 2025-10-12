@@ -1,0 +1,73 @@
+/* --- ESTILOS GENERALES DEL MÓDULO DE PRESUPUESTOS --- */
+.main-grid {
+    display: grid;
+    grid-template-columns: 3fr 2fr; /* Columna de controles más ancha */
+    gap: 25px;
+    align-items: start;
+}
+
+.form-grid-presupuesto {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px 20px;
+    margin-bottom: 20px;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 25px 0;
+}
+
+/* Estilos para el formulario de añadir item */
+.add-item-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 15px;
+}
+
+/* --- ESTILOS PARA LA COLUMNA DE RESUMEN --- */
+.tabla-contenedor {
+    max-height: 45vh;
+    overflow-y: auto;
+}
+.tabla-bonita thead th {
+    background-color: #fd7e14; /* Naranja para presupuestos */
+    color: white;
+}
+
+.presupuesto-totales {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #e5e7eb;
+}
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+}
+.total-row span:first-child {
+    color: #4b5563;
+}
+.total-row span:last-child {
+    font-weight: bold;
+}
+.input-row input {
+    width: 80px;
+    text-align: right;
+    padding: 5px;
+}
+.final-total {
+    font-size: 1.8em;
+    color: #1d4ed8;
+    margin-top: 15px;
+}
+
+/* --- RESPONSIVE --- */
+@media (max-width: 900px) {
+    .main-grid {
+        grid-template-columns: 1fr;
+    }
+}

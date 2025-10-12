@@ -1,0 +1,89 @@
+<div class="seccion-contenido-dinamico">
+    <h2>📑 Nuevo Presupuesto</h2>
+    <div class="main-grid">
+        <div class="card">
+            <form id="form-presupuesto-principal">
+                <h3>1. Datos del Cliente y Comprobante</h3>
+                <div class="form-grid-presupuesto">
+                    <div class="form-group">
+                        <label for="presupuesto-cliente">Cliente:</label>
+                        <select id="presupuesto-cliente" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="presupuesto-vendedor">Vendedor:</label>
+                        <input type="text" id="presupuesto-vendedor" disabled> </div>
+                    <div class="form-group">
+                        <label for="presupuesto-tipo-comprobante">Tipo Comprobante:</label>
+                        <select id="presupuesto-tipo-comprobante">
+                            <option value="X">Presupuesto X</option>
+                            <option value="A">Factura A</option>
+                            <option value="B">Factura B</option>
+                            <option value="M">Factura M</option>
+                        </select>
+                    </div>
+                </div>
+
+                <hr>
+
+                <h3>2. Cargar Productos</h3>
+                <form id="form-add-item-presupuesto">
+                     <div class="form-group search-container">
+                        <label for="presupuesto-producto-input">Buscar Producto:</label>
+                        <input type="text" id="presupuesto-producto-input" autocomplete="off" placeholder="Escriba para buscar...">
+                        <div id="search-results-presupuesto" style="display: none;"></div>
+                    </div>
+                    <div class="add-item-controls">
+                        <div class="form-group">
+                            <label for="presupuesto-item-cantidad">Cantidad:</label>
+                            <input type="number" id="presupuesto-item-cantidad" step="any" value="1" required>
+                        </div>
+                         <button type="submit" class="btn-primary">Añadir Producto</button>
+                    </div>
+                </form>
+
+                <hr>
+                
+                <h3>3. Condiciones y Entrega</h3>
+                 <div class="form-grid-presupuesto">
+                    <div class="form-group"><label for="presupuesto-forma-pago">Forma de Pago:</label><input type="text" id="presupuesto-forma-pago" value="A convenir"></div>
+                    <div class="form-group"><label for="presupuesto-plazo-pago">Plazo de Pago:</label><input type="text" id="presupuesto-plazo-pago" value="30 días"></div>
+                    <div class="form-group"><label for="presupuesto-fecha-entrega">Fecha Entrega Estimada:</label><input type="date" id="presupuesto-fecha-entrega"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="presupuesto-observaciones">Observaciones:</label>
+                    <textarea id="presupuesto-observaciones" rows="3"></textarea>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Resumen del Presupuesto</h3>
+            <div class="tabla-contenedor">
+                <table id="tabla-presupuesto-items" class="tabla-bonita">
+                    <thead><tr><th>Producto</th><th>Cant.</th><th>Precio U.</th><th>Subtotal</th><th>Acc.</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="presupuesto-totales">
+                <div class="total-row"><span>Subtotal:</span><span id="presupuesto-subtotal">$0.00</span></div>
+                <div class="total-row input-row">
+                    <label for="presupuesto-bonificacion">Bonificación (%):</label>
+                    <input type="number" id="presupuesto-bonificacion" value="0" step="0.01">
+                </div>
+                <div class="total-row input-row">
+                    <label for="presupuesto-interes">Interés (%):</label>
+                    <input type="number" id="presupuesto-interes" value="0" step="0.01">
+                </div>
+                <hr>
+                <div class="total-row final-total">
+                    <strong>TOTAL:</strong>
+                    <strong id="presupuesto-total">$0.00</strong>
+                </div>
+            </div>
+
+            <button type="button" id="btn-guardar-presupuesto" class="btn-primary" style="width: 100%; margin-top: 20px; padding: 15px; font-size: 1.2em;">Guardar Presupuesto</button>
+        </div>
+    </div>
+</div>
