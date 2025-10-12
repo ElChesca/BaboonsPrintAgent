@@ -23,7 +23,7 @@
     gap: 15px;
 }
 .venta-header .search-container {
-    flex-grow: 1; /* El buscador ahora es el más grande */
+    flex-grow: 1;
 }
 .venta-header #venta-item-cantidad {
     width: 90px;
@@ -31,10 +31,8 @@
 .btn-add-item {
     padding: 10px 20px !important;
     font-weight: bold;
-    flex-shrink: 0; /* Evita que el botón se encoja */
+    flex-shrink: 0;
 }
-
-/* --- GRILLA PRINCIPAL --- */
 /* --- GRILLA PRINCIPAL --- */
 .pos-main-grid {
     display: grid;
@@ -96,6 +94,8 @@
     overflow-y: auto;
     height: 35vh; /* Reducimos la altura para que sea más compacta */
 }
+
+
 .tabla-venta-elegante {
     width: 100%;
     border-collapse: collapse;
@@ -121,30 +121,36 @@
     padding: 4px 8px; font-size: 0.8em;
 }
 /* Footer de la Venta (Azul) */
+
+
+/* ✨ Punto c: Footer de la Venta con estilos correctos */
 .venta-footer {
     border-top: 2px solid #dee2e6;
-    padding: 15px;
-    background-color: #f8f9fa;
+    padding-top: 15px;
 }
 .venta-total-display {
     text-align: right;
-    font-size: 1.8em;
+    font-size: 2.2em; /* Más grande para destacar */
     font-weight: bold;
     color: #007bff;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
 }
 .venta-total-display span {
-    font-size: 0.6em;
+    font-size: 0.5em;
     color: #6c757d;
     display: block;
-    margin-bottom: -10px;
+    margin-bottom: -15px;
 }
 .finalization-controls {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 4 columnas para los controles */
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 15px;
     align-items: flex-end;
 }
+.finalization-controls .form-group, .finalization-controls .form-actions {
+    margin: 0;
+}
+
 .finalization-controls .form-group {
     margin: 0;
 }
@@ -181,6 +187,15 @@
     font-size: 0.9em;
     color: #555;
 }
+#pago-detalles-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px dashed #ccc;
+}
+
 .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }

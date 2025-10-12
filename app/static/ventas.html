@@ -1,5 +1,4 @@
 <div class="pos-container">
-
     <div id="info-caja-activa" class="caja-info-banner">Cargando estado de la caja...</div>
 
     <div class="card venta-header">
@@ -24,10 +23,7 @@
                     <h3>Acceso Rápido</h3>
                     <div class="switch-container">
                         <label for="toggle-acceso-rapido">Mostrar</label>
-                        <label class="switch">
-                            <input type="checkbox" id="toggle-acceso-rapido" checked>
-                            <span class="slider"></span>
-                        </label>
+                        <label class="switch"><input type="checkbox" id="toggle-acceso-rapido" checked><span class="slider"></span></label>
                     </div>
                 </div>
                 <div id="pos-grid-container"></div>
@@ -37,9 +33,7 @@
                 <h3>Venta Actual</h3>
                 <div class="tabla-contenedor-venta">
                     <table id="staged-items-venta" class="tabla-venta-elegante">
-                        <thead>
-                            <tr><th>Producto</th><th>Cant.</th><th>Precio U.</th><th>Subtotal</th><th>Acc.</th></tr>
-                        </thead>
+                        <thead><tr><th>Producto</th><th>Cant.</th><th>Precio U.</th><th>Subtotal</th><th>Acc.</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -68,14 +62,22 @@
                     <div id="calculo-vuelto-container" class="form-group">
                         <label for="paga-con-input">Paga con</label>
                         <input type="number" id="paga-con-input" step="any">
-                        <div class="vuelto-display">...</div>
+                        <div class="vuelto-display">
+                            <span>Vuelto:</span>
+                            <span id="vuelto-monto">$0.00</span>
+                        </div>
                     </div>
                      <div class="form-actions">
                         <button type="button" id="btn-finalize-sale" class="btn-primary">Cobrar</button>
                         <button type="button" id="btn-finalize-and-print" class="btn-secondary">Cobrar e Imprimir</button>
                     </div>
                 </form>
-                 <div id="pago-detalles-container" style="display: none;">...</div>
+                 <div id="pago-detalles-container" style="display: none;">
+                    <div class="form-group"><label>DNI:</label><input type="text" id="pago-dni"></div>
+                    <div class="form-group"><label>Tarjeta:</label><input type="text" id="pago-tarjeta" maxlength="4"></div>
+                    <div class="form-group"><label>Cupón:</label><input type="text" id="pago-cupon"></div>
+                    <div class="form-group"><label>Banco:</label><input type="text" id="pago-banco"></div>
+                 </div>
             </div>
         </div>
     </div>
