@@ -1,138 +1,68 @@
-// app/static/js/modules/clientes.js
 import { fetchData } from '../api.js';
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
 
-let form, tituloForm, idInput, nombreInput, dniInput, telefonoInput, emailInput, direccionInput, btnCancelar, buscador;
-let clientesCache = [];
+const formatCurrency = (n) => (n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+let todosLosClientes = []; // Caché para guardar todos los clientes y agilizar la búsqueda.
 
-async function cargarClientes() {
-    try {
-        clientesCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`);
-        renderizarTabla();
-    } catch (error) {
-        mostrarNotificacion('No se pudieron cargar los clientes: ' + error.message, 'error');
-    }
-}
-
-function renderizarTabla() {
+/**
+ * Dibuja las filas de la tabla de clientes.
+ * @param {Array} clientes - La lista de clientes a renderizar.
+ */
+function renderTablaClientes(clientes) {
     const tbody = document.querySelector('#tabla-clientes tbody');
     if (!tbody) return;
-
-    const filtro = buscador.value.toLowerCase();
-    const clientesFiltrados = clientesCache.filter(c => 
-        c.nombre.toLowerCase().includes(filtro) || 
-        (c.dni && c.dni.toLowerCase().includes(filtro))
-    );
-
     tbody.innerHTML = '';
-    clientesFiltrados.forEach(c => {
+    clientes.forEach(cliente => {
         tbody.innerHTML += `
-            <tr>
-                <td>${c.nombre}</td>
-                <td>${c.dni || '-'}</td>
-                <td>${c.telefono || '-'}</td>
-                <td>${c.email || '-'}</td>
-                <td>
-                    <button class="btn-edit btn-small" onclick="editarCliente(${c.id})">Editar</button>
-                    <button class="btn-delete btn-small" onclick="borrarCliente(${c.id})">Borrar</button>
+            <tr data-id="${cliente.id}">
+                <td>${cliente.nombre}</td>
+                <td>${cliente.dni || '-'}</td>
+                <td>${cliente.condicion_venta || 'Contado'}</td>
+                <td class="acciones">
+                    <button class="btn-editar">Editar</button>
+                    <button class="btn-borrar">Borrar</button>
+                    <button class="btn-secondary btn-cta-cte">Cta. Cte.</button>
                 </td>
             </tr>
         `;
     });
 }
 
-function resetFormulario() {
-    tituloForm.textContent = 'Añadir Nuevo Cliente';
-    form.reset();
-    idInput.value = '';
-    btnCancelar.style.display = 'none';
-}
-
-async function guardarCliente(e) {
-    e.preventDefault();
-    const id = idInput.value;
-    const data = {
-        nombre: nombreInput.value,
-        dni: dniInput.value,
-        telefono: telefonoInput.value,
-        email: emailInput.value,
-        direccion: direccionInput.value
-    };
-
-    if (!data.nombre) {
-        mostrarNotificacion('El nombre es obligatorio.', 'warning');
-        return;
-    }
-
-    const esEdicion = !!id;
-    const url = esEdicion ? `/api/clientes/${id}` : `/api/negocios/${appState.negocioActivoId}/clientes`;
-    const method = esEdicion ? 'PUT' : 'POST';
-
-    try {
-        await fetchData(url, { method, body: JSON.stringify(data) });
-        mostrarNotificacion(`Cliente ${esEdicion ? 'actualizado' : 'creado'} con éxito.`, 'success');
-        resetFormulario();
-        cargarClientes();
-    } catch (error) {
-        mostrarNotificacion(error.message, 'error');
-    }
-}
-
-export function editarCliente(id) {
-    const cliente = clientesCache.find(c => c.id === id);
-    if (!cliente) return;
-
-    tituloForm.textContent = 'Editar Cliente';
-    idInput.value = cliente.id;
-    nombreInput.value = cliente.nombre;
-    dniInput.value = cliente.dni;
-    telefonoInput.value = cliente.telefono;
-    emailInput.value = cliente.email;
-    direccionInput.value = cliente.direccion;
-    btnCancelar.style.display = 'inline-block';
-    window.scrollTo(0, 0);
-}
-
-export async function borrarCliente(id) {
-    if (!confirm('¿Estás seguro de que quieres eliminar este cliente?')) return;
-    try {
-        await fetchData(`/api/clientes/${id}`, { method: 'DELETE' });
-        mostrarNotificacion('Cliente eliminado con éxito.', 'success');
-        cargarClientes();
-    } catch (error) {
-        mostrarNotificacion(error.message, 'error');
-    }
-}
-
-export function inicializarLogicaClientes() {
-    form = document.getElementById('form-cliente');
-    if (!form) return;
-
-    tituloForm = document.getElementById('form-cliente-titulo');
-    idInput = document.getElementById('cliente-id');
-    nombreInput = document.getElementById('cliente-nombre');
-    dniInput = document.getElementById('cliente-dni');
-    telefonoInput = document.getElementById('cliente-telefono');
-    emailInput = document.getElementById('cliente-email');
-    direccionInput = document.getElementById('cliente-direccion');
-    btnCancelar = document.getElementById('btn-cancelar-edicion-cliente');
-    buscador = document.getElementById('buscador-clientes');
+/**
+ * Llena el formulario con los datos de un cliente para su edición.
+ * @param {object} cliente - El objeto del cliente a editar.
+ */
+function poblarFormulario(cliente) {
+    document.getElementById('form-cliente-titulo').textContent = 'Editar Cliente';
+    document.getElementById('cliente-id').value = cliente.id;
+    document.getElementById('cliente-nombre').value = cliente.nombre;
+    document.getElementById('cliente-tipo').value = cliente.tipo_cliente;
+    document.getElementById('cliente-documento').value = cliente.dni;
+    document.getElementById('cliente-iva').value = cliente.posicion_iva;
+    document.getElementById('cliente-condicion').value = cliente.condicion_venta;
+    document.getElementById('cliente-telefono').value = cliente.telefono;
+    document.getElementById('cliente-email').value = cliente.email;
+    document.getElementById('cliente-direccion').value = cliente.direccion;
+    document.getElementById('cliente-ciudad').value = cliente.ciudad;
+    document.getElementById('cliente-provincia').value = cliente.provincia;
+    document.getElementById('cliente-lista-precios').value = cliente.lista_precios;
+    document.getElementById('cliente-credito').value = cliente.credito_maximo;
+    document.getElementById('cliente-ref').value = cliente.ref_interna;
     
-    form.addEventListener('submit', guardarCliente);
-    btnCancelar.addEventListener('click', resetFormulario);
-    buscador.addEventListener('keyup', renderizarTabla);
-     // ✨ Listener para los botones "Ver Cta. Cte." (usando delegación)
-    document.getElementById('tabla-clientes').addEventListener('click', (e) => {
-        if (e.target.classList.contains('btn-cta-cte')) {
-            const clienteId = e.target.dataset.id;
-            const clienteNombre = e.target.dataset.nombre;
-            mostrarCuentaCorriente(clienteId, clienteNombre);
-        }
-    });    
-    cargarClientes();
+    document.getElementById('btn-cancelar-edicion-cliente').style.display = 'inline-block';
+    window.scrollTo(0, 0); // Sube al inicio de la página para ver el formulario.
 }
 
+/** Resetea el formulario a su estado inicial para añadir un nuevo cliente. */
+function resetFormulario() {
+    document.getElementById('form-cliente-titulo').textContent = 'Añadir Nuevo Cliente';
+    document.getElementById('form-cliente').reset();
+    document.getElementById('cliente-id').value = '';
+    document.getElementById('btn-cancelar-edicion-cliente').style.display = 'none';
+}
+
+/** Muestra el modal con el historial de la cuenta corriente de un cliente. */
 async function mostrarCuentaCorriente(clienteId, clienteNombre) {
     const modal = document.getElementById('modal-cta-cte');
     const titulo = document.getElementById('modal-cta-cte-titulo');
@@ -140,29 +70,135 @@ async function mostrarCuentaCorriente(clienteId, clienteNombre) {
     const saldoFinalEl = document.getElementById('cta-cte-saldo-final');
 
     titulo.textContent = `Cuenta Corriente de: ${clienteNombre}`;
-    tbody.innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Cargando...</td></tr>';
     modal.style.display = 'flex';
 
     try {
         const movimientos = await fetchData(`/api/clientes/${clienteId}/cuenta_corriente`);
         let saldo = 0;
         tbody.innerHTML = '';
-        movimientos.forEach(mov => {
-            saldo += mov.debe - mov.haber;
-            tbody.innerHTML += `
-                <tr>
-                    <td>${new Date(mov.fecha).toLocaleDateString('es-AR')}</td>
-                    <td>${mov.concepto}</td>
-                    <td>${mov.debe > 0 ? formatCurrency(mov.debe) : '-'}</td>
-                    <td>${mov.haber > 0 ? formatCurrency(mov.haber) : '-'}</td>
-                    <td>${formatCurrency(saldo)}</td>
-                </tr>
-            `;
-        });
+        if (movimientos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No hay movimientos registrados.</td></tr>';
+        } else {
+            movimientos.forEach(mov => {
+                saldo += (mov.debe || 0) - (mov.haber || 0);
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${new Date(mov.fecha).toLocaleDateString('es-AR')}</td>
+                        <td>${mov.concepto}</td>
+                        <td style="color: red;">${mov.debe > 0 ? formatCurrency(mov.debe) : '-'}</td>
+                        <td style="color: green;">${mov.haber > 0 ? formatCurrency(mov.haber) : '-'}</td>
+                        <td>${formatCurrency(saldo)}</td>
+                    </tr>
+                `;
+            });
+        }
         saldoFinalEl.textContent = formatCurrency(saldo);
-        if (saldo > 0) saldoFinalEl.style.color = 'red';
-        else saldoFinalEl.style.color = 'green';
+        saldoFinalEl.style.color = saldo > 0 ? 'red' : 'green';
     } catch (error) {
         mostrarNotificacion('Error al cargar la cuenta corriente.', 'error');
     }
+}
+
+export function inicializarLogicaClientes() {
+    // --- 1. OBTENER ELEMENTOS DEL DOM ---
+    const form = document.getElementById('form-cliente');
+    const btnCancelar = document.getElementById('btn-cancelar-edicion-cliente');
+    const buscador = document.getElementById('buscador-clientes');
+    const tablaClientes = document.getElementById('tabla-clientes');
+    const modalCtaCte = document.getElementById('modal-cta-cte');
+    const closeModalBtn = document.getElementById('close-cta-cte-modal');
+    
+    if (!form || !tablaClientes || !modalCtaCte) {
+        console.error("Faltan elementos HTML cruciales para el módulo de clientes.");
+        return;
+    }
+
+    // --- 2. FUNCIONES DE LÓGICA PRINCIPAL ---
+    async function cargarClientes() {
+        try {
+            todosLosClientes = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`);
+            renderTablaClientes(todosLosClientes);
+        } catch (error) {
+            mostrarNotificacion('No se pudieron cargar los clientes.', 'error');
+        }
+    }
+
+    async function handleFormSubmit(e) {
+        e.preventDefault();
+        const clienteId = document.getElementById('cliente-id').value;
+        const payload = {
+            nombre: document.getElementById('cliente-nombre').value,
+            tipo_cliente: document.getElementById('cliente-tipo').value,
+            dni: document.getElementById('cliente-documento').value,
+            posicion_iva: document.getElementById('cliente-iva').value,
+            condicion_venta: document.getElementById('cliente-condicion').value,
+            telefono: document.getElementById('cliente-telefono').value,
+            email: document.getElementById('cliente-email').value,
+            direccion: document.getElementById('cliente-direccion').value,
+            ciudad: document.getElementById('cliente-ciudad').value,
+            provincia: document.getElementById('cliente-provincia').value,
+            lista_precios: document.getElementById('cliente-lista-precios').value,
+            credito_maximo: parseFloat(document.getElementById('cliente-credito').value) || 0,
+            ref_interna: document.getElementById('cliente-ref').value
+        };
+
+        const esEdicion = !!clienteId;
+        const url = esEdicion ? `/api/clientes/${clienteId}` : `/api/negocios/${appState.negocioActivoId}/clientes`;
+        const method = esEdicion ? 'PUT' : 'POST';
+
+        try {
+            const response = await fetchData(url, { method, body: JSON.stringify(payload) });
+            mostrarNotificacion(response.message || `Cliente ${esEdicion ? 'actualizado' : 'creado'} con éxito.`, 'success');
+            resetFormulario();
+            cargarClientes();
+        } catch (error) {
+            mostrarNotificacion(error.message, 'error');
+        }
+    }
+
+    // --- 3. CONFIGURACIÓN DE EVENT LISTENERS ---
+    form.addEventListener('submit', handleFormSubmit);
+    btnCancelar.addEventListener('click', resetFormulario);
+
+    buscador.addEventListener('input', () => {
+        const query = buscador.value.toLowerCase();
+        const clientesFiltrados = todosLosClientes.filter(c => 
+            c.nombre.toLowerCase().includes(query) || (c.dni && c.dni.includes(query))
+        );
+        renderTablaClientes(clientesFiltrados);
+    });
+
+    tablaClientes.addEventListener('click', (e) => {
+        const fila = e.target.closest('tr');
+        if (!fila || !fila.dataset.id) return;
+        
+        const clienteId = fila.dataset.id;
+        const cliente = todosLosClientes.find(c => c.id == clienteId);
+
+        if (e.target.classList.contains('btn-editar')) {
+            poblarFormulario(cliente);
+        } else if (e.target.classList.contains('btn-borrar')) {
+            if (confirm(`¿Estás seguro de que quieres eliminar a ${cliente.nombre}?`)) {
+                fetchData(`/api/clientes/${clienteId}`, { method: 'DELETE' })
+                    .then(() => {
+                        mostrarNotificacion('Cliente eliminado con éxito.', 'success');
+                        cargarClientes();
+                    })
+                    .catch(error => mostrarNotificacion(error.message, 'error'));
+            }
+        } else if (e.target.classList.contains('btn-cta-cte')) {
+            mostrarCuentaCorriente(cliente.id, cliente.nombre);
+        }
+    });
+    
+    closeModalBtn.addEventListener('click', () => modalCtaCte.style.display = 'none');
+    window.addEventListener('click', (e) => {
+        if (e.target === modalCtaCte) {
+            modalCtaCte.style.display = 'none';
+        }
+    });
+
+    // --- 4. EJECUCIÓN INICIAL ---
+    cargarClientes();
 }

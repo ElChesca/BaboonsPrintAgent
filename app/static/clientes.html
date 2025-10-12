@@ -1,51 +1,62 @@
-<div class="main-grid">
-    <div class="card">
-        <h3 id="form-cliente-titulo">Añadir Nuevo Cliente</h3>
-        <form id="form-cliente">
-            <input type="hidden" id="cliente-id">
-            <div class="form-group"><label for="cliente-nombre">Nombre Completo:</label><input type="text" id="cliente-nombre" required></div>
-            
-            <div class="form-group"><label for="cliente-tipo">Tipo:</label><select id="cliente-tipo"><option>Individuo</option><option>Empresa</option></select></div>
-            <div class="form-group"><label for="cliente-documento">Documento (CUIT/DNI):</label><input type="text" id="cliente-documento"></div>
-            <div class="form-group"><label for="cliente-iva">Posición IVA:</label><select id="cliente-iva"><option>Consumidor Final</option><option>Monotributista</option><option>Responsable Inscripto</option><option>Exento</option></select></div>
-            <div class="form-group"><label for="cliente-condicion">Condición de Venta:</label><select id="cliente-condicion"><option>Contado</option><option>Cuenta Corriente</option></select></div>
-
-            <div class="form-group"><label for="cliente-ciudad">Ciudad:</label><input type="text" id="cliente-ciudad"></div>
-            <div class="form-group"><label for="cliente-provincia">Provincia:</label><input type="text" id="cliente-provincia"></div>
-            <div class="form-group"><label for="cliente-lista-precios">Lista de Precios:</label><input type="text" id="cliente-lista-precios" placeholder="Ej: Lista Minorista"></div>
-            <div class="form-group"><label for="cliente-credito">Crédito Máximo (ARS):</label><input type="number" id="cliente-credito" step="0.01" value="0"></div>
-            <div class="form-group"><label for="cliente-ref">Ref. Interna:</label><input type="text" id="cliente-ref"></div>
-            
-            <div class="form-actions"></div>
-        </form>
-    </div>
-    <div class="card">
-        <h3>Lista de Clientes</h3>
-        <div class="tabla-contenedor">
-            <table id="tabla-clientes" class="tabla-bonita">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Documento</th>
-                        <th>Condición Venta</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+<div class="seccion-contenido-dinamico">
+    <h2>🧑‍🤝‍🧑 Gestión de Clientes</h2>
+    <div class="main-grid">
+        <div class="card">
+            <h3 id="form-cliente-titulo">Añadir Nuevo Cliente</h3>
+            <form id="form-cliente">
+                <input type="hidden" id="cliente-id">
+                
+                <div class="form-group"><label for="cliente-nombre">Nombre Completo:</label><input type="text" id="cliente-nombre" required></div>
+                <div class="form-group"><label for="cliente-tipo">Tipo:</label><select id="cliente-tipo"><option>Individuo</option><option>Empresa</option></select></div>
+                <div class="form-group"><label for="cliente-documento">Documento (CUIT/DNI):</label><input type="text" id="cliente-documento"></div>
+                <div class="form-group"><label for="cliente-iva">Posición IVA:</label><select id="cliente-iva"><option>Consumidor Final</option><option>Monotributista</option><option>Responsable Inscripto</option><option>Exento</option></select></div>
+                <div class="form-group"><label for="cliente-condicion">Condición de Venta:</label><select id="cliente-condicion"><option>Contado</option><option>Cuenta Corriente</option></select></div>
+                <div class="form-group"><label for="cliente-telefono">Teléfono:</label><input type="tel" id="cliente-telefono"></div>
+                <div class="form-group"><label for="cliente-email">Email:</label><input type="email" id="cliente-email"></div>
+                <div class="form-group"><label for="cliente-direccion">Dirección:</label><input type="text" id="cliente-direccion"></div>
+                <div class="form-group"><label for="cliente-ciudad">Ciudad:</label><input type="text" id="cliente-ciudad"></div>
+                <div class="form-group"><label for="cliente-provincia">Provincia:</label><input type="text" id="cliente-provincia"></div>
+                <div class="form-group"><label for="cliente-lista-precios">Lista de Precios:</label><input type="text" id="cliente-lista-precios" placeholder="Ej: Lista Minorista"></div>
+                <div class="form-group"><label for="cliente-credito">Crédito Máximo (ARS):</label><input type="number" id="cliente-credito" step="0.01" value="0"></div>
+                <div class="form-group"><label for="cliente-ref">Ref. Interna:</label><input type="text" id="cliente-ref"></div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Guardar</button>
+                    <button type="button" id="btn-cancelar-edicion-cliente" class="btn-secondary" style="display: none;">Cancelar</button>
+                </div>
+            </form>
+        </div>
+        <div class="card">
+            <h3>Lista de Clientes</h3>
+            <div class="form-group">
+                <input type="text" id="buscador-clientes" placeholder="Buscar por nombre o DNI...">
+            </div>
+            <div class="tabla-contenedor">
+                <table id="tabla-clientes" class="tabla-bonita">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Documento</th>
+                            <th>Condición Venta</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
 <div id="modal-cta-cte" class="modal">
     <div class="modal-content large">
-        <span class="close-button">&times;</span>
+        <span class="close-button" id="close-cta-cte-modal">&times;</span>
         <h2 id="modal-cta-cte-titulo">Cuenta Corriente de Cliente</h2>
         <div class="tabla-contenedor">
             <table id="tabla-cta-cte" class="tabla-bonita">
                 <thead><tr><th>Fecha</th><th>Concepto</th><th>Debe</th><th>Haber</th><th>Saldo</th></tr></thead>
                 <tbody></tbody>
-                <tfoot><tr><th colspan="4">Saldo Final:</th><td id="cta-cte-saldo-final"></td></tr></tfoot>
+                <tfoot><tr><th colspan="4" style="text-align: right;">Saldo Final:</th><td id="cta-cte-saldo-final"></td></tr></tfoot>
             </table>
         </div>
     </div>
