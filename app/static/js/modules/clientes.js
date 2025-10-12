@@ -62,6 +62,37 @@ function resetFormulario() {
     document.getElementById('btn-cancelar-edicion-cliente').style.display = 'none';
 }
 
+ // ✨ Función para generar el PDF de la cuenta corriente
+    function generarPdfCtaCte(cliente, movimientos) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        let saldo = 0;
+
+        doc.setFontSize(20);
+        doc.text(`Cuenta Corriente: ${cliente.nombre}`, 105, 22, { align: 'center' });
+        doc.setFontSize(10);
+        doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString('es-AR')}`, 105, 29, { align: 'center' });
+
+        doc.autoTable({
+            startY: 40,
+            head: [['Fecha', 'Concepto', 'Debe', 'Haber', 'Saldo']],
+            body: movimientos.map(mov => {
+                saldo += (mov.debe || 0) - (mov.haber || 0);
+                return [
+                    new Date(mov.fecha).toLocaleDateString('es-AR'),
+                    mov.concepto,
+                    mov.debe > 0 ? formatCurrency(mov.debe) : '-',
+                    mov.haber > 0 ? formatCurrency(mov.haber) : '-',
+                    formatCurrency(saldo)
+                ];
+            }),
+            foot: [[{ content: 'Saldo Final', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+                    { content: formatCurrency(saldo), styles: { fontStyle: 'bold' } }]],
+            theme: 'striped',
+            headStyles: { fillColor: [0, 123, 255] }
+        });
+        doc.save(`CtaCte_${cliente.nombre.replace(/\s/g, '_')}.pdf`);
+    }
 /** Muestra el modal con el historial de la cuenta corriente de un cliente. */
 async function mostrarCuentaCorriente(clienteId, clienteNombre) {
     const modal = document.getElementById('modal-cta-cte');
@@ -95,6 +126,7 @@ async function mostrarCuentaCorriente(clienteId, clienteNombre) {
         }
         saldoFinalEl.textContent = formatCurrency(saldo);
         saldoFinalEl.style.color = saldo > 0 ? 'red' : 'green';
+        btnPdf.onclick = () => generarPdfCtaCte(cliente, movimientos);
     } catch (error) {
         mostrarNotificacion('Error al cargar la cuenta corriente.', 'error');
     }
@@ -197,8 +229,7 @@ export function inicializarLogicaClientes() {
         if (e.target === modalCtaCte) {
             modalCtaCte.style.display = 'none';
         }
-    });
-
-    // --- 4. EJECUCIÓN INICIAL ---
+    });   
+   
     cargarClientes();
 }

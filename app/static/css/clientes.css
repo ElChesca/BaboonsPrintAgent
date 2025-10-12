@@ -1,114 +1,45 @@
 /* --- ESTILOS GENERALES DEL MÓDULO DE CLIENTES --- */
+.main-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 25px; align-items: start; }
 
-/* La grilla principal que divide el formulario y la lista */
-.main-grid {
-    display: grid;
-    grid-template-columns: 1fr 2fr; /* El formulario ocupa 1/3 y la lista 2/3 */
-    gap: 25px;
+/* ✨ Punto 2: Formulario compacto en grilla */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 20px; }
+.form-grid .grid-col-span-2 { grid-column: span 2; }
+
+/* --- ESTILOS PARA EL FORMULARIO --- */
+.card h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
+.form-group { margin-bottom: 0; /* La grilla ya maneja el espaciado */ }
+.form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; color: #555; }
+#form-cliente input, #form-cliente select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 1em; }
+.form-actions { margin-top: 20px; display: flex; gap: 10px; }
+
+/* --- ESTILOS PARA LA LISTA Y TABLA --- */
+#buscador-clientes { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 1em; margin-bottom: 20px; }
+.tabla-bonita { width: 100%; border-collapse: collapse; }
+.tabla-bonita th, .tabla-bonita td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; word-break: break-word; }
+.tabla-bonita thead th { background-color: #007bff; color: white; }
+
+/* ✨ Punto 4: Estilo del botón Cta. Cte. y otros */
+.tabla-bonita .btn-editar, .tabla-bonita .btn-borrar, .tabla-bonita .btn-cta-cte {
+    padding: 6px 10px; font-size: 0.9em; margin-right: 5px; border-radius: 5px; border: none; cursor: pointer; color: white;
 }
+.tabla-bonita .btn-editar { background-color: #ffc107; color: #333; }
+.tabla-bonita .btn-borrar { background-color: #dc3545; }
+.tabla-bonita .btn-cta-cte { background-color: #6c757d; }
 
-/* --- ESTILOS PARA EL FORMULARIO DE CLIENTE --- */
-#form-cliente .form-group {
-    margin-bottom: 20px;
-}
+/* ✨ Punto 5: Estilos para el Modal de Cuenta Corriente */
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-header h2 { margin: 0; }
+#tabla-cta-cte tfoot { font-weight: bold; font-size: 1.1em; }
+#tabla-cta-cte tfoot td { border-top: 2px solid #333; }
+.btn-pdf { background-color: #9333ea; color: white; padding: 8px 14px; }
+.btn-pdf:hover { background-color: #7e22ce; }
 
-#form-cliente label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-    color: #555;
-}
-
-#form-cliente input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    box-sizing: border-box;
-    font-size: 1em;
-}
-
-/* Contenedor para los botones de guardar y cancelar */
-#form-cliente .form-actions {
-    display: flex;
-    gap: 10px; /* Espacio entre los botones */
-    margin-top: 20px;
-}
-
-/* --- ESTILOS PARA LA LISTA DE CLIENTES --- */
-
-/* Estilo para el campo de búsqueda */
-#buscador-clientes {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    box-sizing: border-box;
-    font-size: 1em;
-    margin-bottom: 20px;
-}
-
-/* Estilos para la tabla */
-.tabla-bonita {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.tabla-bonita th,
-.tabla-bonita td {
-    padding: 12px 15px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
-    /* Evita que el texto largo rompa el diseño */
-    word-break: break-word; 
-}
-
-.tabla-bonita thead th {
-    background-color: #007bff; /* Azul para clientes */
-    color: white;
-}
-
-/* Estilos para los botones de acción dentro de la tabla */
-.tabla-bonita .btn-editar,
-.tabla-bonita .btn-borrar {
-    padding: 6px 10px;
-    font-size: 0.9em;
-    margin-right: 5px;
-    border-radius: 5px;
-    border: none;
-    cursor: pointer;
-    color: white;
-}
-
-.tabla-bonita .btn-editar {
-    background-color: #ffc107; /* Amarillo */
-    color: #333;
-}
-
-.tabla-bonita .btn-borrar {
-    background-color: #dc3545; /* Rojo */
-}
-
-/* --- ✨ MEDIA QUERIES PARA RESPONSIVE ✨ --- */
-
-/* Para tablets y dispositivos intermedios */
+/* --- RESPONSIVE --- */
 @media (max-width: 900px) {
-    .main-grid {
-        /* Apilamos el formulario y la lista en una sola columna */
-        grid-template-columns: 1fr;
-    }
+    .main-grid, .form-grid { grid-template-columns: 1fr; }
+    .form-grid .grid-col-span-2 { grid-column: span 1; }
 }
-
-/* Para celulares */
 @media (max-width: 768px) {
-    .tabla-contenedor {
-        /* Permite que la tabla haga scroll horizontal en su propio contenedor */
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .tabla-bonita {
-        /* Forzamos un ancho mínimo para que el scroll se active si es necesario */
-        min-width: 700px; 
-    }
+    .tabla-contenedor { overflow-x: auto; }
+    .tabla-bonita { min-width: 700px; }
 }
