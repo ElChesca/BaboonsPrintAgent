@@ -122,6 +122,47 @@ export function inicializarLogicaClientes() {
     form.addEventListener('submit', guardarCliente);
     btnCancelar.addEventListener('click', resetFormulario);
     buscador.addEventListener('keyup', renderizarTabla);
-
+     // ✨ Listener para los botones "Ver Cta. Cte." (usando delegación)
+    document.getElementById('tabla-clientes').addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-cta-cte')) {
+            const clienteId = e.target.dataset.id;
+            const clienteNombre = e.target.dataset.nombre;
+            mostrarCuentaCorriente(clienteId, clienteNombre);
+        }
+    });    
     cargarClientes();
+}
+
+async function mostrarCuentaCorriente(clienteId, clienteNombre) {
+    const modal = document.getElementById('modal-cta-cte');
+    const titulo = document.getElementById('modal-cta-cte-titulo');
+    const tbody = document.querySelector('#tabla-cta-cte tbody');
+    const saldoFinalEl = document.getElementById('cta-cte-saldo-final');
+
+    titulo.textContent = `Cuenta Corriente de: ${clienteNombre}`;
+    tbody.innerHTML = '<tr><td colspan="5">Cargando...</td></tr>';
+    modal.style.display = 'flex';
+
+    try {
+        const movimientos = await fetchData(`/api/clientes/${clienteId}/cuenta_corriente`);
+        let saldo = 0;
+        tbody.innerHTML = '';
+        movimientos.forEach(mov => {
+            saldo += mov.debe - mov.haber;
+            tbody.innerHTML += `
+                <tr>
+                    <td>${new Date(mov.fecha).toLocaleDateString('es-AR')}</td>
+                    <td>${mov.concepto}</td>
+                    <td>${mov.debe > 0 ? formatCurrency(mov.debe) : '-'}</td>
+                    <td>${mov.haber > 0 ? formatCurrency(mov.haber) : '-'}</td>
+                    <td>${formatCurrency(saldo)}</td>
+                </tr>
+            `;
+        });
+        saldoFinalEl.textContent = formatCurrency(saldo);
+        if (saldo > 0) saldoFinalEl.style.color = 'red';
+        else saldoFinalEl.style.color = 'green';
+    } catch (error) {
+        mostrarNotificacion('Error al cargar la cuenta corriente.', 'error');
+    }
 }
