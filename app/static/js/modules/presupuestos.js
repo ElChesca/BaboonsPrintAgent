@@ -1,5 +1,5 @@
 import { fetchData } from '../api.js';
-import { appState, esAdmin } from '../main.js';
+import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
 import { getCurrentUser } from './auth.js';
 
@@ -8,7 +8,6 @@ let productosCache = [];
 
 const formatCurrency = (n) => (n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 
-/** Renderiza la tabla de items del presupuesto y actualiza totales */
 function renderizarTablaYTotales() {
     const tbody = document.querySelector('#tabla-presupuesto-items tbody');
     if (!tbody) return;
@@ -40,7 +39,6 @@ function renderizarTablaYTotales() {
     document.getElementById('presupuesto-total').textContent = formatCurrency(totalFinal);
 }
 
-/** Carga los datos iniciales (clientes, productos) en los selectores */
 async function cargarDatosIniciales() {
     try {
         const [productos, clientes] = await Promise.all([
@@ -55,7 +53,9 @@ async function cargarDatosIniciales() {
         clientes.forEach(c => selCliente.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
 
         const currentUser = getCurrentUser();
-        document.getElementById('presupuesto-vendedor').value = currentUser.nombre;
+        if (currentUser) {
+            document.getElementById('presupuesto-vendedor').value = currentUser.nombre;
+        }
 
     } catch (error) {
         mostrarNotificacion('Error al cargar datos iniciales: ' + error.message, 'error');
@@ -63,8 +63,9 @@ async function cargarDatosIniciales() {
 }
 
 export function inicializarLogicaPresupuestos() {
-    stagedBudgetItems = []; // Limpiamos al inicializar
+    stagedBudgetItems = [];
 
+    // --- Selectores ---
     const formAddItem = document.getElementById('form-add-item-presupuesto');
     const productoInput = document.getElementById('presupuesto-producto-input');
     const searchResults = document.getElementById('search-results-presupuesto');
@@ -73,10 +74,15 @@ export function inicializarLogicaPresupuestos() {
     const interesInput = document.getElementById('presupuesto-interes');
     const btnGuardar = document.getElementById('btn-guardar-presupuesto');
 
+    // ✨ CORRECCIÓN CLAVE: Verificamos si los elementos existen antes de añadir listeners.
+    if (!formAddItem || !productoInput || !tablaBody || !btnGuardar) {
+        console.error("Faltan elementos HTML cruciales en la página de presupuestos.");
+        return; // Detenemos la ejecución si algo falta.
+    }
+
     cargarDatosIniciales();
     renderizarTablaYTotales();
 
-    // Listener para buscar productos
     productoInput.addEventListener('input', () => {
         const query = productoInput.value.toLowerCase();
         if (query.length < 2) {
@@ -87,7 +93,7 @@ export function inicializarLogicaPresupuestos() {
         searchResults.innerHTML = '';
         resultados.forEach(p => {
             const item = document.createElement('div');
-            item.className = 'search-item'; // Asumiendo que tienes esta clase globalmente
+            item.className = 'search-item';
             item.textContent = p.nombre;
             item.onclick = () => {
                 productoInput.value = p.nombre;
@@ -98,7 +104,6 @@ export function inicializarLogicaPresupuestos() {
         searchResults.style.display = 'block';
     });
 
-    // Listener para añadir un item
     formAddItem.addEventListener('submit', (e) => {
         e.preventDefault();
         const producto = productosCache.find(p => p.nombre === productoInput.value);
@@ -119,7 +124,7 @@ export function inicializarLogicaPresupuestos() {
         }
     });
 
-    // Listener para quitar un item (delegación)
+    // Esta es la línea que daba error. Ahora es segura porque ya verificamos que tablaBody existe.
     tablaBody.addEventListener('click', (e) => {
         if (e.target.classList.contains('btn-quitar')) {
             const index = parseInt(e.target.closest('tr').dataset.index, 10);
@@ -128,11 +133,9 @@ export function inicializarLogicaPresupuestos() {
         }
     });
 
-    // Listeners para bonificación e interés
     bonificacionInput.addEventListener('input', renderizarTablaYTotales);
     interesInput.addEventListener('input', renderizarTablaYTotales);
 
-    // Listener para guardar el presupuesto
     btnGuardar.addEventListener('click', async () => {
         const payload = {
             cliente_id: document.getElementById('presupuesto-cliente').value,
@@ -156,9 +159,9 @@ export function inicializarLogicaPresupuestos() {
                 body: JSON.stringify(payload)
             });
             mostrarNotificacion(response.message, 'success');
-            // Limpiar todo para un nuevo presupuesto
             stagedBudgetItems = [];
             document.getElementById('form-presupuesto-principal').reset();
+            cargarDatosIniciales(); // Recargamos datos por si algo cambió
             renderizarTablaYTotales();
         } catch (error) {
             mostrarNotificacion(error.message, 'error');
