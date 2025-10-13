@@ -1,5 +1,5 @@
 // app/static/js/main.js
-import { fetchData } from './api.js';
+import { fetchData } from './modules/api.js';
 import { inicializarLogicaLogin, getCurrentUser, logout } from './modules/auth.js';
 import { inicializarLogicaClientes } from './modules/clientes.js';
 import { inicializarLogicaIngresos } from './modules/ingresos.js';

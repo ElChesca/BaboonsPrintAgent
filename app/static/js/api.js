@@ -1,4 +1,4 @@
-import { getAuthHeaders } from './modules/auth.js';
+import { getAuthHeaders } from './auth.js';
 
 /**
  * Función centralizada para realizar todas las llamadas a la API.
