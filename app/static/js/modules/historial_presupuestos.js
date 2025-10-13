@@ -1,6 +1,7 @@
 import { fetchData } from '../api.js';
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
+const formatCurrency = (n) => (n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 
 
 async function cargarHistorial() {
