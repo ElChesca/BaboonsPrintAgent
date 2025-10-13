@@ -1,6 +1,7 @@
 // app/static/js/modules/historial_ventas.js
 import { getAuthHeaders } from './auth.js';
 import { appState } from '../main.js';
+const formatCurrency = (n) => (n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 
 export function inicializarLogicaHistorialVentas() {
     const btnFiltrar = document.getElementById('btn-filtrar-ventas');
