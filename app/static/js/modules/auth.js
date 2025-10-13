@@ -1,7 +1,6 @@
-// ✨ LA CORRECCIÓN CLAVE: auth.js importa la herramienta que necesita de api.js.
+// ✨ LA RUTA CLAVE: Desde /modules/, busca 'api.js' subiendo un nivel ('../')
 import { fetchData } from '../api.js';
 
-// La librería jwt-decode se carga globalmente desde index.html.
 const jwt_decode = window.jwt_decode;
 
 export function getAuthHeaders() {
@@ -14,17 +13,9 @@ export function getAuthHeaders() {
 
 export function getCurrentUser() {
     const token = localStorage.getItem('jwt_token');
-    if (!token) {
-        return null;
-    }
+    if (!token) return null;
     try {
-        if (typeof jwt_decode === 'function') {
-            return jwt_decode(token); 
-        } else {
-            console.error("La librería jwt-decode no está cargada correctamente.");
-            logout();
-            return null;
-        }
+        return jwt_decode(token); 
     } catch (e) {
         console.error("Error al decodificar el token:", e);
         logout();
@@ -43,7 +34,6 @@ export function inicializarLogicaLogin() {
     
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
         const email = document.getElementById('email')?.value;
         const password = document.getElementById('password')?.value;
         const errorMessageDiv = document.getElementById('login-error-message');
@@ -61,10 +51,8 @@ export function inicializarLogicaLogin() {
                 method: 'POST',
                 body: JSON.stringify(payload)
             });
-
             localStorage.setItem('jwt_token', data.token);
             window.dispatchEvent(new Event('authChange'));
-
         } catch (error) {
             errorMessageDiv.textContent = error.message || 'Error de conexión.';
             errorMessageDiv.style.display = 'block';
