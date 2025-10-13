@@ -21,6 +21,7 @@ import { inicializarLogicaHistorialAjustes } from './modules/historial_ajustes.j
 import { inicializarLogicaPresupuestos } from './modules/presupuestos.js';
 import { inicializarLogicaHistorialPresupuestos } from './modules/historial_presupuestos.js';
 
+let onClienteCreadoCallback = null;
 
 // --- ESTADO GLOBAL ---
 export const appState = {
