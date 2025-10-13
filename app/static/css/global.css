@@ -132,3 +132,46 @@ main {
         display: block;
     }
 }
+
+#notification-container {
+    position: fixed; /* Se queda fijo en la pantalla */
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999; /* Se asegura de estar por encima de todo */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.toast-notification {
+    color: #fff;
+    padding: 15px 20px;
+    border-radius: 8px;
+    min-width: 250px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    transform: translateX(100%);
+    /* La animación de entrada */
+    animation: slideIn 0.5s forwards;
+}
+
+/* Colores para cada tipo de notificación */
+.toast-notification.success { background-color: #28a745; }
+.toast-notification.warning { background-color: #ffc107; color: #333; }
+.toast-notification.error { background-color: #dc3545; }
+.toast-notification.info { background-color: #17a2b8; }
+
+/* Animaciones de entrada y salida */
+@keyframes slideIn {
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+@keyframes slideOut {
+    to {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
