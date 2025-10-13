@@ -15,18 +15,32 @@
                     <th>Cliente</th>
                     <th>Forma de Pago</th>
                     <th>Total</th>
-                    <th>Ver Detalles</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 </tbody>
             <tfoot>
                 <tr>
-                    <th colspan="4">TOTAL GENERAL:</th>
+                    <th colspan="4" style="text-align: right;">TOTAL GENERAL:</th>
                     <td id="total-historial-ventas">$0.00</td>
-                    <td></td>
-                </tr>
+                    <td colspan="2"></td> </tr>
             </tfoot>
         </table>
+    </div>
+</div>
+
+<div id="modal-facturar" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-facturar-titulo">Facturar Venta</h2>
+            <span class="close-button" id="close-facturar-modal">&times;</span>
+        </div>
+        <p id="modal-facturar-texto">¿Cómo deseas facturar la Venta Nro. X?</p>
+        <div class="form-actions" style="justify-content: center; gap: 20px;">
+            <button id="btn-facturar-oficial" class="btn-primary">Factura Oficial (AFIP)</button>
+            <button id="btn-facturar-negro" class="btn-secondary">Factura "X" (No Fiscal)</button>
+        </div>
     </div>
 </div>

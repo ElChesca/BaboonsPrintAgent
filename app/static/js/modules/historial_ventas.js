@@ -59,18 +59,26 @@ async function cargarHistorialVentas() {
 
         historial.forEach(venta => {
             const fecha = new Date(venta.fecha).toLocaleString('es-AR');
+             const estado = venta.estado === 'Facturada' 
+            ? `<span class="status-badge status-convertido">${venta.tipo_factura || 'X'}: ${venta.numero_factura || 'N/A'}</span>`
+            : `<span class="status-badge status-pendiente">Pendiente</span>`;
+
             totalGeneral += venta.total;
 
             // ✨ MEJORA: Quitamos el 'onclick' y usamos 'data-venta-id' para un código más limpio.
             tbody.innerHTML += `
-                <tr class="master-row" data-venta-id="${venta.id}">
-                    <td>${venta.id}</td>
-                    <td>${fecha}</td>
-                    <td>${venta.cliente_nombre || 'Consumidor Final'}</td>
-                    <td>${venta.metodo_pago}</td>
-                    <td>$${venta.total.toFixed(2)}</td>
-                    <td><button>🔽</button></td>
-                </tr>
+            <tr class="master-row" data-id="${venta.id}">
+                <td>${venta.id}</td>
+                <td>${fecha}</td>
+                <td>${venta.cliente_nombre || 'Consumidor Final'}</td>
+                <td>${venta.metodo_pago}</td>
+                <td>${formatCurrency(venta.total)}</td>
+                <td>${estado}</td>
+                <td class="acciones">
+                    <button class="btn-secondary btn-ver-detalles">🔽</button>
+                    ${venta.estado !== 'Facturada' ? '<button class="btn-primary btn-facturar">Facturar</button>' : ''}
+                </td>
+            </tr>
             `;
         });
 
@@ -78,6 +86,28 @@ async function cargarHistorialVentas() {
 
     } catch (error) {
         console.error("Error en cargarHistorialVentas:", error);
+    }
+}
+// ✨ NUEVA LÓGICA PARA EL MODAL Y LA FACTURACIÓN
+function abrirModalFacturacion(ventaId) {
+    const modal = document.getElementById('modal-facturar');
+    document.getElementById('modal-facturar-texto').textContent = `¿Cómo deseas facturar la Venta Nro. ${ventaId}?`;
+    
+    document.getElementById('btn-facturar-oficial').onclick = () => facturar(ventaId, 'oficial');
+    document.getElementById('btn-facturar-negro').onclick = () => facturar(ventaId, 'negro');
+    
+    modal.style.display = 'flex';
+}
+async function facturar(ventaId, tipo) {
+    try {
+        const response = await fetchData(`/api/ventas/${ventaId}/facturar`, {
+            method: 'POST', body: JSON.stringify({ tipo: tipo })
+        });
+        mostrarNotificacion(response.message, 'success');
+        document.getElementById('modal-facturar').style.display = 'none';
+        cargarHistorialVentas(); // Refrescamos la tabla
+    } catch (error) {
+        mostrarNotificacion(error.message, 'error');
     }
 }
 
