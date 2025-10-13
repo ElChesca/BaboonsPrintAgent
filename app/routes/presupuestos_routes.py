@@ -69,14 +69,20 @@ def create_presupuesto(current_user, negocio_id):
 def get_historial_presupuestos(current_user, negocio_id):
     db = get_db()
     db.execute(
-        """
-        SELECT p.id, p.fecha, p.convertido_a_venta, p.anulado, c.nombre as cliente_nombre, u.nombre as vendedor_nombre
-        FROM presupuestos p
-        JOIN clientes c ON p.cliente_id = c.id
-        JOIN usuarios u ON p.vendedor_id = u.id
-        WHERE p.negocio_id = %s ORDER BY p.fecha DESC
-        """, (negocio_id,)
-    )
+            """
+            SELECT 
+                p.id, p.fecha, p.convertido_a_venta, p.anulado,
+                p.observaciones, p.fecha_entrega_estimada,
+                c.nombre as cliente_nombre, 
+                u.nombre as vendedor_nombre,
+                (SELECT SUM(pd.subtotal) FROM presupuestos_detalle pd WHERE pd.presupuesto_id = p.id) as total_presupuestado
+            FROM presupuestos p
+            JOIN clientes c ON p.cliente_id = c.id
+            JOIN usuarios u ON p.vendedor_id = u.id
+            WHERE p.negocio_id = %s 
+            ORDER BY p.fecha DESC
+            """, (negocio_id,)
+        )
     presupuestos = db.fetchall()
     return jsonify([dict(p) for p in presupuestos])
 

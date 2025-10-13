@@ -26,13 +26,15 @@ async function cargarHistorial() {
             } else {
                 estadoHtml = '<span class="status-badge status-pendiente">Pendiente</span>';
             }
-
             const fila = `
                 <tr data-id="${p.id}">
                     <td>${p.id}</td>
                     <td>${new Date(p.fecha).toLocaleDateString('es-AR')}</td>
                     <td>${p.cliente_nombre}</td>
                     <td>${p.vendedor_nombre}</td>
+                    <td>${formatCurrency(p.total_presupuestado)}</td>
+                    <td>${p.observaciones || '-'}</td>
+                    <td>${p.fecha_entrega_estimada ? new Date(p.fecha_entrega_estimada).toLocaleDateString('es-AR') : '-'}</td>
                     <td>${estadoHtml}</td>
                     <td class="acciones">
                         <button class="btn-editar">Ver</button>

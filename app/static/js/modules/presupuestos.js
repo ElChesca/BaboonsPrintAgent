@@ -209,7 +209,15 @@ export function inicializarLogicaPresupuestos() {
             });
             mostrarNotificacion(response.message, 'success');
             stagedBudgetItems = [];
-            document.getElementById('form-presupuesto-principal').reset();
+            //document.getElementById('form-presupuesto-principal').reset();
+            document.getElementById('presupuesto-cliente').value = '';
+            document.getElementById('presupuesto-forma-pago').value = 'A convenir';
+            document.getElementById('presupuesto-plazo-pago').value = '30 días';
+            document.getElementById('presupuesto-fecha-entrega').value = '';
+            document.getElementById('presupuesto-observaciones').value = '';
+            document.getElementById('presupuesto-bonificacion').value = 0;
+            document.getElementById('presupuesto-interes').value = 0;
+
             cargarDatosIniciales();
             renderizarTablaYTotales();
         } catch (error) {
