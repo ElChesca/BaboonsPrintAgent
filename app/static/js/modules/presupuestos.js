@@ -61,10 +61,42 @@ async function cargarDatosIniciales() {
         mostrarNotificacion('Error al cargar datos iniciales: ' + error.message, 'error');
     }
 }
+/** Carga los datos de un presupuesto existente en el formulario */
+async function cargarPresupuestoParaEditar(id) {
+    try {
+        const data = await fetchData(`/api/presupuestos/${id}`);
+        const { cabecera, detalles } = data;
+
+        // Rellenar todos los campos del formulario con los datos de la 'cabecera'
+        document.getElementById('presupuesto-cliente').value = cabecera.cliente_id;
+        // ... (etc. para todos los campos: vendedor, tipo_comprobante, bonificacion, etc.)
+
+        // Cargar los productos en la tabla
+        stagedBudgetItems = detalles;
+        renderizarTablaYTotales();
+
+        // Opcional: Cambiar título y texto del botón
+        document.querySelector('h2').textContent = `📝 Editando Presupuesto Nro. ${id}`;
+        document.getElementById('btn-guardar-presupuesto').textContent = 'Actualizar Presupuesto';
+        
+    } catch (error) {
+        mostrarNotificacion('Error al cargar el presupuesto para editar.', 'error');
+    }
+}
+
 
 export function inicializarLogicaPresupuestos() {
     stagedBudgetItems = [];
-
+    const idParaEditar = sessionStorage.getItem('presupuestoIdParaEditar');
+        if (idParaEditar) {
+            // Si encontramos un ID, cargamos ese presupuesto en lugar de empezar de cero
+            cargarPresupuestoParaEditar(idParaEditar);
+            sessionStorage.removeItem('presupuestoIdParaEditar'); // Limpiamos para la próxima vez
+        } else {
+            // Si no, cargamos los datos para un presupuesto nuevo
+            cargarDatosIniciales();
+        }
+        
     const elementos = {
         formAddItem: document.getElementById('form-add-item-presupuesto'),
         productoInput: document.getElementById('presupuesto-producto-input'),

@@ -48,7 +48,50 @@ async function cargarHistorial() {
     }
 }
 
+
 export function inicializarLogicaHistorialPresupuestos() {
-    // Por ahora, solo cargamos el historial. Los botones de filtro y acciones se añadirán después.
-    cargarHistorial();
+    const tablaBody = document.querySelector('#tabla-historial-presupuestos tbody');
+    if (!tablaBody) return;
+
+    // ✨ AÑADIMOS LA LÓGICA DE LOS BOTONES USANDO DELEGACIÓN DE EVENTOS
+    tablaBody.addEventListener('click', async (e) => {
+        const target = e.target;
+        const presupuestoId = target.closest('tr').dataset.id;
+
+        // --- Lógica para ANULAR ---
+        if (target.classList.contains('btn-anular')) {
+            if (confirm(`¿Estás seguro de que quieres ANULAR el presupuesto Nro. ${presupuestoId}?`)) {
+                try {
+                    const response = await fetchData(`/api/presupuestos/${presupuestoId}/anular`, { method: 'PUT' });
+                    mostrarNotificacion(response.message, 'success');
+                    cargarHistorial(); // Refrescamos la tabla
+                } catch (error) {
+                    mostrarNotificacion(error.message, 'error');
+                }
+            }
+        }
+
+        // --- Lógica para FACTURAR ---
+        if (target.classList.contains('btn-facturar')) {
+            if (confirm(`¿Estás seguro de que quieres convertir el presupuesto Nro. ${presupuestoId} en una VENTA? Esta acción descontará stock.`)) {
+                try {
+                    const response = await fetchData(`/api/presupuestos/${presupuestoId}/convertir_a_venta`, { method: 'POST' });
+                    mostrarNotificacion(response.message, 'success');
+                    cargarHistorial(); // Refrescamos la tabla
+                } catch (error) {
+                    mostrarNotificacion(error.message, 'error');
+                }
+            }
+        }
+        
+        // --- Lógica para VER / EDITAR ---
+        if (target.classList.contains('btn-editar')) {
+            // Guardamos el ID en sessionStorage para que la otra página lo lea
+            sessionStorage.setItem('presupuestoIdParaEditar', presupuestoId);
+            // Navegamos a la página de creación de presupuestos
+            window.loadContent(null, 'static/presupuestos.html', document.querySelector('a[onclick*="presupuestos.html"]'));
+        }
+    });
+
+    cargarHistorial(); // Carga inicial
 }
