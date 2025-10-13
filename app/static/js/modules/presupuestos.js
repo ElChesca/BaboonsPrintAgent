@@ -111,6 +111,23 @@ export function inicializarLogicaPresupuestos() {
             // Si no, cargamos los datos para un presupuesto nuevo
             cargarDatosIniciales();
         }
+        // Lógica para el botón de abrir modal de nuevo cliente
+    const btnAbrirModal = document.getElementById('btn-abrir-modal-cliente');
+        if (btnAbrirModal) {
+            btnAbrirModal.addEventListener('click', () => {
+                // Llamamos a la función global y le pasamos lo que debe hacer cuando el cliente se cree
+                window.abrirModalNuevoCliente(async (nuevoCliente) => {
+                    // 1. Recargamos la lista de clientes en el selector
+                    const selCliente = document.getElementById('presupuesto-cliente');
+                    const clientes = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`);
+                    selCliente.innerHTML = '<option value="">Seleccione un cliente...</option>';
+                    clientes.forEach(c => selCliente.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
+                    
+                    // 2. Seleccionamos automáticamente el cliente recién creado
+                    selCliente.value = nuevoCliente.id;
+                });
+            });
+        }
 
     const elementos = {
         formAddItem: document.getElementById('form-add-item-presupuesto'),

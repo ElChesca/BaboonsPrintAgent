@@ -218,6 +218,15 @@ document.addEventListener('DOMContentLoaded', () => {
     actualizarUIAutenticacion();
 });
 
+export function abrirModalNuevoCliente(callback) {
+    const modal = document.getElementById('modal-nuevo-cliente');
+    if (modal) {
+        onClienteCreadoCallback = callback; // Guardamos la función a ejecutar después de crear
+        modal.style.display = 'flex';
+        document.getElementById('form-nuevo-cliente').reset();
+    }
+}
+
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
 window.loadContent = loadContent;
 window.borrarProducto = borrarProducto;
@@ -232,3 +241,4 @@ window.editarProveedor = editarProveedor;
 window.borrarProveedor = borrarProveedor;
 window.inicializarLogicaLogin = inicializarLogicaLogin;
 window.inicializarLogicaIngresos = inicializarLogicaIngresos;
+window.abrirModalNuevoCliente = abrirModalNuevoCliente;

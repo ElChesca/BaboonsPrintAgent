@@ -175,3 +175,57 @@ main {
         transform: translateX(100%);
     }
 }
+
+
+/* El menú desplegable de resultados en Item de Ventas y Presup */
+.search-results {
+    position: absolute;
+    width: 100%;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    max-height: 250px; /* Evita que sea demasiado largo */
+    overflow-y: auto;
+    z-index: 100; /* Asegura que flote por encima de otros elementos */
+}
+
+/* Cada item individual en el menú */
+.search-item {
+    padding: 12px 15px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9em;
+}
+
+/* Efecto al pasar el mouse por encima de un item */
+.search-item:hover {
+    background-color: #f0f0f0;
+}
+
+.search-item .stock {
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+.input-with-button {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.input-with-button select {
+    flex-grow: 1; /* El select ocupa todo el espacio disponible */
+}
+.btn-add-quick {
+    flex-shrink: 0;
+    padding: 8px 12px !important;
+    font-size: 1.2em !important;
+    font-weight: bold !important;
+    background-color: #28a745 !important; /* Verde */
+    color: white !important;
+}
+.btn-add-quick:hover {
+    background-color: #218838 !important;
+}

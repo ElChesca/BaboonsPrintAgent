@@ -89,8 +89,32 @@
     
 <main id="content-area">
 </main>
+<div id="modal-nuevo-cliente" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>👤 Nuevo Cliente Rápido</h2>
+            <span class="close-button" id="close-nuevo-cliente-modal">&times;</span>
+        </div>
+        <form id="form-nuevo-cliente">
+            <div class="form-group">
+                <label for="nuevo-cliente-nombre">Nombre Completo:</label>
+                <input type="text" id="nuevo-cliente-nombre" required>
+            </div>
+            <div class="form-group">
+                <label for="nuevo-cliente-documento">Documento (CUIT/DNI):</label>
+                <input type="text" id="nuevo-cliente-documento">
+            </div>
+            <div class="form-group">
+                <label for="nuevo-cliente-telefono">Teléfono:</label>
+                <input type="tel" id="nuevo-cliente-telefono">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Guardar Cliente</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <script type="module" src="/static/js/main.js"></script>
-
 </body>
 </html>
