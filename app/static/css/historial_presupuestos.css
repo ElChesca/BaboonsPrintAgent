@@ -1,0 +1,31 @@
+.filters {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+.tabla-bonita {
+    width: 100%;
+    border-collapse: collapse;
+}
+.tabla-bonita th, .tabla-bonita td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+.tabla-bonita thead th {
+    background-color: #6c757d; /* Un color gris neutro para el historial */
+    color: white;
+}
+/* Estilos para las etiquetas de estado */
+.status-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: bold;
+    color: white;
+    text-transform: uppercase;
+}
+.status-pendiente { background-color: #007bff; } /* Azul */
+.status-convertido { background-color: #28a745; } /* Verde */
+.status-anulado { background-color: #dc3545; }   /* Rojo */

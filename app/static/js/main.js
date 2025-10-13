@@ -19,6 +19,7 @@ import { inicializarLogicaProveedores, editarProveedor, borrarProveedor } from '
 import { inicializarLogicaAjusteCaja } from './modules/ajuste_caja.js';
 import { inicializarLogicaHistorialAjustes } from './modules/historial_ajustes.js';
 import { inicializarLogicaPresupuestos } from './modules/presupuestos.js';
+import { inicializarLogicaHistorialPresupuestos } from './modules/historial_presupuestos.js';
 
 
 // --- ESTADO GLOBAL ---
@@ -75,6 +76,7 @@ function inicializarModulo(page) {
     if (page.includes('ajuste_caja.html')) inicializarLogicaAjusteCaja();
     if (page.includes('historial_ajustes.html')) inicializarLogicaHistorialAjustes();
     if (page.includes('presupuestos.html')) inicializarLogicaPresupuestos();
+    if (page.includes('historial_presupuestos.html')) inicializarLogicaHistorialPresupuestos();
     
 }
 
