@@ -180,12 +180,22 @@ export async function actualizarUIAutenticacion() {
             authLink.onclick = (e) => { e.preventDefault(); logout(); };
         }
         document.querySelectorAll('.admin-only').forEach(el => esAdmin() ? el.style.display = 'block' : el.style.display = 'none');
-        // Esta es la línea que daba error. Ahora funcionará.
-        await poblarSelectorNegocios(); 
+        
+        try {
+            // Intentamos poblar el selector de negocios
+            await poblarSelectorNegocios();
+        } catch (error) {
+            // ✨ LA CORRECCIÓN CLAVE: Si falla (ej. token expirado), forzamos el logout.
+            console.error("Fallo al cargar datos iniciales, posible token expirado. Cerrando sesión.", error);
+            logout();
+        }
+
     } else {
         appState.userRol = null;
         if (mainNav) mainNav.style.display = 'none';
         if (businessSelector) businessSelector.style.display = 'none';
+        
+        // Cuando no hay usuario, cargamos la página de login
         loadContent(null, 'static/login.html');
     }
 }
