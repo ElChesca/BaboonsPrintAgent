@@ -54,32 +54,49 @@ function loadPageCSS(pageName) {
 export function esAdmin() {
     return appState.userRol === 'admin';
 }
-
 function inicializarModulo(page) {
     if (!page) return;
+
+    // Módulos Simples (sin historial)
     if (page.includes('inventario.html')) inicializarLogicaInventario();
     if (page.includes('login.html')) inicializarLogicaLogin();
     if (page.includes('negocios.html')) inicializarLogicaNegocios();
     if (page.includes('clientes.html')) inicializarLogicaClientes();
-    if (page.includes('ingresos.html')) inicializarLogicaIngresos();
-    if (page.includes('ventas.html')) inicializarLogicaVentas();
     if (page.includes('usuarios.html')) inicializarLogicaUsuarios();
-    if (page.includes('historial_ingresos.html')) inicializarLogicaHistorial();
-    if (page.includes('historial_ventas.html')) inicializarLogicaHistorialVentas();
     if (page.includes('categorias.html')) inicializarLogicaCategorias();
     if (page.includes('dashboard.html')) inicializarLogicaDashboard();
     if (page.includes('caja.html')) inicializarLogicaCaja();
     if (page.includes('reporte_caja.html')) inicializarLogicaReporteCaja();
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
-    if (page.includes('reportes.html')) inicializarLogicaReportes();    
-    if (page.includes('ajuste_caja.html')) inicializarLogicaAjusteCaja();
-    if (page.includes('historial_ajustes.html')) inicializarLogicaHistorialAjustes();
-    if (page.includes('presupuestos.html')) inicializarLogicaPresupuestos();
-    if (page.includes('historial_presupuestos.html')) inicializarLogicaHistorialPresupuestos();
-    
-}
+    if (page.includes('reportes.html')) inicializarLogicaReportes();
 
+    // ✨ CORRECCIÓN: Módulos con Historial, usando 'else if'
+    if (page.includes('historial_ingresos.html')) {
+        inicializarLogicaHistorial();
+    } else if (page.includes('ingresos.html')) {
+        // Esta línea ya no es necesaria si 'historial_ingresos.js' se llama 'historial.js'
+        // Pero la mantenemos por si la necesitas en el futuro.
+    }
+    
+    if (page.includes('historial_ventas.html')) {
+        inicializarLogicaHistorialVentas();
+    } else if (page.includes('ventas.html')) {
+        inicializarLogicaVentas();
+    }
+
+    if (page.includes('historial_ajustes.html')) {
+        inicializarLogicaHistorialAjustes();
+    } else if (page.includes('ajuste_caja.html')) {
+        inicializarLogicaAjusteCaja();
+    }
+    
+    if (page.includes('historial_presupuestos.html')) {
+        inicializarLogicaHistorialPresupuestos();
+    } else if (page.includes('presupuestos.html')) {
+        inicializarLogicaPresupuestos();
+    }
+}
 // --- ✨ FUNCIÓN RESTAURADA ---
 // Esta función es llamada por actualizarUIAutenticacion para llenar el selector de negocios.
 async function poblarSelectorNegocios() {
