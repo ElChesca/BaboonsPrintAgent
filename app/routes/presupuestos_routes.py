@@ -6,75 +6,79 @@ import datetime
 bp = Blueprint('presupuestos', __name__)
 
 # --- CREAR Y LISTAR PRESUPUESTOS ---
+# ✨ LA CORRECCIÓN CLAVE: Unificamos GET y POST en una sola ruta.
+@bp.route('/negocios/<int:negocio_id>/presupuestos', methods=['GET', 'POST'])
+@token_required
 def manejar_presupuestos(current_user, negocio_id):
     if request.method == 'POST':
-        data = request.get_json()
-        detalles = data.get('detalles')
-        
-        if not data.get('cliente_id') or not detalles:
-            return jsonify({'error': 'Faltan datos obligatorios (cliente o productos).'}), 400
-        
-        db = get_db()
-        try:
-            # ✨ CORRECCIÓN: Se completó la sentencia INSERT con todos los campos.
-            db.execute(
-                """
-                INSERT INTO presupuestos (
-                    cliente_id, vendedor_id, negocio_id, fecha, tipo_comprobante, 
-                    forma_pago, plazo_pago, bonificacion, interes, 
-                    fecha_entrega_estimada, observaciones
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
-                """,
-                (
-                    data['cliente_id'], current_user['id'], negocio_id, datetime.datetime.now(),
-                    data.get('tipo_comprobante'), data.get('forma_pago'), data.get('plazo_pago'),
-                    data.get('bonificacion', 0), data.get('interes', 0),
-                    data.get('fecha_entrega_estimada'), data.get('observaciones')
-                )
-            )
-            presupuesto_id = db.fetchone()['id']
-            
-            subtotal_calculado = 0
-            for item in detalles:
-                subtotal_item = item['cantidad'] * item['precio_unitario']
-                subtotal_calculado += subtotal_item
-                # ✨ CORRECCIÓN: Se completó la sentencia INSERT para los detalles.
-                db.execute(
-                    """
-                    INSERT INTO presupuestos_detalle (
-                        presupuesto_id, producto_id, descripcion_producto, 
-                        cantidad, precio_unitario, subtotal
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        presupuesto_id, item['producto_id'], item['descripcion_producto'],
-                        item['cantidad'], item['precio_unitario'], subtotal_item
-                    )
-                )
-            
-            g.db_conn.commit()
-            return jsonify({'message': 'Presupuesto creado con éxito', 'id': presupuesto_id}), 201
-
-        except Exception as e:
-            g.db_conn.rollback()
-            print(f"Error en crear presupuesto: {e}") # Esto aparecerá en los logs de Render
-            return jsonify({'error': 'Error interno del servidor al crear el presupuesto.'}), 500
-
+        return create_presupuesto(current_user, negocio_id)
     else: # GET
-        db = get_db()
+        return get_historial_presupuestos(current_user, negocio_id)
+
+def create_presupuesto(current_user, negocio_id):
+    data = request.get_json()
+    detalles = data.get('detalles')
+    
+    if not data.get('cliente_id') or not detalles:
+        return jsonify({'error': 'Faltan datos obligatorios (cliente o productos).'}), 400
+    
+    db = get_db()
+    try:
         db.execute(
             """
-            SELECT p.id, p.fecha, p.convertido_a_venta, p.anulado, c.nombre as cliente_nombre, u.nombre as vendedor_nombre
-            FROM presupuestos p
-            JOIN clientes c ON p.cliente_id = c.id
-            JOIN usuarios u ON p.vendedor_id = u.id
-            WHERE p.negocio_id = %s ORDER BY p.fecha DESC
-            """, (negocio_id,)
+            INSERT INTO presupuestos (
+                cliente_id, vendedor_id, negocio_id, fecha, tipo_comprobante, 
+                forma_pago, plazo_pago, bonificacion, interes, 
+                fecha_entrega_estimada, observaciones
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            """,
+            (
+                data['cliente_id'], current_user['id'], negocio_id, datetime.datetime.now(),
+                data.get('tipo_comprobante'), data.get('forma_pago'), data.get('plazo_pago'),
+                data.get('bonificacion', 0), data.get('interes', 0),
+                data.get('fecha_entrega_estimada'), data.get('observaciones')
+            )
         )
-        presupuestos = db.fetchall()
-        return jsonify([dict(p) for p in presupuestos])
+        presupuesto_id = db.fetchone()['id']
+        
+        for item in detalles:
+            subtotal_item = item['cantidad'] * item['precio_unitario']
+            db.execute(
+                """
+                INSERT INTO presupuestos_detalle (
+                    presupuesto_id, producto_id, descripcion_producto, 
+                    cantidad, precio_unitario, subtotal
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    presupuesto_id, item['producto_id'], item['descripcion_producto'],
+                    item['cantidad'], item['precio_unitario'], subtotal_item
+                )
+            )
+        
+        g.db_conn.commit()
+        return jsonify({'message': 'Presupuesto creado con éxito', 'id': presupuesto_id}), 201
+
+    except Exception as e:
+        g.db_conn.rollback()
+        print(f"Error en crear presupuesto: {e}")
+        return jsonify({'error': 'Error interno del servidor al crear el presupuesto.'}), 500
+
+def get_historial_presupuestos(current_user, negocio_id):
+    db = get_db()
+    db.execute(
+        """
+        SELECT p.id, p.fecha, p.convertido_a_venta, p.anulado, c.nombre as cliente_nombre, u.nombre as vendedor_nombre
+        FROM presupuestos p
+        JOIN clientes c ON p.cliente_id = c.id
+        JOIN usuarios u ON p.vendedor_id = u.id
+        WHERE p.negocio_id = %s ORDER BY p.fecha DESC
+        """, (negocio_id,)
+    )
+    presupuestos = db.fetchall()
+    return jsonify([dict(p) for p in presupuestos])
 
 # --- ✨ LA RUTA ESTRELLA: CONVERTIR PRESUPUESTO A VENTA ✨ ---
 @bp.route('/presupuestos/<int:presupuesto_id>/convertir_a_venta', methods=['POST'])
