@@ -67,15 +67,30 @@ async function cargarPresupuestoParaEditar(id) {
         const data = await fetchData(`/api/presupuestos/${id}`);
         const { cabecera, detalles } = data;
 
-        // Rellenar todos los campos del formulario con los datos de la 'cabecera'
+        // ✨ CORRECCIONES CLAVE: Rellenamos todos los campos del formulario.
         document.getElementById('presupuesto-cliente').value = cabecera.cliente_id;
-        // ... (etc. para todos los campos: vendedor, tipo_comprobante, bonificacion, etc.)
+        document.getElementById('presupuesto-vendedor').value = getCurrentUser().nombre; // O podrías traerlo del backend
+        document.getElementById('presupuesto-tipo-comprobante').value = cabecera.tipo_comprobante;
+        document.getElementById('presupuesto-forma-pago').value = cabecera.forma_pago;
+        document.getElementById('presupuesto-plazo-pago').value = cabecera.plazo_pago;
+        
+        // El formato de fecha del input es 'YYYY-MM-DD'
+        if (cabecera.fecha_entrega_estimada) {
+            document.getElementById('presupuesto-fecha-entrega').value = cabecera.fecha_entrega_estimada.split('T')[0];
+        }
 
-        // Cargar los productos en la tabla
-        stagedBudgetItems = detalles;
+        document.getElementById('presupuesto-observaciones').value = cabecera.observaciones;
+        document.getElementById('presupuesto-bonificacion').value = cabecera.bonificacion;
+        document.getElementById('presupuesto-interes').value = cabecera.interes;
+
+        stagedBudgetItems = detalles.map(d => ({
+            producto_id: d.producto_id,
+            descripcion_producto: d.descripcion_producto,
+            cantidad: d.cantidad,
+            precio_unitario: d.precio_unitario
+        }));
         renderizarTablaYTotales();
 
-        // Opcional: Cambiar título y texto del botón
         document.querySelector('h2').textContent = `📝 Editando Presupuesto Nro. ${id}`;
         document.getElementById('btn-guardar-presupuesto').textContent = 'Actualizar Presupuesto';
         
@@ -96,7 +111,7 @@ export function inicializarLogicaPresupuestos() {
             // Si no, cargamos los datos para un presupuesto nuevo
             cargarDatosIniciales();
         }
-        
+
     const elementos = {
         formAddItem: document.getElementById('form-add-item-presupuesto'),
         productoInput: document.getElementById('presupuesto-producto-input'),

@@ -1,5 +1,7 @@
 import { fetchData } from '../api.js';
 import { appState } from '../main.js';
+import { mostrarNotificacion } from './notifications.js';
+
 
 async function cargarHistorial() {
     if (!appState.negocioActivoId) return;
