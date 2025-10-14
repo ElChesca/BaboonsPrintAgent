@@ -1,33 +1,62 @@
 import os
-from flask import Flask, render_template
-from .extensions import bcrypt
-from .database import close_connection
+from flask import Flask, send_from_directory
+from flask_bcrypt import Bcrypt
+from flask_cors import CORS
+from .database import init_db, get_db
+
+# Creamos una instancia global de Bcrypt
+bcrypt = Bcrypt()
 
 def create_app():
-    app = Flask(__name__, template_folder='templates', static_folder='static')
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una_clave_muy_secreta')
+    # Creamos la aplicación Flask
+    app = Flask(__name__, static_folder='../static')
+    
+    # --- Configuración de la App ---
+    app.config.from_mapping(
+        SECRET_KEY=os.environ.get('SECRET_KEY', 'dev_secret_key'),
+        DATABASE=os.path.join(app.instance_path, 'flaskr.sqlite'), # Ejemplo, ajusta a tu config de BD
+    )
+    
+    # Habilitamos CORS para permitir peticiones desde el frontend
+    CORS(app)
+    
+    # Inicializamos Bcrypt con la app
     bcrypt.init_app(app)
-    app.teardown_appcontext(close_connection)
+    
+    # Asegurarnos de que la carpeta de instancia exista
+    try:
+        os.makedirs(app.instance_path)
+    except OSError:
+        pass
 
-    from .routes import auth_routes, product_routes, negocios_routes, user_routes, \
-                        clientes_routes, income_routes, sales_routes, category_routes, \
-                        dashboard_routes, config_routes, caja_routes, report_routes, \
-                        proveedor_routes, ajuste_caja_routes, presupuestos_routes, facturacion_routes
-    blueprints = [
-        (auth_routes.bp, '/api'), (product_routes.bp, '/api'), (negocios_routes.bp, '/api'),
-        (user_routes.bp, '/api'), (clientes_routes.bp, '/api'), (income_routes.bp, '/api'),
-        (sales_routes.bp, '/api'), (category_routes.bp, '/api'), (dashboard_routes.bp, '/api'),
-        (config_routes.bp, '/api'), (caja_routes.bp, '/api'), (report_routes.bp, '/api'),
-        (proveedor_routes.bp, '/api'), (ajuste_caja_routes.bp, '/api'), (presupuestos_routes.bp, '/api'),
-        (facturacion_routes.bp, '/api')
-    ]
-    for bp, prefix in blueprints:
-        app.register_blueprint(bp, url_prefix=prefix)
+    # --- Registro de Comandos y Teardown ---
+    @app.teardown_appcontext
+    def teardown_db(exception=None):
+        db = g.pop('db_conn', None)
+        if db is not None:
+            db.close()
 
+    # --- REGISTRO DE BLUEPRINTS ---
+    # Esta es la sección más importante. Aquí le decimos a Flask qué rutas existen.
+    with app.app_context():
+        from .routes import auth_routes, sales_routes, facturacion_routes # Y todos tus otros archivos de rutas
+        
+        app.register_blueprint(auth_routes.bp, url_prefix='/api')
+        app.register_blueprint(sales_routes.bp, url_prefix='/api')
+        app.register_blueprint(facturacion_routes.bp, url_prefix='/api')
+        # ... Aquí irían los register_blueprint para clientes, presupuestos, etc.
+        
+        # Inicializar la base de datos
+        init_db()
+
+    # --- Ruta "Catch-All" para la Single Page Application ---
+    # Esta ruta se asegura de que cualquier URL que no sea de la API devuelva el index.html
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
-    def catch_all(path):
-        return render_template("index.html")
+    def serve(path):
+        if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+            return send_from_directory(app.static_folder, path)
+        else:
+            return send_from_directory(app.static_folder, 'index.html')
 
     return app
-
