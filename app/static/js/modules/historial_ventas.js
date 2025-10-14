@@ -111,22 +111,27 @@ export function inicializarLogicaHistorialVentas() {
     const tablaBody = document.querySelector('#tabla-historial-ventas tbody');
     if (!tablaBody) return;
 
-    // ✨ LA CORRECCIÓN DEFINITIVA: Un único listener inteligente
+    // --- Listener único e inteligente para toda la tabla ---
     tablaBody.addEventListener('click', (e) => {
         const fila = e.target.closest('tr.master-row');
         if (!fila) return;
         
         const ventaId = fila.dataset.id;
         
-        // Comprueba en qué botón se hizo clic
+        // --- Acción para "Facturar" ---
         if (e.target.classList.contains('btn-facturar')) {
-            abrirModalFacturacion(ventaId);
-        } else if (e.target.classList.contains('btn-ver-detalles')) {
+            // 1. Guardamos el ID de la venta en la memoria del navegador.
+            sessionStorage.setItem('ventaParaFacturar', ventaId);
+            // 2. Cargamos la nueva página de facturación.
+            window.loadContent(null, 'static/factura.html', e.target);
+        } 
+        // --- Acción para "Ver Detalles" ---
+        else if (e.target.classList.contains('btn-ver-detalles')) {
             mostrarDetalleVenta(ventaId, fila);
         }
     });
 
-    // Lógica para cerrar el modal de facturación
+    // --- Lógica para cerrar el modal (por si se usa en otro lado) ---
     const modal = document.getElementById('modal-facturar');
     const closeModalBtn = document.getElementById('close-facturar-modal');
     if (modal && closeModalBtn) {
@@ -134,5 +139,6 @@ export function inicializarLogicaHistorialVentas() {
         window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
     }
 
+    // --- Carga inicial de datos ---
     cargarHistorialVentas();
 }

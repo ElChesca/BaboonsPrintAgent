@@ -126,3 +126,45 @@ def get_venta_detalles(current_user, venta_id):
     """, (venta_id,))
     detalles = db.fetchall()
     return jsonify([dict(d) for d in detalles])
+
+
+# --- ✨ NUEVA RUTA: OBTENER TODOS LOS DETALLES DE UNA VENTA ESPECÍFICA ---
+@bp.route('/ventas/<int:venta_id>', methods=['GET'])
+@token_required
+def get_venta_completa(current_user, venta_id):
+    db = get_db()
+    try:
+        # 1. Obtenemos la cabecera de la venta
+        db.execute("SELECT * FROM ventas WHERE id = %s", (venta_id,))
+        venta = db.fetchone()
+        if not venta:
+            return jsonify({'error': 'Venta no encontrada'}), 404
+
+        # 2. Obtenemos los detalles (productos) de la venta
+        db.execute(
+            """
+            SELECT vd.*, p.nombre as producto_nombre 
+            FROM ventas_detalle vd 
+            JOIN productos p ON vd.producto_id = p.id 
+            WHERE vd.venta_id = %s
+            """,
+            (venta_id,)
+        )
+        detalles = db.fetchall()
+
+        # 3. Obtenemos los datos del cliente (si existe)
+        cliente = None
+        if venta['cliente_id']:
+            db.execute("SELECT * FROM clientes WHERE id = %s", (venta['cliente_id'],))
+            cliente = db.fetchone()
+
+        # 4. Devolvemos todo en un solo paquete JSON
+        return jsonify({
+            'cabecera': dict(venta),
+            'detalles': [dict(d) for d in detalles],
+            'cliente': dict(cliente) if cliente else None
+        })
+
+    except Exception as e:
+        print(f"Error en get_venta_completa: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500

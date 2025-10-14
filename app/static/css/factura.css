@@ -1,0 +1,16 @@
+.factura-header, .factura-footer, .confirmacion-panel {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+.factura-header h3, .observaciones-panel h4 { margin-top: 0; }
+.factura-header p, .observaciones-panel p { margin: 4px 0; color: #555; }
+.totales-panel { width: 300px; }
+.total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.input-row input { width: 80px; text-align: right; }
+.final-total { font-size: 1.8em; color: #007bff; margin-top: 15px; }
+.confirmacion-panel { align-items: flex-end; }
+.confirmacion-panel .form-group { flex: 1; }
