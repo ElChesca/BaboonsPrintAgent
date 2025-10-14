@@ -20,7 +20,7 @@ import { inicializarLogicaAjusteCaja } from './modules/ajuste_caja.js';
 import { inicializarLogicaHistorialAjustes } from './modules/historial_ajustes.js';
 import { inicializarLogicaPresupuestos } from './modules/presupuestos.js';
 import { inicializarLogicaHistorialPresupuestos } from './modules/historial_presupuestos.js';
-import { abrirModalFacturacion } from './modules/facturacion.js';
+import { inicializarLogicaFactura } from './modules/factura.js';
 
 let onClienteCreadoCallback = null;
 
