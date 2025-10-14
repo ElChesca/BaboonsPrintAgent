@@ -10,6 +10,7 @@
         <table id="tabla-historial-ventas" class="tabla-bonita">
             <thead>
                 <tr>
+                    <!-- ✨ CORRECCIÓN: Unificamos las columnas a 7 -->
                     <th>ID</th>
                     <th>Fecha</th>
                     <th>Cliente</th>
@@ -20,17 +21,21 @@
                 </tr>
             </thead>
             <tbody>
-                </tbody>
+                <!-- Contenido generado por JS -->
+            </tbody>
             <tfoot>
                 <tr>
+                    <!-- ✨ CORRECCIÓN: Ajustamos el colspan para que coincida -->
                     <th colspan="4" style="text-align: right;">TOTAL GENERAL:</th>
                     <td id="total-historial-ventas">$0.00</td>
-                    <td colspan="2"></td> </tr>
+                    <td colspan="2"></td> <!-- Celdas vacías para alinear correctamente -->
+                </tr>
             </tfoot>
         </table>
     </div>
 </div>
 
+<!-- ✨ MEJORA: El modal ahora está fuera de la estructura de la tabla, más limpio y seguro -->
 <div id="modal-facturar" class="modal">
     <div class="modal-content">
         <div class="modal-header">

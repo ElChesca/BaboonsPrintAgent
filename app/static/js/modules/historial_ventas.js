@@ -67,8 +67,8 @@ async function cargarHistorialVentas() {
             totalGeneral += venta.total;
 
             // ✨ MEJORA: Quitamos el 'onclick' y usamos 'data-venta-id' para un código más limpio.
-            tbody.innerHTML += `
-            <tr class="master-row" data-id="${venta.id}">
+             tbody.innerHTML += `
+                <tr class="master-row" data-id="${venta.id}">
                 <td>${venta.id}</td>
                 <td>${fecha}</td>
                 <td>${venta.cliente_nombre || 'Consumidor Final'}</td>
@@ -79,7 +79,7 @@ async function cargarHistorialVentas() {
                     <button class="btn-secondary btn-ver-detalles">🔽</button>
                     ${venta.estado !== 'Facturada' ? '<button class="btn-primary btn-facturar">Facturar</button>' : ''}
                 </td>
-            </tr>
+                </tr>
             `;
         });
 
