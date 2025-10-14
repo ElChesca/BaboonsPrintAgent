@@ -7,6 +7,7 @@ import { inicializarLogicaVentas } from './modules/sales.js';
 import { inicializarLogicaUsuarios, abrirModalEditarUsuario } from './modules/users.js';
 import { inicializarLogicaHistorial, mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js';
 import { inicializarLogicaNegocios } from './modules/negocios.js';
+import { inicializarLogicaHistorialVentas } from './modules/historial_ventas.js';
 import { inicializarLogicaInventario, abrirModalEditarProducto, borrarProducto } from './modules/inventory.js';
 import { inicializarLogicaCategorias, editarCategoria, borrarCategoria } from './modules/categorias.js';
 import { inicializarLogicaReportes } from './modules/reportes.js';
@@ -70,8 +71,7 @@ function inicializarModulo(page) {
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
     if (page.includes('reportes.html')) inicializarLogicaReportes();
-
-    // ✨ CORRECCIÓN: Módulos con Historial, usando 'else if'
+    if (page.includes('ingresos.html')) inicializarLogicaIngresos();        
     if (page.includes('historial_ingresos.html')) {
         inicializarLogicaHistorial();
     } else if (page.includes('ingresos.html')) {
