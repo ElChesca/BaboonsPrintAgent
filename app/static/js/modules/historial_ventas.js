@@ -1,95 +1,89 @@
-// app/static/js/modules/historial_ventas.js
-import { getAuthHeaders } from './auth.js';
+import { fetchData } from '../api.js';
 import { appState } from '../main.js';
+import { mostrarNotificacion } from './notifications.js';
+import { getAuthHeaders } from './auth.js';
+
 const formatCurrency = (n) => (n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
-
-export function inicializarLogicaHistorialVentas() {
-    const btnFiltrar = document.getElementById('btn-filtrar-ventas');
-    if (btnFiltrar) {
-        btnFiltrar.addEventListener('click', cargarHistorialVentas);
-    }
-    // Carga inicial al entrar en la página
-    cargarHistorialVentas();
-
-    // ✨ MEJORA: Añadimos un listener único a la tabla para manejar todos los clics
-    const tabla = document.querySelector('#tabla-historial-ventas tbody');
-    if (tabla) {
-        tabla.addEventListener('click', (e) => {
-            // Buscamos la fila 'master-row' más cercana al elemento clickeado
-            const fila = e.target.closest('tr.master-row');
-            if (fila) {
-                const ventaId = fila.dataset.ventaId;
-                // Llamamos a la función global que está en window
-                window.mostrarDetalleVenta(ventaId, fila);
-            }
-        });
-    }
-}
 
 async function cargarHistorialVentas() {
     if (!appState.negocioActivoId) return;
 
-    const fechaDesde = document.getElementById('fecha-desde').value;
-    const fechaHasta = document.getElementById('fecha-hasta').value;
+    const tbody = document.querySelector('#tabla-historial-ventas tbody');
+    const totalEl = document.getElementById('total-historial-ventas');
+    if (!tbody || !totalEl) return;
 
-    let url = `/api/negocios/${appState.negocioActivoId}/ventas`;
-    const params = new URLSearchParams();
-    if (fechaDesde) params.append('fecha_desde', fechaDesde);
-    if (fechaHasta) params.append('fecha_hasta', fechaHasta);
-
-    if (params.toString()) {
-        url += `?${params.toString()}`;
-    }
-    
     try {
-        // ✨ LA CORRECCIÓN CLAVE ESTÁ AQUÍ:
-        // Nos aseguramos de que la llamada fetch SIEMPRE incluya los headers de autenticación.
-        const response = await fetch(url, { headers: getAuthHeaders() });
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Error al cargar el historial.');
-        }
-        const historial = await response.json();
-
-        const tbody = document.querySelector('#tabla-historial-ventas tbody');
-        const totalEl = document.getElementById('total-historial-ventas');
-        if (!tbody || !totalEl) return;
-
+        const historial = await fetchData(`/api/negocios/${appState.negocioActivoId}/ventas`);
         tbody.innerHTML = '';
         let totalGeneral = 0;
 
-        historial.forEach(venta => {
-            const fecha = new Date(venta.fecha).toLocaleString('es-AR');
-             const estado = venta.estado === 'Facturada' 
-            ? `<span class="status-badge status-convertido">${venta.tipo_factura || 'X'}: ${venta.numero_factura || 'N/A'}</span>`
-            : `<span class="status-badge status-pendiente">Pendiente</span>`;
+        if (historial.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay ventas registradas.</td></tr>';
+        } else {
+            historial.forEach(venta => {
+                const fecha = new Date(venta.fecha).toLocaleString('es-AR');
+                const estado = venta.estado === 'Facturada' 
+                    ? `<span class="status-badge status-convertido">${venta.tipo_factura || 'X'}: ${venta.numero_factura || 'N/A'}</span>`
+                    : `<span class="status-badge status-pendiente">Pendiente</span>`;
 
-            totalGeneral += venta.total;
+                totalGeneral += venta.total;
 
-            // ✨ MEJORA: Quitamos el 'onclick' y usamos 'data-venta-id' para un código más limpio.
-             tbody.innerHTML += `
-                <tr class="master-row" data-id="${venta.id}">
-                <td>${venta.id}</td>
-                <td>${fecha}</td>
-                <td>${venta.cliente_nombre || 'Consumidor Final'}</td>
-                <td>${venta.metodo_pago}</td>
-                <td>${formatCurrency(venta.total)}</td>
-                <td>${estado}</td>
-                <td class="acciones">
-                    <button class="btn-secondary btn-ver-detalles">🔽</button>
-                    ${venta.estado !== 'Facturada' ? '<button class="btn-primary btn-facturar">Facturar</button>' : ''}
-                </td>
-                </tr>
-            `;
-        });
-
-        totalEl.textContent = `$${totalGeneral.toFixed(2)}`;
-
+                tbody.innerHTML += `
+                    <tr class="master-row" data-id="${venta.id}">
+                        <td>${venta.id}</td>
+                        <td>${fecha}</td>
+                        <td>${venta.cliente_nombre || 'Consumidor Final'}</td>
+                        <td>${venta.metodo_pago}</td>
+                        <td>${formatCurrency(venta.total)}</td>
+                        <td>${estado}</td>
+                        <td class="acciones">
+                            <button class="btn-secondary btn-ver-detalles">🔽</button>
+                            ${venta.estado !== 'Facturada' ? '<button class="btn-primary btn-facturar">Facturar</button>' : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        totalEl.textContent = formatCurrency(totalGeneral);
     } catch (error) {
         console.error("Error en cargarHistorialVentas:", error);
+        mostrarNotificacion(error.message, 'error');
     }
 }
-// ✨ NUEVA LÓGICA PARA EL MODAL Y LA FACTURACIÓN
+
+async function mostrarDetalleVenta(ventaId, masterRow) {
+    const existingDetail = document.querySelector('.detail-row');
+    if (existingDetail) {
+        existingDetail.remove();
+        // Si el detalle que cerramos es el de la fila actual, nos detenemos.
+        if (masterRow.classList.contains('active')) {
+            masterRow.classList.remove('active');
+            return;
+        }
+    }
+
+    document.querySelectorAll('.master-row').forEach(row => row.classList.remove('active'));
+    masterRow.classList.add('active');
+
+    try {
+        // Usamos fetchData para consistencia y manejo de errores
+        const detalles = await fetchData(`/api/ventas/${ventaId}/detalles`);
+
+        let detailHtml = '<td colspan="7"><table class="tabla-bonita" style="width:100%"><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio Unit.</th></tr></thead><tbody>';
+        detalles.forEach(d => {
+            detailHtml += `<tr><td>${d.nombre}</td><td>${d.cantidad}</td><td>${formatCurrency(d.precio_unitario)}</td></tr>`;
+        });
+        detailHtml += '</tbody></table></td>';
+
+        const detailRow = document.createElement('tr');
+        detailRow.className = 'detail-row';
+        detailRow.innerHTML = detailHtml;
+        masterRow.insertAdjacentElement('afterend', detailRow);
+    } catch (error) {
+        mostrarNotificacion('Error al cargar los detalles de la venta.', 'error');
+    }
+}
+
 function abrirModalFacturacion(ventaId) {
     const modal = document.getElementById('modal-facturar');
     document.getElementById('modal-facturar-texto').textContent = `¿Cómo deseas facturar la Venta Nro. ${ventaId}?`;
@@ -99,6 +93,7 @@ function abrirModalFacturacion(ventaId) {
     
     modal.style.display = 'flex';
 }
+
 async function facturar(ventaId, tipo) {
     try {
         const response = await fetchData(`/api/ventas/${ventaId}/facturar`, {
@@ -106,35 +101,38 @@ async function facturar(ventaId, tipo) {
         });
         mostrarNotificacion(response.message, 'success');
         document.getElementById('modal-facturar').style.display = 'none';
-        cargarHistorialVentas(); // Refrescamos la tabla
+        cargarHistorialVentas();
     } catch (error) {
         mostrarNotificacion(error.message, 'error');
     }
 }
 
-export async function mostrarDetalleVenta(ventaId, masterRow) {
-    const existingDetail = document.querySelector('.detail-row');
-    if (existingDetail) existingDetail.remove();
+export function inicializarLogicaHistorialVentas() {
+    const tablaBody = document.querySelector('#tabla-historial-ventas tbody');
+    if (!tablaBody) return;
 
-    if (masterRow.classList.contains('active')) {
-        masterRow.classList.remove('active');
-        return;
+    // ✨ LA CORRECCIÓN DEFINITIVA: Un único listener inteligente
+    tablaBody.addEventListener('click', (e) => {
+        const fila = e.target.closest('tr.master-row');
+        if (!fila) return;
+        
+        const ventaId = fila.dataset.id;
+        
+        // Comprueba en qué botón se hizo clic
+        if (e.target.classList.contains('btn-facturar')) {
+            abrirModalFacturacion(ventaId);
+        } else if (e.target.classList.contains('btn-ver-detalles')) {
+            mostrarDetalleVenta(ventaId, fila);
+        }
+    });
+
+    // Lógica para cerrar el modal de facturación
+    const modal = document.getElementById('modal-facturar');
+    const closeModalBtn = document.getElementById('close-facturar-modal');
+    if (modal && closeModalBtn) {
+        closeModalBtn.addEventListener('click', () => modal.style.display = 'none');
+        window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
     }
 
-    document.querySelectorAll('.master-row').forEach(row => row.classList.remove('active'));
-    masterRow.classList.add('active');
-
-    const response = await fetch(`/api/ventas/${ventaId}/detalles`, { headers: getAuthHeaders() });
-    const detalles = await response.json();
-
-    let detailHtml = '<td colspan="6"><table class="tabla-bonita" style="width:100%"><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio Unit.</th></tr></thead><tbody>';
-    detalles.forEach(d => {
-        detailHtml += `<tr><td>${d.nombre}</td><td>${d.cantidad}</td><td>$${d.precio_unitario.toFixed(2)}</td></tr>`;
-    });
-    detailHtml += '</tbody></table></td>';
-
-    const detailRow = document.createElement('tr');
-    detailRow.className = 'detail-row';
-    detailRow.innerHTML = detailHtml;
-    masterRow.insertAdjacentElement('afterend', detailRow);
+    cargarHistorialVentas();
 }
