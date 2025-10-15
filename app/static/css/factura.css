@@ -1,16 +1,39 @@
-.factura-header, .factura-footer, .confirmacion-panel {
+.factura-container {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 20px;
+}
+.factura-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 20px;
     padding-bottom: 20px;
-    margin-bottom: 20px;
     border-bottom: 1px solid #eee;
 }
-.factura-header h3, .observaciones-panel h4 { margin-top: 0; }
-.factura-header p, .observaciones-panel p { margin: 4px 0; color: #555; }
-.totales-panel { width: 300px; }
-.total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.input-row input { width: 80px; text-align: right; }
-.final-total { font-size: 1.8em; color: #007bff; margin-top: 15px; }
-.confirmacion-panel { align-items: flex-end; }
-.confirmacion-panel .form-group { flex: 1; }
+.factura-header-right { text-align: right; }
+.factura-header h3, .factura-header p { margin: 4px 0; }
+.factura-header p { color: #555; }
+
+.factura-footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+.totales-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.total-row { display: flex; justify-content: space-between; align-items: center; }
+.input-row input { width: 80px; text-align: right; padding: 5px; }
+.final-total { font-size: 1.8em; color: #007bff; margin-top: 10px; }
+.confirmacion-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    justify-content: flex-end; /* Alinea los elementos abajo */
+}
+.confirmacion-panel .form-actions { display: flex; gap: 10px; }

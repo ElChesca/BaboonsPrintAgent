@@ -53,6 +53,10 @@ export function inicializarLogicaLogin() {
             });
             localStorage.setItem('jwt_token', data.token);
             window.dispatchEvent(new Event('authChange'));
+             // ✨ LA CORRECCIÓN CLAVE: Redirigimos al Historial de Ventas
+            const historialVentasLink = document.querySelector('a[onclick*="historial_ventas.html"]');
+            window.loadContent(null, 'static/historial_ventas.html', historialVentasLink);
+            
         } catch (error) {
             errorMessageDiv.textContent = error.message || 'Error de conexión.';
             errorMessageDiv.style.display = 'block';

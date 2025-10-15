@@ -1,5 +1,7 @@
 import os
 from flask import Flask, render_template
+
+from .routes import facturacion_routes
 from .extensions import bcrypt
 from .database import close_connection
 
@@ -12,7 +14,7 @@ def create_app():
     from .routes import auth_routes, product_routes, negocios_routes, user_routes, \
                         clientes_routes, income_routes, sales_routes, category_routes, \
                         dashboard_routes, config_routes, caja_routes, report_routes, \
-                        proveedor_routes, ajuste_caja_routes, presupuestos_routes, facturacion_routes
+                        proveedor_routes, ajuste_caja_routes, presupuestos_routes
     blueprints = [
         (auth_routes.bp, '/api'), (product_routes.bp, '/api'), (negocios_routes.bp, '/api'),
         (user_routes.bp, '/api'), (clientes_routes.bp, '/api'), (income_routes.bp, '/api'),

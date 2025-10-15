@@ -7,10 +7,24 @@ let ventaActual = null; // Guardará los datos de la venta cargada
 function recalcularTotales() {
     const subtotal = ventaActual.detalles.reduce((sum, item) => sum + item.subtotal, 0);
     const descuentoPct = parseFloat(document.getElementById('factura-descuento').value) || 0;
+    const tipoComprobante = document.getElementById('factura-tipo-comprobante').value;
+
     const montoDescuento = subtotal * (descuentoPct / 100);
-    const totalFinal = subtotal - montoDescuento;
+    const netoGravado = subtotal - montoDescuento;
+    
+    let iva = 0;
+    // ✨ LÓGICA DE IVA: Si es Factura A, calculamos el 21%
+    if (tipoComprobante === 'A') {
+        iva = netoGravado * 0.21;
+        document.getElementById('fila-iva').style.display = 'flex';
+    } else {
+        document.getElementById('fila-iva').style.display = 'none';
+    }
+    
+    const totalFinal = netoGravado + iva;
 
     document.getElementById('factura-subtotal').textContent = formatCurrency(subtotal);
+    document.getElementById('factura-iva').textContent = formatCurrency(iva);
     document.getElementById('factura-total').textContent = formatCurrency(totalFinal);
 }
 
@@ -76,6 +90,9 @@ export function inicializarLogicaFactura() {
     cargarDatosVenta(ventaId);
 
     document.getElementById('factura-descuento').addEventListener('input', recalcularTotales);
+    // ✨ Añadimos el listener para que el total se recalcule al cambiar el tipo de comprobante
+    document.getElementById('factura-tipo-comprobante').addEventListener('change', recalcularTotales);
+
     document.getElementById('btn-confirmar-factura-oficial').addEventListener('click', () => confirmarFacturacion('oficial'));
     document.getElementById('btn-confirmar-factura-negro').addEventListener('click', () => confirmarFacturacion('negro'));
 }
