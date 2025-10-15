@@ -447,3 +447,8 @@ textarea {
 .admin-only.app-card {
     display: none;
 }
+
+/* --- CLASE UTILITARIA PARA OCULTAR ELEMENTOS --- */
+.hidden {
+    display: none !important;
+}

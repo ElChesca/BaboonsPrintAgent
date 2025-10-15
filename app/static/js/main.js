@@ -125,9 +125,8 @@ async function poblarSelectorNegocios() {
     }
 }
 
-// --- FUNCIÓN PRINCIPAL DE FLUJO ---
-// --- FUNCIÓN PRINCIPAL DE FLUJO (CORREGIDA) ---
-export function loadContent(event, page, clickedLink, fromHistory = false) { // ✨ LA CORRECCIÓN CLAVE ESTÁ AQUÍ
+// --- FUNCIÓN PRINCIPAL DE FLUJO (MODIFICADA) ---
+export function loadContent(event, page, clickedLink, fromHistory = false) {
     if (event) event.preventDefault();
     
     if (!fromHistory) {
@@ -137,6 +136,21 @@ export function loadContent(event, page, clickedLink, fromHistory = false) { // 
     const pageName = page.split('/').pop().replace('.html', '');
     loadPageCSS(pageName);
     
+    // --- ✨ LA LÓGICA CLAVE PARA OCULTAR/MOSTRAR EL HEADER ---
+    const header = document.querySelector('header');
+    const businessSelectorBar = document.getElementById('business-selector-bar');
+
+    if (page.includes('home.html')) {
+        // Si estamos en el home, ocultamos el header y la barra de negocio.
+        if (header) header.classList.add('hidden');
+        if (businessSelectorBar) businessSelectorBar.classList.add('hidden');
+    } else {
+        // Si estamos en cualquier otra página, nos aseguramos de que sean visibles.
+        if (header) header.classList.remove('hidden');
+        if (businessSelectorBar) businessSelectorBar.style.display = 'flex'; // Usamos flex para que se vea bien
+    }
+    // --- FIN DE LA LÓGICA ---
+
     const token = localStorage.getItem('jwt_token');
     if (!token && !page.includes('login.html')) {
         actualizarUIAutenticacion();
@@ -163,7 +177,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) { // 
             loadPageCSS(null);
         });
 }
-// ... (parte superior del main.js con imports, appState, etc. sin cambios)
+
 
 export async function actualizarUIAutenticacion() {
     const user = getCurrentUser();
