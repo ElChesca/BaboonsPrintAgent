@@ -128,6 +128,11 @@ async function poblarSelectorNegocios() {
 // --- FUNCIÓN PRINCIPAL DE FLUJO ---
 export function loadContent(event, page, clickedLink) {
     if (event) event.preventDefault();
+     // ✨ LÓGICA DE HISTORIAL: Si no venimos del botón "Atrás", guardamos la nueva página en el historial.
+    if (!fromHistory) {
+        history.pushState({ page: page }, '', `#${page.replace('static/', '').replace('.html', '')}`);
+    }
+
     const pageName = page.split('/').pop().replace('.html', '');
     loadPageCSS(pageName);
     const token = localStorage.getItem('jwt_token');
@@ -210,7 +215,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.tagName === 'A') navContainer.classList.remove('is-active');
         });
     }
-
+     // ✨ NUEVO LISTENER: Se activa cuando el usuario usa el botón "Atrás" del navegador.
+    window.addEventListener('popstate', (e) => {
+        if (e.state && e.state.page) {
+            // Cargamos la página guardada en el historial, marcándola con 'fromHistory = true'
+            loadContent(null, e.state.page, null, true);
+        }
+    });
     // ✨ LA CORRECCIÓN CLAVE: Esta es la llamada inicial que pone todo en marcha.
     actualizarUIAutenticacion();
 });
