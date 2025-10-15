@@ -44,7 +44,7 @@ function loadPageCSS(pageName) {
         link.href = `/static/css/${cssFile}`;
         fetch(link.href).then(res => {
             if (res.ok) {
-                 document.head.appendChild(link);
+                document.head.appendChild(link);
             } else {
                 console.warn(`Advertencia: No se encontró el archivo CSS opcional en ${link.href}`);
             }
@@ -56,10 +56,9 @@ function loadPageCSS(pageName) {
 export function esAdmin() {
     return appState.userRol === 'admin';
 }
+
 function inicializarModulo(page) {
     if (!page) return;
-
-    // Módulos Simples (sin historial)
     if (page.includes('inventario.html')) inicializarLogicaInventario();
     if (page.includes('login.html')) inicializarLogicaLogin();
     if (page.includes('negocios.html')) inicializarLogicaNegocios();
@@ -72,35 +71,29 @@ function inicializarModulo(page) {
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
     if (page.includes('reportes.html')) inicializarLogicaReportes();
-    if (page.includes('ingresos.html')) inicializarLogicaIngresos();
-    if (page.includes('factura.html')) inicializarLogicaFactura();         
+    if (page.includes('factura.html')) inicializarLogicaFactura();
     if (page.includes('historial_ingresos.html')) {
         inicializarLogicaHistorial();
     } else if (page.includes('ingresos.html')) {
-        // Esta línea ya no es necesaria si 'historial_ingresos.js' se llama 'historial.js'
-        // Pero la mantenemos por si la necesitas en el futuro.
+        inicializarLogicaIngresos();
     }
-    
     if (page.includes('historial_ventas.html')) {
         inicializarLogicaHistorialVentas();
     } else if (page.includes('ventas.html')) {
         inicializarLogicaVentas();
     }
-
     if (page.includes('historial_ajustes.html')) {
         inicializarLogicaHistorialAjustes();
     } else if (page.includes('ajuste_caja.html')) {
         inicializarLogicaAjusteCaja();
     }
-    
     if (page.includes('historial_presupuestos.html')) {
         inicializarLogicaHistorialPresupuestos();
     } else if (page.includes('presupuestos.html')) {
         inicializarLogicaPresupuestos();
     }
 }
-// --- ✨ FUNCIÓN RESTAURADA ---
-// Esta función es llamada por actualizarUIAutenticacion para llenar el selector de negocios.
+
 async function poblarSelectorNegocios() {
     const selectorNegocio = document.getElementById('selector-negocio');
     if (!selectorNegocio) return;
@@ -128,23 +121,20 @@ async function poblarSelectorNegocios() {
         }
     } catch (error) {
         selectorNegocio.innerHTML = '<option value="">Error al cargar</option>';
+        throw error; // Relanzamos para que actualizarUIAutenticacion lo capture
     }
 }
-
 
 // --- FUNCIÓN PRINCIPAL DE FLUJO ---
 export function loadContent(event, page, clickedLink) {
     if (event) event.preventDefault();
-    
     const pageName = page.split('/').pop().replace('.html', '');
     loadPageCSS(pageName);
-
     const token = localStorage.getItem('jwt_token');
     if (!token && !page.includes('login.html')) {
         actualizarUIAutenticacion();
         return;
     }
-    
     document.querySelectorAll('nav a, .dropdown-content a').forEach(link => link.classList.remove('active'));
     if (clickedLink) {
         clickedLink.classList.add('active');
@@ -153,7 +143,6 @@ export function loadContent(event, page, clickedLink) {
             parentDropdown.querySelector('.dropbtn').classList.add('active');
         }
     }
-
     fetch(page)
         .then(response => response.ok ? response.text() : Promise.reject('Error al cargar la página.'))
         .then(html => {
@@ -165,7 +154,6 @@ export function loadContent(event, page, clickedLink) {
             loadPageCSS(null);
         });
 }
-
 export async function actualizarUIAutenticacion() {
     const user = getCurrentUser();
     const mainNav = document.querySelector('header nav');
@@ -173,37 +161,36 @@ export async function actualizarUIAutenticacion() {
     const businessSelector = document.getElementById('business-selector-bar');
 
     if (user && user.nombre) {
-        appState.userRol = user.rol;
-        if (mainNav) mainNav.style.display = 'flex';
-        if (businessSelector) businessSelector.style.display = 'flex';
-        if (authLink) {
-            authLink.innerHTML = `Salir (${user.nombre})`;
-            authLink.onclick = (e) => { e.preventDefault(); logout(); };
-        }
-        document.querySelectorAll('.admin-only').forEach(el => esAdmin() ? el.style.display = 'block' : el.style.display = 'none');
-        
         try {
-            // Intentamos poblar el selector de negocios
+            appState.userRol = user.rol;
+            if (mainNav) mainNav.style.display = 'flex';
+            if (businessSelector) businessSelector.style.display = 'flex';
+            if (authLink) {
+                authLink.innerHTML = `Salir (${user.nombre})`;
+                authLink.onclick = (e) => { e.preventDefault(); logout(); };
+            }
+            document.querySelectorAll('.admin-only').forEach(el => esAdmin() ? el.style.display = 'block' : el.style.display = 'none');
+            
             await poblarSelectorNegocios();
+
+            const contentArea = document.getElementById('content-area');
+            if (contentArea.innerHTML.trim() === '') {
+                const homeLink = document.querySelector('a[onclick*="historial_ventas.html"]');
+                loadContent(null, 'static/historial_ventas.html', homeLink);
+            }
         } catch (error) {
-            // ✨ LA CORRECCIÓN CLAVE: Si falla (ej. token expirado), forzamos el logout.
-            console.error("Fallo al cargar datos iniciales, posible token expirado. Cerrando sesión.", error);
+            console.error("Fallo al validar token. Cerrando sesión.", error);
             logout();
         }
-
     } else {
         appState.userRol = null;
         if (mainNav) mainNav.style.display = 'none';
         if (businessSelector) businessSelector.style.display = 'none';
-        
-        // Cuando no hay usuario, cargamos la página de login
         loadContent(null, 'static/login.html');
     }
 }
-
 // --- INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Listener para el cambio de negocio (tu código)
     document.getElementById('selector-negocio').addEventListener('change', (e) => {
         appState.negocioActivoId = e.target.value;
         const linkActivo = document.querySelector('nav a.active, .dropdown-content a.active');
@@ -212,41 +199,26 @@ document.addEventListener('DOMContentLoaded', () => {
             loadContent(null, pageFile, linkActivo);
         }
     });
-
-    // Listener para cambios de autenticación (tu código)
+    
     window.addEventListener('authChange', actualizarUIAutenticacion);
 
-    // Lógica para el botón hamburguesa (tu código)
     const hamburgerBtn = document.getElementById('hamburger-btn');
     const navContainer = document.querySelector('.nav-container');
     if (hamburgerBtn && navContainer) {
-        hamburgerBtn.addEventListener('click', () => {
-            navContainer.classList.toggle('is-active');
-        });
+        hamburgerBtn.addEventListener('click', () => navContainer.classList.toggle('is-active'));
         navContainer.addEventListener('click', (e) => {
-            if (e.target.tagName === 'A') {
-                navContainer.classList.remove('is-active');
-            }
+            if (e.target.tagName === 'A') navContainer.classList.remove('is-active');
         });
     }
 
-    // ✨ CORRECCIÓN INTEGRADA: Lógica para la carga inicial de la página
-    // En lugar de llamar a actualizarUIAutenticacion(), decidimos qué página cargar primero.
-    const user = getCurrentUser();
-    if (user) {
-        // Si el usuario ya está logueado, lo llevamos al Historial de Ventas.
-        const historialVentasLink = document.querySelector('a[onclick*="historial_ventas.html"]');
-        loadContent(null, 'static/historial_ventas.html', historialVentasLink);
-    } else {
-        // Si no, lo llevamos al login.
-        loadContent(null, 'static/login.html');
-    }
+    // ✨ LA CORRECCIÓN CLAVE: Esta es la llamada inicial que pone todo en marcha.
+    actualizarUIAutenticacion();
 });
 
 export function abrirModalNuevoCliente(callback) {
     const modal = document.getElementById('modal-nuevo-cliente');
     if (modal) {
-        onClienteCreadoCallback = callback; // Guardamos la función a ejecutar después de crear
+        onClienteCreadoCallback = callback;
         modal.style.display = 'flex';
         document.getElementById('form-nuevo-cliente').reset();
     }
@@ -263,6 +235,4 @@ window.borrarCategoria = borrarCategoria;
 window.mostrarDetallesCaja = mostrarDetallesCaja;
 window.editarProveedor = editarProveedor;
 window.borrarProveedor = borrarProveedor;
-window.inicializarLogicaLogin = inicializarLogicaLogin;
-window.inicializarLogicaIngresos = inicializarLogicaIngresos;
 window.abrirModalNuevoCliente = abrirModalNuevoCliente;
