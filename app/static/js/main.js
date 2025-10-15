@@ -126,20 +126,23 @@ async function poblarSelectorNegocios() {
 }
 
 // --- FUNCIÓN PRINCIPAL DE FLUJO ---
-export function loadContent(event, page, clickedLink) {
+// --- FUNCIÓN PRINCIPAL DE FLUJO (CORREGIDA) ---
+export function loadContent(event, page, clickedLink, fromHistory = false) { // ✨ LA CORRECCIÓN CLAVE ESTÁ AQUÍ
     if (event) event.preventDefault();
-     // ✨ LÓGICA DE HISTORIAL: Si no venimos del botón "Atrás", guardamos la nueva página en el historial.
+    
     if (!fromHistory) {
         history.pushState({ page: page }, '', `#${page.replace('static/', '').replace('.html', '')}`);
     }
 
     const pageName = page.split('/').pop().replace('.html', '');
     loadPageCSS(pageName);
+    
     const token = localStorage.getItem('jwt_token');
     if (!token && !page.includes('login.html')) {
         actualizarUIAutenticacion();
         return;
     }
+    
     document.querySelectorAll('nav a, .dropdown-content a').forEach(link => link.classList.remove('active'));
     if (clickedLink) {
         clickedLink.classList.add('active');
@@ -148,6 +151,7 @@ export function loadContent(event, page, clickedLink) {
             parentDropdown.querySelector('.dropbtn').classList.add('active');
         }
     }
+
     fetch(page)
         .then(response => response.ok ? response.text() : Promise.reject('Error al cargar la página.'))
         .then(html => {
