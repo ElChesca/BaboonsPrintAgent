@@ -12,7 +12,6 @@ async function cargarHistorialVentas() {
     const totalEl = document.getElementById('total-historial-ventas');
     if (!tbody || !totalEl) return;
 
-    // Lógica del filtro de fechas (Punto 2)
     const fechaDesde = document.getElementById('fecha-desde').value;
     const fechaHasta = document.getElementById('fecha-hasta').value;
     let url = `/api/negocios/${appState.negocioActivoId}/ventas`;
@@ -32,12 +31,18 @@ async function cargarHistorialVentas() {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay ventas para el período seleccionado.</td></tr>';
         } else {
             historial.forEach(venta => {
-                // ✨ CORRECCIÓN 1: Lógica mejorada para mostrar el estado y Nro. de Factura
-                const estado = venta.estado === 'Facturada' 
+                // ✨ CORRECCIÓN 1: Lógica robusta para mostrar el estado y Nro. de Factura
+                const estadoHtml = venta.estado === 'Facturada' 
                     ? `<span class="status-badge status-convertido">${venta.tipo_factura || 'X'}: ${venta.numero_factura || 'N/A'}</span>`
                     : `<span class="status-badge status-pendiente">Pendiente</span>`;
 
                 totalGeneral += venta.total;
+
+                // ✨ CORRECCIÓN 2: Lógica condicional para el botón "Facturar"
+                const accionesHtml = `
+                    <button class="btn-secondary btn-ver-detalles">🔽</button>
+                    ${venta.estado !== 'Facturada' ? '<button class="btn-primary btn-facturar">Facturar</button>' : ''}
+                `;
 
                 tbody.innerHTML += `
                     <tr class="master-row" data-id="${venta.id}">
@@ -46,11 +51,8 @@ async function cargarHistorialVentas() {
                         <td>${venta.cliente_nombre || 'Consumidor Final'}</td>
                         <td>${venta.metodo_pago}</td>
                         <td>${formatCurrency(venta.total)}</td>
-                        <td>${estado}</td>
-                        <td class="acciones">
-                            <button class="btn-secondary btn-ver-detalles">🔽</button>
-                            ${venta.estado !== 'Facturada' ? '<button class="btn-primary btn-facturar">Facturar</button>' : ''}
-                        </td>
+                        <td>${estadoHtml}</td>
+                        <td class="acciones">${accionesHtml}</td>
                     </tr>
                 `;
             });
@@ -92,25 +94,11 @@ async function mostrarDetalleVenta(ventaId, masterRow) {
     }
 }
 
-async function facturar(ventaId, tipo) {
-    try {
-        const response = await fetchData(`/api/ventas/${ventaId}/facturar`, {
-            method: 'POST', body: JSON.stringify({ tipo: tipo })
-        });
-        mostrarNotificacion(response.message, 'success');
-        document.getElementById('modal-facturar').style.display = 'none';
-        cargarHistorialVentas();
-    } catch (error) {
-        mostrarNotificacion(error.message, 'error');
-    }
-}
-
 export function inicializarLogicaHistorialVentas() {
     const tablaBody = document.querySelector('#tabla-historial-ventas tbody');
     const btnFiltrar = document.getElementById('btn-filtrar-ventas');
     if (!tablaBody || !btnFiltrar) return;
 
-    // ✨ CORRECCIÓN (Punto 2): Conectamos el botón de filtrar
     btnFiltrar.addEventListener('click', cargarHistorialVentas);
 
     tablaBody.addEventListener('click', (e) => {
@@ -126,5 +114,5 @@ export function inicializarLogicaHistorialVentas() {
         }
     });
 
-    cargarHistorialVentas(); // Carga inicial
+    cargarHistorialVentas();
 }
