@@ -163,6 +163,8 @@ export function loadContent(event, page, clickedLink, fromHistory = false) { // 
             loadPageCSS(null);
         });
 }
+// ... (parte superior del main.js con imports, appState, etc. sin cambios)
+
 export async function actualizarUIAutenticacion() {
     const user = getCurrentUser();
     const mainNav = document.querySelector('header nav');
@@ -184,8 +186,8 @@ export async function actualizarUIAutenticacion() {
 
             const contentArea = document.getElementById('content-area');
             if (contentArea.innerHTML.trim() === '') {
-                const homeLink = document.querySelector('a[onclick*="historial_ventas.html"]');
-                loadContent(null, 'static/historial_ventas.html', homeLink);
+                // ✨ CAMBIO AQUÍ: Cargamos el nuevo home.html en lugar del historial de ventas
+                loadContent(null, 'static/home.html', null); // No hay un 'clickedLink' para el home inicial
             }
         } catch (error) {
             console.error("Fallo al validar token. Cerrando sesión.", error);
@@ -198,6 +200,8 @@ export async function actualizarUIAutenticacion() {
         loadContent(null, 'static/login.html');
     }
 }
+
+// ... (El resto del main.js no cambia)
 // --- INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('selector-negocio').addEventListener('change', (e) => {

@@ -133,17 +133,6 @@ main {
     }
 }
 
-#notification-container {
-    position: fixed; /* Se queda fijo en la pantalla */
-    bottom: 20px;
-    right: 20px;
-    z-index: 9999; /* Se asegura de estar por encima de todo */
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 10px;
-}
-
 .toast-notification {
     color: #fff;
     padding: 15px 20px;
@@ -267,15 +256,7 @@ main {
     align-items: flex-end;
     gap: 10px;
 }
-.toast-notification {
-    color: #fff; padding: 15px 20px; border-radius: 8px; min-width: 250px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0;
-    transform: translateX(100%); animation: slideIn 0.5s forwards;
-}
-.toast-notification.success { background-color: #28a745; }
-.toast-notification.warning { background-color: #ffc107; color: #333; }
-.toast-notification.error { background-color: #dc3545; }
-.toast-notification.info { background-color: #17a2b8; }
+
 @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
 @keyframes slideOut { to { opacity: 0; transform: translateX(100%); } }
 
@@ -298,4 +279,171 @@ main {
 }
 .btn-add-quick:hover {
     background-color: #218838 !important;
+}
+/* --- ESTILOS GENERALES DE TABLAS --- */
+.tabla-bonita {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden; /* Para que los bordes redondeados se vean bien con thead */
+}
+
+.tabla-bonita thead {
+    background-color: #28a745; /* Verde Odoo */
+    color: white;
+}
+
+.tabla-bonita th,
+.tabla-bonita td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.tabla-bonita tbody tr:hover {
+    background-color: #f5f5f5;
+}
+
+.tabla-bonita tbody tr:last-child td {
+    border-bottom: none;
+}
+/* --- ESTILOS GENERALES DE BOTONES --- */
+.btn {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.95em;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    margin-left: 5px; /* Pequeño espacio entre botones */
+}
+
+.btn-primary {
+    background-color: #007bff; /* Azul primario */
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background-color: #6c757d; /* Gris secundario */
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    background-color: #dc3545; /* Rojo para acciones peligrosas */
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+    transform: translateY(-1px);
+}
+
+/* Estilos para campos de formulario */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="date"], /* Para los filtros de fecha */
+select,
+textarea {
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1em;
+    box-sizing: border-box; /* Incluye padding y borde en el ancho/alto */
+    margin-bottom: 10px; /* Espacio entre campos */
+}
+
+/* Estilo para los campos de filtro de fecha específicos */
+.filter-date-input {
+    width: 150px; /* Ancho específico para los campos de fecha en filtros */
+}
+
+/* --- ESTADOS DE BADGES (para el historial de ventas) --- */
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: bold;
+    color: white;
+}
+
+.status-pendiente {
+    background-color: #ffc107; /* Amarillo */
+}
+
+.status-convertido { /* Usado para "Facturada" */
+    background-color: #28a745; /* Verde */
+}
+/* --- ESTILOS DASHBOARD ODOO --- */
+.app-dashboard {
+    padding: 30px;
+    text-align: center;
+}
+
+.dashboard-title {
+    font-size: 2.2em;
+    color: #333;
+    margin-bottom: 40px;
+    font-weight: 300;
+}
+
+.app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* 120px ancho mínimo */
+    gap: 30px;
+    justify-content: center;
+    max-width: 900px; /* Ancho máximo para el grid */
+    margin: 0 auto; /* Centrar el grid */
+}
+
+.app-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #ffffff;
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+    min-height: 120px; /* Asegura un tamaño mínimo para la tarjeta */
+}
+
+.app-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.app-icon {
+    width: 64px; /* Tamaño del icono */
+    height: 64px;
+    margin-bottom: 10px;
+    object-fit: contain; /* Para que la imagen se ajuste sin distorsionarse */
+}
+
+.app-name {
+    font-size: 0.9em;
+    color: #555;
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Esconder admin-only en el dashboard si no es admin (la lógica JS ya lo hace, pero esto es un respaldo) */
+.admin-only.app-card {
+    display: none;
 }

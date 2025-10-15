@@ -1,0 +1,37 @@
+<div class="card app-dashboard">
+    <h2 class="dashboard-title">Mis Aplicaciones</h2>
+    <div class="app-grid">
+        <div class="app-card" onclick="loadContent(event, 'static/ventas.html', this)">
+            <img src="/static/img/icons/ventas.png" alt="Ventas" class="app-icon">
+            <span class="app-name">Ventas</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/historial_ventas.html', this)">
+            <img src="/static/img/icons/historial_ventas.png" alt="Historial de Ventas" class="app-icon">
+            <span class="app-name">Historial Ventas</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/inventario.html', this)">
+            <img src="/static/img/icons/inventario.png" alt="Inventario" class="app-icon">
+            <span class="app-name">Inventario</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/clientes.html', this)">
+            <img src="/static/img/icons/clientes.png" alt="Clientes" class="app-icon">
+            <span class="app-name">Clientes</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/caja.html', this)">
+            <img src="/static/img/icons/caja.png" alt="Caja" class="app-icon">
+            <span class="app-name">Caja</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/ingresos.html', this)">
+            <img src="/static/img/icons/ingresos.png" alt="Ingresos" class="app-icon">
+            <span class="app-name">Ingresos</span>
+        </div>
+        <div class="app-card admin-only" onclick="loadContent(event, 'static/usuarios.html', this)">
+            <img src="/static/img/icons/usuarios.png" alt="Usuarios" class="app-icon">
+            <span class="app-name">Usuarios</span>
+        </div>
+         <div class="app-card admin-only" onclick="loadContent(event, 'static/negocios.html', this)">
+            <img src="/static/img/icons/negocios.png" alt="Negocios" class="app-icon">
+            <span class="app-name">Negocios</span>
+        </div>
+    </div>
+</div>
