@@ -23,7 +23,7 @@ async function cargarHistorialVentas() {
     }
 
     try {
-        const historial = await fetchData(url);
+          const historial = await fetchData(url);
         tbody.innerHTML = '';
         let totalGeneral = 0;
 
@@ -31,14 +31,14 @@ async function cargarHistorialVentas() {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay ventas para el período seleccionado.</td></tr>';
         } else {
             historial.forEach(venta => {
-                // ✨ CORRECCIÓN 1: Lógica robusta para mostrar el estado y Nro. de Factura
+                // ✨ LÓGICA CLAVE: Se comprueba el estado de la venta.
                 const estadoHtml = venta.estado === 'Facturada' 
                     ? `<span class="status-badge status-convertido">${venta.tipo_factura || 'X'}: ${venta.numero_factura || 'N/A'}</span>`
                     : `<span class="status-badge status-pendiente">Pendiente</span>`;
 
                 totalGeneral += venta.total;
 
-                // ✨ CORRECCIÓN 2: Lógica condicional para el botón "Facturar"
+                // ✨ LÓGICA CLAVE: Se decide si mostrar o no el botón "Facturar".
                 const accionesHtml = `
                     <button class="btn-secondary btn-ver-detalles">🔽</button>
                     ${venta.estado !== 'Facturada' ? '<button class="btn-primary btn-facturar">Facturar</button>' : ''}
