@@ -95,8 +95,15 @@ function inicializarModulo(page) {
 }
 
 async function poblarSelectorNegocios() {
-    const selectorNegocio = document.getElementById('selector-negocio');
-    if (!selectorNegocio) return;
+    // 1. Buscamos ambos posibles selectores.
+    const mainSelector = document.getElementById('selector-negocio');
+    const homeSelector = document.getElementById('home-selector-negocio');
+    
+    // 2. Decidimos cuál usar. El del Home tiene prioridad si existe.
+    const selectorNegocio = homeSelector || mainSelector;
+
+    if (!selectorNegocio) return; // Si no hay ningún selector en la página, no hacemos nada.
+
     try {
         const negocios = await fetchData('/api/negocios');
         selectorNegocio.innerHTML = '';
@@ -108,23 +115,29 @@ async function poblarSelectorNegocios() {
             const option = new Option(negocio.nombre, negocio.id);
             selectorNegocio.appendChild(option);
         });
+        
         let idSeleccionado = negocios[0].id;
         if (appState.negocioActivoId && negocios.some(n => n.id == appState.negocioActivoId)) {
             idSeleccionado = appState.negocioActivoId;
         }
+        
         selectorNegocio.value = idSeleccionado;
+        
+        // 3. Sincronizamos el estado de la aplicación con el valor del selector.
+        // Esto es importante para la primera carga.
         if (appState.negocioActivoId !== idSeleccionado) {
             appState.negocioActivoId = idSeleccionado;
+            // Disparamos el evento 'change' para que la página se recargue si es necesario.
             selectorNegocio.dispatchEvent(new Event('change'));
         } else {
-            appState.negocioActivoId = idSeleccionado;
+             appState.negocioActivoId = idSeleccionado;
         }
+        
     } catch (error) {
         selectorNegocio.innerHTML = '<option value="">Error al cargar</option>';
-        throw error; // Relanzamos para que actualizarUIAutenticacion lo capture
+        throw error;
     }
 }
-
 // --- FUNCIÓN PRINCIPAL DE FLUJO (MODIFICADA) ---
 export function loadContent(event, page, clickedLink, fromHistory = false) {
     if (event) event.preventDefault();
@@ -136,9 +149,10 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     const pageName = page.split('/').pop().replace('.html', '');
     loadPageCSS(pageName);
     
-    // --- ✨ LA LÓGICA CLAVE PARA OCULTAR/MOSTRAR EL HEADER ---
-    const header = document.querySelector('header');
-    const businessSelectorBar = document.getElementById('business-selector-bar');
+    // ✨ LÓGICA DE VISIBILIDAD CORREGIDA ✨
+    const header = document.querySelector('header'); // La barra de navegación principal
+    const businessSelectorBar = document.getElementById('business-selector-bar'); // La barra de negocio secundaria
+
 
     if (page.includes('home.html')) {
         // Si estamos en el home, ocultamos el header y la barra de negocio.
@@ -196,6 +210,11 @@ export async function actualizarUIAutenticacion() {
             }
             document.querySelectorAll('.admin-only').forEach(el => esAdmin() ? el.style.display = 'block' : el.style.display = 'none');
             
+            const homeAuthLink = document.getElementById('home-auth-link');
+            if (homeAuthLink) {
+                homeAuthLink.innerHTML = `Salir (${user.nombre})`;
+                homeAuthLink.onclick = (e) => { e.preventDefault(); logout(); };
+            }
             await poblarSelectorNegocios();            
            
         } catch (error) {
@@ -221,7 +240,16 @@ document.addEventListener('DOMContentLoaded', () => {
             loadContent(null, pageFile, linkActivo);
         }
     });
-    
+     // ✨ AÑADIDO: Listener para el nuevo selector del Home
+    // Usamos 'document.body.addEventListener' porque el selector del home no siempre existe.
+    document.body.addEventListener('change', (e) => {
+        if (e.target.id === 'home-selector-negocio') {
+            appState.negocioActivoId = e.target.value;
+            // En el home, simplemente recargamos el home para que los datos se actualicen.
+            const homeLink = document.querySelector('a[onclick*="home.html"]');
+            loadContent(null, 'static/home.html', homeLink);
+        }
+    });
     window.addEventListener('authChange', actualizarUIAutenticacion);
 
     const hamburgerBtn = document.getElementById('hamburger-btn');
