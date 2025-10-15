@@ -32,7 +32,7 @@ async function cargarHistorialVentas() {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay ventas para el período seleccionado.</td></tr>';
         } else {
             historial.forEach(venta => {
-                // ✨ CORRECCIÓN (Punto 1): Lógica para mostrar el estado correctamente
+                // ✨ CORRECCIÓN 1: Lógica mejorada para mostrar el estado y Nro. de Factura
                 const estado = venta.estado === 'Facturada' 
                     ? `<span class="status-badge status-convertido">${venta.tipo_factura || 'X'}: ${venta.numero_factura || 'N/A'}</span>`
                     : `<span class="status-badge status-pendiente">Pendiente</span>`;

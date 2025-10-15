@@ -203,6 +203,7 @@ export async function actualizarUIAutenticacion() {
 
 // --- INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Listener para el cambio de negocio (tu código)
     document.getElementById('selector-negocio').addEventListener('change', (e) => {
         appState.negocioActivoId = e.target.value;
         const linkActivo = document.querySelector('nav a.active, .dropdown-content a.active');
@@ -211,23 +212,35 @@ document.addEventListener('DOMContentLoaded', () => {
             loadContent(null, pageFile, linkActivo);
         }
     });
+
+    // Listener para cambios de autenticación (tu código)
     window.addEventListener('authChange', actualizarUIAutenticacion);
-    // ✨ LÓGICA PARA EL BOTÓN HAMBURGUESA ✨
+
+    // Lógica para el botón hamburguesa (tu código)
     const hamburgerBtn = document.getElementById('hamburger-btn');
     const navContainer = document.querySelector('.nav-container');
-
     if (hamburgerBtn && navContainer) {
         hamburgerBtn.addEventListener('click', () => {
             navContainer.classList.toggle('is-active');
         });
         navContainer.addEventListener('click', (e) => {
-            // Si el elemento clickeado es un enlace (A), ocultamos el menú.
             if (e.target.tagName === 'A') {
                 navContainer.classList.remove('is-active');
             }
         });
     }
-    actualizarUIAutenticacion();
+
+    // ✨ CORRECCIÓN INTEGRADA: Lógica para la carga inicial de la página
+    // En lugar de llamar a actualizarUIAutenticacion(), decidimos qué página cargar primero.
+    const user = getCurrentUser();
+    if (user) {
+        // Si el usuario ya está logueado, lo llevamos al Historial de Ventas.
+        const historialVentasLink = document.querySelector('a[onclick*="historial_ventas.html"]');
+        loadContent(null, 'static/historial_ventas.html', historialVentasLink);
+    } else {
+        // Si no, lo llevamos al login.
+        loadContent(null, 'static/login.html');
+    }
 });
 
 export function abrirModalNuevoCliente(callback) {
