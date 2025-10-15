@@ -182,13 +182,8 @@ export async function actualizarUIAutenticacion() {
             }
             document.querySelectorAll('.admin-only').forEach(el => esAdmin() ? el.style.display = 'block' : el.style.display = 'none');
             
-            await poblarSelectorNegocios();
-
-            const contentArea = document.getElementById('content-area');
-            if (contentArea.innerHTML.trim() === '') {
-                // ✨ CAMBIO AQUÍ: Cargamos el nuevo home.html en lugar del historial de ventas
-                loadContent(null, 'static/home.html', null); // No hay un 'clickedLink' para el home inicial
-            }
+            await poblarSelectorNegocios();            
+           
         } catch (error) {
             console.error("Fallo al validar token. Cerrando sesión.", error);
             logout();

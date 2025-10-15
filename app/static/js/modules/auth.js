@@ -28,6 +28,8 @@ export function logout() {
     window.dispatchEvent(new Event('authChange'));
 }
 
+// ... (al principio de auth.js, los imports y otras funciones no cambian)
+
 export function inicializarLogicaLogin() {
     const form = document.getElementById('login-form');
     if (!form) return;
@@ -51,12 +53,17 @@ export function inicializarLogicaLogin() {
                 method: 'POST',
                 body: JSON.stringify(payload)
             });
+
             localStorage.setItem('jwt_token', data.token);
-            window.dispatchEvent(new Event('authChange'));
-             // ✨ LA CORRECCIÓN CLAVE: Redirigimos al Historial de Ventas
-            const historialVentasLink = document.querySelector('a[onclick*="historial_ventas.html"]');
-            window.loadContent(null, 'static/historial_ventas.html', historialVentasLink);
             
+            // 1. "Toca el timbre" para que main.js actualice la UI (menú, etc.)
+            window.dispatchEvent(new Event('authChange'));
+
+            // ✨ 2. LA CORRECCIÓN CLAVE: El login ahora se encarga de la redirección.
+            // Buscamos el enlace del home para pasarlo a loadContent y que lo marque como activo.
+            const homeLink = document.querySelector('a[onclick*="home.html"]');
+            window.loadContent(null, 'static/home.html', homeLink);
+
         } catch (error) {
             errorMessageDiv.textContent = error.message || 'Error de conexión.';
             errorMessageDiv.style.display = 'block';
