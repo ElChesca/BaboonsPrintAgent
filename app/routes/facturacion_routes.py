@@ -39,9 +39,16 @@ def facturar_venta(current_user, venta_id):
             negocio = db.fetchone()
             if not negocio:
                 return jsonify({'error': 'No se encontraron los datos del negocio.'}), 404
+            
+            # --- VERIFICACIÓN DE DATOS FISCALES ---
+            if not negocio.get('cuit'):
+                return jsonify({'error': f"El negocio asociado a esta venta no tiene un CUIT configurado."}), 409
+            
+            # --- NUEVA VERIFICACIÓN: Punto de Venta ---
+            if not negocio.get('punto_de_venta'):
+                return jsonify({'error': f"El negocio asociado no tiene un Punto de Venta configurado."}), 409
 
             # 2. Leer los certificados (usando una ruta absoluta para evitar problemas)
-            #    Se construye la ruta desde la raíz de la aplicación Flask.
             cert_path = os.path.join(current_app.root_path, '..', 'CertificadosARCA', 'certificado.crt')
             key_path = os.path.join(current_app.root_path, '..', 'CertificadosARCA', 'key.key')
 
@@ -52,46 +59,41 @@ def facturar_venta(current_user, venta_id):
 
             # 3. Conectar a AFIP
             afip = Afip({
-                "CUIT": int(negocio['cuit']), # CORRECCIÓN: Asegurarse de que el CUIT sea un entero.
+                "CUIT": int(negocio['cuit']),
                 "cert": cert_contenido,
                 "key": key_contenido,
-                # "homologacion": True # Descomentar si necesitas forzar el modo de prueba
+                # "homologacion": True 
             })
 
             # 4. Preparar los datos para la factura
-            punto_venta = negocio['punto_de_venta']
+            punto_venta = int(negocio['punto_de_venta']) # Aseguramos que sea entero
             tipo_de_factura = 6 # Factura B
             
             ultimo_autorizado = afip.ElectronicBilling.getLastVoucher(punto_venta, tipo_de_factura)
             numero_de_factura = ultimo_autorizado + 1
             fecha = int(datetime.date.today().strftime('%Y%m%d'))
 
-            # --- CORRECCIÓN: Usar Decimal para cálculos monetarios ---
-            # Evita problemas de precisión con números de punto flotante.
+            # --- Usar Decimal para cálculos monetarios ---
             importe_total = Decimal(venta['total'])
-            # Asumimos una tasa de IVA del 21%
             tasa_iva = Decimal('1.21') 
             importe_gravado = (importe_total / tasa_iva).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
             importe_iva = (importe_total - importe_gravado).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
-            # --- CORRECCIÓN CLAVE: El diccionario de datos debe coincidir con el de tu script funcional ---
+            # --- Diccionario de datos para AFIP ---
             data_factura = {
                 "CantReg": 1, 
                 "PtoVta": punto_venta, 
                 "CbteTipo": tipo_de_factura, 
-                "Concepto": 1, # 1: Productos. Asumido por ahora.
-                "DocTipo": 99, # 99: Consumidor Final
+                "Concepto": 1, 
+                "DocTipo": 99,
                 "DocNro": 0,
                 "CbteDesde": numero_de_factura, 
                 "CbteHasta": numero_de_factura,
                 "CbteFch": fecha,
-                # --- AÑADIDO: Campos de fecha de servicio ---
-                # Son requeridos por el WS aunque el concepto sea "Productos". 
-                # Se envían como None o 0 si no aplican.
                 "FchServDesde": None,
                 "FchServHasta": None,
                 "FchVtoPago": None,
-                "ImpTotal": float(importe_total), # El WS espera float, no Decimal
+                "ImpTotal": float(importe_total), 
                 "ImpTotConc": 0, 
                 "ImpNeto": float(importe_gravado),
                 "ImpOpEx": 0, 
@@ -99,8 +101,6 @@ def facturar_venta(current_user, venta_id):
                 "ImpTrib": 0,
                 "MonId": "PES", 
                 "MonCotiz": 1, 
-                # --- ELIMINADO: "CondicionIVAReceptorId" ---
-                # Este campo no va en el diccionario principal, se infiere del DocTipo o no es necesario.
                 "Iva": [{"Id": 5, "BaseImp": float(importe_gravado), "Importe": float(importe_iva)}] 
             }
 
