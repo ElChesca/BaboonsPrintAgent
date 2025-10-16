@@ -18,13 +18,6 @@
 .tabla-bonita th, .tabla-bonita td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; word-break: break-word; }
 .tabla-bonita thead th { background-color: #007bff; color: white; }
 
-/* ✨ Estilo del botón Cta. Cte. y otros */
-.tabla-bonita .btn-editar, .tabla-bonita .btn-borrar, .tabla-bonita .btn-cta-cte {
-    padding: 6px 10px; font-size: 0.9em; margin-right: 5px; border-radius: 5px; border: none; cursor: pointer; color: white;
-}
-.tabla-bonita .btn-editar { background-color: #ffc107; color: #333; }
-.tabla-bonita .btn-borrar { background-color: #dc3545; }
-.tabla-bonita .btn-cta-cte { background-color: #6c757d; }
 
 /* ✨ Punto 5: Estilos para el Modal de Cuenta Corriente */
 /* ✨ Estilos para que el modal sea un overlay */

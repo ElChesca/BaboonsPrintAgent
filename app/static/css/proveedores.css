@@ -43,47 +43,6 @@
     gap: 10px;
 }
 
-/* --- ✨ ESTILOS AÑADIDOS para la tabla de proveedores --- */
-.tabla-bonita {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.tabla-bonita th,
-.tabla-bonita td {
-    padding: 12px 15px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
-    word-break: break-word; 
-}
-
-.tabla-bonita thead th {
-    background-color: #6f42c1; /* Púrpura para proveedores */
-    color: white;
-}
-
-/* Estilos para los botones de acción dentro de la tabla */
-.tabla-bonita .btn-editar,
-.tabla-bonita .btn-borrar {
-    padding: 6px 10px;
-    font-size: 0.9em;
-    margin-right: 5px;
-    border-radius: 5px;
-    border: none;
-    cursor: pointer;
-    color: white;
-}
-
-.tabla-bonita .btn-editar {
-    background-color: #ffc107;
-    color: #333;
-}
-
-.tabla-bonita .btn-borrar {
-    background-color: #dc3545;
-}
-
-
 /* --- MEDIA QUERIES PARA RESPONSIVE --- */
 @media (max-width: 900px) {
     .main-grid {

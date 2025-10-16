@@ -40,36 +40,6 @@
     gap: 10px;
 }
 
-/* Estilos para la tabla de reportes (usando la clase que ya tienes) */
-.tabla-bonita {
-    width: 100%;
-    border-collapse: collapse; /* Bordes limpios */
-}
-
-.tabla-bonita thead tr {
-    background-color: #343a40; /* Un color oscuro para la cabecera, más elegante */
-    color: #fff;
-    text-align: left;
-}
-
-.tabla-bonita th,
-.tabla-bonita td {
-    padding: 12px 15px;
-    border-bottom: 1px solid #dee2e6; /* Línea separadora sutil */
-}
-
-.tabla-bonita tbody tr {
-    transition: background-color 0.2s ease-in-out;
-}
-
-/* Efecto cebra para mejor legibilidad */
-.tabla-bonita tbody tr:nth-of-type(even) {
-    background-color: #f8f9fa;
-}
-
-.tabla-bonita tbody tr:hover {
-    background-color: #e9ecef; /* Resaltado al pasar el ratón */
-}
 
 /* Clases para resaltar la diferencia en la caja */
 .diferencia-negativa {

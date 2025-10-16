@@ -78,32 +78,6 @@
     margin-bottom: 20px;
 }
 
-/* Estilos de la tabla (asumiendo que usas 'tabla-bonita' como clase) */
-.tabla-bonita {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-}
-
-.tabla-bonita thead tr {
-    background-color: #007bff;
-    color: white;
-}
-
-.tabla-bonita th,
-.tabla-bonita td {
-    padding: 12px 15px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
-}
-
-.tabla-bonita tbody tr:nth-child(even) {
-    background-color: #f2f2f2; /* Cebra para facilitar la lectura */
-}
-
-.tabla-bonita tbody tr:hover {
-    background-color: #e9ecef; /* Resaltar fila al pasar el ratón */
-}
 
 /* ✨ NUEVO: Estilos para la grilla de informes */
 .dashboard-grid {
