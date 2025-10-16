@@ -52,7 +52,7 @@ def facturar_venta(current_user, venta_id):
 
             # 3. Conectar a AFIP
             afip = Afip({
-                "CUIT": negocio['cuit'],
+                "CUIT": int(negocio['cuit']), # CORRECCIÓN: Asegurarse de que el CUIT sea un entero.
                 "cert": cert_contenido,
                 "key": key_contenido,
                 # "homologacion": True # Descomentar si necesitas forzar el modo de prueba
@@ -125,3 +125,4 @@ def facturar_venta(current_user, venta_id):
             return jsonify({'error': f"Error de facturación AFIP: {str(e)}"}), 500
 
     return jsonify({'error': 'Tipo de facturación no válido'}), 400
+
