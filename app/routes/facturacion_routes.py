@@ -1,19 +1,12 @@
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, jsonify, request, g, current_app
 from app.database import get_db
 from app.auth_decorator import token_required
-from afip import Afip # Usamos la librería correcta
+from afip import Afip
 import datetime
-
-# --- Puntos de control para depuración ---
-print("--- facturacion_routes.py: Iniciando carga del archivo. ---")
-
-# (En el futuro, aquí se importaría la librería de AFIP)
-# from pyafipws import Wsfev1 
-
-print("--- facturacion_routes.py: Imports completados. ---")
+import os
+from decimal import Decimal, ROUND_HALF_UP
 
 bp = Blueprint('facturacion', __name__)
-print("--- facturacion_routes.py: Blueprint 'facturacion' creado. ---")
 
 @bp.route('/ventas/<int:venta_id>/facturar', methods=['POST'])
 @token_required
@@ -45,49 +38,77 @@ def facturar_venta(current_user, venta_id):
             db.execute("SELECT * FROM negocios WHERE id = %s", (venta['negocio_id'],))
             negocio = db.fetchone()
             if not negocio:
-                 return jsonify({'error': 'No se encontraron los datos del negocio.'}), 404
+                return jsonify({'error': 'No se encontraron los datos del negocio.'}), 404
 
-            # 2. Leer los certificados (como en tu script ganador)
-            cert_contenido = open("CertificadosARCA/certificado.crt", 'r').read()
-            key_contenido = open("CertificadosARCA/key.key", 'r').read()
+            # 2. Leer los certificados (usando una ruta absoluta para evitar problemas)
+            #    Se construye la ruta desde la raíz de la aplicación Flask.
+            cert_path = os.path.join(current_app.root_path, '..', 'CertificadosARCA', 'certificado.crt')
+            key_path = os.path.join(current_app.root_path, '..', 'CertificadosARCA', 'key.key')
 
-            # 3. Conectar a AFIP usando la sintaxis GANADORA
+            with open(cert_path, 'r') as cert_file:
+                cert_contenido = cert_file.read()
+            with open(key_path, 'r') as key_file:
+                key_contenido = key_file.read()
+
+            # 3. Conectar a AFIP
             afip = Afip({
                 "CUIT": negocio['cuit'],
                 "cert": cert_contenido,
-                "key": key_contenido
-                # No es necesario "homologacion": True, la librería lo detecta
+                "key": key_contenido,
+                # "homologacion": True # Descomentar si necesitas forzar el modo de prueba
             })
 
             # 4. Preparar los datos para la factura
             punto_venta = negocio['punto_de_venta']
-            tipo_de_factura = 6 # Asumimos Factura B por ahora
+            tipo_de_factura = 6 # Factura B
+            
             ultimo_autorizado = afip.ElectronicBilling.getLastVoucher(punto_venta, tipo_de_factura)
             numero_de_factura = ultimo_autorizado + 1
             fecha = int(datetime.date.today().strftime('%Y%m%d'))
 
-            # (Aquí iría la lógica para calcular el IVA a partir del total de la venta)
-            importe_total = float(venta['total'])
-            importe_gravado = round(importe_total / 1.21, 2)
-            importe_iva = importe_total - importe_gravado
+            # --- CORRECCIÓN: Usar Decimal para cálculos monetarios ---
+            # Evita problemas de precisión con números de punto flotante.
+            importe_total = Decimal(venta['total'])
+            # Asumimos una tasa de IVA del 21%
+            tasa_iva = Decimal('1.21') 
+            importe_gravado = (importe_total / tasa_iva).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            importe_iva = (importe_total - importe_gravado).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
+            # --- CORRECCIÓN CLAVE: El diccionario de datos debe coincidir con el de tu script funcional ---
             data_factura = {
-                "CantReg": 1, "PtoVta": punto_venta, "CbteTipo": tipo_de_factura, 
-                "Concepto": 1, "DocTipo": 99, "DocNro": 0,
-                "CbteDesde": numero_de_factura, "CbteHasta": numero_de_factura,
+                "CantReg": 1, 
+                "PtoVta": punto_venta, 
+                "CbteTipo": tipo_de_factura, 
+                "Concepto": 1, # 1: Productos. Asumido por ahora.
+                "DocTipo": 99, # 99: Consumidor Final
+                "DocNro": 0,
+                "CbteDesde": numero_de_factura, 
+                "CbteHasta": numero_de_factura,
                 "CbteFch": fecha,
-                "ImpTotal": importe_total, "ImpTotConc": 0, "ImpNeto": importe_gravado,
-                "ImpOpEx": 0, "ImpIVA": importe_iva, "ImpTrib": 0,
-                "MonId": "PES", "MonCotiz": 1, 
-                "CondicionIVAReceptorId" : 5, # 5 = Consumidor Final
-                "Iva": [{"Id": 5, "BaseImp": importe_gravado, "Importe": importe_iva}] 
+                # --- AÑADIDO: Campos de fecha de servicio ---
+                # Son requeridos por el WS aunque el concepto sea "Productos". 
+                # Se envían como None o 0 si no aplican.
+                "FchServDesde": None,
+                "FchServHasta": None,
+                "FchVtoPago": None,
+                "ImpTotal": float(importe_total), # El WS espera float, no Decimal
+                "ImpTotConc": 0, 
+                "ImpNeto": float(importe_gravado),
+                "ImpOpEx": 0, 
+                "ImpIVA": float(importe_iva), 
+                "ImpTrib": 0,
+                "MonId": "PES", 
+                "MonCotiz": 1, 
+                # --- ELIMINADO: "CondicionIVAReceptorId" ---
+                # Este campo no va en el diccionario principal, se infiere del DocTipo o no es necesario.
+                "Iva": [{"Id": 5, "BaseImp": float(importe_gravado), "Importe": float(importe_iva)}] 
             }
 
             # 5. Crear la factura
             res = afip.ElectronicBilling.createVoucher(data_factura)
 
             # 6. Guardar los datos en nuestra base de datos
-            numero_factura_str = f"{str(punto_venta).zfill(4)}-{str(numero_de_factura).zfill(8)}"
+            numero_factura_str = f"{str(punto_venta).zfill(5)}-{str(numero_de_factura).zfill(8)}"
             db.execute(
                 "UPDATE ventas SET estado = 'Facturada', tipo_factura = 'B', numero_factura = %s, cae = %s, vencimiento_cae = %s WHERE id = %s",
                 (numero_factura_str, res['CAE'], res['CAEFchVto'], venta_id)
@@ -101,7 +122,6 @@ def facturar_venta(current_user, venta_id):
             
         except Exception as e:
             g.db_conn.rollback()
-            # Devolvemos el error específico de AFIP al frontend
             return jsonify({'error': f"Error de facturación AFIP: {str(e)}"}), 500
 
     return jsonify({'error': 'Tipo de facturación no válido'}), 400
