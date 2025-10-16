@@ -79,18 +79,33 @@ def registrar_venta(current_user, negocio_id):
     # --- ✨ NUEVA RUTA MEJORADA PARA OBTENER EL HISTORIAL ---
 @bp.route('/negocios/<int:negocio_id>/ventas', methods=['GET'])
 @token_required
+
+@bp.route('/negocios/<int:negocio_id>/historial-ventas', methods=['GET']) # Asegúrate que la ruta coincida con tu API
+@token_required
 def get_historial_ventas(current_user, negocio_id):
     db = get_db()
     fecha_desde = request.args.get('fecha_desde')
     fecha_hasta = request.args.get('fecha_hasta')
 
-    # Base de la consulta
+    # --- ✨ INICIO DE LA CORRECCIÓN ✨ ---
+    # La consulta ahora pide TODAS las columnas que el frontend necesita para
+    # mostrar correctamente el estado de la factura.
     query = """
-        SELECT v.id, v.fecha, v.total, v.metodo_pago, c.nombre as cliente_nombre
+        SELECT 
+            v.id, 
+            v.fecha, 
+            v.total, 
+            v.metodo_pago, 
+            c.nombre AS cliente_nombre,
+            v.estado,
+            v.tipo_factura,
+            v.numero_factura
         FROM ventas v
         LEFT JOIN clientes c ON v.cliente_id = c.id
         WHERE v.negocio_id = %s
     """
+    # --- FIN DE LA CORRECCIÓN ---
+    
     params = [negocio_id]
 
     # Añadir filtros de fecha si se proporcionan
@@ -103,15 +118,15 @@ def get_historial_ventas(current_user, negocio_id):
         query += " AND v.fecha < %s"
         params.append(fecha_hasta_dt.strftime('%Y-%m-%d'))
         
-    query += " ORDER BY v.fecha DESC"
+    query += " ORDER BY v.id DESC" # Ordenar por ID descendente es más común para historiales
     
     db.execute(query, tuple(params))
     ventas = db.fetchall()
     
     # Convertimos los resultados a un formato JSON friendly
+    # Esto ya lo hacías bien, no necesita cambios.
     resultado_json = [dict(venta) for venta in ventas]
     return jsonify(resultado_json)
-
 
 # --- RUTA PARA OBTENER DETALLES (Ya la tenías) ---
 @bp.route('/ventas/<int:venta_id>/detalles', methods=['GET'])
