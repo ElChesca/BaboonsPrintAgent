@@ -43,11 +43,11 @@ def facturar_venta(current_user, venta_id):
             # --- VERIFICACIÓN DE DATOS FISCALES ---
             if not negocio.get('cuit'):
                 return jsonify({'error': f"El negocio asociado a esta venta no tiene un CUIT configurado."}), 409
-            
-            # --- NUEVA VERIFICACIÓN: Punto de Venta ---
+
+            # --- VERIFICACIÓN DE PUNTO DE VENTA (RESTAURADA) ---
             if not negocio.get('punto_de_venta'):
                 return jsonify({'error': f"El negocio asociado no tiene un Punto de Venta configurado."}), 409
-
+            
             # 2. Leer los certificados (usando una ruta absoluta para evitar problemas)
             cert_path = os.path.join(current_app.root_path, '..', 'CertificadosARCA', 'certificado.crt')
             key_path = os.path.join(current_app.root_path, '..', 'CertificadosARCA', 'key.key')
@@ -66,7 +66,7 @@ def facturar_venta(current_user, venta_id):
             })
 
             # 4. Preparar los datos para la factura
-            punto_venta = int(negocio['punto_de_venta']) # Aseguramos que sea entero
+            punto_venta = int(negocio['punto_de_venta']) # Tomamos el dato de la base de datos
             tipo_de_factura = 6 # Factura B
             
             ultimo_autorizado = afip.ElectronicBilling.getLastVoucher(punto_venta, tipo_de_factura)
@@ -87,6 +87,8 @@ def facturar_venta(current_user, venta_id):
                 "Concepto": 1, 
                 "DocTipo": 99,
                 "DocNro": 0,
+                # --- NUEVA LÍNEA AÑADIDA ---
+                "CondicionIVAReceptorId": 5, # 5 = Consumidor Final
                 "CbteDesde": numero_de_factura, 
                 "CbteHasta": numero_de_factura,
                 "CbteFch": fecha,
@@ -125,4 +127,5 @@ def facturar_venta(current_user, venta_id):
             return jsonify({'error': f"Error de facturación AFIP: {str(e)}"}), 500
 
     return jsonify({'error': 'Tipo de facturación no válido'}), 400
+
 
