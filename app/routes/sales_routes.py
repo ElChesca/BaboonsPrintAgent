@@ -76,7 +76,7 @@ def registrar_venta(current_user, negocio_id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/negocios/<int:negocio_id>/historial_ventas', methods=['GET'],endpoint='get_historial_por_negocio') # Asegúrate que la ruta coincida con tu API
+@bp.route('/negocios/<int:negocio_id>/ventas', methods=['GET'],endpoint='get_historial_por_negocio') # Asegúrate que la ruta coincida con tu API
 @token_required
 def get_historial_ventas(current_user, negocio_id):
     db = get_db()
