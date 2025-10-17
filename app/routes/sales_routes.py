@@ -82,10 +82,6 @@ def get_historial_ventas(current_user, negocio_id):
     db = get_db()
     fecha_desde = request.args.get('fecha_desde')
     fecha_hasta = request.args.get('fecha_hasta')
-
-    # --- ✨ INICIO DE LA CORRECCIÓN ✨ ---
-    # La consulta ahora pide TODAS las columnas que el frontend necesita para
-    # mostrar correctamente el estado de la factura.
     query = """
         SELECT 
             v.id, 
