@@ -75,10 +75,6 @@ def registrar_venta(current_user, negocio_id):
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
-    
-    # --- ✨ NUEVA RUTA MEJORADA PARA OBTENER EL HISTORIAL ---
-@bp.route('/negocios/<int:negocio_id>/ventas', methods=['GET'])
-@token_required
 
 @bp.route('/negocios/<int:negocio_id>/historial_ventas', methods=['GET'],endpoint='get_historial_por_negocio') # Asegúrate que la ruta coincida con tu API
 @token_required
