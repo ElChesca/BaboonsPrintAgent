@@ -21,6 +21,7 @@ import { inicializarLogicaHistorialAjustes } from './modules/historial_ajustes.j
 import { inicializarLogicaPresupuestos } from './modules/presupuestos.js';
 import { inicializarLogicaHistorialPresupuestos } from './modules/historial_presupuestos.js';
 import { inicializarLogicaFactura } from './modules/factura.js';
+import { inicializarGestionListasPrecios } from './modules/listas_precios.js';
 
 let onClienteCreadoCallback = null;
 
@@ -72,6 +73,8 @@ function inicializarModulo(page) {
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
     if (page.includes('reportes.html')) inicializarLogicaReportes();
     if (page.includes('factura.html')) inicializarLogicaFactura();
+    if (page.includes('listas_precios.html')) inicializarGestionListasPrecios();
+    
     if (page.includes('historial_ingresos.html')) {
         inicializarLogicaHistorial();
     } else if (page.includes('ingresos.html')) {

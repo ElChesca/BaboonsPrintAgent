@@ -14,14 +14,14 @@ def create_app():
     from .routes import auth_routes, product_routes, negocios_routes, user_routes, \
                         clientes_routes, income_routes, sales_routes, category_routes, \
                         dashboard_routes, config_routes, caja_routes, report_routes, \
-                        proveedor_routes, ajuste_caja_routes, presupuestos_routes
+                        proveedor_routes, ajuste_caja_routes, presupuestos_routes, price_lists_routes
     blueprints = [
         (auth_routes.bp, '/api'), (product_routes.bp, '/api'), (negocios_routes.bp, '/api'),
         (user_routes.bp, '/api'), (clientes_routes.bp, '/api'), (income_routes.bp, '/api'),
         (sales_routes.bp, '/api'), (category_routes.bp, '/api'), (dashboard_routes.bp, '/api'),
         (config_routes.bp, '/api'), (caja_routes.bp, '/api'), (report_routes.bp, '/api'),
         (proveedor_routes.bp, '/api'), (ajuste_caja_routes.bp, '/api'), (presupuestos_routes.bp, '/api'),
-        (facturacion_routes.bp, '/api')
+        (facturacion_routes.bp, '/api'), (price_lists_routes.bp, '/api')
     ]
     for bp, prefix in blueprints:
         app.register_blueprint(bp, url_prefix=prefix)
