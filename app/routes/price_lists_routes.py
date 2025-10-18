@@ -63,14 +63,14 @@ def get_lista_precio_con_reglas(current_user, lista_id):
 
     # Obtenemos las reglas asociadas
     db.execute(
-        """
+       """
         SELECT 
             r.*, 
             p.nombre as producto_nombre, 
             c.nombre as categoria_nombre
         FROM listas_de_precios_reglas r
         LEFT JOIN productos p ON r.producto_id = p.id
-        LEFT JOIN categorias c ON r.categoria_id = c.id
+        LEFT JOIN categorias c ON r.categoria_id = c.id -- ¡Nombre incorrecto!
         WHERE r.lista_de_precio_id = %s
         """,
         (lista_id,)
@@ -94,10 +94,11 @@ def agregar_regla_a_lista(current_user, lista_id):
     db = get_db()
     try:
         db.execute(
-            """
+           """
             INSERT INTO listas_de_precios_reglas 
-            (lista_de_precio_id, producto_id, categoria_id, cantidad_minima, precio_fijo, porcentaje_descuento)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            (lista_de_precio_id, producto_id, categoria_id, cantidad_minima, 
+             precio_fijo, porcentaje_descuento, aplicar_a_todas_categorias)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 lista_id,
@@ -105,7 +106,8 @@ def agregar_regla_a_lista(current_user, lista_id):
                 data.get('categoria_id'),
                 data.get('cantidad_minima', 1),
                 data.get('precio_fijo'),
-                data.get('porcentaje_descuento')
+                data.get('porcentaje_descuento'),
+                data.get('aplicar_a_todas_categorias', False) # Aceptamos el nuevo campo
             )
         )
         g.db_conn.commit()

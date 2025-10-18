@@ -146,7 +146,24 @@ async function handleAgregarRegla(e) {
     }
 
     const data = { producto_id, categoria_id, precio_fijo, porcentaje_descuento };
-
+    // ✨ --- LÓGICA PARA DECIDIR QUÉ TIPO DE REGLA ENVIAR --- ✨
+    if (aplicarATodas) {
+        data = {
+            precio_fijo,
+            porcentaje_descuento,
+            aplicar_a_todas_categorias: true,
+            producto_id: null,
+            categoria_id: null
+        };
+    } else {
+        const producto_id = document.getElementById('regla-producto').value || null;
+        const categoria_id = document.getElementById('regla-categoria').value || null;
+        if (!producto_id && !categoria_id) {
+            mostrarNotificacion('Debes seleccionar un producto o una categoría.', 'error');
+            return;
+        }
+        data = { producto_id, categoria_id, precio_fijo, porcentaje_descuento };
+    }
     try {
         await sendData(`/api/listas_precios/${listaActivaId}/reglas`, data, 'POST');
         mostrarNotificacion('Regla agregada con éxito', 'success');

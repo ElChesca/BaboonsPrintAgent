@@ -34,19 +34,23 @@ def get_precio_producto(db_cursor, producto_id, negocio_id, cliente_id=None, can
     if not lista_de_precio_id:
         return precio_base
 
-    # 3. Buscar la regla más específica que aplique
-    # La consulta está ordenada para que la regla más específica gane:
-    # - Primero las reglas por producto_id sobre las de categoria_id
-    # - Luego por cantidad mínima descendente
+   # ✨ --- CONSULTA MEJORADA CON NUEVA LÓGICA DE PRIORIDAD --- ✨
+    # Ahora busca reglas de producto, de categoría O reglas globales.
     query_regla = """
         SELECT precio_fijo, porcentaje_descuento
         FROM listas_de_precios_reglas
         WHERE lista_de_precio_id = %s
-          AND (producto_id = %s OR categoria_id = %s)
+          AND (
+                producto_id = %s OR
+                categoria_id = %s OR
+                aplicar_a_todas_categorias = TRUE
+              )
           AND cantidad_minima <= %s
         ORDER BY
-            producto_id IS NOT NULL DESC, -- Prioriza reglas de producto
-            cantidad_minima DESC          -- Prioriza reglas de mayor cantidad
+            producto_id IS NOT NULL DESC,      -- 1. Máxima prioridad: Regla por producto específico.
+            categoria_id IS NOT NULL DESC,     -- 2. Media prioridad: Regla por categoría específica.
+            aplicar_a_todas_categorias DESC,   -- 3. Baja prioridad: Regla para "todas las categorías".
+            cantidad_minima DESC               -- 4. Desempate por cantidad.
         LIMIT 1
     """
     db_cursor.execute(query_regla, (lista_de_precio_id, producto_id, categoria_id_producto, cantidad))
