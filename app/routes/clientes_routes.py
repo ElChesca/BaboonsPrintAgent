@@ -21,6 +21,7 @@ def create_cliente(current_user, negocio_id):
     if not data or not data.get('nombre'):
         return jsonify({'error': 'El nombre es obligatorio'}), 400
     
+    lista_id = data.get('lista_de_precio_id') # Usar el nombre correcto de la columna
     db = get_db()
     try:
         # ✨ CORRECCIÓN: Se incluyen todos los nuevos campos en la sentencia INSERT.
@@ -28,14 +29,14 @@ def create_cliente(current_user, negocio_id):
             """
             INSERT INTO clientes (negocio_id, nombre, dni, telefono, email, direccion, 
                                   tipo_cliente, tipo_documento, condicion_venta, posicion_iva, 
-                                  lista_precios, credito_maximo, ciudad, provincia, ref_interna)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                  lista_precios, credito_maximo, ciudad, provincia, ref_interna,lista_de_precio_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (negocio_id, data.get('nombre'), data.get('dni'), data.get('telefono'), data.get('email'), data.get('direccion'),
              data.get('tipo_cliente', 'Individuo'), data.get('tipo_documento', 'DNI'), data.get('condicion_venta', 'Contado'),
              data.get('posicion_iva', 'Consumidor Final'), data.get('lista_precios'), data.get('credito_maximo', 0),
-             data.get('ciudad'), data.get('provincia'), data.get('ref_interna'))
+             data.get('ciudad'), data.get('provincia'), data.get('ref_interna'), data.get(lista_id))
         )
         nuevo_id = db.fetchone()['id']
         g.db_conn.commit()
@@ -58,7 +59,7 @@ def update_cliente(current_user, cliente_id):
     # Lista de campos permitidos para actualizar
     allowed_fields = ['nombre', 'dni', 'telefono', 'email', 'direccion', 
                       'tipo_cliente', 'tipo_documento', 'condicion_venta', 'posicion_iva', 
-                      'lista_precios', 'credito_maximo', 'ciudad', 'provincia', 'ref_interna']
+                      'lista_precios', 'credito_maximo', 'ciudad', 'provincia', 'ref_interna','lista_de_precio_id']
     
     # Construimos la parte SET de la consulta
     set_parts = []

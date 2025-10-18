@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, g
 from app.database import get_db
 from app.auth_decorator import token_required
+from app.pricing_logic import get_precio_producto # Importa el motor de precios
 
 bp = Blueprint('products', __name__)
 
@@ -128,3 +129,39 @@ def get_top_productos(current_user, negocio_id):
     db.execute(query, (negocio_id, limit))
     productos = db.fetchall()
     return jsonify([dict(p) for p in productos])
+
+@bp.route('/negocios/<int:negocio_id>/productos/buscar', methods=['GET'])
+@token_required
+def buscar_productos_con_precio(current_user, negocio_id):
+    """
+    Busca productos por nombre y devuelve el precio calculado para un cliente específico.
+    Esta es la ruta que usará tu pantalla de ventas (POS).
+    """
+    query_term = request.args.get('query', '')
+    cliente_id = request.args.get('cliente_id', None) # Recibimos el cliente desde el frontend
+    
+    db = get_db()
+    
+    # Buscamos productos que coincidan con el término de búsqueda
+    db.execute(
+        "SELECT id, nombre, precio_venta, stock FROM productos WHERE negocio_id = %s AND nombre ILIKE %s LIMIT 10",
+        (negocio_id, f"%{query_term}%")
+    )
+    productos = db.fetchall()
+    
+    resultados_con_precio_final = []
+    for producto in productos:
+        # Para cada producto encontrado, llamamos a nuestro motor de precios
+        precio_final = get_precio_producto(
+            db_cursor=db, 
+            producto_id=producto['id'], 
+            negocio_id=negocio_id,
+            cliente_id=cliente_id
+        )
+        
+        producto_dict = dict(producto)
+        # Reemplazamos el precio_venta original por el precio final calculado
+        producto_dict['precio_venta'] = precio_final 
+        resultados_con_precio_final.append(producto_dict)
+
+    return jsonify(resultados_con_precio_final)

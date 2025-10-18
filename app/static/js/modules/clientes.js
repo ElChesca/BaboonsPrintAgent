@@ -26,6 +26,31 @@ function renderTablaClientes(clientes) {
     });
 }
 
+// ✨ --- NUEVA FUNCIÓN PARA CARGAR LAS LISTAS DE PRECIOS EN EL FORMULARIO --- ✨
+async function poblarSelectDeListas() {
+    // Asegúrate de que tu formulario HTML tiene un <select id="cliente-lista-precios">
+    const select = document.getElementById('cliente-lista-precios');
+    if (!select) return;
+
+    try {
+        const listas = await fetchData(`/api/negocios/${appState.negocioActivoId}/listas_precios`);
+        
+        // Guardamos el valor actual por si estamos editando
+        const valorActual = select.value; 
+        select.innerHTML = '<option value="">-- Sin lista (Precio General) --</option>'; // Limpiamos y ponemos la opción por defecto
+        
+        listas.forEach(lista => {
+            select.innerHTML += `<option value="${lista.id}">${lista.nombre}</option>`;
+        });
+        
+        // Si había un valor seleccionado (editando), lo restauramos
+        select.value = valorActual; 
+    } catch (error) {
+        console.error("No se pudieron cargar las listas de precios en el formulario.");
+        // No mostramos notificación para no molestar al usuario, pero lo logueamos.
+    }
+}
+
 function poblarFormulario(cliente) {
     document.getElementById('form-cliente-titulo').textContent = 'Editar Cliente';
     document.getElementById('cliente-id').value = cliente.id;
@@ -139,6 +164,8 @@ export function inicializarLogicaClientes() {
     
     if (!form || !tablaClientes || !modalCtaCte) return;
 
+    poblarSelectDeListas(); // Cargamos las listas de precios en el formulario al iniciar.
+
     async function cargarClientes() {
         try {
             todosLosClientes = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`);
@@ -159,8 +186,8 @@ export function inicializarLogicaClientes() {
             email: document.getElementById('cliente-email').value,
             direccion: document.getElementById('cliente-direccion').value,
             ciudad: document.getElementById('cliente-ciudad').value,
-            provincia: document.getElementById('cliente-provincia').value,
-            lista_precios: document.getElementById('cliente-lista-precios').value,
+            provincia: document.getElementById('cliente-provincia').value,            
+            lista_de_precio_id: document.getElementById('cliente-lista-precios').value || null,
             credito_maximo: parseFloat(document.getElementById('cliente-credito').value) || 0,
             ref_interna: document.getElementById('cliente-ref').value
         };

@@ -21,7 +21,6 @@ import { inicializarLogicaHistorialAjustes } from './modules/historial_ajustes.j
 import { inicializarLogicaPresupuestos } from './modules/presupuestos.js';
 import { inicializarLogicaHistorialPresupuestos } from './modules/historial_presupuestos.js';
 import { inicializarLogicaFactura } from './modules/factura.js';
-import { inicializarGestionListasPrecios } from './modules/listas_precios.js';
 
 let onClienteCreadoCallback = null;
 
@@ -58,7 +57,7 @@ export function esAdmin() {
     return appState.userRol === 'admin';
 }
 
-function inicializarModulo(page) {
+async function inicializarModulo(page) {
     if (!page) return;
     if (page.includes('inventario.html')) inicializarLogicaInventario();
     if (page.includes('login.html')) inicializarLogicaLogin();
@@ -74,7 +73,10 @@ function inicializarModulo(page) {
     if (page.includes('reportes.html')) inicializarLogicaReportes();
     if (page.includes('factura.html')) inicializarLogicaFactura();
     if (page.includes('listas_precios.html')) inicializarGestionListasPrecios();
-    
+    if (page.includes('listas_precios.html')) {
+    const { inicializarGestionListasPrecios } = await import('./modules/listas_precios.js');
+        inicializarGestionListasPrecios();
+    }    
     if (page.includes('historial_ingresos.html')) {
         inicializarLogicaHistorial();
     } else if (page.includes('ingresos.html')) {
