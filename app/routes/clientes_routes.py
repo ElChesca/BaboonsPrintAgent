@@ -22,6 +22,7 @@ def create_cliente(current_user, negocio_id):
         return jsonify({'error': 'El nombre es obligatorio'}), 400
     
     lista_id = data.get('lista_de_precio_id') # Usar el nombre correcto de la columna
+    # Obtén el ID directamente de los datos JSON que envía el frontend    
     db = get_db()
     try:
         # ✨ CORRECCIÓN: Se incluyen todos los nuevos campos en la sentencia INSERT.

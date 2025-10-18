@@ -17,7 +17,12 @@
                     <div class="form-group grid-col-span-2"><label for="cliente-direccion">Dirección:</label><input type="text" id="cliente-direccion"></div>
                     <div class="form-group"><label for="cliente-ciudad">Ciudad:</label><input type="text" id="cliente-ciudad"></div>
                     <div class="form-group"><label for="cliente-provincia">Provincia:</label><input type="text" id="cliente-provincia"></div>
-                    <div class="form-group"><label for="cliente-lista-precios">Lista de Precios:</label><input type="text" id="cliente-lista-precios" placeholder="Ej: Lista Minorista"></div>
+                    <div class="form-group">
+                        <label for="cliente-lista-precios">Lista de Precios:</label>
+                        <select id="cliente-lista-precios">
+                            <option value="">-- Sin lista (Precio General) --</option>
+                            </select>
+                    </div>
                     <div class="form-group"><label for="cliente-credito">Crédito Máximo (ARS):</label><input type="number" id="cliente-credito" step="0.01" value="0"></div>
                     <div class="form-group grid-col-span-2"><label for="cliente-ref">Ref. Interna:</label><input type="text" id="cliente-ref"></div>
                 </div>
