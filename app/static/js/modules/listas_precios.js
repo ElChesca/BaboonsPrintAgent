@@ -200,6 +200,9 @@ export function inicializarGestionListasPrecios() {
     const modal = document.getElementById('modal-nueva-lista');
     document.getElementById('btn-nueva-lista').addEventListener('click', () => modal.style.display = 'flex');
     document.getElementById('close-nueva-lista-modal').addEventListener('click', () => modal.style.display = 'none');
+    document.getElementById('btn-agregar-regla-especifica').addEventListener('click', (e) => handleAgregarRegla(e, false));
+    document.getElementById('btn-aplicar-todas-categorias').addEventListener('click', (e) => handleAgregarRegla(e, true));
+    
     window.addEventListener('click', (e) => {
         if (e.target == modal) modal.style.display = 'none';
     });
