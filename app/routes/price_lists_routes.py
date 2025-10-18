@@ -64,13 +64,20 @@ def get_lista_precio_con_reglas(current_user, lista_id):
     # Obtenemos las reglas asociadas
     db.execute(
        """
-        SELECT 
-            r.*, 
+        SELECT             
+            r.id,
+            r.lista_de_precio_id,
+            r.producto_id,
+            r.categoria_id,
+            r.cantidad_minima,
+            r.precio_fijo,
+            r.porcentaje_descuento,
+            r.aplicar_a_todas_categorias,                        
             p.nombre as producto_nombre, 
             c.nombre as categoria_nombre
         FROM listas_de_precios_reglas r
         LEFT JOIN productos p ON r.producto_id = p.id
-        LEFT JOIN categorias c ON r.categoria_id = c.id -- ¡Nombre incorrecto!
+        LEFT JOIN productos_categoria c ON r.categoria_id = c.id
         WHERE r.lista_de_precio_id = %s
         """,
         (lista_id,)

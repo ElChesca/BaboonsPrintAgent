@@ -72,6 +72,10 @@ async function inicializarModulo(page) {
     if (page.includes('proveedores.html')) inicializarLogicaProveedores();
     if (page.includes('reportes.html')) inicializarLogicaReportes();
     if (page.includes('factura.html')) inicializarLogicaFactura();    
+    if (page.includes('configuracion.html')) {        
+        const { inicializarConfiguracion } = await import('./modules/configuracion.js');
+        inicializarConfiguracion();
+    }
     if (page.includes('listas_precios.html')) {
     const { inicializarGestionListasPrecios } = await import('./modules/listas_precios.js');
         inicializarGestionListasPrecios();

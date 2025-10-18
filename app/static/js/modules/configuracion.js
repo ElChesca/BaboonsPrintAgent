@@ -1,36 +1,65 @@
-// app/static/js/modules/configuracion.js
-import { fetchData } from '../api.js';
+// static/modules/configuracion.js
+import { fetchData, sendData } from '../api.js'; // Asegúrate de importar sendData
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
 
+async function cargarClientesEnSelector() {
+    const select = document.getElementById('config-cliente-defecto');
+    if (!select) return;
 
+    try {
+        const clientes = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`);
+        select.innerHTML = '<option value="">Consumidor Final (General)</option>';
+        clientes.forEach(cliente => {
+            select.innerHTML += `<option value="${cliente.id}">${cliente.nombre}</option>`;
+        });
+    } catch (error) {
+        console.error('Error al cargar clientes para configuración', error);
+    }
+}
 
-export async function inicializarLogicaConfiguracion() {
-    const form = document.getElementById('form-configuracion');
-    if (!form) return;
-
-    // 1. Cargar la configuración actual
+async function cargarConfiguracion() {
     try {
         const configs = await fetchData(`/api/negocios/${appState.negocioActivoId}/configuraciones`);
-        document.getElementById('config-stock-negativo').value = configs.vender_stock_negativo || 'No';
+        
+        // Asigna los valores a cada input/select que tenga un 'data-clave'
+        document.querySelectorAll('#form-configuracion [data-clave]').forEach(input => {
+            const clave = input.dataset.clave;
+            if (configs && configs[clave]) {
+                input.value = configs[clave];
+            }
+        });
     } catch (error) {
         mostrarNotificacion('No se pudo cargar la configuración.', 'error');
     }
+}
 
-    // 2. Guardar la configuración al hacer submit
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const nuevasConfigs = {
-            vender_stock_negativo: document.getElementById('config-stock-negativo').value
-        };
-        try {
-            await fetchData(`/api/negocios/${appState.negocioActivoId}/configuraciones`, {
-                method: 'PUT',
-                body: JSON.stringify(nuevasConfigs)
-            });
-            mostrarNotificacion('Configuración guardada con éxito.', 'success');
-        } catch (error) {
-            mostrarNotificacion('Error al guardar la configuración: ' + error.message, 'error');
-        }
+async function guardarConfiguracion(e) {
+    e.preventDefault();
+    const payload = {};
+    
+    // Recoge los valores de todos los inputs/selects con 'data-clave'
+    document.querySelectorAll('#form-configuracion [data-clave]').forEach(input => {
+        const clave = input.dataset.clave;
+        payload[clave] = input.value;
     });
+
+    try {
+        // Usamos sendData para enviar los datos con el método POST
+        const response = await sendData(`/api/negocios/${appState.negocioActivoId}/configuraciones`, payload, 'POST');
+        mostrarNotificacion(response.message, 'success');
+    } catch (error) {
+        mostrarNotificacion(error.message, 'error');
+    }
+}
+
+export function inicializarConfiguracion() {
+    const form = document.getElementById('form-configuracion');
+    if (!form) return;
+
+    // Llamamos a las funciones para poblar y cargar el formulario
+    cargarClientesEnSelector();
+    cargarConfiguracion();
+
+    form.addEventListener('submit', guardarConfiguracion);
 }

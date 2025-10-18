@@ -1,17 +1,37 @@
 <div class="seccion-contenido-dinamico">
     <h2>⚙️ Configuración del Negocio</h2>
     <form id="form-configuracion">
+        
         <div class="config-item">
-            <label for="config-stock-negativo">Permitir vender con stock negativo:</label>
-            <select id="config-stock-negativo">
+            <label for="config-vender-stock-negativo">Permitir vender con stock negativo:</label>
+            <select id="config-vender-stock-negativo" data-clave="vender_stock_negativo">
                 <option value="No">No (Recomendado)</option>
                 <option value="Si">Sí</option>
             </select>
             <small>Permite que el stock de un producto se vuelva negativo al vender.</small>
         </div>
 
+        <div class="config-item">
+            <label for="config-cliente-defecto">Cliente por defecto en ventas:</label>
+            <select id="config-cliente-defecto" data-clave="cliente_defecto_id">
+                </select>
+            <small>Cliente que se seleccionará automáticamente al iniciar una nueva venta.</small>
+        </div>
+
+        <div class="config-item">
+            <label for="config-metodo-pago-defecto">Método de pago por defecto:</label>
+            <select id="config-metodo-pago-defecto" data-clave="metodo_pago_defecto">
+                <option value="Efectivo">Efectivo</option>
+                <option value="Tarjeta de Débito">Tarjeta de Débito</option>
+                <option value="Tarjeta de Crédito">Tarjeta de Crédito</option>
+                <option value="Transferencia">Transferencia</option>
+                <option value="Cuenta Corriente">Cuenta Corriente</option>
+            </select>
+            <small>Método de pago preseleccionado en la pantalla de ventas.</small>
+        </div>
+
         <div class="form-actions">
-            <button type="submit" class="btn-primary">Guardar Configuración</button>
+            <button type="submit" class="btn btn-primary">Guardar Configuración</button>
         </div>
     </form>
 </div>
