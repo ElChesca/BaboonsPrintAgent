@@ -41,3 +41,23 @@ export async function fetchData(url, options = {}) {
         throw error;
     }
 }
+export async function sendData(url, data, method = 'POST') {
+    const options = {
+        method: method, // POST, PUT, DELETE, etc.
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
+        },
+        body: JSON.stringify(data)
+    };
+
+    const response = await fetch(url, options);
+
+    const responseData = await response.json();
+    if (!response.ok) {
+        // Lanza un error con el mensaje que viene del servidor (más útil)
+        throw new Error(responseData.error || responseData.message || 'Ocurrió un error al enviar los datos.');
+    }
+    
+    return responseData;
+}
