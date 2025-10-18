@@ -10,7 +10,11 @@
 </div>
 <div class="app-dashboard">
     <h2 class="dashboard-title">Mis Aplicaciones</h2>
-        <div class="app-grid">    
+        <div class="app-grid">
+             <div class="app-card" onclick="loadContent(event, 'static/dashboard.html', this)">
+                <img src="/static/img/icons/dashboard.png" alt="Dashboard" class="app-icon">
+                <span class="app-name">Dashboard</span>
+            </div>    
             <div class="app-card" onclick="loadContent(event, 'static/ventas.html', this)">
                 <img src="/static/img/icons/ventas.png" alt="Ventas" class="app-icon">
                 <span class="app-name">Ventas</span>
@@ -43,5 +47,12 @@
                 <img src="/static/img/icons/negocios.png" alt="Negocios" class="app-icon">
                 <span class="app-name">Negocios</span>
             </div>
+              <div class="app-card admin-only" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">
+                <img src="/static/img/icons/reportes.png" alt="Reporte Ganancias" class="app-icon">
+                <span class="app-name">Reporte Ganancias</span>
+            </div>
+            
+
+
         </div>
 </div>
