@@ -65,7 +65,7 @@ function poblarFormulario(cliente) {
     document.getElementById('cliente-direccion').value = cliente.direccion || '';
     document.getElementById('cliente-ciudad').value = cliente.ciudad || '';
     document.getElementById('cliente-provincia').value = cliente.provincia || '';    
-    ocument.getElementById('cliente-lista-precios').value = cliente.lista_de_precio_id || '';
+    document.getElementById('cliente-lista-precios').value = cliente.lista_de_precio_id || '';
     document.getElementById('cliente-credito').value = cliente.credito_maximo || 0;
     document.getElementById('cliente-ref').value = cliente.ref_interna || '';
     
