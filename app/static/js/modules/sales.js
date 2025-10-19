@@ -9,16 +9,11 @@ import { setupEventListeners } from './sales/events.js';
 
 async function cargarDatosIniciales() {
     try {
-        // Hacemos todas las llamadas a la API al mismo tiempo para más eficiencia
-        const [productos, clientes, topProductos] = await Promise.all([
-            fetchData(`/api/negocios/${appState.negocioActivoId}/productos`),
+        // Hacemos todas las llamadas a la API al mismo tiempo para más eficiencia   
+        const [clientes, topProductos] = await Promise.all([
             fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`),
             fetchData(`/api/negocios/${appState.negocioActivoId}/productos/top?limit=10`)
         ]);
-
-        // Guardamos la lista completa de productos en nuestro estado
-        state.setProductosCache(productos);
-
         // Poblamos el selector de clientes
         const selectorClientes = document.getElementById('cliente-selector');
         if (selectorClientes) {
