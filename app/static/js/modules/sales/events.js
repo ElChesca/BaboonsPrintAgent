@@ -44,6 +44,38 @@ async function procesarVenta(imprimir = false) {
     }
 }
 
+async function buscarProductosEnVivo(query) {
+    // Si no hay texto, no buscamos nada.
+    if (query.length < 2) {
+        ui.renderSearchResults([], () => {}); // Limpia los resultados
+        return;
+    }
+
+    // 1. Obtenemos el cliente seleccionado en este momento.
+    const clienteId = document.getElementById('cliente-selector').value || null;
+
+    // 2. Construimos la URL para llamar a nuestra ruta inteligente.
+    let url = `/api/negocios/${appState.negocioActivoId}/productos/buscar?query=${encodeURIComponent(query)}`;
+    if (clienteId) {
+        url += `&cliente_id=${clienteId}`;
+    }
+
+    // 3. Llamamos al API y renderizamos los resultados.
+    try {
+        const productosConPrecio = await fetchData(url);
+        // El callback se ejecutará cuando el usuario haga clic en un resultado.
+        // Le pasamos el objeto de producto COMPLETO al callback.
+        ui.renderSearchResults(productosConPrecio, (productoSeleccionado) => {
+            state.addItem(productoSeleccionado, 1); // Añadimos 1 unidad del producto al carrito.
+            ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
+            document.getElementById('venta-producto-input').value = ''; // Limpiamos el buscador.
+            document.getElementById('venta-producto-input').focus();
+        });
+    } catch (error) {
+        mostrarNotificacion('Error al buscar productos.', 'error');
+    }
+}
+
 export function setupEventListeners() {
     // --- Selectores de Elementos ---
     const formAddItem = document.getElementById('form-add-item-venta');
@@ -85,14 +117,11 @@ export function setupEventListeners() {
     }
 
     // 2. Búsqueda de productos en tiempo real
-    if (productoInput) {
-        productoInput.addEventListener('keyup', () => {
-            const query = productoInput.value;
-            const resultados = state.findProductoInCache(query);
-            ui.renderSearchResults(resultados, (nombreSeleccionado) => {
-                productoInput.value = nombreSeleccionado;
-                document.getElementById('search-results-venta').style.display = 'none';
-            });
+   if (productoInput) {
+        // Reemplazamos 'keyup' por 'input' que es más moderno.
+        productoInput.addEventListener('input', () => {
+            // Llamamos a nuestra nueva función de búsqueda en vivo.
+            buscarProductosEnVivo(productoInput.value);
         });
     }
 

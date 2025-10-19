@@ -1,12 +1,11 @@
 <div class="pos-container">
     <div id="info-caja-activa" class="caja-info-banner">Cargando estado de la caja...</div>
 
-    <div class="card venta-header">
+  <div class="search-panel">
         <form id="form-add-item-venta">
-            <div class="form-group search-container">
-                <label for="venta-producto-input">Buscar Producto por Nombre o Código</label>
+            <div class="form-group">
+                <label for="venta-producto-input">Buscar Producto</label>
                 <input type="text" id="venta-producto-input" autocomplete="off" placeholder="Escriba para buscar...">
-                <div id="search-results-venta" style="display: none;"></div>
             </div>
             <div class="form-group">
                 <label for="venta-item-cantidad">Cantidad</label>
@@ -14,8 +13,10 @@
             </div>
             <button type="submit" class="btn-primary btn-add-item">Añadir</button>
         </form>
+        
+        <div id="search-results-venta" style="display: none;"></div>
     </div>
-
+       
     <div class="pos-main-grid">
         <div class="venta-panel">
             <div class="card">

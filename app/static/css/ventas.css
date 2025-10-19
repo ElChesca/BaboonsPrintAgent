@@ -1,10 +1,74 @@
 /* --- NUEVA ESTRUCTURA GENERAL DEL POS --- */
+/* --- ESTILOS MEJORADOS PARA VENTAS --- */
+
+/* Contenedor principal del POS */
 .pos-container {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 20px;
 }
 
+/* Panel de búsqueda y tabla de venta */
+.venta-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* ✨ NUEVO: Panel de Búsqueda Integrado ✨ */
+.search-panel {
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.search-panel form {
+    display: flex;
+    align-items: flex-end;
+    gap: 15px;
+    margin-bottom: 15px; /* Espacio entre el buscador y los resultados */
+}
+
+.search-panel .form-group {
+    flex-grow: 1; /* El input de búsqueda ocupa el máximo espacio */
+}
+
+.search-panel #venta-item-cantidad {
+    width: 80px; /* Ancho fijo para la cantidad */
+}
+
+/* ✨ NUEVO: Contenedor de Resultados de Búsqueda ✨ */
+#search-results-venta {
+    max-height: 250px;
+    overflow-y: auto;
+    border-top: 1px solid #eee;
+}
+
+/* Estilo para cada ítem en los resultados (consistente con global.css) */
+.search-item {
+    padding: 12px 15px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+}
+.search-item:last-child {
+    border-bottom: none;
+}
+.search-item:hover {
+    background-color: #f8f9fa;
+}
+.search-item .stock {
+    font-size: 0.85em;
+    color: #6c757d;
+    background-color: #e9ecef;
+    padding: 3px 8px;
+    border-radius: 12px;
+}
+/* ... (El resto de tus estilos de ventas.css, como la tabla, el footer, etc., pueden quedarse como están) ... */
 /* Recuadro Verde: Banner de estado de caja (más chico) */
 .caja-info-banner {
     padding: 6px 10px; /* Más compacto */
@@ -34,11 +98,7 @@
     grid-template-columns: 1fr;
     gap: 15px;
 }
-.venta-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
+
 /* ✨ Punto 2: Estilo de botones para Acceso Rápido */
 #pos-grid-container { 
     display: grid; 

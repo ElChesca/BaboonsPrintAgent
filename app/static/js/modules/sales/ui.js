@@ -45,17 +45,26 @@ export function renderPosGrid(productos, callback) {
 export function renderSearchResults(resultados, callback) {
     const searchResultsEl = document.getElementById('search-results-venta');
     searchResultsEl.innerHTML = '';
-    resultados.forEach(p => {
+
+    resultados.forEach(producto => {
         const itemDiv = document.createElement('div');
         itemDiv.className = 'search-item';
-        itemDiv.innerHTML = `<span>${p.nombre}</span> <span class="stock">Stock: ${p.stock} | Precio: ${formatCurrency(p.precio_venta)}</span>`;
+        
+        // Usamos el precio_venta que ya viene calculado
+        itemDiv.innerHTML = `
+            <span>${producto.nombre}</span> 
+            <span class="stock">Stock: ${producto.stock} | ${formatCurrency(producto.precio_venta)}</span>
+        `;
+        
         itemDiv.addEventListener('click', () => {
-            callback(p.nombre);
+            callback(producto); // Pasamos el objeto completo
             searchResultsEl.innerHTML = '';
             searchResultsEl.style.display = 'none';
         });
         searchResultsEl.appendChild(itemDiv);
     });
+    
+    // Simplemente mostramos u ocultamos el contenedor
     searchResultsEl.style.display = resultados.length > 0 ? 'block' : 'none';
 }
 
