@@ -87,6 +87,11 @@ export function setupEventListeners() {
     const btnImprimir = document.getElementById('btn-finalize-and-print');
     const toggleAccesoRapido = document.getElementById('toggle-acceso-rapido');
     const panelAccesoRapido = document.getElementById('pos-grid-container');
+    const clienteSelector = document.getElementById('cliente-selector');
+
+    if (clienteSelector) {
+        clienteSelector.addEventListener('change', recalcularCarritoPorCliente);
+    }
     
     // --- Lógica de Listeners ---
 

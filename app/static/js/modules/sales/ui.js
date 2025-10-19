@@ -9,11 +9,12 @@ export function renderSaleItemsTable(items, total) {
     tbody.innerHTML = '';
     items.forEach((item, index) => {
         const subtotal = item.cantidad * item.precio_unitario;
-        tbody.innerHTML += `
+      tbody.innerHTML += `
             <tr data-index="${index}">
                 <td>${item.nombre}</td>
                 <td>${item.cantidad}</td>
                 <td>${formatCurrency(item.precio_unitario)}</td>
+                <td>${descuento > 0 ? formatCurrency(descuento * item.cantidad) : '-'}</td>
                 <td>${formatCurrency(subtotal)}</td>
                 <td><button type="button" class="btn-quitar">Quitar</button></td>
             </tr>

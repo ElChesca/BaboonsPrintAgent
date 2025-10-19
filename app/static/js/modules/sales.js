@@ -58,6 +58,31 @@ async function verificarEstadoCaja() {
         infoCajaEl.className = 'caja-info-banner cerrada';
     }
 }
+async function recalcularCarritoPorCliente() {
+    const items = state.getSaleItems();
+    if (items.length === 0) return; // Si no hay nada en el carrito, no hacemos nada
+
+    const clienteId = document.getElementById('cliente-selector').value || null;
+    const productIds = items.map(item => item.producto_id);
+
+    try {
+        const payload = { product_ids: productIds, cliente_id: clienteId };
+        const preciosActualizados = await sendData( // Usamos sendData porque es un POST
+            `/api/negocios/${appState.negocioActivoId}/recalculate-prices`, 
+            payload, 
+            'POST'
+        );
+
+        // Actualizamos el estado del carrito con los nuevos precios
+        state.updateItemPrices(preciosActualizados);
+        
+        // Volvemos a renderizar la tabla y el total para que se vean los cambios
+        ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
+
+    } catch (error) {
+        mostrarNotificacion('Error al recalcular precios para el cliente.', 'error');
+    }
+}
 
 export function inicializarLogicaVentas() {
     // 1. Carga los datos necesarios de la API

@@ -151,17 +151,50 @@ def buscar_productos_con_precio(current_user, negocio_id):
     
     resultados_con_precio_final = []
     for producto in productos:
-        # Para cada producto encontrado, llamamos a nuestro motor de precios
-        precio_final = get_precio_producto(
-            db_cursor=db, 
-            producto_id=producto['id'], 
-            negocio_id=negocio_id,
-            cliente_id=cliente_id
-        )
-        
+        precio_base = float(producto['precio_venta'])
+        precio_final = get_precio_producto(...) # Tu lógica de cálculo
+
         producto_dict = dict(producto)
-        # Reemplazamos el precio_venta original por el precio final calculado
-        producto_dict['precio_venta'] = precio_final 
+        # Devolvemos ambos precios
+        producto_dict['precio_original'] = precio_base
+        producto_dict['precio_final'] = precio_final
+        # Renombramos precio_venta para evitar confusión
+        producto_dict.pop('precio_venta', None) 
+        
         resultados_con_precio_final.append(producto_dict)
 
     return jsonify(resultados_con_precio_final)
+
+# ✨ --- NUEVA RUTA PARA RECALCULAR PRECIOS EN LOTE --- ✨
+@bp.route('/negocios/<int:negocio_id>/recalculate-prices', methods=['POST'])
+@token_required
+def recalculate_prices(current_user, negocio_id):
+    """
+    Recibe una lista de IDs de productos y un cliente_id,
+    y devuelve los precios actualizados para cada producto.
+    """
+    data = request.get_json()
+    product_ids = data.get('product_ids', [])
+    cliente_id = data.get('cliente_id', None)
+
+    if not product_ids:
+        return jsonify({})
+
+    db = get_db()
+    precios_actualizados = {}
+
+    for prod_id in product_ids:
+        db.execute("SELECT precio_venta FROM productos WHERE id = %s", (prod_id,))
+        producto_info = db.fetchone()
+        precio_base = float(producto_info['precio_venta']) if producto_info else 0
+
+        precio_final = get_precio_producto(...) # Tu lógica de cálculo
+        
+        # Devolvemos un objeto más completo
+        precios_actualizados[prod_id] = {
+            'precio_original': precio_base,
+            'precio_final': precio_final
+        }
+    return jsonify(precios_actualizados)
+
+    
