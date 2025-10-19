@@ -1,6 +1,6 @@
 # fly.toml app configuration file
 app = 'multinegociobaboons-fly'
-primary_region = 'eze'
+primary_region = 'gru'
 
 # Esta es la sección de construcción corregida y completa
 [build]
