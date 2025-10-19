@@ -11,6 +11,10 @@ primary_region = 'eze'
   # --- 👇 AÑADE ESTAS TRES LÍNEAS AQUÍ 👇 ---
   [build.args]
     PYTHON_COMPILE = "1"
+[build.vm]
+    cpu_kind = "shared"
+    cpus = 1
+    memory_mb = 2048
 
 [env]
   PORT = '8080'
@@ -23,7 +27,7 @@ primary_region = 'eze'
   min_machines_running = 0
   processes = ['app']
 
-[[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
+#[[vm]]
+#  memory = '1gb'
+#  cpu_kind = 'shared'
+#  cpus = 1
