@@ -10,12 +10,14 @@ function renderTablaClientes(clientes) {
     if (!tbody) return;
     tbody.innerHTML = '';
     clientes.forEach(cliente => {
+        const nombreLista = cliente.lista_de_precio_nombre || 'General'; // Muestra 'General' si no tiene una asignada
         tbody.innerHTML += `
             <tr data-id="${cliente.id}">
                 <td>${cliente.id}</td>
                 <td>${cliente.nombre}</td>
-                <td>${cliente.dni || '-'}</td>
-                <td>${cliente.condicion_venta || 'Contado'}</td>
+                <td>${cliente.dni || '-'}</td>                
+                <td>${cliente.condicion_venta || 'Contado'}</td> 
+                <td>${nombreLista}</td>  <td class="acciones">
                 <td class="acciones">
                     <button class="btn-editar">Editar</button>
                     <button class="btn-borrar">Borrar</button>
@@ -27,8 +29,7 @@ function renderTablaClientes(clientes) {
 }
 
 // ✨ --- NUEVA FUNCIÓN PARA CARGAR LAS LISTAS DE PRECIOS EN EL FORMULARIO --- ✨
-async function poblarSelectDeListas() {
-    // Asegúrate de que tu formulario HTML tiene un <select id="cliente-lista-precios">
+async function poblarSelectDeListas() {    
     const select = document.getElementById('cliente-lista-precios');
     if (!select) return;
 
@@ -72,11 +73,21 @@ function poblarFormulario(cliente) {
     window.scrollTo(0, 0);
 }
 
-function resetFormulario() {
+async function resetFormulario() { 
     document.getElementById('form-cliente-titulo').textContent = 'Añadir Nuevo Cliente';
     document.getElementById('form-cliente').reset();
     document.getElementById('cliente-id').value = '';
     document.getElementById('btn-cancelar-edicion-cliente').style.display = 'none';
+
+    // ✨ LÓGICA PARA ASIGNAR LA LISTA POR DEFECTO ✨
+    try {
+        const configs = await fetchData(`/api/negocios/${appState.negocioActivoId}/configuraciones`);
+        if (configs.lista_precio_defecto_id) {
+            document.getElementById('cliente-lista-precios').value = configs.lista_precio_defecto_id;
+        }
+    } catch (error) {
+        console.log("No se encontró configuración de lista por defecto, se usará la general.");
+    }
 }
 
 function generarPdfCtaCte(cliente, movimientos) {
@@ -110,7 +121,6 @@ function generarPdfCtaCte(cliente, movimientos) {
     doc.save(`CtaCte_${cliente.nombre.replace(/\s/g, '_')}.pdf`);
 }
 
-// ✨ CORRECCIÓN: La función ahora espera un solo objeto 'cliente'.
 async function mostrarCuentaCorriente(cliente) {
     const modal = document.getElementById('modal-cta-cte');
     const titulo = document.getElementById('modal-cta-cte-titulo');

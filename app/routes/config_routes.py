@@ -44,3 +44,6 @@ def save_configuraciones(current_user, negocio_id):
     except Exception as e:
         g.db_conn.rollback() # Si algo falla, revertimos todos los cambios
         return jsonify({'error': str(e)}), 500
+    
+
+    

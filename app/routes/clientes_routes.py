@@ -9,10 +9,19 @@ bp = Blueprint('clientes', __name__)
 @token_required
 def get_clientes(current_user, negocio_id):
     db = get_db()
-    # SELECT * es correcto aquí, ya que traerá todas las columnas, incluidas las nuevas.
-    db.execute('SELECT * FROM clientes WHERE negocio_id = %s ORDER BY nombre', (negocio_id,))
+    # ✨ UNIMOS las tablas para traer el nombre de la lista de precios ✨
+    db.execute(
+        """
+        SELECT c.*, lp.nombre AS lista_de_precio_nombre
+        FROM clientes c
+        LEFT JOIN listas_de_precios lp ON c.lista_de_precio_id = lp.id
+        WHERE c.negocio_id = %s ORDER BY c.nombre
+        """,
+        (negocio_id,)
+    )
     clientes = db.fetchall()
     return jsonify([dict(row) for row in clientes])
+    
 
 @bp.route('/negocios/<int:negocio_id>/clientes', methods=['POST'])
 @token_required
@@ -37,7 +46,7 @@ def create_cliente(current_user, negocio_id):
             (negocio_id, data.get('nombre'), data.get('dni'), data.get('telefono'), data.get('email'), data.get('direccion'),
              data.get('tipo_cliente', 'Individuo'), data.get('tipo_documento', 'DNI'), data.get('condicion_venta', 'Contado'),
              data.get('posicion_iva', 'Consumidor Final'), data.get('lista_precios'), data.get('credito_maximo', 0),
-             data.get('ciudad'), data.get('provincia'), data.get('ref_interna'), data.get(lista_id))
+             data.get('ciudad'), data.get('provincia'), data.get('ref_interna'), lista_id)
         )
         nuevo_id = db.fetchone()['id']
         g.db_conn.commit()
