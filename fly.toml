@@ -2,16 +2,16 @@
 app = 'multinegociobaboons-fly'
 primary_region = 'eze'
 
+# Esta es la sección de construcción corregida y completa
 [build]
-  # ✨ --- LÍNEA CLAVE AÑADIDA --- ✨
-  # Esto le dice a Fly.io que use su sistema moderno para detectar automáticamente Python.
+  # 1. Le decimos a Fly.io que use su detector automático moderno para Python
   builder = "paketobuildpacks/builder-jammy-base"
 
-  # Le decimos que compile Python desde cero para evitar errores
+  # 2. Le decimos que compile Python desde cero para evitar errores de descarga
   [build.args]
     PYTHON_COMPILE = "1"
   
-  # Le decimos que use un servidor de construcción pequeño
+  # 3. (LA CLAVE) Le decimos que use un servidor de construcción pequeño
   [build.vm]
     cpu_kind = "shared"
     cpus = 1
@@ -26,7 +26,7 @@ primary_region = 'eze'
   min_machines_running = 0
   processes = ['app']
 
-# Esta sección define el tamaño de la máquina que ejecuta tu app
+# Esta sección define el tamaño de la máquina que ejecuta tu app en producción
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'
