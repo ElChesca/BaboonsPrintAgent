@@ -1,5 +1,33 @@
 /* --- NUEVA ESTRUCTURA GENERAL DEL POS --- */
-/* --- ESTILOS MEJORADOS PARA VENTAS --- */
+/* ✨ --- NUEVOS ESTILOS PARA LA CABECERA DE VENTA --- ✨ */
+.pos-header {
+    display: flex;
+    align-items: flex-end; /* Alinea los labels y selects en la base */
+    gap: 20px;
+    padding: 15px 20px;
+}
+
+.pos-header .form-group {
+    margin-bottom: 0; /* Quitamos el margen inferior dentro de la cabecera */
+}
+
+/* Estilo para el selector de cliente, que es más importante */
+.pos-header .form-group:first-child {
+    flex-grow: 1; /* Hacemos que ocupe más espacio */
+}
+
+/* El nuevo estilo para la etiqueta de estado de la caja */
+.caja-status-label {
+    margin-left: auto; /* Empuja la etiqueta hasta el final a la derecha */
+    padding: 8px 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+    border-radius: 6px;
+    white-space: nowrap; /* Evita que el texto se rompa */
+}
+/* Colores para la etiqueta (reutilizamos la lógica del banner) */
+.caja-status-label.abierta { background-color: #e7f4e8; border: 1px solid #28a745; color: #155724; }
+.caja-status-label.cerrada { background-color: #f8d7da; border: 1px solid #dc3545; color: #721c24; }
 
 /* Contenedor principal del POS */
 .pos-container {
@@ -68,17 +96,6 @@
     padding: 3px 8px;
     border-radius: 12px;
 }
-/* ... (El resto de tus estilos de ventas.css, como la tabla, el footer, etc., pueden quedarse como están) ... */
-/* Recuadro Verde: Banner de estado de caja (más chico) */
-.caja-info-banner {
-    padding: 6px 10px; /* Más compacto */
-    font-size: 0.8em;  /* Fuente más pequeña */
-    text-align: center;
-    border-radius: 5px;
-    border-left: 4px solid;
-}
-.caja-info-banner.abierta { background-color: #e7f4e8; border-color: #28a745; color: #155724; }
-.caja-info-banner.cerrada { background-color: #f8d7da; border-color: #dc3545; color: #721c24; font-weight: bold; }
 
 /* Recuadro Rojo: Cabecera de búsqueda */
 .venta-header form {

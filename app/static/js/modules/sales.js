@@ -23,11 +23,10 @@ async function cargarDatosIniciales() {
 
         // Renderizamos la grilla de acceso rápido y le pasamos la lógica que debe ejecutar al hacer clic
         ui.renderPosGrid(topProductos, (productId) => {
-            const productoClickeado = productos.find(p => p.id === productId);
+           const productoClickeado = topProductos.find(p => p.id === productId);
             if (productoClickeado) {
-                const result = state.addItem(productoClickeado, 1); // Añade 1 por defecto
+                const result = state.addItem(productoClickeado, 1);
                 if (result.success) {
-                    // Si se añade con éxito, actualizamos la tabla
                     ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
                 } else {
                     mostrarNotificacion(result.message, 'error');
