@@ -1,50 +1,52 @@
-// static/js/modules/users.js
-import { fetchData, sendData } from '../api.js'; // ✨ Usamos las funciones centralizadas
+// static/js/modules/users.js (Versión Ajustada)
+import { fetchData, sendData } from '../api.js';
 import { loadContent } from '../main.js';
+import { mostrarNotificacion } from './notifications.js';
 
-// ✨ --- NUEVA FUNCIÓN --- ✨
-// Carga todos los negocios disponibles en el selector del formulario para crear usuarios.
 async function poblarSelectorNegocios() {
-    const select = document.getElementById('user-negocios');
+    // ✨ APUNTA AL NUEVO ID DEL SELECTOR DE CREACIÓN ✨
+    const select = document.getElementById('create-user-negocios'); 
     if (!select) return;
 
     try {
-        // Como admin, esta ruta nos trae TODOS los negocios.
         const negocios = await fetchData('/api/negocios'); 
         select.innerHTML = '';
         if (negocios.length === 0) {
-            select.innerHTML = '<option disabled>No hay negocios para asignar. Primero crea uno.</option>';
+            select.innerHTML = '<option disabled>No hay negocios para asignar.</option>';
         }
         negocios.forEach(n => {
             select.innerHTML += `<option value="${n.id}">${n.nombre}</option>`;
         });
     } catch (error) {
-        mostrarNotificacion('No se pudieron cargar los negocios para la asignación.', 'error');
+        mostrarNotificacion('No se pudieron cargar los negocios.', 'error');
     }
 }
 
 export function inicializarLogicaUsuarios() {
     const addUserForm = document.getElementById('form-add-user');
     const editUserForm = document.getElementById('form-edit-user');
+    const closeModalBtn = document.getElementById('close-edit-user-modal');
+
+    if (closeModalBtn) {
+        closeModalBtn.onclick = () => document.getElementById('edit-user-modal').style.display = 'none';
+    }
 
     if (addUserForm) {
         addUserForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            // ✨ --- MODIFICADO --- ✨
-            // Obtenemos los IDs de los negocios seleccionados del nuevo selector múltiple
-            const negocios_ids = Array.from(document.getElementById('user-negocios').selectedOptions).map(option => option.value);
+            // ✨ APUNTA AL NUEVO ID DEL SELECTOR ✨
+            const negocios_ids = Array.from(document.getElementById('create-user-negocios').selectedOptions).map(option => option.value);
 
             const newUser = {
                 nombre: e.target.nombre.value,
                 email: e.target.email.value,
                 password: e.target.password.value,
                 rol: e.target.rol.value,
-                negocios_ids: negocios_ids // Añadimos la lista al objeto que se envía
+                negocios_ids: negocios_ids
             };
 
             try {
-                // Usamos sendData para un manejo de errores consistente
                 await sendData('/api/usuarios', newUser, 'POST');
                 addUserForm.reset();
                 await cargarUsuarios();
@@ -59,7 +61,8 @@ export function inicializarLogicaUsuarios() {
         editUserForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const userId = document.getElementById('edit-user-id').value;
-            const checkedBusinesses = document.querySelectorAll('#business-checkbox-list input:checked');
+            // ✨ APUNTA AL NUEVO ID DEL CONTENEDOR DE CHECKBOXES ✨
+            const checkedBusinesses = document.querySelectorAll('#edit-user-negocios-list input:checked');
             const negocios_ids = Array.from(checkedBusinesses).map(cb => parseInt(cb.value));
             const updatedUser = {
                 rol: document.getElementById('edit-rol').value,
@@ -67,7 +70,6 @@ export function inicializarLogicaUsuarios() {
             };
 
             try {
-                // Usamos sendData también para la edición
                 await sendData(`/api/usuarios/${userId}`, updatedUser, 'PUT');
                 document.getElementById('edit-user-modal').style.display = 'none';
                 await cargarUsuarios();
@@ -77,8 +79,7 @@ export function inicializarLogicaUsuarios() {
             }
         });
     }
-
-    // ✨ Llamamos a la nueva función para que el selector se llene al cargar la página
+    
     poblarSelectorNegocios();
     cargarUsuarios();
 }
@@ -99,8 +100,7 @@ export async function cargarUsuarios() {
     }
 }
 
-// ✨ Hacemos la función global a través de window para que el onclick funcione
-export async function abrirModalEditarUsuario(userId) {
+window.abrirModalEditarUsuario = async (userId) => {
     try {
         const [todosLosNegocios, todosLosUsuarios] = await Promise.all([
             fetchData('/api/negocios'),
@@ -114,7 +114,9 @@ export async function abrirModalEditarUsuario(userId) {
         document.getElementById('edit-user-id').value = usuario.id;
         document.getElementById('edit-user-name').textContent = usuario.nombre;
         document.getElementById('edit-rol').value = usuario.rol;
-        const checkboxList = document.getElementById('business-checkbox-list');
+
+        // ✨ APUNTA AL NUEVO ID DEL CONTENEDOR DE CHECKBOXES ✨
+        const checkboxList = document.getElementById('edit-user-negocios-list');
         checkboxList.innerHTML = '';
         const negociosAsignadosIds = new Set(usuario.negocios_asignados.map(b => b.id));
         
@@ -122,7 +124,7 @@ export async function abrirModalEditarUsuario(userId) {
             const isChecked = negociosAsignadosIds.has(negocio.id) ? 'checked' : '';
             checkboxList.innerHTML += `<label><input type="checkbox" value="${negocio.id}" ${isChecked}> ${negocio.nombre}</label>`;
         });
-        modal.style.display = 'flex'; // Usamos flex para centrarlo
+        modal.style.display = 'flex';
     } catch (error) {
         mostrarNotificacion(error.message, 'error');
     }

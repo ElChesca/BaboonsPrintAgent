@@ -1,60 +1,85 @@
 <div class="card">
     <h2>Gestión de Usuarios</h2>
-    <table id="user-list" class="table">
-        <thead>
-            <tr>
-                <th>Nombre</th>
-                <th>Email</th>
-                <th>Rol</th>
-                <th>Negocios Asignados</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            </tbody>
-    </table>
+    <div class="tabla-contenedor">
+        <table id="user-list" class="tabla-bonita">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Rol</th>
+                    <th>Negocios Asignados</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
 </div>
 
 <div class="card">
-    <h2>Crear Nuevo Usuario</h2>
+    <h3>Crear Nuevo Usuario</h3>
     <form id="form-add-user">
-        <input type="text" id="nombre" placeholder="Nombre completo" required>
-        <input type="email" id="email" placeholder="Correo electrónico" required>
-        <input type="password" id="password" placeholder="Contraseña" required>
-        <select id="rol" required>
-            <option value="operador">Operador</option>
-            <option value="admin">Administrador</option>
-        </select>
-        <button type="submit">Crear Usuario</button>
-        <div id="add-user-message"></div>
+        <div class="form-group">
+            <label for="create-nombre">Nombre completo:</label>
+            <input type="text" id="create-nombre" name="nombre" required>
+        </div>
+        <div class="form-group">
+            <label for="create-email">Correo electrónico:</label>
+            <input type="email" id="create-email" name="email" required>
+        </div>
+        <div class="form-group">
+            <label for="create-password">Contraseña:</label>
+            <input type="password" id="create-password" name="password" required>
+        </div>
+        <div class="form-group">
+            <label for="create-rol">Rol:</label>
+            <select id="create-rol" name="rol" required>
+                <option value="operador">Operador</option>
+                <option value="admin">Administrador</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="create-user-negocios">Asignar a Negocios:</label>
+            <select id="create-user-negocios" multiple>
+                </select>
+            <small>Mantén presionada la tecla Ctrl (o Cmd en Mac) para seleccionar varios.</small>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Crear Usuario</button>
+        </div>
     </form>
 </div>
 
 <div id="edit-user-modal" class="modal">
     <div class="modal-content">
-        <span class="close" onclick="document.getElementById('edit-user-modal').style.display='none'">&times;</span>
-        <h3>Editar Usuario</h3>
+        <div class="modal-header">
+            <h3>Editar Usuario</h3>
+            <span id="close-edit-user-modal" class="close-button">&times;</span>
+        </div>
         <form id="form-edit-user">
             <input type="hidden" id="edit-user-id">
             <p><strong>Usuario:</strong> <span id="edit-user-name"></span></p>
-            <label for="edit-rol">Rol:</label>
-            <select id="edit-rol" required>
-                <option value="operador">Operador</option>
-                <option value="admin">Administrador</option>
-            </select>
             
             <div class="form-group">
-                <label for="user-negocios">Asignar a Negocios:</label>
-                <select id="user-negocios" multiple>
-                    </select>
-                <small>Mantén presionada la tecla Ctrl (o Cmd en Mac) para seleccionar varios.</small>
+                <label for="edit-rol">Rol:</label>
+                <select id="edit-rol" required>
+                    <option value="operador">Operador</option>
+                    <option value="admin">Administrador</option>
+                </select>
             </div>
             
-            <button type="submit">Guardar Cambios</button>
+            <div class="form-group">
+                <label>Negocios Asignados:</label>
+                <div id="edit-user-negocios-list" class="checkbox-list">
+                    </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Guardar Cambios</button>
+            </div>
         </form>
     </div>
 </div>
-
-<script>
-    // La lógica estará en index.html
-</script>
