@@ -171,7 +171,7 @@ async function guardarProducto(e) {
 
 // --- Funciones Globales para onclick ---
 
-window.abrirModalEditarProducto = async (productoId) => {
+export async function abrirModalEditarProducto(productoId) {
     try {
         const producto = productosCache.find(p => p.id === productoId);
         if (producto) {
