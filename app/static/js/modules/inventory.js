@@ -14,7 +14,7 @@ async function poblarSelectores() {
         }
         
         // ✨ CORRECCIÓN CLAVE: Ambas llamadas ahora usan el negocio activo correctamente
-        const [categoriasResponse, proveedoresResponse] = await Promise.all([
+        const [categoriasResponse, proveedoresResponse, unidades] = await Promise.all([
             fetchData(`/api/negocios/${appState.negocioActivoId}/categorias`),
             fetchData(`/api/negocios/${appState.negocioActivoId}/proveedores`),
             fetchData(`/api/negocios/${appState.negocioActivoId}/unidades_medida`)
