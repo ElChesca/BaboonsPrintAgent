@@ -110,6 +110,10 @@ async function inicializarModulo(page) {
     } else if (page.includes('presupuestos.html')) {
         inicializarLogicaPresupuestos();
     }
+    if (page.includes('unidades_medida.html')) {
+    const { inicializarLogicaUnidadesMedida } = await import('./modules/unidades_medida.js');
+        inicializarLogicaUnidadesMedida();
+    }
 }
 
 async function poblarSelectorNegocios() {

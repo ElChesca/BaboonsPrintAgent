@@ -152,7 +152,12 @@ def buscar_productos_con_precio(current_user, negocio_id):
     resultados_con_precio_final = []
     for producto in productos:
         precio_base = float(producto['precio_venta'])
-        precio_final = get_precio_producto(...) # Tu lógica de cálculo
+        precio_final = get_precio_producto(
+            db_cursor=db,
+            producto_id=producto['id'],
+            negocio_id=negocio_id,
+            cliente_id=cliente_id
+        )
 
         producto_dict = dict(producto)
         # Devolvemos ambos precios
@@ -169,10 +174,7 @@ def buscar_productos_con_precio(current_user, negocio_id):
 @bp.route('/negocios/<int:negocio_id>/recalculate-prices', methods=['POST'])
 @token_required
 def recalculate_prices(current_user, negocio_id):
-    """
-    Recibe una lista de IDs de productos y un cliente_id,
-    y devuelve los precios actualizados para cada producto.
-    """
+    
     data = request.get_json()
     product_ids = data.get('product_ids', [])
     cliente_id = data.get('cliente_id', None)
@@ -188,7 +190,12 @@ def recalculate_prices(current_user, negocio_id):
         producto_info = db.fetchone()
         precio_base = float(producto_info['precio_venta']) if producto_info else 0
 
-        precio_final = get_precio_producto(...) # Tu lógica de cálculo
+        precio_final = get_precio_producto(
+            db_cursor=db,
+            producto_id=prod_id,
+            negocio_id=negocio_id,
+            cliente_id=cliente_id
+        )
         
         # Devolvemos un objeto más completo
         precios_actualizados[prod_id] = {

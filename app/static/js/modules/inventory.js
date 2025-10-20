@@ -16,7 +16,8 @@ async function poblarSelectores() {
         // ✨ CORRECCIÓN CLAVE: Ambas llamadas ahora usan el negocio activo correctamente
         const [categoriasResponse, proveedoresResponse] = await Promise.all([
             fetchData(`/api/negocios/${appState.negocioActivoId}/categorias`),
-            fetchData(`/api/negocios/${appState.negocioActivoId}/proveedores`)
+            fetchData(`/api/negocios/${appState.negocioActivoId}/proveedores`),
+            fetchData(`/api/negocios/${appState.negocioActivoId}/unidades_medida`)
         ]);
 
         categoriasCache = Array.isArray(categoriasResponse) ? categoriasResponse : [];
@@ -43,6 +44,18 @@ async function poblarSelectores() {
                 const optionHtml = `<option value="${prov.id}">${prov.nombre}</option>`;
                 provAdd.innerHTML += optionHtml;
                 provEdit.innerHTML += optionHtml;
+            });
+        }
+        // ✨ POBLAR LOS SELECTORES DE UNIDAD DE MEDIDA ✨
+        const umAdd = document.getElementById('unidad_medida');
+        const umEdit = document.getElementById('edit-unidad_medida'); // Asumiendo que existe en tu modal de edición
+        if (umAdd && umEdit) {
+            umAdd.innerHTML = umEdit.innerHTML = '<option value="">Seleccionar...</option>';
+            unidades.forEach(um => {
+                // Usamos la abreviatura como valor, que es más corto y estándar
+                const optionHtml = `<option value="${um.abreviatura}">${um.nombre} (${um.abreviatura})</option>`;
+                umAdd.innerHTML += optionHtml;
+                umEdit.innerHTML += optionHtml;
             });
         }
     } catch (error) {

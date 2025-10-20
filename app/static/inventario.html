@@ -46,15 +46,17 @@
                 <input type="text" id="codigo_barras">
             </div>
             <label for="unidad_medida">Unidad de Medida:</label>
-            <select id="unidad_medida" name="unidad_medida">
-                <option value="unidades">Unidades</option>
-                <option value="kg">Kilogramos (kg)</option>
-                <option value="litros">Litros (l)</option>
-            </select>
+                <select id="unidad_medida" name="unidad_medida">
+                    </select>
+
+                <div class="form-group">
+                    <label for="edit-unidad_medida">Unidad de Medida:</label>
+                    <select id="edit-unidad_medida" name="unidad_medida"></select>
+                </div>
             <label for="categoria_id">Categoría:</label>
-            <select id="categoria_id" name="categoria_id">
-                <option value="">Sin categoría</option>
-            </select>
+                <select id="categoria_id" name="categoria_id">
+                    <option value="">Sin categoría</option>
+                </select>
             <label for="precio-costo-add">Precio de Costo (Admin):</label>
             <input type="number" id="precio-costo-add" name="precio_costo" step="0.01">
             
