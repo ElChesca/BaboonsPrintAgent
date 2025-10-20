@@ -99,8 +99,7 @@ export async function cargarUsuarios() {
         loadContent(null, 'static/dashboard.html');
     }
 }
-
-window.abrirModalEditarUsuario = async (userId) => {
+export async function abrirModalEditarUsuario(userId) {
     try {
         const [todosLosNegocios, todosLosUsuarios] = await Promise.all([
             fetchData('/api/negocios'),
