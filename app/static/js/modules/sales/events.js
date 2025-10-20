@@ -3,6 +3,7 @@ import { appState } from '../../main.js';
 import { mostrarNotificacion } from '../notifications.js';
 import * as state from './state.js';
 import * as ui from './ui.js';
+import { recalcularCarritoPorCliente } from '../sales.js';
 
 async function procesarVenta(imprimir = false) {
     const items = state.getSaleItems();

@@ -57,7 +57,7 @@ async function verificarEstadoCaja() {
         infoCajaEl.className = 'caja-info-banner cerrada';
     }
 }
-async function recalcularCarritoPorCliente() {
+export async function recalcularCarritoPorCliente() {
     const items = state.getSaleItems();
     if (items.length === 0) return; // Si no hay nada en el carrito, no hacemos nada
 
@@ -88,5 +88,5 @@ export function inicializarLogicaVentas() {
     verificarEstadoCaja();
     cargarDatosIniciales();
     // 2. Activa todos los botones y formularios
-    setupEventListeners();
+    setupEventListeners();    
 }

@@ -17,7 +17,6 @@ async function cargarClientesEnSelector() {
         console.error('Error al cargar clientes para configuración', error);
     }
 }
-
 async function cargarConfiguracion() {
     try {
         const configs = await fetchData(`/api/negocios/${appState.negocioActivoId}/configuraciones`);
@@ -60,6 +59,21 @@ export function inicializarConfiguracion() {
     // Llamamos a las funciones para poblar y cargar el formulario
     cargarClientesEnSelector();
     cargarConfiguracion();
+    cargarListasEnSelector();
 
     form.addEventListener('submit', guardarConfiguracion);
+}
+
+async function cargarListasEnSelector() {
+    const select = document.getElementById('config-lista-defecto'); // Asegúrate que el ID sea el correcto
+    if (!select) return;
+    try {
+        const listas = await fetchData(`/api/negocios/${appState.negocioActivoId}/listas_precios`);
+        // No borramos el contenido, solo añadimos las opciones
+        listas.forEach(lista => {
+            select.innerHTML += `<option value="${lista.id}">${lista.nombre}</option>`;
+        });
+    } catch (error) {
+        console.error('Error al cargar listas de precios para configuración', error);
+    }
 }

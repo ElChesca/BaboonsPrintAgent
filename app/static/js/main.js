@@ -68,10 +68,16 @@ async function inicializarModulo(page) {
     if (page.includes('dashboard.html')) inicializarLogicaDashboard();
     if (page.includes('caja.html')) inicializarLogicaCaja();
     if (page.includes('reporte_caja.html')) inicializarLogicaReporteCaja();
-    if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();
-    if (page.includes('proveedores.html')) inicializarLogicaProveedores();
+    if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();    
+    if (page.includes('proveedores.html')) {        
+        const { inicializarLogicaProveedores } = await import('./modules/proveedores.js');
+        inicializarLogicaProveedores();
+    }
     if (page.includes('reportes.html')) inicializarLogicaReportes();
-    if (page.includes('factura.html')) inicializarLogicaFactura();    
+    if (page.includes('factura.html')) inicializarLogicaFactura();  
+    if (page.includes('home.html')) {        
+        await poblarSelectorNegocios(); 
+    }  
     if (page.includes('configuracion.html')) {        
         const { inicializarConfiguracion } = await import('./modules/configuracion.js');
         inicializarConfiguracion();
@@ -237,7 +243,6 @@ export async function actualizarUIAutenticacion() {
     }
 }
 
-// ... (El resto del main.js no cambia)
 // --- INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('selector-negocio').addEventListener('change', (e) => {
