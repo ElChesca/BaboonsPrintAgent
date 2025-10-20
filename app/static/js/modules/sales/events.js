@@ -90,6 +90,8 @@ export function setupEventListeners() {
     const panelAccesoRapido = document.getElementById('pos-grid-container');
     const clienteSelector = document.getElementById('cliente-selector');
     const listaPreciosSelector = document.getElementById('lista-precios-selector');
+    const descuentoInput = document.getElementById('descuento-extra');
+    const envioInput = document.getElementById('gastos-envio');
 
     if (clienteSelector) {
         clienteSelector.addEventListener('change', recalcularCarritoPorCliente);
@@ -112,6 +114,18 @@ export function setupEventListeners() {
         productoInput.addEventListener('input', () => {
             // Llamamos a nuestra nueva función de búsqueda en vivo.
             buscarProductosEnVivo(productoInput.value);
+        });
+    }
+    // ✨ 2. SOLUCIÓN AL BUG DEL "ENTER" ✨
+    // Prevenimos que el formulario se envíe y recargue la página al presionar Enter
+    if (formAddItem) {
+        formAddItem.addEventListener('submit', (e) => {
+            e.preventDefault();
+            // Opcional: podríamos hacer que Enter agregue el primer resultado de la búsqueda
+            const primerResultado = document.querySelector('#search-results-venta .search-item');
+            if (primerResultado) {
+                primerResultado.click();
+            }
         });
     }
 

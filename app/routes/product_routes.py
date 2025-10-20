@@ -144,8 +144,17 @@ def buscar_productos_con_precio(current_user, negocio_id):
     
     # Buscamos productos que coincidan con el término de búsqueda
     db.execute(
-        "SELECT id, nombre, precio_venta, stock FROM productos WHERE negocio_id = %s AND nombre ILIKE %s LIMIT 10",
-        (negocio_id, f"%{query_term}%")
+        """
+        SELECT id, nombre, precio_venta, stock 
+        FROM productos 
+        WHERE negocio_id = %s AND (
+            nombre ILIKE %s OR 
+            sku ILIKE %s OR 
+            codigo_barras = %s
+        )
+        LIMIT 10
+        """,
+        (negocio_id, f"%{query_term}%", f"%{query_term}%", query_term)
     )
     productos = db.fetchall()
     
