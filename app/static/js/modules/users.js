@@ -100,7 +100,7 @@ export async function cargarUsuarios() {
 }
 
 // ✨ Hacemos la función global a través de window para que el onclick funcione
-window.abrirModalEditarUsuario = async (userId) => {
+export async function abrirModalEditarUsuario(userId) {
     try {
         const [todosLosNegocios, todosLosUsuarios] = await Promise.all([
             fetchData('/api/negocios'),
