@@ -186,7 +186,8 @@ export async function abrirModalEditarProducto(productoId) {
     }
 };
 
-window.borrarProducto = async (productoId) => {
+
+export async function abrirModaborrarProductolEditarProducto(productoId) {
     if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
     try {
         await sendData(`/api/productos/${productoId}`, {}, 'DELETE');
