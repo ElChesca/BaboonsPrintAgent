@@ -1,89 +1,65 @@
-/* --- NUEVA ESTRUCTURA GENERAL DEL POS --- */
-/* ✨ --- NUEVOS ESTILOS PARA LA CABECERA DE VENTA --- ✨ */
-.pos-header {
-    display: flex;
-    align-items: flex-end; /* Alinea los labels y selects en la base */
-    gap: 20px;
-    padding: 15px 20px;
-}
-.pos-header .form-group {
-    margin-bottom: 0; /* Quitamos el margen inferior dentro de la cabecera */
-}
-/* Estilo para el selector de cliente, que es más importante */
-.pos-header .form-group:first-child {
-    flex-grow: 1; /* Hacemos que ocupe más espacio */
-}
-.venta-ajustes-extra {
-    display: flex;
-    gap: 20px;
-    justify-content: flex-end; /* Alinea los campos a la derecha */
-    margin-bottom: 15px;
-}
+/* ==========================================================================
+   ESTILOS DEFINITIVOS PARA EL MÓDULO DE VENTAS (POS)
+   ========================================================================== */
 
-.venta-ajustes-extra .form-group {
-    margin-bottom: 0;
-}
-
-/* El nuevo estilo para la etiqueta de estado de la caja */
-.caja-status-label {
-    margin-left: auto; /* Empuja la etiqueta hasta el final a la derecha */
-    padding: 8px 12px;
-    font-size: 0.85em;
-    font-weight: 500;
-    border-radius: 6px;
-    white-space: nowrap; /* Evita que el texto se rompa */
-}
-/* Colores para la etiqueta (reutilizamos la lógica del banner) */
-.caja-status-label.abierta { background-color: #e7f4e8; border: 1px solid #28a745; color: #155724; }
-.caja-status-label.cerrada { background-color: #f8d7da; border: 1px solid #dc3545; color: #721c24; }
-
-/* Contenedor principal del POS */
+/* --- 1. ESTRUCTURA GENERAL --- */
 .pos-container {
     display: flex;
     flex-direction: column;
     gap: 20px;
 }
 
-/* Panel de búsqueda y tabla de venta */
-.venta-panel {
+/* --- 2. CABECERA DE VENTA (Cliente, Forma de Pago, Estado de Caja) --- */
+.pos-header {
     display: flex;
-    flex-direction: column;
+    align-items: flex-end;
     gap: 20px;
+    padding: 15px 20px;
 }
+.pos-header .form-group {
+    margin-bottom: 0;
+}
+.pos-header .form-group:first-child { /* El selector de cliente ocupa más espacio */
+    flex-grow: 1;
+}
+.caja-status-label {
+    margin-left: auto;
+    padding: 8px 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+.caja-status-label.abierta { background-color: #e7f4e8; border: 1px solid #28a745; color: #155724; }
+.caja-status-label.cerrada { background-color: #f8d7da; border: 1px solid #dc3545; color: #721c24; }
 
-/* ✨ NUEVO: Panel de Búsqueda Integrado ✨ */
+
+/* --- 3. PANEL DE BÚSQUEDA DE PRODUCTOS --- */
 .search-panel {
     padding: 20px;
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-
 .search-panel form {
     display: flex;
     align-items: flex-end;
     gap: 15px;
-    margin-bottom: 15px; /* Espacio entre el buscador y los resultados */
+    margin-bottom: 15px;
 }
-
 .search-panel .form-group {
-    flex-grow: 1; /* El input de búsqueda ocupa el máximo espacio */
+    flex-grow: 1;
 }
-
 .search-panel #venta-item-cantidad {
-    width: 80px; /* Ancho fijo para la cantidad */
+    width: 80px;
 }
-
-/* ✨ NUEVO: Contenedor de Resultados de Búsqueda ✨ */
 #search-results-venta {
     max-height: 250px;
     overflow-y: auto;
     border-top: 1px solid #eee;
 }
-
-/* Estilo para cada ítem en los resultados (consistente con global.css) */
 .search-item {
-    padding: 12px 15px;
+    padding: 10px 15px; /* Ligeramente más compacto */
     cursor: pointer;
     display: flex;
     justify-content: space-between;
@@ -91,123 +67,90 @@
     border-bottom: 1px solid #f0f0f0;
     transition: background-color 0.2s;
 }
-.search-item:last-child {
-    border-bottom: none;
-}
-.search-item:hover {
-    background-color: #f8f9fa;
-}
+.search-item:last-child { border-bottom: none; }
+.search-item:hover { background-color: #f8f9fa; }
 .search-item .stock {
-    font-size: 0.85em;
+    font-size: 0.8em;
     color: #6c757d;
-    background-color: #e9ecef;
-    padding: 3px 8px;
-    border-radius: 12px;
 }
 
-/* Recuadro Rojo: Cabecera de búsqueda */
-.venta-header form {
+/* --- 4. PANELES DE VENTA (Acceso Rápido y Venta Actual) --- */
+.pos-main-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+.venta-panel { display: flex; flex-direction: column; gap: 20px; }
+
+/* Panel Acceso Rápido */
+.panel-header {
     display: flex;
-    align-items: flex-end;
-    gap: 15px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
 }
-.venta-header .search-container {
-    flex-grow: 1;
-}
-.venta-header #venta-item-cantidad {
-    width: 90px;
-}
-/* --- GRILLA PRINCIPAL --- */
-.pos-main-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 15px;
-}
+.panel-header h3 { margin: 0; }
 
-/* ✨ Punto 2: Estilo de botones para Acceso Rápido */
 #pos-grid-container { 
     display: grid; 
     grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); 
     gap: 10px; 
 }
 .pos-item { 
-    background-color: #fff; 
-    border: 1px solid #ddd; 
-    border-radius: 8px; 
-    padding: 10px; 
-    text-align: center; 
-    cursor: pointer; 
-    transition: all 0.2s ease; 
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    height: 80px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    background-color: #fff; border: 1px solid #ddd; border-radius: 8px; 
+    padding: 10px; text-align: center; cursor: pointer; 
+    transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    height: 80px; display: flex; flex-direction: column; justify-content: center;
 }
-.pos-item:hover { 
-    transform: translateY(-3px); 
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
-    border-color: #007bff; 
-    background-color: #f8f9fa;
-}
+.pos-item:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
 .pos-item-name { font-weight: bold; font-size: 0.9em; }
 .pos-item-price { font-size: 0.9em; color: #28a745; font-weight: bold; margin-top: 5px; }
 
 
-/* Footer de la Venta */
-.venta-footer {
-    border-top: 2px solid #dee2e6;
-    padding-top: 15px;
-}
-/* Removed empty ruleset for .venta-total-display */
-.finalization-controls {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Columnas flexibles */
-    gap: 15px;
-    align-items: flex-end;
-}
-.finalization-controls .form-group, .finalization-controls .form-actions {
-    margin: 0;
-}
-/* Tabla Elegante y Compacta */
+/* --- 5. TABLA DE VENTA ACTUAL (Compacta) --- */
 .tabla-contenedor-venta {
     overflow-y: auto;
-    height: 35vh; /* Reducimos la altura para que sea más compacta */
+    max-height: 30vh; /* Ligeramente más baja para dar espacio */
 }
-
 .tabla-venta-elegante {
     width: 100%;
     border-collapse: collapse;
 }
+/* ✨ CORRECCIÓN CLAVE: Tabla más compacta ✨ */
 .tabla-venta-elegante th, .tabla-venta-elegante td {
-    padding: 10px 15px; /* Padding compacto */
+    padding: 8px 12px; /* Menos padding vertical y horizontal */
     text-align: left;
+    font-size: 0.9em; /* Fuente ligeramente más pequeña */
+    border-bottom: 1px solid #e9ecef;
 }
 .tabla-venta-elegante thead th {
-    background-color: #f8f9fa; /* Un gris muy claro */
+    background-color: #f8f9fa;
     color: #333;
     border-bottom: 2px solid #dee2e6;
-    position: sticky; /* Cabecera fija al hacer scroll */
+    position: sticky;
     top: 0;
 }
 .tabla-venta-elegante tbody tr:nth-child(even) {
-    background-color: #f8f9fa; /* Efecto de filas alternadas */
+    background-color: #f8f9fa;
 }
-.tabla-venta-elegante td {
-    border-bottom: 1px solid #e9ecef; /* Líneas de separación muy sutiles */
+.tabla-venta-elegante .btn-quitar { /* Botón más pequeño */
+    padding: 2px 8px; 
+    font-size: 0.8em;
 }
-.tabla-venta-elegante .btn-quitar {
-    padding: 4px 8px; font-size: 0.8em;
-}
-/* Footer de la Venta (Azul) */
-/* ✨ Punto c: Footer de la Venta con estilos correctos */
+
+
+/* --- 6. FOOTER DE VENTA (Finalización) --- */
 .venta-footer {
     border-top: 2px solid #dee2e6;
     padding-top: 15px;
 }
+.venta-ajustes-extra {
+    display: flex;
+    gap: 20px;
+    justify-content: flex-end;
+    margin-bottom: 15px;
+}
+.venta-ajustes-extra .form-group { margin-bottom: 0; }
+
 .venta-total-display {
     text-align: right;
-    font-size: 2.2em; /* Más grande para destacar */
+    font-size: 2.2em;
     font-weight: bold;
     color: #007bff;
     margin-bottom: 20px;
@@ -224,96 +167,22 @@
     gap: 15px;
     align-items: flex-end;
 }
-.finalization-controls .form-group, .finalization-controls .form-actions {
-    margin: 0;
-}
+.finalization-controls .form-group { margin: 0; }
+.finalization-controls .form-actions { display: flex; gap: 10px; }
 
-.finalization-controls .form-group {
-    margin: 0;
-}
-.finalization-controls .form-actions {
-    display: flex;
-    gap: 10px;
-}
-
-#calculo-vuelto-container { display: block; }
-#calculo-vuelto-container .vuelto-display { font-weight: bold; margin-top: 5px; font-size: 0.9em; }
-
-/* Columna Derecha: Sidebar de Acceso Rápido */
-.pos-sidebar {
-    position: sticky; /* El sidebar se queda fijo al hacer scroll */
-    top: 95px; /* Espacio para el header de la app y la barra de negocio */
-}
-#pos-grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
-/* Removed empty ruleset for .pos-item */
-
-/* ✨ 1. NUEVOS ESTILOS PARA EL INTERRUPTOR Y SU CONTENEDOR ✨ */
-.panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-.panel-header h3 {
-    margin: 0;
-}
-.switch-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9em;
-    color: #555;
-}
 #pago-detalles-container {
-    display: grid;
+    display: none; /* Se muestra con JS */
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 15px;
     margin-top: 15px;
     padding-top: 15px;
     border-top: 1px dashed #ccc;
 }
-.btn-primary, .btn-secondary {
-    padding: 10px 20px;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 1em;
-    border: none;
-    cursor: pointer;
-    transition: background-color 0.2s, color 0.2s;
-    white-space: nowrap; /* Evita que el texto se parta en dos líneas */
-}
+#calculo-vuelto-container .vuelto-display { font-weight: bold; margin-top: 5px; font-size: 0.9em; }
 
-.btn-primary {
-    background-color: #007bff;
-    color: white;
-}
-.btn-primary:hover {
-    background-color: #0056b3;
-}
-.btn-primary:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
-}
-.btn-secondary {
-    background-color: #6c757d;
-    color: white;
-    border: 1px solid #6c757d;
-}
-.btn-secondary:hover {
-    background-color: #5a6268;
-}
-.btn-secondary:disabled {
-    background-color: #cccccc;
-    border-color: #cccccc;
-    cursor: not-allowed;
-}
-.btn-add-item {
-    padding: 10px 20px !important;
-    font-weight: bold;
-    background-color: #007bff;
-    color: white;
-}
 
+/* --- 7. INTERRUPTOR (Switch) Y RESPONSIVE --- */
+.switch-container { display: flex; align-items: center; gap: 8px; font-size: 0.9em; color: #555; }
 .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
@@ -321,24 +190,12 @@
 input:checked + .slider { background-color: #28a745; }
 input:checked + .slider:before { transform: translateX(22px); }
 
-/* --- RESPONSIVE --- */
-@media (max-width: 1024px) {
-    .pos-main-grid {
-        grid-template-columns: 1fr; /* Se apila la venta y el POS */
-    }
-    .pos-sidebar {
-        position: static; /* El sidebar deja de ser fijo */
-    }
-    .finalization-controls {
-        grid-template-columns: 1fr 1fr; /* 2 columnas en pantallas medianas */
-    }
-}
 @media (max-width: 600px) {
-    .venta-header form {
+    .search-panel form {
         flex-direction: column;
         align-items: stretch;
     }
     .finalization-controls {
-        grid-template-columns: 1fr; /* 1 columna en celulares */
+        grid-template-columns: 1fr;
     }
 }

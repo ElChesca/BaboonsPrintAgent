@@ -89,6 +89,7 @@ export function setupEventListeners() {
     const toggleAccesoRapido = document.getElementById('toggle-acceso-rapido');
     const panelAccesoRapido = document.getElementById('pos-grid-container');
     const clienteSelector = document.getElementById('cliente-selector');
+    const listaPreciosSelector = document.getElementById('lista-precios-selector');
 
     if (clienteSelector) {
         clienteSelector.addEventListener('change', recalcularCarritoPorCliente);

@@ -23,7 +23,7 @@ export function renderSaleItemsTable(items, total) {
             </tr>
         `;
     });
-    totalEl.textContent = formatCurrency(total);
+    //totalEl.textContent = formatCurrency(total);
     actualizarTotalFinal();
 }
 
