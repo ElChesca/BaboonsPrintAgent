@@ -6,14 +6,22 @@
     gap: 20px;
     padding: 15px 20px;
 }
-
 .pos-header .form-group {
     margin-bottom: 0; /* Quitamos el margen inferior dentro de la cabecera */
 }
-
 /* Estilo para el selector de cliente, que es más importante */
 .pos-header .form-group:first-child {
     flex-grow: 1; /* Hacemos que ocupe más espacio */
+}
+.venta-ajustes-extra {
+    display: flex;
+    gap: 20px;
+    justify-content: flex-end; /* Alinea los campos a la derecha */
+    margin-bottom: 15px;
+}
+
+.venta-ajustes-extra .form-group {
+    margin-bottom: 0;
 }
 
 /* El nuevo estilo para la etiqueta de estado de la caja */

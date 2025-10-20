@@ -10,9 +10,10 @@ import { setupEventListeners } from './sales/events.js';
 async function cargarDatosIniciales() {
     try {
         // Hacemos todas las llamadas a la API al mismo tiempo para más eficiencia   
-        const [clientes, topProductos] = await Promise.all([
+        const [clientes, topProductos,listasPrecios] = await Promise.all([
             fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`),
-            fetchData(`/api/negocios/${appState.negocioActivoId}/productos/top?limit=10`)
+            fetchData(`/api/negocios/${appState.negocioActivoId}/productos/top?limit=10`),
+            fetchData(`/api/negocios/${appState.negocioActivoId}/listas_precios`)
         ]);
         // Poblamos el selector de clientes
         const selectorClientes = document.getElementById('cliente-selector');
@@ -20,6 +21,12 @@ async function cargarDatosIniciales() {
             selectorClientes.innerHTML = '<option value="">Consumidor Final</option>';
             clientes.forEach(c => selectorClientes.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
         }
+        // ✨ Lógica para poblar el nuevo selector de listas de precios
+        const selectorListas = document.getElementById('lista-precios-selector');
+        selectorListas.innerHTML = '<option value="">(Por Cliente)</option>'; // Opción por defecto
+        listasPrecios.forEach(lp => {
+            selectorListas.innerHTML += `<option value="${lp.id}">${lp.nombre}</option>`;
+        });
 
         // Renderizamos la grilla de acceso rápido y le pasamos la lógica que debe ejecutar al hacer clic
         ui.renderPosGrid(topProductos, (productId) => {

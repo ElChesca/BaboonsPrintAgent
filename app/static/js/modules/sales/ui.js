@@ -24,6 +24,7 @@ export function renderSaleItemsTable(items, total) {
         `;
     });
     totalEl.textContent = formatCurrency(total);
+    actualizarTotalFinal();
 }
 
 /** Dibuja la grilla de acceso rápido (POS). */
@@ -113,4 +114,17 @@ export function toggleFinalizeButtons(isProcessing) {
     btnImprimir.disabled = isProcessing;
     btnFinalizar.textContent = isProcessing ? 'Procesando...' : 'Cobrar';
     btnImprimir.textContent = isProcessing ? 'Procesando...' : 'Cobrar e Imprimir';
+}
+
+export function actualizarTotalFinal() {
+    const subtotal = state.calculateTotal();
+    const descuento = parseFloat(document.getElementById('descuento-extra').value) || 0;
+    const envio = parseFloat(document.getElementById('gastos-envio').value) || 0;
+    
+    const totalFinal = subtotal - descuento + envio;
+    
+    const totalEl = document.getElementById('venta-total');
+    if (totalEl) {
+        totalEl.textContent = formatCurrency(totalFinal);
+    }
 }

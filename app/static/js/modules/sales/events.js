@@ -93,6 +93,18 @@ export function setupEventListeners() {
     if (clienteSelector) {
         clienteSelector.addEventListener('change', recalcularCarritoPorCliente);
     }
+    // ✨ NUEVO: El selector de listas también recalcula el carrito
+    if (listaPreciosSelector) {
+        listaPreciosSelector.addEventListener('change', recalcularCarritoPorCliente);
+    }
+    // ✨ NUEVO: Los campos de ajuste actualizan el total final
+    if (descuentoInput) {
+        descuentoInput.addEventListener('input', actualizarTotalFinal);
+    }
+    if (envioInput) {
+        envioInput.addEventListener('input', actualizarTotalFinal);
+    }
+
     // Búsqueda de productos en tiempo real
    if (productoInput) {
         // Reemplazamos 'keyup' por 'input' que es más moderno.

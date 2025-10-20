@@ -171,13 +171,18 @@ def buscar_productos_con_precio(current_user, negocio_id):
     return jsonify(resultados_con_precio_final)
 
 # ✨ --- NUEVA RUTA PARA RECALCULAR PRECIOS EN LOTE --- ✨
+# en app/routes/product_routes.py
 @bp.route('/negocios/<int:negocio_id>/recalculate-prices', methods=['POST'])
 @token_required
 def recalculate_prices(current_user, negocio_id):
-    
     data = request.get_json()
     product_ids = data.get('product_ids', [])
     cliente_id = data.get('cliente_id', None)
+
+    # ✨ --- CORRECCIÓN CLAVE --- ✨
+    # Si el frontend envía un string vacío, lo tratamos como si no hubiera cliente (None).
+    if cliente_id == '':
+        cliente_id = None
 
     if not product_ids:
         return jsonify({})
@@ -197,11 +202,9 @@ def recalculate_prices(current_user, negocio_id):
             cliente_id=cliente_id
         )
         
-        # Devolvemos un objeto más completo
         precios_actualizados[prod_id] = {
             'precio_original': precio_base,
             'precio_final': precio_final
         }
     return jsonify(precios_actualizados)
-
     

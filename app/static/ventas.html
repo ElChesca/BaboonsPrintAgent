@@ -6,6 +6,10 @@
             <select id="cliente-selector"></select>
         </div>
         <div class="form-group">
+            <label for="lista-precios-selector">Lista de Precios</label>
+            <select id="lista-precios-selector"></select>
+        </div>
+        <div class="form-group">
             <label for="metodo-pago-selector">Forma de Pago</label>
             <select id="metodo-pago-selector" name="metodo_pago">
                 <option value="Efectivo">Efectivo</option>
@@ -56,6 +60,16 @@
             </div>
             
             <div class="card venta-footer">
+                <div class="venta-ajustes-extra">
+                    <div class="form-group">
+                        <label for="descuento-extra">Descuento Extra ($)</label>
+                        <input type="number" id="descuento-extra" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="gastos-envio">Gastos de Envío ($)</label>
+                        <input type="number" id="gastos-envio" step="0.01" placeholder="0.00">
+                    </div>
+                </div>
                 <div class="venta-total-display">
                     <span>TOTAL</span>
                     <strong id="venta-total">$0.00</strong>
