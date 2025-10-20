@@ -9,12 +9,15 @@ export function renderSaleItemsTable(items, total) {
     tbody.innerHTML = '';
     items.forEach((item, index) => {
         const subtotal = item.cantidad * item.precio_unitario;
-      tbody.innerHTML += `
+        // Calculamos el descuento total para esta línea de producto
+        const descuentoTotalItem = (item.precio_original - item.precio_unitario) * item.cantidad;
+
+        tbody.innerHTML += `
             <tr data-index="${index}">
                 <td>${item.nombre}</td>
                 <td>${item.cantidad}</td>
                 <td>${formatCurrency(item.precio_unitario)}</td>
-                <td>${descuento > 0 ? formatCurrency(descuento * item.cantidad) : '-'}</td>
+                <td>${descuentoTotalItem > 0 ? formatCurrency(descuentoTotalItem) : '-'}</td>
                 <td>${formatCurrency(subtotal)}</td>
                 <td><button type="button" class="btn-quitar">Quitar</button></td>
             </tr>

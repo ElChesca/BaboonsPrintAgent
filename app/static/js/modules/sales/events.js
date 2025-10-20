@@ -93,36 +93,7 @@ export function setupEventListeners() {
     if (clienteSelector) {
         clienteSelector.addEventListener('change', recalcularCarritoPorCliente);
     }
-    
-    // --- Lógica de Listeners ---
-
-    // 1. Añadir item a la venta desde el formulario principal
-    if (formAddItem) {
-        formAddItem.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const productoNombre = productoInput.value;
-            const cantidad = parseFloat(document.getElementById('venta-item-cantidad').value);
-            const productosEncontrados = state.findProductoInCache(productoNombre);
-            const producto = productosEncontrados.find(p => p.nombre === productoNombre);
-
-            if (!producto) {
-                return mostrarNotificacion("Producto no válido o no encontrado.", 'error');
-            }
-            
-            const result = state.addItem(producto, cantidad);
-            
-            if (result.success) {
-                ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
-                formAddItem.reset();
-                document.getElementById('venta-item-cantidad').value = '1';
-                productoInput.focus();
-            } else {
-                mostrarNotificacion(result.message, 'error');
-            }
-        });
-    }
-
-    // 2. Búsqueda de productos en tiempo real
+    // Búsqueda de productos en tiempo real
    if (productoInput) {
         // Reemplazamos 'keyup' por 'input' que es más moderno.
         productoInput.addEventListener('input', () => {
