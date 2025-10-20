@@ -3,13 +3,13 @@ from flask import Flask, render_template
 
 from .routes import facturacion_routes
 from .extensions import bcrypt
-from .database import close_connection
+from .database import close_db
 
 def create_app():
     app = Flask(__name__, template_folder='templates', static_folder='static')
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una_clave_muy_secreta')
     bcrypt.init_app(app)
-    app.teardown_appcontext(close_connection)
+    app.teardown_appcontext(close_db)
 
     from .routes import auth_routes, product_routes, negocios_routes, user_routes, \
                         clientes_routes, income_routes, sales_routes, category_routes, \
