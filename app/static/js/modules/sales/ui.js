@@ -1,3 +1,4 @@
+import * as state from './state.js';
 const formatCurrency = (n) => (n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 
 /** Dibuja la tabla de items de la venta. */
