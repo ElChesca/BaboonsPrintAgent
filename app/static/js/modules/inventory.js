@@ -187,7 +187,7 @@ export async function abrirModalEditarProducto(productoId) {
 };
 
 
-export async function abrirModaborrarProductolEditarProducto(productoId) {
+export async function borrarProducto(productoId) {
     if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
     try {
         await sendData(`/api/productos/${productoId}`, {}, 'DELETE');
@@ -200,7 +200,6 @@ export async function abrirModaborrarProductolEditarProducto(productoId) {
 
 
 // --- Función de Inicialización ---
-
 export async function inicializarLogicaInventario() {
     const formProducto = document.getElementById('form-producto');
     const buscador = document.getElementById('buscador-productos');
