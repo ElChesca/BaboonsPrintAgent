@@ -1,9 +1,12 @@
-import { fetchData } from '../../api.js';
+// static/js/modules/sales/events.js (Versión Corregida)
+
+import { fetchData, sendData } from '../../api.js'; // Usamos sendData para POST
 import { appState } from '../../main.js';
 import { mostrarNotificacion } from '../notifications.js';
 import * as state from './state.js';
 import * as ui from './ui.js';
 import { recalcularCarritoPorCliente } from '../sales.js';
+
 
 async function procesarVenta(imprimir = false) {
     const items = state.getSaleItems();
@@ -30,12 +33,13 @@ async function procesarVenta(imprimir = false) {
             };
         }
         
-        const responseData = await fetchData(`/api/negocios/${appState.negocioActivoId}/ventas`, { method: 'POST', body: JSON.stringify(payload) });
+        const responseData = await sendData(`/api/negocios/${appState.negocioActivoId}/ventas`, payload, 'POST');
         
         mostrarNotificacion(responseData.message || `¡Venta #${responseData.venta_id} registrada!`, 'success');
         
         state.clearSale();
-        ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
+        // ✨ CORRECCIÓN: Llamamos a renderSaleItemsTable sin el segundo parámetro
+        ui.renderSaleItemsTable(state.getSaleItems()); 
         ui.resetSaleUI();
 
     } catch (error) {
@@ -46,30 +50,22 @@ async function procesarVenta(imprimir = false) {
 }
 
 async function buscarProductosEnVivo(query) {
-    // Si no hay texto, no buscamos nada.
     if (query.length < 2) {
-        ui.renderSearchResults([], () => {}); // Limpia los resultados
+        ui.renderSearchResults([], () => {});
         return;
     }
-
-    // 1. Obtenemos el cliente seleccionado en este momento.
     const clienteId = document.getElementById('cliente-selector').value || null;
-
-    // 2. Construimos la URL para llamar a nuestra ruta inteligente.
     let url = `/api/negocios/${appState.negocioActivoId}/productos/buscar?query=${encodeURIComponent(query)}`;
     if (clienteId) {
         url += `&cliente_id=${clienteId}`;
     }
-
-    // 3. Llamamos al API y renderizamos los resultados.
     try {
         const productosConPrecio = await fetchData(url);
-        // El callback se ejecutará cuando el usuario haga clic en un resultado.
-        // Le pasamos el objeto de producto COMPLETO al callback.
         ui.renderSearchResults(productosConPrecio, (productoSeleccionado) => {
-            state.addItem(productoSeleccionado, 1); // Añadimos 1 unidad del producto al carrito.
-            ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
-            document.getElementById('venta-producto-input').value = ''; // Limpiamos el buscador.
+            state.addItem(productoSeleccionado, 1);
+            // ✨ CORRECCIÓN: Llamamos a renderSaleItemsTable sin el segundo parámetro
+            ui.renderSaleItemsTable(state.getSaleItems()); 
+            document.getElementById('venta-producto-input').value = '';
             document.getElementById('venta-producto-input').focus();
         });
     } catch (error) {
@@ -78,14 +74,13 @@ async function buscarProductosEnVivo(query) {
 }
 
 export function setupEventListeners() {
-    // --- Selectores de Elementos ---
+    // --- Selectores ---
     const formAddItem = document.getElementById('form-add-item-venta');
     const productoInput = document.getElementById('venta-producto-input');
     const tablaItems = document.querySelector('#staged-items-venta tbody');
     const metodoPagoSelector = document.getElementById('metodo-pago-selector');
     const pagaConInput = document.getElementById('paga-con-input');
     const btnFinalizar = document.getElementById('btn-finalize-sale');
-    const btnImprimir = document.getElementById('btn-finalize-and-print');
     const toggleAccesoRapido = document.getElementById('toggle-acceso-rapido');
     const panelAccesoRapido = document.getElementById('pos-grid-container');
     const clienteSelector = document.getElementById('cliente-selector');
@@ -93,35 +88,24 @@ export function setupEventListeners() {
     const descuentoInput = document.getElementById('descuento-extra');
     const envioInput = document.getElementById('gastos-envio');
 
-    if (clienteSelector) {
-        clienteSelector.addEventListener('change', recalcularCarritoPorCliente);
-    }
-    // ✨ NUEVO: El selector de listas también recalcula el carrito
-    if (listaPreciosSelector) {
-        listaPreciosSelector.addEventListener('change', recalcularCarritoPorCliente);
-    }
-    // ✨ NUEVO: Los campos de ajuste actualizan el total final
-    if (descuentoInput) {
-        descuentoInput.addEventListener('input', actualizarTotalFinal);
-    }
-    if (envioInput) {
-        envioInput.addEventListener('input', actualizarTotalFinal);
-    }
+    // --- Listeners ---
+    if (clienteSelector) clienteSelector.addEventListener('change', recalcularCarritoPorCliente);
+    if (listaPreciosSelector) listaPreciosSelector.addEventListener('change', recalcularCarritoPorCliente);
+    
+    // ✨ --- CORRECCIÓN CLAVE --- ✨
+    // Añadimos el prefijo 'ui.' para llamar a la función correctamente
+    if (descuentoInput) descuentoInput.addEventListener('input', ui.actualizarTotalFinal);
+    if (envioInput) envioInput.addEventListener('input', ui.actualizarTotalFinal);
 
-    // Búsqueda de productos en tiempo real
-   if (productoInput) {
-        // Reemplazamos 'keyup' por 'input' que es más moderno.
+    if (productoInput) {
         productoInput.addEventListener('input', () => {
-            // Llamamos a nuestra nueva función de búsqueda en vivo.
             buscarProductosEnVivo(productoInput.value);
         });
     }
-    // ✨ 2. SOLUCIÓN AL BUG DEL "ENTER" ✨
-    // Prevenimos que el formulario se envíe y recargue la página al presionar Enter
+
     if (formAddItem) {
         formAddItem.addEventListener('submit', (e) => {
             e.preventDefault();
-            // Opcional: podríamos hacer que Enter agregue el primer resultado de la búsqueda
             const primerResultado = document.querySelector('#search-results-venta .search-item');
             if (primerResultado) {
                 primerResultado.click();
@@ -129,38 +113,30 @@ export function setupEventListeners() {
         });
     }
 
-    // 3. Quitar un item de la venta (delegación de eventos)
     if (tablaItems) {
         tablaItems.addEventListener('click', (e) => {
             if (e.target.classList.contains('btn-quitar')) {
                 const index = parseInt(e.target.closest('tr').dataset.index, 10);
                 state.removeItem(index);
-                ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
+                // ✨ CORRECCIÓN: Llamamos a renderSaleItemsTable sin el segundo parámetro
+                ui.renderSaleItemsTable(state.getSaleItems()); 
             }
         });
     }
 
-    // 4. Botones para finalizar la venta
     if (btnFinalizar) btnFinalizar.addEventListener('click', () => procesarVenta(false));
-    if (btnImprimir) btnImprimir.addEventListener('click', () => procesarVenta(true));
-
-    // 5. Lógica de UI para los métodos de pago
+    
     if (metodoPagoSelector) {
         metodoPagoSelector.addEventListener('change', () => {
             const esEfectivo = metodoPagoSelector.value === 'Efectivo';
             const pagoDetallesContainer = document.getElementById('pago-detalles-container');
             const calculoVueltoContainer = document.getElementById('calculo-vuelto-container');
             
-            if (calculoVueltoContainer) {
-                calculoVueltoContainer.style.display = esEfectivo ? 'block' : 'none';
-            }
-            if (pagoDetallesContainer) {
-                pagoDetallesContainer.style.display = esEfectivo ? 'none' : 'grid';
-            }
+            if (calculoVueltoContainer) calculoVueltoContainer.style.display = esEfectivo ? 'block' : 'none';
+            if (pagoDetallesContainer) pagoDetallesContainer.style.display = esEfectivo ? 'none' : 'grid';
         });
     }
 
-    // 6. Cálculo del vuelto en tiempo real
     if (pagaConInput) {
         pagaConInput.addEventListener('input', () => {
             const pagaCon = parseFloat(pagaConInput.value) || 0;
@@ -168,12 +144,10 @@ export function setupEventListeners() {
         });
     }
 
-    // ✨ 7. LÓGICA PARA EL INTERRUPTOR DE ACCESO RÁPIDO ✨
     if (toggleAccesoRapido && panelAccesoRapido) {
         toggleAccesoRapido.addEventListener('change', (e) => {
             panelAccesoRapido.style.display = e.target.checked ? 'grid' : 'none';
         });
-        // Aseguramos que el estado inicial sea el correcto al cargar
         panelAccesoRapido.style.display = toggleAccesoRapido.checked ? 'grid' : 'none';
     }
 }
