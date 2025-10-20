@@ -9,10 +9,17 @@ bp = Blueprint('negocios', __name__)
 @token_required
 def get_negocios(current_user):
     db = get_db()
-    db.execute(
-        "SELECT n.id, n.nombre FROM negocios n JOIN usuarios_negocios un ON n.id = un.negocio_id WHERE un.usuario_id = %s ORDER BY n.nombre",
-        (current_user['id'],)
-    )
+    
+    # ✨ SI ES ADMIN, MOSTRAMOS TODOS LOS NEGOCIOS ✨
+    if current_user['rol'] == 'admin':
+        db.execute("SELECT id, nombre, direccion FROM negocios ORDER BY nombre")
+    else:
+        # Si no es admin, mostramos solo los suyos
+        db.execute(
+            "SELECT n.id, n.nombre, n.direccion FROM negocios n JOIN usuarios_negocios un ON n.id = un.negocio_id WHERE un.usuario_id = %s ORDER BY n.nombre",
+            (current_user['id'],)
+        )
+        
     negocios = db.fetchall()
     return jsonify([dict(row) for row in negocios])
 

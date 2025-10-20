@@ -20,21 +20,33 @@ def get_usuarios(current_user):
         user['negocios_asignados'] = [dict(row) for row in negocios_rows]
     return jsonify(usuarios)
 
+
 @bp.route('/usuarios', methods=['POST'])
 @token_required
 def create_usuario(current_user):
     if current_user['rol'] != 'admin': return jsonify({'message': 'Acción no permitida'}), 403
     data = request.get_json()
+    negocios_ids = data.get('negocios_ids', []) # Obtenemos la lista de IDs de negocios
     hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
     db = get_db()
     try:
+        # 1. Crea el usuario como siempre y obtén su ID
         db.execute('INSERT INTO usuarios (nombre, email, password, rol) VALUES (%s, %s, %s, %s) RETURNING id', (data['nombre'], data['email'], hashed_password, data['rol']))
-        nuevo_id = db.fetchone()['id']
+        nuevo_usuario_id = db.fetchone()['id']
+        # ✨ 2. Asigna los negocios al nuevo usuario ✨
+        if negocios_ids:
+            for negocio_id in negocios_ids:
+                db.execute(
+                    "INSERT INTO usuarios_negocios (usuario_id, negocio_id) VALUES (%s, %s)",
+                    (nuevo_usuario_id, negocio_id)
+                )
         g.db_conn.commit()
-        return jsonify({'id': nuevo_id, 'message': 'Usuario creado con éxito'}), 201
+        return jsonify({'message': 'Usuario creado y asignado con éxito'}), 201
+    
     except Exception as e:
         g.db_conn.rollback()
-        return jsonify({'message': 'El email ya está en uso'}), 409
+        return jsonify({'error': str(e)}), 500
+    
 
 @bp.route('/usuarios/<int:id>', methods=['PUT'])
 @token_required

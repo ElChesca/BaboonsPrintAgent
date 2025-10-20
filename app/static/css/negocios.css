@@ -1,0 +1,9 @@
+/* static/css/negocios.css */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+.grid-col-span-2 {
+    grid-column: span 2;
+}

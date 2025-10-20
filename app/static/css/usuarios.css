@@ -1,0 +1,11 @@
+
+    /* Estilos generales para el panel */
+.card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+#user-list th { background-color: #34495e; color: white; }
+.assigned-businesses span { background-color: #ecf0f1; color: #34495e; padding: 3px 8px; border-radius: 10px; font-size: 0.9em; margin-right: 5px; }
+
+/* Estilos para el modal de edición */
+.modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); }
+.modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 8px; }
+.business-checkbox-list { max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+.business-checkbox-list label { display: block; }

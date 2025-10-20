@@ -74,7 +74,11 @@ async function inicializarModulo(page) {
         inicializarLogicaProveedores();
     }
     if (page.includes('reportes.html')) inicializarLogicaReportes();
-    if (page.includes('factura.html')) inicializarLogicaFactura();  
+    if (page.includes('factura.html')) inicializarLogicaFactura();
+    if (page.includes('negocios.html')) {
+        const { inicializarLogicaNegocios } = await import('./modules/negocios.js');
+        inicializarLogicaNegocios();
+    }  
     if (page.includes('home.html')) {        
         await poblarSelectorNegocios(); 
     }  

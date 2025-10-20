@@ -1,181 +1,40 @@
-<style>
-    /* Estilos específicos para este módulo si los necesitas */
-    #form-negocio { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px; }
-    #form-negocio h3, h3 { margin-top: 0; }
-    input[type="text"] { width: calc(100% - 22px); padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
-    table { width: 100%; border-collapse: collapse; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
-    th { background-color: #f4f6f8; }
-    button { background-color: #34495e; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s; }
-    button:hover { background-color: #2c3e50; }
-</style>
+<link rel="stylesheet" href="/static/css/negocios.css"> <h2>🏢 Gestión de Negocios</h2>
 
-<h2>🏢 Gestión de Negocios</h2>
-
-<div id="form-negocio">
-    <h3>Añadir Nuevo Negocio</h3>
-    <form id="add-negocio-form">
-        <input type="text" id="nombre-negocio" placeholder="Nombre del Negocio" required>
-        <input type="text" id="direccion-negocio" placeholder="Dirección">
-        <button type="submit">Guardar Negocio</button>
+<div class="card">
+    <h3 id="form-negocio-titulo">Añadir Nuevo Negocio</h3>
+    <form id="form-negocio">
+        <input type="hidden" id="negocio-id">
+        <div class="form-grid">
+            <div class="form-group grid-col-span-2">
+                <label for="nombre-negocio">Nombre del Negocio:</label>
+                <input type="text" id="nombre-negocio" required>
+            </div>
+            <div class="form-group grid-col-span-2">
+                <label for="direccion-negocio">Dirección:</label>
+                <input type="text" id="direccion-negocio">
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Guardar</button>
+            <button type="button" id="btn-cancelar-edicion-negocio" class="btn-secondary" style="display: none;">Cancelar</button>
+        </div>
     </form>
 </div>
 
-<h3>Lista de Negocios</h3>
-<table border="1">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Nombre</th>
-            <th>Dirección</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody id="lista-negocios">
-        </tbody>
-</table>
-<!-- --- Modal para Editar Negocio (oculto por defecto) ---     -->
-<div id="edit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5); justify-content:center; align-items:center;">
-    <div style="background:white; padding:30px; border-radius:8px; width:400px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
-        <h2>Editar Negocio</h2>
-        <form id="edit-negocio-form">
-            <input type="hidden" id="edit-negocio-id">
-            <label for="edit-nombre-negocio">Nombre:</label>
-            <input type="text" id="edit-nombre-negocio" required style="width: calc(100% - 22px); padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;">
-            
-            <label for="edit-direccion-negocio">Dirección:</label>
-            <input type="text" id="edit-direccion-negocio" style="width: calc(100% - 22px); padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px;">
-            
-            <button type="submit">Guardar Cambios</button>
-            <button type="button" onclick="cerrarModal()">Cancelar</button>
-        </form>
+<div class="card">
+    <h3>Lista de Negocios</h3>
+    <div class="tabla-contenedor">
+        <table class="tabla-bonita" id="tabla-negocios">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Dirección</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
     </div>
 </div>
-<script>
-    // --- Selectores y Lógica para NEGOCIOS ---
-    const addNegocioForm = document.getElementById('add-negocio-form');
-    const listaNegocios = document.getElementById('lista-negocios');
-
-    // 1. Cargar y mostrar todos los negocios (GET)
-    async function cargarNegocios() {
-        try {
-            const response = await fetch('/api/negocios');
-            if (!response.ok) throw new Error('Error al cargar los negocios');
-            const negocios = await response.json();
-
-            listaNegocios.innerHTML = ''; // Limpiamos la lista
-            negocios.forEach(negocio => {
-                const fila = `
-                    <tr id="negocio-${negocio.id}">
-                        <td>${negocio.id}</td>
-                        <td>${negocio.nombre}</td>
-                        <td>${negocio.direccion}</td>
-                        <td>
-                            <button onclick="editarNegocio(${negocio.id})">Editar</button>
-                            <button onclick="borrarNegocio(${negocio.id})">Borrar</button>
-                        </td>
-                    </tr>
-                `;
-                listaNegocios.innerHTML += fila;
-            });
-        } catch (error) {
-            console.error('Error:', error);
-            alert('No se pudieron cargar los negocios.');
-        }
-    }
-
-    // 2. Añadir un nuevo negocio (POST)
-    addNegocioForm.addEventListener('submit', async function(event) {
-        event.preventDefault();
-        const nombre = document.getElementById('nombre-negocio').value;
-        const direccion = document.getElementById('direccion-negocio').value;
-
-        try {
-            const response = await fetch('/api/negocios', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre, direccion }),
-            });
-            if (!response.ok) throw new Error('Error al crear el negocio.');
-            
-            addNegocioForm.reset();
-            cargarNegocios(); // Recargamos la lista
-        } catch (error) {
-            console.error('Error:', error);
-            alert('No se pudo añadir el negocio.');
-        }
-    });
-
-    // --- Funciones para Editar y Borrar (las dejamos listas) ---
-    // --- Selectores del Modal (añadir estos) ---
-    const editModal = document.getElementById('edit-modal');
-    const editNegocioForm = document.getElementById('edit-negocio-form');
-
-    // --- Funciones para el Modal (añadir estas) ---
-    async function editarNegocio(id) {
-        try {
-            // 1. Pedir al backend los datos actuales del negocio
-            const response = await fetch(`/api/negocios/${id}`);
-            if (!response.ok) throw new Error('No se encontraron los datos del negocio.');
-            const negocio = await response.json();
-
-            // 2. Rellenar el formulario del modal con esos datos
-            document.getElementById('edit-negocio-id').value = negocio.id;
-            document.getElementById('edit-nombre-negocio').value = negocio.nombre;
-            document.getElementById('edit-direccion-negocio').value = negocio.direccion;
-
-            // 3. Mostrar el modal
-            editModal.style.display = 'flex';
-        } catch (error) {
-            console.error('Error al abrir el modal:', error);
-            alert(error.message);
-        }
-    }
-
-    function cerrarModal() {
-        editModal.style.display = 'none';
-    }
-
-    // --- Event Listener para guardar los cambios (añadir este) ---
-    editNegocioForm.addEventListener('submit', async function(event) {
-        event.preventDefault();
-
-        const id = document.getElementById('edit-negocio-id').value;
-        const nombre = document.getElementById('edit-nombre-negocio').value;
-        const direccion = document.getElementById('edit-direccion-negocio').value;
-
-        try {
-            const response = await fetch(`/api/negocios/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre, direccion }),
-            });
-
-            if (!response.ok) throw new Error('Error al actualizar el negocio.');
-            
-            cerrarModal();
-            cargarNegocios(); // Recargamos la lista para ver los cambios
-            alert('¡Negocio actualizado!');
-
-        } catch (error) {
-            console.error('Error:', error);
-            alert(error.message);
-        }
-    });
-
-    // MODIFICAR la función borrarNegocio para que funcione de manera similar
-    async function borrarNegocio(id) {
-        if (confirm(`¿Estás seguro de que quieres borrar el negocio con ID: ${id}?`)) {
-            try {
-                const response = await fetch(`/api/negocios/${id}`, { method: 'DELETE' }); // Suponiendo que tienes esta ruta
-                if (!response.ok) throw new Error('Error al borrar');
-                cargarNegocios();
-            } catch(error) {
-                alert('No se pudo borrar el negocio.');
-            }
-        }
-    }
-    // --- Inicialización ---
-    // Cargamos los negocios tan pronto como este script se ejecuta
-    cargarNegocios();
-</script>
