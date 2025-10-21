@@ -8,8 +8,12 @@ bp = Blueprint('negocios', __name__)
 @bp.route('/negocios', methods=['GET'])
 @token_required
 def get_negocios(current_user):
-    db = get_db()
-    
+
+    if not current_user or 'rol' not in current_user or 'id' not in current_user:
+        print("!!! ERROR: Invalid current_user object received in get_negocios:", current_user)
+        return jsonify({'error': 'Error interno de autenticación'}), 500
+
+    db = get_db()    
     # ✨ SI ES ADMIN, MOSTRAMOS TODOS LOS NEGOCIOS ✨
     if current_user['rol'] == 'admin':
         db.execute("SELECT id, nombre, direccion FROM negocios ORDER BY nombre")

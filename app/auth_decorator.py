@@ -2,59 +2,58 @@
 from functools import wraps
 from flask import request, jsonify
 import jwt
-from app.database import get_db
-import os # Es buena práctica obtener la SECRET_KEY de variables de entorno
+import os # Necesario para leer la SECRET_KEY
+# Asumo que tienes una forma de buscar el usuario, por ejemplo, en database.py
+# from .database import get_db 
 
-# --- DECORADOR `@token_required` ACTUALIZADO ---
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
-        # ✨ --- LOG 1: ¿Llega el decorador? --- ✨
-        print("--- Token Decorator Triggered ---")
-        # 1. Busca el token en el encabezado 'Authorization'
-        if 'Authorization' in request.headers:
-            # El formato es "Bearer <token>", así que separamos y tomamos la segunda parte
-            print(f"Auth Header received: {auth_header}") # ✨ LOG 2
-            try:
-                token = request.headers['Authorization'].split(" ")[1]
-            except IndexError:
-                print("!!! ERROR: Auth Header malformed.") # ✨ LOG 3
-                return jsonify({'message': 'Formato de token inválido. Debe ser "Bearer <token>"'}), 401
-
-        # Si después de buscar no hay token, rechazamos
-        if not token:
-            return jsonify({'message': 'Token no encontrado'}), 401
-        else:
-            print("!!! ERROR: No Authorization Header.") # ✨ LOG 4
-        if not token:
-             print("!!! ERROR: Token is missing!") # ✨ LOG 5
-             return jsonify({'message': 'Falta el token'}), 401
         
+        # Verifica si el encabezado de autorización existe
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            try:
+                # Intenta extraer el token (asume formato 'Bearer [token]')
+                token = auth_header.split(" ")[1]
+            except IndexError:
+                return jsonify({'message': 'Token malformado'}), 401
+        
+        # Si no hay token después de verificar el encabezado
+        if not token:
+            return jsonify({'message': 'Falta el token'}), 401
+
         try:
-            # 2. Decodifica el token usando la SECRET_KEY
-            # Es más seguro obtenerla de la configuración de la app
-            # from flask import current_app
-            # secret_key = current_app.config['SECRET_KEY']
-            secret_key = os.environ.get('SECRET_KEY', 'tu-clave-secreta-larga-y-dificil')
+            # Decodifica el token usando tu SECRET_KEY
+            secret_key = os.environ.get('SECRET_KEY')
+            if not secret_key:
+                 # Es importante tener una SECRET_KEY configurada
+                 return jsonify({'message': 'Error de configuración del servidor (SK)'}), 500
+                 
             data = jwt.decode(token, secret_key, algorithms=["HS256"])
             
-            # 3. Busca al usuario en la BD para asegurarse de que existe
-            db = get_db()
-            db.execute('SELECT * FROM usuarios WHERE id = %s', (data['id'],))
-            current_user = db.fetchone()
+            # --- Opcional pero recomendado: Buscar el usuario en la BD ---
+            # Para asegurar que el usuario todavía existe y obtener datos actualizados
+            # db = get_db()
+            # db.execute("SELECT id, nombre, rol FROM usuarios WHERE id = %s", (data['user_id'],)) # Asume que guardas user_id en el token
+            # current_user = db.fetchone()
+            # if not current_user:
+            #     return jsonify({'message': 'Usuario del token no encontrado'}), 401
+            # --- Fin Opcional ---
             
-            if not current_user:
-                return jsonify({'message': 'Usuario del token no encontrado'}), 401
+            # Si no buscas en DB, usa los datos del token directamente (menos seguro si borras usuarios)
+            current_user = data # Asume que el token contiene 'id', 'rol', etc.
 
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'El token ha expirado'}), 401
         except jwt.InvalidTokenError:
             return jsonify({'message': 'Token inválido'}), 401
         except Exception as e:
-            return jsonify({'message': f'Error procesando el token: {str(e)}'}), 500
+             # Captura cualquier otro error inesperado durante la validación
+             print(f"Error inesperado validando token: {e}") # Mantenemos un log por si acaso
+             return jsonify({'message': 'Error al procesar el token'}), 500
 
-        # 4. Pasa el usuario decodificado a la ruta
-        return f(dict(current_user), *args, **kwargs)
-
+        # Si todo está bien, llama a la función de la ruta original, pasando el usuario
+        return f(dict(current_user), *args, **kwargs) # Convertimos a dict si viene de DB
     return decorated
