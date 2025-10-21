@@ -1,9 +1,7 @@
 import { fetchData } from '../api.js';
 import { appState } from '../main.js';
-import { fetchData, sendData } from '../api.js';
+import { sendData } from '../api.js';
 import { mostrarNotificacion } from './notifications.js';
-
-
 // ✨ CORRECCIÓN: Importamos cada cosa desde su archivo correcto.
 import * as state from './sales/state.js';
 import * as ui from './sales/ui.js';
