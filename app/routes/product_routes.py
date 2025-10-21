@@ -186,6 +186,8 @@ def buscar_productos_con_precio(current_user, negocio_id):
 @bp.route('/negocios/<int:negocio_id>/recalculate-prices', methods=['POST'])
 @token_required
 def recalculate_prices(current_user, negocio_id):
+    print("--- >>> Recalculate endpoint hit! <<< ---")
+    
     data = request.get_json()
     print(f"--- Recalculate Prices Request ---") # <-- LOG 1
     print(f"Received data: {data}")             # <-- LOG 2

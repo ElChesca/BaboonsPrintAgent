@@ -64,28 +64,41 @@ async function verificarEstadoCaja() {
         infoCajaEl.className = 'caja-info-banner cerrada';
     }
 }
+// en static/js/modules/sales.js
+
 export async function recalcularCarritoPorCliente() {
     const items = state.getSaleItems();
-    if (items.length === 0) return; // Si no hay nada en el carrito, no hacemos nada
+    // ✨ --- LOG 2: ¿Llega aquí la función? --- ✨
+    console.log('recalcularCarritoPorCliente called. Items in cart:', items); 
+    
+    if (items.length === 0) {
+        console.log('Cart is empty, skipping recalculation.'); // LOG adicional
+        return; 
+    }
 
     const clienteId = document.getElementById('cliente-selector').value || null;
     const productIds = items.map(item => item.producto_id);
+    const payload = { product_ids: productIds, cliente_id: clienteId };
+
+    // ✨ --- LOG 3: ¿Qué estamos enviando? --- ✨
+    console.log('Calling recalculate API with payload:', payload);
 
     try {
-        const payload = { product_ids: productIds, cliente_id: clienteId };
-        const preciosActualizados = await sendData( // Usamos sendData porque es un POST
+        const preciosActualizados = await sendData(
             `/api/negocios/${appState.negocioActivoId}/recalculate-prices`, 
             payload, 
             'POST'
         );
-
-        // Actualizamos el estado del carrito con los nuevos precios
-        state.updateItemPrices(preciosActualizados);
         
-        // Volvemos a renderizar la tabla y el total para que se vean los cambios
-        ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
+        // ✨ --- LOG 4: ¿Qué recibimos si funciona? --- ✨
+        console.log('API response OK:', preciosActualizados); 
+
+        state.updateItemPrices(preciosActualizados);
+        ui.renderSaleItemsTable(state.getSaleItems());
 
     } catch (error) {
+        // ✨ --- LOG 5: ¡EL ERROR EXACTO! --- ✨
+        console.error('ERROR caught in recalcularCarritoPorCliente:', error); 
         mostrarNotificacion('Error al recalcular precios para el cliente.', 'error');
     }
 }

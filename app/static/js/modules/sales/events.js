@@ -88,8 +88,15 @@ export function setupEventListeners() {
     const descuentoInput = document.getElementById('descuento-extra');
     const envioInput = document.getElementById('gastos-envio');
 
-    // --- Listeners ---
-    if (clienteSelector) clienteSelector.addEventListener('change', recalcularCarritoPorCliente);
+    // --- Listeners ---   
+    if (clienteSelector) {
+        clienteSelector.addEventListener('change', (event) => { // Añadimos 'event'
+            // ✨ --- LOG 1: ¿Se activa el listener? --- ✨
+            console.log('Cliente selector changed! New value:', event.target.value); 
+            recalcularCarritoPorCliente();
+        });
+    }
+
     if (listaPreciosSelector) listaPreciosSelector.addEventListener('change', recalcularCarritoPorCliente);
     
     // ✨ --- CORRECCIÓN CLAVE --- ✨
