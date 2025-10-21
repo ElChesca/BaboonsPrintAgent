@@ -90,6 +90,8 @@ export function setupEventListeners() {
     const descuentoInput = document.getElementById('descuento-extra');
     const envioInput = document.getElementById('gastos-envio');
     const btnNuevoClienteRapido = document.getElementById('btn-nuevo-cliente-rapido');
+    const formClienteRapido = document.getElementById('form-nuevo-cliente-rapido');
+    const closeModalClienteRapido = document.getElementById('close-modal-cliente-rapido');
 
     // --- Listeners ---   
     if (clienteSelector) {
@@ -187,7 +189,7 @@ export function setupEventListeners() {
     window.addEventListener('click', (e) => {
     if (e.target == modalClienteRapido) modalClienteRapido.style.display = 'none';
     });
-    
+
     if (formClienteRapido) {
         formClienteRapido.addEventListener('submit', async (e) => {
             e.preventDefault();
