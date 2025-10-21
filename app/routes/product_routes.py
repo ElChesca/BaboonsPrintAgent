@@ -244,30 +244,40 @@ def recalculate_prices(current_user, negocio_id):
     
 
 # End Point para obtener los productos por Cod desde el Cel
+# en app/routes/product_routes.py
+
 @bp.route('/negocios/<int:negocio_id>/productos/por_codigo', methods=['GET'])
 @token_required
 def get_producto_por_codigo(current_user, negocio_id):
-    """Busca un producto por SKU o Código de Barras."""
     codigo = request.args.get('codigo', '')
+    print(f"--- Mobile Scan Search ---") # LOG 1
+    print(f"Negocio ID: {negocio_id}, Codigo recibido: '{codigo}'") # LOG 2
+
     if not codigo:
+        print("Error: No code received.") # LOG 3
         return jsonify({'error': 'Se requiere un código (SKU o barras)'}), 400
 
     db = get_db()
-    # Busca primero por código de barras, luego por SKU
-    db.execute(
-        """
-        SELECT id, nombre, stock, precio_venta, sku, codigo_barras 
-        FROM productos 
-        WHERE negocio_id = %s AND (codigo_barras = %s OR sku = %s)
-        LIMIT 1
-        """,
-        (negocio_id, codigo, codigo)
-    )
-    producto = db.fetchone()
+    try: # Añadimos Try/Except para capturar errores de DB
+        query = """
+            SELECT id, nombre, stock, precio_venta, sku, codigo_barras 
+            FROM productos 
+            WHERE negocio_id = %s AND (codigo_barras = %s OR sku = %s)
+            LIMIT 1
+            """
+        params = (negocio_id, codigo, codigo)
+        print(f"Executing query: {query} with params: {params}") # LOG 4
+        
+        db.execute(query, params)
+        producto = db.fetchone()
 
-    if not producto:
-        return jsonify({'error': 'Producto no encontrado'}), 404
-    
-    # Aquí podríamos añadir lógica de precios si fuera necesario,
-    # pero para el inventario, usualmente solo necesitamos el stock.
-    return jsonify(dict(producto))
+        if not producto:
+            print(f"Producto NOT FOUND for code '{codigo}' in negocio {negocio_id}.") # LOG 5
+            return jsonify({'error': 'Producto no encontrado'}), 404
+        
+        print(f"Producto FOUND: {dict(producto)}") # LOG 6
+        return jsonify(dict(producto))
+
+    except Exception as e:
+        print(f"!!! DATABASE ERROR searching by code: {e}") # LOG DE ERROR
+        return jsonify({'error': f'Error interno de base de datos: {str(e)}'}), 500
