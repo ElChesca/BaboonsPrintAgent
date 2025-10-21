@@ -89,6 +89,7 @@ export function setupEventListeners() {
     const listaPreciosSelector = document.getElementById('lista-precios-selector');
     const descuentoInput = document.getElementById('descuento-extra');
     const envioInput = document.getElementById('gastos-envio');
+    const btnNuevoClienteRapido = document.getElementById('btn-nuevo-cliente-rapido');
 
     // --- Listeners ---   
     if (clienteSelector) {
