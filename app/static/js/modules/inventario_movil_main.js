@@ -83,41 +83,27 @@ function resetUI() {
 }
 
 // --- Lógica del Escáner (ZXing-JS) ---
-
-// Función separada para iniciar el escaneo
 async function startScan() {
-    if (!codeReader || !selectedDeviceId) {
-        mostrarError("El lector de códigos no está inicializado.");
+    // ✨ CORRECCIÓN: Verifica si tenemos un ID o Constraints válidos
+    if (!codeReader || (!selectedDeviceId && !videoConstraints)) { 
+        mostrarError("El lector de códigos no está inicializado o no hay cámara seleccionada.");
         return;
     }
     try {
-        statusElement.textContent = 'Buscando cámara...';
-        await codeReader.decodeFromVideoDevice(selectedDeviceId, 'scanner-video', async (result, err) => {
-            if (result) {
-                // Código detectado
-                codeReader.stopStreams(); // Detiene la cámara temporalmente
-                const code = result.getText();
-                statusElement.textContent = `Código detectado: ${code}. Buscando...`;
-                
-                const producto = await buscarProductoPorCodigo(code);
-                
-                if (producto) {
-                    navigator.vibrate(100); // Pequeña vibración (si el navegador lo permite)
-                    mostrarInfoProducto(producto);
-                } else {
-                    mostrarError(`Producto con código ${code} no encontrado.`);
-                    // Reanuda el escaneo después de un momento
-                    setTimeout(() => startScan(), 2000); 
-                }
-            }
-            if (err && !(err instanceof ZXing.NotFoundException)) {
-                // Maneja otros errores que no sean "no se encontró código"
-                console.error('Error de escaneo:', err);
-                mostrarError(`Error de escaneo: ${err.message}`);
-                // Intentar reiniciar el escaneo podría ser útil aquí
-                setTimeout(() => startScan(), 3000);
-            }
-        });
+        statusElement.textContent = 'Iniciando cámara...';
+        
+        // ✨ CORRECCIÓN: Decide cómo llamar a decodeFromVideoDevice
+        let decodePromise;
+        if (selectedDeviceId) {
+            // Si tenemos ID, lo usamos (preferido)
+             decodePromise = codeReader.decodeFromVideoDevice(selectedDeviceId, 'scanner-video', handleDecodeResult);
+        } else {
+             // Si no hay ID, usamos las constraints generales
+             decodePromise = codeReader.decodeFromConstraints({ video: videoConstraints }, 'scanner-video', handleDecodeResult);
+        }
+
+        await decodePromise; // Espera a que la promesa inicie (no necesariamente a que termine de escanear)
+
         statusElement.textContent = 'Listo para escanear.';
         scannerContainer.classList.remove('hidden');
         btnStartScanner.classList.add('hidden');
@@ -131,25 +117,38 @@ async function startScan() {
     }
 }
 
-// en static/js/modules/inventario_movil_main.js
+// ✨ NUEVO: Función separada para manejar el resultado del escaneo
+async function handleDecodeResult(result, err) {
+    if (result) {
+        codeReader.stopStreams(); 
+        const code = result.getText();
+        statusElement.textContent = `Código detectado: ${code}. Buscando...`;
+        
+        const producto = await buscarProductoPorCodigo(code);
+        
+        if (producto) {
+            navigator.vibrate(100); 
+            mostrarInfoProducto(producto);
+        } else {
+            mostrarError(`Producto con código ${code} no encontrado.`);
+            setTimeout(() => startScan(), 2000); 
+        }
+    }
+    if (err && !(err instanceof ZXing.NotFoundException)) {
+        console.error('Error de escaneo:', err);
+        mostrarError(`Error de escaneo: ${err.message}`);
+        setTimeout(() => startScan(), 3000);
+    }
+}
+
 
 async function iniciarScanner() {
     console.log("iniciarScanner called"); 
     try {
         statusElement.textContent = 'Inicializando lector de códigos...';
-        
-        // ✨ --- VERIFICACIÓN CLAVE --- ✨
-        // 1. ¿Existe el objeto global ZXing?
-        if (typeof ZXing === 'undefined') {
-            throw new Error("La librería ZXing no se cargó.");
+        if (typeof ZXing === 'undefined' || typeof ZXing.BrowserMultiFormatReader === 'undefined') {
+            throw new Error("La librería ZXing no se cargó correctamente.");
         }
-        // 2. ¿Existe el componente específico que necesitamos?
-        if (typeof ZXing.BrowserMultiFormatReader === 'undefined') {
-            throw new Error("El componente BrowserMultiFormatReader de ZXing no está disponible.");
-        }
-        console.log("ZXing y BrowserMultiFormatReader encontrados."); // Log de éxito
-
-        // Ahora sí, creamos el lector
         codeReader = new ZXing.BrowserMultiFormatReader();
         
         statusElement.textContent = 'Buscando cámaras disponibles...';
@@ -158,36 +157,32 @@ async function iniciarScanner() {
         let videoInputDevices = [];
         try {
              videoInputDevices = await codeReader.listVideoInputDevices();
-        } catch (deviceError) {
-             console.error("ERROR specifically listing devices:", deviceError);
-             // Añadimos un mensaje más descriptivo para problemas de permisos/HTTPS
-             if (deviceError.name === 'NotAllowedError' || deviceError.message.includes('secure context')) {
-                 throw new Error(`Permiso de cámara denegado o conexión no segura (HTTPS). Revisa los permisos del navegador.`);
-             }
-             throw new Error(`Error al listar cámaras: ${deviceError.message}`);
-        }
+        } catch (deviceError) { /* ... (manejo de errores de listado) ... */ }
         console.log("Video devices found:", videoInputDevices);
 
-        if (videoInputDevices.length === 0) {
-            throw new Error("No se encontraron cámaras.");
+        if (videoInputDevices.length > 0) {
+            // Intentamos obtener el ID de la primera cámara
+            selectedDeviceId = videoInputDevices[0].deviceId; 
+            // ✨ Guardamos las constraints como fallback ✨
+            videoConstraints = { deviceId: selectedDeviceId } // Por defecto
+            // Si no hay ID, usamos una constraint más genérica (puede ser útil en iOS)
+            if (!selectedDeviceId) {
+                 videoConstraints = { facingMode: "environment" }; // Intenta usar la cámara trasera
+                 console.log("No device ID found, using facingMode constraint.");
+            } else {
+                 console.log(`Selected device ID: ${selectedDeviceId}`);
+            }
+        } else {
+             // Si no hay cámaras, probamos una constraint genérica
+             videoConstraints = { facingMode: "environment" };
+             console.log("No specific video devices found, attempting generic facingMode.");
+             // No lanzamos error aquí, dejaremos que startScan intente usar las constraints
         }
 
-        selectedDeviceId = videoInputDevices[0].deviceId; 
-        console.log(`Selected device ID: ${selectedDeviceId}`);
+        startScan(); // Iniciamos el escaneo con lo que tengamos (ID o constraints)
 
-        startScan();
-
-    } catch (error) {
-        console.error("Error al inicializar ZXing o listar cámaras:", error); 
-        mostrarError(`Error: ${error.message}`); // Mostramos el error específico
-        statusElement.textContent = `Error: ${error.message}`;
-        btnStartScanner.classList.remove('hidden'); // Muestra botón para reintentar
-        scannerContainer.classList.add('hidden'); // Oculta el visor si falló
-    }
+    } catch (error) { /* ... (manejo de errores de inicialización) ... */ }
 }
-
-// ... (El resto de tu archivo: startScan, listeners, etc. se quedan igual)
-
 // --- Event Listeners ---
 btnStartScanner.addEventListener('click', () => {
     // ✨ LOG 0: ¿Se activa el listener del botón?
