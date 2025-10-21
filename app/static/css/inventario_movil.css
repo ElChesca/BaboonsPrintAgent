@@ -1,0 +1,117 @@
+/* static/css/inventario_movil.css */
+body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 15px;
+    background-color: #f4f6f8;
+    color: #333;
+    /* Evita el rebote en iOS */
+    overscroll-behavior-y: contain; 
+}
+
+.container {
+    max-width: 500px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+h1 {
+    text-align: center;
+    color: #34495e;
+    margin-bottom: 10px;
+}
+
+#scanner-container {
+    position: relative;
+    width: 100%;
+    /* Ajusta la altura basada en el ancho para mantener proporción 4:3 */
+    padding-bottom: 75%; 
+    overflow: hidden;
+    background-color: #000;
+    border-radius: 8px;
+}
+
+#scanner-video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Cubre el área sin distorsionar */
+}
+
+.scan-marker {
+    position: absolute;
+    top: 50%;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background-color: rgba(255, 0, 0, 0.7);
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+    /* Animación simple (opcional) */
+    /* animation: scan 1.5s infinite linear; */
+}
+
+/* @keyframes scan { 0%, 100% { top: 30%; } 50% { top: 70%; } } */
+
+#scanner-status {
+    text-align: center;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.card {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+input[type="number"], input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 1.1em;
+}
+
+.btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+    margin-top: 10px;
+}
+
+.btn-primary { background-color: #007bff; color: white; }
+.btn-success { background-color: #28a745; color: white; }
+.btn-secondary { background-color: #6c757d; color: white; }
+
+.hidden { display: none !important; }
+
+.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 10px;
+    border-radius: 5px;
+    text-align: center;
+    font-weight: bold;
+}

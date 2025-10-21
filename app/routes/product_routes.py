@@ -182,9 +182,6 @@ def buscar_productos_con_precio(current_user, negocio_id):
     return jsonify(resultados_con_precio_final)
 
 # ✨ --- NUEVA RUTA PARA RECALCULAR PRECIOS EN LOTE --- ✨
-# en app/routes/product_routes.py
-# en app/routes/product_routes.py
-
 @bp.route('/negocios/<int:negocio_id>/recalculate-prices', methods=['POST'])
 @token_required
 def recalculate_prices(current_user, negocio_id):
@@ -245,3 +242,32 @@ def recalculate_prices(current_user, negocio_id):
         # Devolvemos un error 500 explícito si algo falla aquí dentro
         return jsonify({'error': f'Internal error during recalculation: {str(e)}'}), 500
     
+
+# End Point para obtener los productos por Cod desde el Cel
+@bp.route('/negocios/<int:negocio_id>/productos/por_codigo', methods=['GET'])
+@token_required
+def get_producto_por_codigo(current_user, negocio_id):
+    """Busca un producto por SKU o Código de Barras."""
+    codigo = request.args.get('codigo', '')
+    if not codigo:
+        return jsonify({'error': 'Se requiere un código (SKU o barras)'}), 400
+
+    db = get_db()
+    # Busca primero por código de barras, luego por SKU
+    db.execute(
+        """
+        SELECT id, nombre, stock, precio_venta, sku, codigo_barras 
+        FROM productos 
+        WHERE negocio_id = %s AND (codigo_barras = %s OR sku = %s)
+        LIMIT 1
+        """,
+        (negocio_id, codigo, codigo)
+    )
+    producto = db.fetchone()
+
+    if not producto:
+        return jsonify({'error': 'Producto no encontrado'}), 404
+    
+    # Aquí podríamos añadir lógica de precios si fuera necesario,
+    # pero para el inventario, usualmente solo necesitamos el stock.
+    return jsonify(dict(producto))
