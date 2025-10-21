@@ -4,8 +4,8 @@
 const NEGOCIO_ACTIVO_ID = localStorage.getItem('negocioActivoId') || 1; 
 
 // --- Selectores de Elementos ---
-const scannerContainer = document.getElementById('scanner-container'); // Mantenemos este por si queremos ocultar/mostrar
-const qrReaderDiv = document.getElementById('qr-reader'); // El div donde se renderizará el scanner
+const scannerContainer = document.getElementById('scanner-container'); 
+const qrReaderDiv = document.getElementById('qr-reader'); 
 const statusElement = document.getElementById('scanner-status');
 const productInfoDiv = document.getElementById('product-info');
 const productNameEl = document.getElementById('product-name');
@@ -21,12 +21,79 @@ const errorDiv = document.getElementById('error-message');
 // Variable para la instancia del escáner
 let html5QrcodeScanner = null;
 
-// --- Funciones API (buscarProductoPorCodigo, ajustarStock se quedan igual) ---
-async function buscarProductoPorCodigo(codigo) { /* ... (igual que antes) ... */ }
-async function ajustarStock(productoId, cantidadNueva) { /* ... (igual que antes) ... */ }
+// --- Funciones API ---
 
-// --- Funciones UI (mostrarError, mostrarInfoProducto se quedan igual) ---
-function mostrarError(mensaje) { /* ... (igual que antes) ... */ }
+// ✨ FUNCIÓN DEFINIDA COMPLETAMENTE ✨
+async function buscarProductoPorCodigo(codigo) {
+    try {
+        const token = localStorage.getItem('jwt_token');
+        console.log("Token from localStorage:", token ? `Token found (${token.substring(0, 10)}...)` : 'Token NOT FOUND'); 
+        if (!token) throw new Error("No autenticado (token no encontrado en localStorage)");
+
+        const response = await fetch(`/api/negocios/${NEGOCIO_ACTIVO_ID}/productos/por_codigo?codigo=${encodeURIComponent(codigo)}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
+            throw new Error(errData.error || `Error ${response.status}`); 
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Error buscando producto:", error);
+        mostrarError(error.message); 
+        return null; 
+    }
+}
+
+// ✨ FUNCIÓN DEFINIDA COMPLETAMENTE ✨
+async function ajustarStock(productoId, cantidadNueva) {
+    try {
+        const token = localStorage.getItem('jwt_token');
+        if (!token) throw new Error("No autenticado");
+        const payload = { 
+            producto_id: parseInt(productoId), // Asegura que sea número
+            cantidad_nueva: parseInt(cantidadNueva), // Asegura que sea número
+            negocio_id: NEGOCIO_ACTIVO_ID 
+        };
+        const response = await fetch(`/api/inventario/ajustar`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
+            throw new Error(errData.error || `Error ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+         console.error("Error ajustando stock:", error);
+        mostrarError(error.message);
+        return null;
+    }
+}
+
+// --- Funciones UI ---
+
+// ✨ FUNCIÓN DEFINIDA COMPLETAMENTE ✨
+function mostrarError(mensaje) {
+    console.error("Mostrando error:", mensaje); 
+    if (errorDiv) {
+        errorDiv.textContent = mensaje;
+        errorDiv.classList.remove('hidden');
+        // Oculta después de 5s para errores no críticos
+        // if (!mensaje.toLowerCase().includes('autenticado') && !mensaje.toLowerCase().includes('permiso')) {
+             setTimeout(() => errorDiv.classList.add('hidden'), 5000); 
+        // }
+    } else {
+        alert(`Error: ${mensaje}`); // Fallback
+    }
+}
+
+// ✨ FUNCIÓN DEFINIDA COMPLETAMENTE ✨
 function mostrarInfoProducto(producto) {
     productNameEl.textContent = producto.nombre;
     productSkuEl.textContent = producto.sku || producto.codigo_barras;
@@ -35,7 +102,8 @@ function mostrarInfoProducto(producto) {
     cantidadNuevaInput.value = producto.stock; 
     
     productInfoDiv.classList.remove('hidden');
-    qrReaderDiv.classList.add('hidden'); // Oculta el div del scanner
+    if (qrReaderDiv) qrReaderDiv.classList.add('hidden'); // Oculta si existe
+    if (scannerContainer) scannerContainer.classList.add('hidden'); // Oculta también el otro por si acaso
     btnStartScanner.classList.remove('hidden'); 
     statusElement.classList.add('hidden');
     
@@ -45,82 +113,51 @@ function mostrarInfoProducto(producto) {
 
 function resetUI() {
     productInfoDiv.classList.add('hidden');
-    qrReaderDiv.classList.remove('hidden'); // Muestra el div del scanner de nuevo
+    if (qrReaderDiv) qrReaderDiv.classList.remove('hidden'); 
+    if (scannerContainer) scannerContainer.classList.add('hidden'); // Mantenemos este oculto
     btnStartScanner.classList.add('hidden');
     statusElement.classList.remove('hidden');
     statusElement.textContent = 'Apunte la cámara al código de barras...';
     errorDiv.classList.add('hidden');
-    // Reanudamos el escaneo si ya estaba iniciado
     if (html5QrcodeScanner) {
-        // Para html5-qrcode, la forma más simple es volver a renderizar
+        // Detiene el escaneo si estaba activo antes de iniciar uno nuevo
+        if (html5QrcodeScanner.isScanning) {
+            html5QrcodeScanner.clear().catch(err => console.warn("Error al limpiar en resetUI", err));
+        }
         iniciarScanner(); 
     }
 }
 
-async function buscarProductoPorCodigo(codigo) {
-    try {
-        const token = localStorage.getItem('jwt_token');
-        
-        // ✨ Log para verificar el token ✨
-        console.log("Token from localStorage:", token ? `Token found (${token.substring(0, 10)}...)` : 'Token NOT FOUND'); 
-        
-        if (!token) throw new Error("No autenticado (token no encontrado en localStorage)");
-
-        const response = await fetch(`/api/negocios/${NEGOCIO_ACTIVO_ID}/productos/por_codigo?codigo=${encodeURIComponent(codigo)}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!response.ok) {
-            // Leemos el mensaje del backend
-            const errData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
-            // Lanzamos el mensaje específico
-            throw new Error(errData.error || `Error ${response.status}`); 
-        }
-        return await response.json();
-    } catch (error) {
-        console.error("Error buscando producto:", error);
-        mostrarError(error.message); // Muestra el error (ej: 401 si falla token)
-        return null; // Devuelve null si hay error
-    }
-}
 // --- Lógica del Escáner (html5-qrcode) ---
 
 function onScanSuccess(decodedText, decodedResult) {
     console.log(`Código escaneado: ${decodedText}`);
     statusElement.textContent = `Código detectado: ${decodedText}. Buscando...`;
 
-    // Detenemos el escáner ANTES de hacer la llamada a la API
     if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
-        html5QrcodeScanner.clear().catch(error => {
-            console.error("Fallo al limpiar el escáner.", error);
-        });
-    }
+        html5QrcodeScanner.clear().catch(error => console.error("Fallo al limpiar el escáner.", error));
+    } 
 
-    // Buscamos el producto
-    
     buscarProductoPorCodigo(decodedText).then(producto => {
         if (producto) {
             navigator.vibrate(100);
             mostrarInfoProducto(producto);
         } else {
             mostrarError(`Producto con código ${decodedText} no encontrado.`);
-            // No reiniciamos automáticamente, el usuario puede reintentar con el botón
-            btnStartScanner.classList.remove('hidden'); // Mostrar botón para re-escanear
-            qrReaderDiv.classList.add('hidden');
+            btnStartScanner.classList.remove('hidden'); 
+            if (qrReaderDiv) qrReaderDiv.classList.add('hidden');
         }
     }).catch(err => {
         mostrarError(`Error al buscar producto: ${err.message}`);
         btnStartScanner.classList.remove('hidden');
-        qrReaderDiv.classList.add('hidden');
+        if (qrReaderDiv) qrReaderDiv.classList.add('hidden');
     });
 }
 
 function onScanFailure(error) {
-    // Ignoramos errores comunes como "QR code parse error" para no molestar
-    if (!error.includes("NotFoundError")) {
-       console.warn(`Error de escaneo: ${error}`);
-       // Podríamos mostrar un mensaje sutil al usuario si quisiéramos
-       // statusElement.textContent = 'Intenta alinear mejor el código.';
+    // Evita mostrar errores si simplemente no detectó nada
+    if (error.includes && !error.includes("NotFoundException")) {
+        console.warn(`Error de escaneo: ${error}`);
     }
 }
 
@@ -128,39 +165,40 @@ function iniciarScanner() {
     console.log("iniciarScanner called with html5-qrcode");
     statusElement.textContent = 'Iniciando cámara...';
     btnStartScanner.classList.add('hidden');
-    qrReaderDiv.classList.remove('hidden'); // Asegúrate que el div del lector esté visible
-    productInfoDiv.classList.add('hidden'); // Oculta la info del producto
+    if (qrReaderDiv) qrReaderDiv.classList.remove('hidden'); 
+    productInfoDiv.classList.add('hidden'); 
 
-    // Verificamos si ya existe una instancia para evitar errores
     if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
-        console.log("El escáner ya estaba activo, limpiando...");
+        console.log("Intentando limpiar scanner previo...");
         html5QrcodeScanner.clear().catch(err => console.error("Error al limpiar scanner previo", err));
     }
 
     try {
-        // Creamos una nueva instancia del escáner
+         // ✨ CORRECCIÓN CLAVE: Usamos el objeto global Html5Qrcode ✨
+         const formatsToSupport = [ 
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.UPC_A, 
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.QR_CODE 
+        ];
+
         html5QrcodeScanner = new Html5QrcodeScanner(
-            "qr-reader", // ID del div donde se renderizará
+            "qr-reader", 
             { 
-                fps: 10, // Cuadros por segundo a escanear
-                qrbox: { width: 250, height: 150 }, // Tamaño del recuadro de escaneo (ajusta si es necesario)
-                // ✨ IMPORTANTE: Especificamos los formatos de código de barras
-                formatsToSupport: [ 
-                    Html5QrcodeSupportedFormats.EAN_13,
-                    Html5QrcodeSupportedFormats.EAN_8,
-                    Html5QrcodeSupportedFormats.CODE_128,
-                    Html5QrcodeSupportedFormats.CODE_39,
-                    Html5QrcodeSupportedFormats.UPC_A, 
-                    Html5QrcodeSupportedFormats.UPC_E,
-                    Html5QrcodeSupportedFormats.QR_CODE 
-                ],
-                // Pedimos explícitamente la cámara trasera
+                fps: 10, 
+                qrbox: { width: 250, height: 150 }, 
+                formatsToSupport: formatsToSupport, // Usamos la variable
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true // Intenta usar API nativa si existe
+                },
                 facingMode: "environment" 
             },
-            /* verbose= */ false // No mostrar logs internos de la librería
+             false 
         );
         
-        // Iniciamos el renderizado y escaneo
         html5QrcodeScanner.render(onScanSuccess, onScanFailure);
         statusElement.textContent = 'Listo para escanear.';
 
@@ -168,24 +206,44 @@ function iniciarScanner() {
         console.error("Error al inicializar Html5QrcodeScanner:", error);
         mostrarError(`No se pudo iniciar el escáner: ${error.message}. ¿Permitiste el acceso a la cámara?`);
         statusElement.textContent = `Error: ${error.message}`;
-        btnStartScanner.classList.remove('hidden'); // Muestra botón para reintentar
-        qrReaderDiv.classList.add('hidden');
+        btnStartScanner.classList.remove('hidden'); 
+        if (qrReaderDiv) qrReaderDiv.classList.add('hidden');
     }
 }
 
 // --- Event Listeners ---
-btnStartScanner.addEventListener('click', iniciarScanner);
-btnAjustar.addEventListener('click', async () => { /* ... (esta función se queda igual) ... */ });
-btnCancelar.addEventListener('click', resetUI);
+// Aseguramos que los botones existan antes de añadir listeners
+if (btnStartScanner) btnStartScanner.addEventListener('click', iniciarScanner);
+if (btnAjustar) {
+    btnAjustar.addEventListener('click', async () => { 
+        const productoId = productIdInput.value;
+        const cantidad = cantidadNuevaInput.value;
+        if (!productoId || cantidad === '') {
+            mostrarError("Faltan datos para el ajuste."); return;
+        }
+        btnAjustar.disabled = true;
+        btnAjustar.textContent = 'Ajustando...';
+        const resultado = await ajustarStock(productoId, cantidad);
+        if (resultado) {
+            alert('Stock ajustado con éxito.'); 
+            resetUI();
+        }
+        btnAjustar.disabled = false;
+        btnAjustar.textContent = '✅ Ajustar Stock';
+    });
+}
+if (btnCancelar) btnCancelar.addEventListener('click', resetUI);
 
 // --- Inicialización ---
-
-// ✨ ENVOLVEMOS la lógica inicial en DOMContentLoaded ✨
 document.addEventListener('DOMContentLoaded', () => {
-    // Aseguramos el estado inicial de la UI una vez que el DOM está listo
-    if (qrReaderDiv) qrReaderDiv.classList.add('hidden'); 
-    if (productInfoDiv) productInfoDiv.classList.add('hidden');
-    if (btnStartScanner) btnStartScanner.classList.remove('hidden'); 
+    // Verificamos si los elementos existen antes de manipularlos
+    const localQrReaderDiv = document.getElementById('qr-reader');
+    const localProductInfoDiv = document.getElementById('product-info');
+    const localBtnStartScanner = document.getElementById('btn-start-scanner');
 
-    console.log("DOM Cargado. Listo para iniciar escáner."); // Log adicional
+    if (localQrReaderDiv) localQrReaderDiv.classList.add('hidden'); 
+    if (localProductInfoDiv) localProductInfoDiv.classList.add('hidden');
+    if (localBtnStartScanner) localBtnStartScanner.classList.remove('hidden'); 
+
+    console.log("DOM Cargado. Listo para iniciar escáner."); 
 });
