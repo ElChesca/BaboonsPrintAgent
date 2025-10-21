@@ -80,7 +80,7 @@ export async function recalcularCarritoPorCliente() {
 
     const clienteId = document.getElementById('cliente-selector').value || null;
     const productIds = items.map(item => item.producto_id);
-    const payload = { product_ids: productIds, cliente_id: clienteId };
+    const payload = { product_ids: productIds, cliente_id: clienteId, lista_de_precio_id: listaId };
 
     // ✨ --- LOG 3: ¿Qué estamos enviando? --- ✨
     console.log('Calling recalculate API with payload:', payload);

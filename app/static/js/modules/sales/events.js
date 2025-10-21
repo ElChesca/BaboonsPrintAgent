@@ -55,10 +55,12 @@ async function buscarProductosEnVivo(query) {
         return;
     }
     const clienteId = document.getElementById('cliente-selector').value || null;
+    const listaId = document.getElementById('lista-precios-selector').value || null;
     let url = `/api/negocios/${appState.negocioActivoId}/productos/buscar?query=${encodeURIComponent(query)}`;
     if (clienteId) {
         url += `&cliente_id=${clienteId}`;
     }
+    if (listaId) url += `&lista_de_precio_id=${listaId}`;
     try {
         const productosConPrecio = await fetchData(url);
         ui.renderSearchResults(productosConPrecio, (productoSeleccionado) => {

@@ -139,6 +139,7 @@ def buscar_productos_con_precio(current_user, negocio_id):
     """
     query_term = request.args.get('query', '')
     cliente_id = request.args.get('cliente_id', None) # Recibimos el cliente desde el frontend
+    lista_id_override = request.args.get('lista_de_precio_id', None)
     
     db = get_db()
     
@@ -165,7 +166,8 @@ def buscar_productos_con_precio(current_user, negocio_id):
             db_cursor=db,
             producto_id=producto['id'],
             negocio_id=negocio_id,
-            cliente_id=cliente_id
+            cliente_id=cliente_id,
+            lista_de_precio_id_override=lista_id_override
         )
 
         producto_dict = dict(producto)
@@ -187,18 +189,22 @@ def buscar_productos_con_precio(current_user, negocio_id):
 @token_required
 def recalculate_prices(current_user, negocio_id):
     print("--- >>> Recalculate endpoint hit! <<< ---")
-    
+
     data = request.get_json()
     print(f"--- Recalculate Prices Request ---") # <-- LOG 1
     print(f"Received data: {data}")             # <-- LOG 2
     
     product_ids = data.get('product_ids', [])
     cliente_id = data.get('cliente_id', None)
+    lista_id_override = data.get('lista_de_precio_id', None)
+
     if cliente_id == '':
         cliente_id = None
+    # ✨ Si el frontend envía lista vacía, la tratamos como None
+    if lista_id_override == '': lista_id_override = None
 
     if not product_ids:
-        print("No product IDs received, returning empty.") # <-- LOG 3
+        print("No hay IDs de productos recep., Se retorna vacio") # <-- LOG 3
         return jsonify({})
 
     db = get_db()
@@ -221,7 +227,8 @@ def recalculate_prices(current_user, negocio_id):
                 db_cursor=db,
                 producto_id=prod_id,
                 negocio_id=negocio_id,
-                cliente_id=cliente_id
+                cliente_id=cliente_id,
+                lista_de_precio_id_override=lista_id_override
             )
             
             precios_actualizados[prod_id] = {

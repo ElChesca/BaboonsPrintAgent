@@ -21,14 +21,18 @@ def get_precio_producto(db_cursor, producto_id, negocio_id, cliente_id=None, can
 
     # 2. Determinar qué lista de precios usar
     lista_de_precio_id = None
-    if cliente_id:
-        db_cursor.execute(
-            "SELECT lista_de_precio_id FROM clientes WHERE id = %s AND negocio_id = %s",
-            (cliente_id, negocio_id)
-        )
-        cliente_info = db_cursor.fetchone()
-        if cliente_info and cliente_info['lista_de_precio_id']:
-            lista_de_precio_id = cliente_info['lista_de_precio_id']
+    if lista_de_precio_id_override:
+            # Si nos fuerzan una lista, la usamos
+            lista_de_precio_id = lista_de_precio_id_override
+    elif cliente_id:
+            # Si no, buscamos la del cliente
+            db_cursor.execute(
+                "SELECT lista_de_precio_id FROM clientes WHERE id = %s AND negocio_id = %s",
+                (cliente_id, negocio_id)
+            )
+            cliente_info = db_cursor.fetchone()
+            if cliente_info and cliente_info['lista_de_precio_id']:
+                lista_de_precio_id = cliente_info['lista_de_precio_id']
 
     # Si no hay lista asignada, el precio es el base. Fin de la lógica.
     if not lista_de_precio_id:
