@@ -1,7 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    </head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Inventario Móvil - Multinegocio</title>
+    <link rel="stylesheet" href="/static/css/inventario_movil.css">
+</head>
 <body>
     <div class="container">
         <h1>📱 Inventario Móvil</h1>
@@ -10,7 +14,7 @@
             <label for="negocio-selector-movil">Trabajando en el Negocio:</label>
             <select id="negocio-selector-movil">
                 <option value="">Cargando negocios...</option>
-                </select>
+            </select>
         </div>
         <hr>
 
@@ -28,11 +32,22 @@
             <video id="scanner-video" playsinline></video>
             <div class="scan-marker"></div>
         </div>
+        
         <button id="btn-start-scanner" class="btn btn-primary hidden">Iniciar Escáner</button>
         <p id="scanner-status">Seleccione un negocio para empezar.</p>
 
         <div id="product-info" class="card hidden">
+            <h3 id="product-name"></h3>
+            <p><strong>SKU:</strong> <span id="product-sku"></span></p>
+            <p><strong>Stock Actual:</strong> <span id="product-stock-actual"></span></p>
+            <input type="hidden" id="product-id">
+            <div class="form-group">
+                <label for="cantidad-nueva">Nuevo Stock Contado:</label>
+                <input type="number" id="cantidad-nueva" inputmode="numeric" pattern="[0-9]*" required>
             </div>
+            <button id="btn-ajustar-stock" class="btn btn-success">✅ Ajustar Stock</button>
+            <button id="btn-cancelar-ajuste" type="button" class="btn btn-secondary">Cancelar</button>
+        </div>
 
         <div id="error-message" class="error hidden"></div>
     </div>
