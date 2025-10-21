@@ -153,6 +153,13 @@ btnAjustar.addEventListener('click', async () => { /* ... (esta función se qued
 btnCancelar.addEventListener('click', resetUI);
 
 // --- Inicialización ---
-qrReaderDiv.classList.add('hidden'); // Oculta el div del scanner al inicio
-productInfoDiv.classList.add('hidden');
-btnStartScanner.classList.remove('hidden'); // Muestra el botón para iniciar
+
+// ✨ ENVOLVEMOS la lógica inicial en DOMContentLoaded ✨
+document.addEventListener('DOMContentLoaded', () => {
+    // Aseguramos el estado inicial de la UI una vez que el DOM está listo
+    if (qrReaderDiv) qrReaderDiv.classList.add('hidden'); 
+    if (productInfoDiv) productInfoDiv.classList.add('hidden');
+    if (btnStartScanner) btnStartScanner.classList.remove('hidden'); 
+
+    console.log("DOM Cargado. Listo para iniciar escáner."); // Log adicional
+});
