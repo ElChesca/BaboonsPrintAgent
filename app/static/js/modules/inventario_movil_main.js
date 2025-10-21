@@ -5,12 +5,20 @@
 let NEGOCIO_ACTIVO_ID = null; 
 
 // --- Selectores ---
-// (Se añaden los nuevos)
+const statusElement = document.getElementById('scanner-status');    
 const negocioSelector = document.getElementById('negocio-selector-movil');
+const btnStartScanner = document.getElementById('btn-start-scanner');
+const qrReaderDiv = document.getElementById('qr-reader');
+const productInfoDiv = document.getElementById('product-info');
 const manualCodeInput = document.getElementById('manual-code-input');
 const btnBuscarManual = document.getElementById('btn-buscar-manual');
-// ... (resto de selectores: qrReaderDiv, statusElement, productInfoDiv, etc.)
 
+if (!statusElement || !negocioSelector || !btnStartScanner || !qrReaderDiv || !productInfoDiv || !manualCodeInput || !btnBuscarManual) {
+        console.error("Error: Faltan elementos esenciales del DOM en inventario_movil.html");
+        mostrarError("Error interno: La página no cargó correctamente.");
+        return; // Detiene la ejecución si falta algo
+    }
+    
 let html5QrcodeScanner = null;
 
 // --- Funciones API ---
