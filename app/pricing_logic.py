@@ -1,6 +1,5 @@
 # app/pricing_logic.py
-
-def get_precio_producto(db_cursor, producto_id, negocio_id, cliente_id=None, cantidad=1):
+def get_precio_producto(db_cursor, producto_id, negocio_id, cliente_id=None, cantidad=1, lista_de_precio_id_override=None):
     """
     Calcula el precio final de un producto aplicando la lógica de listas de precios.
     
