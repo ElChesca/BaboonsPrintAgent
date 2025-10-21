@@ -135,19 +135,18 @@ async function iniciarScanner() {
     // ✨ LOG 1: ¿Se llama a la función?
     console.log("iniciarScanner called"); 
     try {
-        statusElement.textContent = 'Inicializando lector de códigos...';
-        // ✨ LOG 2: ¿Existe el objeto ZXing?
-        console.log("ZXing object:", typeof ZXing !== 'undefined' ? ZXing : 'Not Found'); 
-        if (typeof ZXing === 'undefined') {
-            throw new Error("La librería ZXing no se cargó correctamente.");
+        // ... (inicialización de ZXing) ...
+        console.log("Attempting to list video devices...");
+        // ✨ AÑADE UN TRY/CATCH ESPECÍFICO AQUÍ ✨
+        let videoInputDevices = [];
+        try {
+             videoInputDevices = await codeReader.listVideoInputDevices();
+        } catch (deviceError) {
+             console.error("ERROR specifically listing devices:", deviceError);
+             throw new Error(`Error al listar cámaras: ${deviceError.message}`); // Lanza el error para el catch principal
         }
-        codeReader = new ZXing.BrowserMultiFormatReader();
-        
-        statusElement.textContent = 'Buscando cámaras disponibles...';
-        // ✨ LOG 3: ¿Podemos listar las cámaras?
-        console.log("Attempting to list video devices..."); 
-        const videoInputDevices = await codeReader.listVideoInputDevices();
-        console.log("Video devices found:", videoInputDevices); // ✨ LOG 4: ¿Cuántas encontró?
+        // --- FIN DEL TRY/CATCH ---
+        console.log("Video devices found:", videoInputDevices);
 
         if (videoInputDevices.length === 0) {
             throw new Error("No se encontraron cámaras.");
