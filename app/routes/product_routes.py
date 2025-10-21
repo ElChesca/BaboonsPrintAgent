@@ -181,39 +181,58 @@ def buscar_productos_con_precio(current_user, negocio_id):
 
 # ✨ --- NUEVA RUTA PARA RECALCULAR PRECIOS EN LOTE --- ✨
 # en app/routes/product_routes.py
+# en app/routes/product_routes.py
+
 @bp.route('/negocios/<int:negocio_id>/recalculate-prices', methods=['POST'])
 @token_required
 def recalculate_prices(current_user, negocio_id):
     data = request.get_json()
+    print(f"--- Recalculate Prices Request ---") # <-- LOG 1
+    print(f"Received data: {data}")             # <-- LOG 2
+    
     product_ids = data.get('product_ids', [])
     cliente_id = data.get('cliente_id', None)
-
-    # ✨ --- CORRECCIÓN CLAVE --- ✨
-    # Si el frontend envía un string vacío, lo tratamos como si no hubiera cliente (None).
     if cliente_id == '':
         cliente_id = None
 
     if not product_ids:
+        print("No product IDs received, returning empty.") # <-- LOG 3
         return jsonify({})
 
     db = get_db()
     precios_actualizados = {}
 
-    for prod_id in product_ids:
-        db.execute("SELECT precio_venta FROM productos WHERE id = %s", (prod_id,))
-        producto_info = db.fetchone()
-        precio_base = float(producto_info['precio_venta']) if producto_info else 0
+    try: # <-- Añadimos un try/except para capturar errores aquí
+        for prod_id in product_ids:
+            print(f"Processing product ID: {prod_id}") # <-- LOG 4
+            db.execute("SELECT precio_venta FROM productos WHERE id = %s", (prod_id,))
+            producto_info = db.fetchone()
+            
+            if not producto_info:
+                print(f"Product ID {prod_id} not found in database.") # <-- LOG 5
+                # Podemos decidir qué hacer: ¿saltarlo o devolver un error? Por ahora lo saltamos.
+                continue 
 
-        precio_final = get_precio_producto(
-            db_cursor=db,
-            producto_id=prod_id,
-            negocio_id=negocio_id,
-            cliente_id=cliente_id
-        )
-        
-        precios_actualizados[prod_id] = {
-            'precio_original': precio_base,
-            'precio_final': precio_final
-        }
-    return jsonify(precios_actualizados)
+            precio_base = float(producto_info['precio_venta'])
+
+            precio_final = get_precio_producto(
+                db_cursor=db,
+                producto_id=prod_id,
+                negocio_id=negocio_id,
+                cliente_id=cliente_id
+            )
+            
+            precios_actualizados[prod_id] = {
+                'precio_original': precio_base,
+                'precio_final': precio_final
+            }
+            print(f"Calculated prices for {prod_id}: {precios_actualizados[prod_id]}") # <-- LOG 6
+
+        print(f"Returning updated prices: {precios_actualizados}") # <-- LOG 7
+        return jsonify(precios_actualizados)
+
+    except Exception as e:
+        print(f"!!! EXCEPTION during price recalculation: {e}") # <-- LOG DE ERROR
+        # Devolvemos un error 500 explícito si algo falla aquí dentro
+        return jsonify({'error': f'Internal error during recalculation: {str(e)}'}), 500
     

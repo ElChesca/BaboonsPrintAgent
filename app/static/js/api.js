@@ -43,7 +43,7 @@ export async function fetchData(url, options = {}) {
 }
 export async function sendData(url, data, method = 'POST') {
     const options = {
-        method: method, // POST, PUT, DELETE, etc.
+        method: method,
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
@@ -51,13 +51,33 @@ export async function sendData(url, data, method = 'POST') {
         body: JSON.stringify(data)
     };
 
-    const response = await fetch(url, options);
+    try {
+        const response = await fetch(url, options);
+        
+        // ✨ --- NUEVA LÓGICA DE DEPURACIÓN --- ✨
+        if (!response.ok) {
+            // Intentamos leer el error del backend, si no, usamos el statusText
+            let errorMsg = response.statusText;
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.error || errorData.message || errorMsg;
+            } catch (e) {
+                // No pudimos leer el JSON, nos quedamos con el statusText
+            }
+            // Lanzamos un error más detallado
+            throw new Error(`Error ${response.status}: ${errorMsg}`);
+        }
 
-    const responseData = await response.json();
-    if (!response.ok) {
-        // Lanza un error con el mensaje que viene del servidor (más útil)
-        throw new Error(responseData.error || responseData.message || 'Ocurrió un error al enviar los datos.');
+        // Si la respuesta es OK pero no tiene contenido (ej: DELETE exitoso)
+        if (response.status === 204) {
+            return null; 
+        }
+
+        // Si todo está bien, devolvemos el JSON
+        return response.json();
+
+    } catch (error) {
+        console.error(`Error en sendData (${method} ${url}):`, error); // Logueamos el error detallado
+        throw error; // Volvemos a lanzar el error para que el catch original lo maneje
     }
-    
-    return responseData;
 }
