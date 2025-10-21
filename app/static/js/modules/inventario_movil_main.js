@@ -57,7 +57,32 @@ function resetUI() {
     }
 }
 
+async function buscarProductoPorCodigo(codigo) {
+    try {
+        const token = localStorage.getItem('jwt_token');
+        
+        // ✨ Log para verificar el token ✨
+        console.log("Token from localStorage:", token ? `Token found (${token.substring(0, 10)}...)` : 'Token NOT FOUND'); 
+        
+        if (!token) throw new Error("No autenticado (token no encontrado en localStorage)");
 
+        const response = await fetch(`/api/negocios/${NEGOCIO_ACTIVO_ID}/productos/por_codigo?codigo=${encodeURIComponent(codigo)}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+            // Leemos el mensaje del backend
+            const errData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
+            // Lanzamos el mensaje específico
+            throw new Error(errData.error || `Error ${response.status}`); 
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Error buscando producto:", error);
+        mostrarError(error.message); // Muestra el error (ej: 401 si falla token)
+        return null; // Devuelve null si hay error
+    }
+}
 // --- Lógica del Escáner (html5-qrcode) ---
 
 function onScanSuccess(decodedText, decodedResult) {
@@ -72,6 +97,7 @@ function onScanSuccess(decodedText, decodedResult) {
     }
 
     // Buscamos el producto
+    
     buscarProductoPorCodigo(decodedText).then(producto => {
         if (producto) {
             navigator.vibrate(100);
