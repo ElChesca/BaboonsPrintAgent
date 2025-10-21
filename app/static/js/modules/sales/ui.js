@@ -15,7 +15,7 @@ export function renderSaleItemsTable(items, total) {
 
         tbody.innerHTML += `
             <tr data-index="${index}">
-                <td>${item.nombre}</td>
+                <td>${item.nombre} <small style="color: grey; display: block;">SKU: ${item.sku}</small></td> 
                 <td>${item.cantidad}</td>
                 <td>${formatCurrency(item.precio_unitario)}</td>
                 <td>${descuentoTotalItem > 0 ? formatCurrency(descuentoTotalItem) : '-'}</td>

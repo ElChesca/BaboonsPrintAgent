@@ -15,7 +15,9 @@ async function cargarDatosIniciales() {
             fetchData(`/api/negocios/${appState.negocioActivoId}/productos/top?limit=10`),
             fetchData(`/api/negocios/${appState.negocioActivoId}/listas_precios`)
         ]);
-        // Poblamos el selector de clientes
+        // Llamamos a la función que carga clientes
+        await cargarClientesSelector(); 
+         // Poblamos el selector de clientes
         const selectorClientes = document.getElementById('cliente-selector');
         if (selectorClientes) {
             selectorClientes.innerHTML = '<option value="">Consumidor Final</option>';
@@ -100,6 +102,29 @@ export async function recalcularCarritoPorCliente() {
         // ✨ --- LOG 5: ¡EL ERROR EXACTO! --- ✨
         console.error('ERROR caught in recalcularCarritoPorCliente:', error); 
         mostrarNotificacion('Error al recalcular precios para el cliente.', 'error');
+    }
+}
+export async function cargarClientesSelector(seleccionarId = null) {
+    try {
+        const clientes = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`);
+        const selector = document.getElementById('cliente-selector');
+        const valorActual = selector.value; // Guardamos por si acaso
+        
+        selector.innerHTML = '<option value="">Consumidor Final</option>';
+        clientes.forEach(c => {
+            selector.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+        });
+
+        if (seleccionarId) {
+            selector.value = seleccionarId;
+        } else {
+            selector.value = valorActual; // Restauramos si no hay ID nuevo
+        }
+        // Disparamos el 'change' para recalcular precios si se seleccionó un cliente
+        selector.dispatchEvent(new Event('change')); 
+
+    } catch (error) {
+        mostrarNotificacion('No se pudieron cargar los clientes.', 'error');
     }
 }
 

@@ -157,4 +157,42 @@ export function setupEventListeners() {
         });
         panelAccesoRapido.style.display = toggleAccesoRapido.checked ? 'grid' : 'none';
     }
+    // ✨ --- LÓGICA PARA EL MODAL DE CLIENTE RÁPIDO --- ✨
+    if (btnNuevoClienteRapido) {
+        btnNuevoClienteRapido.addEventListener('click', () => {
+            formClienteRapido.reset(); // Limpia el form
+            modalClienteRapido.style.display = 'flex';
+        });
+    }
+    if (closeModalClienteRapido) {
+        closeModalClienteRapido.addEventListener('click', () => {
+            modalClienteRapido.style.display = 'none';
+        });
+    }
+    // Cierra el modal si se hace clic fuera
+    window.addEventListener('click', (e) => {
+        if (e.target == modalClienteRapido) modalClienteRapido.style.display = 'none';
+    });
+
+    if (formClienteRapido) {
+        formClienteRapido.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nuevoCliente = {
+                nombre: document.getElementById('cliente-rapido-nombre').value,
+                dni: document.getElementById('cliente-rapido-dni').value,
+                // Puedes añadir valores por defecto para otros campos si tu API los requiere
+            };
+            try {
+                const clienteCreado = await sendData(`/api/negocios/${appState.negocioActivoId}/clientes`, nuevoCliente, 'POST');
+                mostrarNotificacion('Cliente creado con éxito.', 'success');
+                modalClienteRapido.style.display = 'none';
+                
+                // Recargamos el selector de clientes Y seleccionamos el nuevo
+                await cargarClientesSelector(clienteCreado.id); 
+
+            } catch (error) {
+                mostrarNotificacion(error.message, 'error');
+            }
+        });
+    }
 }

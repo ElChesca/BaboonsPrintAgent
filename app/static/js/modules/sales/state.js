@@ -25,6 +25,7 @@ export function addItem(producto, cantidad) {
         stagedSaleItems.push({
             producto_id: producto.id,
             nombre: producto.nombre,
+            sku: producto.sku || '-',
             cantidad: cantidad,
             precio_original: parseFloat(producto.precio_original), // Guardamos el original
             precio_unitario: parseFloat(producto.precio_final)   // Este es el precio final con descuento
