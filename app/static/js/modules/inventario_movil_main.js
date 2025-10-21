@@ -132,36 +132,48 @@ async function startScan() {
 }
 
 async function iniciarScanner() {
+    // ✨ LOG 1: ¿Se llama a la función?
+    console.log("iniciarScanner called"); 
     try {
         statusElement.textContent = 'Inicializando lector de códigos...';
+        // ✨ LOG 2: ¿Existe el objeto ZXing?
+        console.log("ZXing object:", typeof ZXing !== 'undefined' ? ZXing : 'Not Found'); 
+        if (typeof ZXing === 'undefined') {
+            throw new Error("La librería ZXing no se cargó correctamente.");
+        }
         codeReader = new ZXing.BrowserMultiFormatReader();
         
         statusElement.textContent = 'Buscando cámaras disponibles...';
+        // ✨ LOG 3: ¿Podemos listar las cámaras?
+        console.log("Attempting to list video devices..."); 
         const videoInputDevices = await codeReader.listVideoInputDevices();
-        
+        console.log("Video devices found:", videoInputDevices); // ✨ LOG 4: ¿Cuántas encontró?
+
         if (videoInputDevices.length === 0) {
             throw new Error("No se encontraron cámaras.");
         }
 
-        // Usamos la primera cámara encontrada por defecto (generalmente la trasera en móviles)
         selectedDeviceId = videoInputDevices[0].deviceId; 
-        
-        // Si hay más de una cámara, podríamos mostrar un selector, pero lo simplificamos por ahora.
-        // console.log(`Usando cámara: ${videoInputDevices[0].label}`);
+        console.log(`Selected device ID: ${selectedDeviceId}`); // ✨ LOG 5: ¿Qué cámara se usará?
 
         // Iniciamos el escaneo
         startScan();
 
     } catch (error) {
-        console.error("Error al inicializar ZXing:", error);
+        // ✨ LOG 6: ¿Hubo algún error durante la inicialización?
+        console.error("Error al inicializar ZXing:", error); 
         mostrarError(`No se pudo inicializar el lector: ${error.message}`);
         statusElement.textContent = `Error: ${error.message}`;
-        btnStartScanner.classList.remove('hidden'); // Muestra el botón para reintentar
+        btnStartScanner.classList.remove('hidden');
     }
 }
 
 // --- Event Listeners ---
-btnStartScanner.addEventListener('click', iniciarScanner);
+btnStartScanner.addEventListener('click', () => {
+    // ✨ LOG 0: ¿Se activa el listener del botón?
+    console.log("Botón 'Iniciar Escáner' clickeado!"); 
+    iniciarScanner();
+});
 
 btnAjustar.addEventListener('click', async () => { /* ... (esta función se queda igual) ... */ });
 btnCancelar.addEventListener('click', resetUI);
