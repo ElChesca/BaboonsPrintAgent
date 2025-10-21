@@ -131,21 +131,41 @@ async function startScan() {
     }
 }
 
+// en static/js/modules/inventario_movil_main.js
+
 async function iniciarScanner() {
-    // ✨ LOG 1: ¿Se llama a la función?
     console.log("iniciarScanner called"); 
     try {
-        // ... (inicialización de ZXing) ...
-        console.log("Attempting to list video devices...");
-        // ✨ AÑADE UN TRY/CATCH ESPECÍFICO AQUÍ ✨
+        statusElement.textContent = 'Inicializando lector de códigos...';
+        
+        // ✨ --- VERIFICACIÓN CLAVE --- ✨
+        // 1. ¿Existe el objeto global ZXing?
+        if (typeof ZXing === 'undefined') {
+            throw new Error("La librería ZXing no se cargó.");
+        }
+        // 2. ¿Existe el componente específico que necesitamos?
+        if (typeof ZXing.BrowserMultiFormatReader === 'undefined') {
+            throw new Error("El componente BrowserMultiFormatReader de ZXing no está disponible.");
+        }
+        console.log("ZXing y BrowserMultiFormatReader encontrados."); // Log de éxito
+
+        // Ahora sí, creamos el lector
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        
+        statusElement.textContent = 'Buscando cámaras disponibles...';
+        console.log("Attempting to list video devices..."); 
+        
         let videoInputDevices = [];
         try {
              videoInputDevices = await codeReader.listVideoInputDevices();
         } catch (deviceError) {
              console.error("ERROR specifically listing devices:", deviceError);
-             throw new Error(`Error al listar cámaras: ${deviceError.message}`); // Lanza el error para el catch principal
+             // Añadimos un mensaje más descriptivo para problemas de permisos/HTTPS
+             if (deviceError.name === 'NotAllowedError' || deviceError.message.includes('secure context')) {
+                 throw new Error(`Permiso de cámara denegado o conexión no segura (HTTPS). Revisa los permisos del navegador.`);
+             }
+             throw new Error(`Error al listar cámaras: ${deviceError.message}`);
         }
-        // --- FIN DEL TRY/CATCH ---
         console.log("Video devices found:", videoInputDevices);
 
         if (videoInputDevices.length === 0) {
@@ -153,19 +173,20 @@ async function iniciarScanner() {
         }
 
         selectedDeviceId = videoInputDevices[0].deviceId; 
-        console.log(`Selected device ID: ${selectedDeviceId}`); // ✨ LOG 5: ¿Qué cámara se usará?
+        console.log(`Selected device ID: ${selectedDeviceId}`);
 
-        // Iniciamos el escaneo
         startScan();
 
     } catch (error) {
-        // ✨ LOG 6: ¿Hubo algún error durante la inicialización?
-        console.error("Error al inicializar ZXing:", error); 
-        mostrarError(`No se pudo inicializar el lector: ${error.message}`);
+        console.error("Error al inicializar ZXing o listar cámaras:", error); 
+        mostrarError(`Error: ${error.message}`); // Mostramos el error específico
         statusElement.textContent = `Error: ${error.message}`;
-        btnStartScanner.classList.remove('hidden');
+        btnStartScanner.classList.remove('hidden'); // Muestra botón para reintentar
+        scannerContainer.classList.add('hidden'); // Oculta el visor si falló
     }
 }
+
+// ... (El resto de tu archivo: startScan, listeners, etc. se quedan igual)
 
 // --- Event Listeners ---
 btnStartScanner.addEventListener('click', () => {
