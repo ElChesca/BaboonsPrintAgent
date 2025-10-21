@@ -1,31 +1,13 @@
-<div class="pos-container">    
-    <div class="pos-header card">        
-        <div class="form-group input-with-button"> <label for="cliente-selector">Cliente</label>
-            <select id="cliente-selector"></select>
-            <button type="button" id="btn-nuevo-cliente-rapido" class="btn-add-quick" title="Crear Nuevo Cliente">+</button> </div>
-        </div>
-        <div id="modal-nuevo-cliente-rapido" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Crear Nuevo Cliente</h3>
-                    <span id="close-modal-cliente-rapido" class="close-button">&times;</span>
-                </div>
-                <form id="form-nuevo-cliente-rapido">
-                    <div class="form-group">
-                        <label for="cliente-rapido-nombre">Nombre:</label>
-                        <input type="text" id="cliente-rapido-nombre" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="cliente-rapido-dni">DNI/CUIT:</label>
-                        <input type="text" id="cliente-rapido-dni">
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn-primary">Guardar Cliente</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+<link rel="stylesheet" href="/static/css/ventas.css">
 
+<div class="pos-container">
+
+    <div class="pos-header card">
+        <div class="form-group input-with-button">
+            <label for="cliente-selector">Cliente</label>
+            <select id="cliente-selector"></select>
+            <button type="button" id="btn-nuevo-cliente-rapido" class="btn-add-quick" title="Crear Nuevo Cliente">+</button>
+        </div>
         <div class="form-group">
             <label for="lista-precios-selector">Lista de Precios</label>
             <select id="lista-precios-selector"></select>
@@ -42,6 +24,7 @@
         </div>
         <div id="info-caja-activa" class="caja-status-label">Cargando...</div>
     </div>
+
     <div class="search-panel">
         <form id="form-add-item-venta">
             <div class="form-group">
@@ -110,8 +93,34 @@
                     </div>
                 </form>
                 <div id="pago-detalles-container" style="display: none;">
-                    </div>
+                    <div class="form-group"><label>DNI:</label><input type="text" id="pago-dni"></div>
+                     <div class="form-group"><label>Tarjeta (últ. 4):</label><input type="text" id="pago-tarjeta" maxlength="4"></div>
+                     <div class="form-group"><label>Cupón:</label><input type="text" id="pago-cupon"></div>
+                     <div class="form-group"><label>Banco:</label><input type="text" id="pago-banco"></div>
+                </div>
             </div>
+        </div>
+    </div>
+
+    <div id="modal-nuevo-cliente-rapido" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Crear Nuevo Cliente</h3>
+                <span id="close-modal-cliente-rapido" class="close-button">&times;</span>
+            </div>
+            <form id="form-nuevo-cliente-rapido">
+                <div class="form-group">
+                    <label for="cliente-rapido-nombre">Nombre:</label>
+                    <input type="text" id="cliente-rapido-nombre" required>
+                </div>
+                <div class="form-group">
+                    <label for="cliente-rapido-dni">DNI/CUIT:</label>
+                    <input type="text" id="cliente-rapido-dni">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Guardar Cliente</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
