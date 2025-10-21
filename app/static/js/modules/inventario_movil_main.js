@@ -28,6 +28,7 @@ async function buscarProductoPorCodigo(codigo) {
     try {
         const token = localStorage.getItem('jwt_token');
         console.log("Token from localStorage:", token ? `Token found (${token.substring(0, 10)}...)` : 'Token NOT FOUND'); 
+        console.log(`Buscando código '${codigo}' en NEGOCIO_ID: ${NEGOCIO_ACTIVO_ID}`);
         if (!token) throw new Error("No autenticado (token no encontrado en localStorage)");
 
         const response = await fetch(`/api/negocios/${NEGOCIO_ACTIVO_ID}/productos/por_codigo?codigo=${encodeURIComponent(codigo)}`, {
