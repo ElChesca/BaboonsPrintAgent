@@ -163,20 +163,31 @@ export function setupEventListeners() {
     // ✨ --- LÓGICA PARA EL MODAL DE CLIENTE RÁPIDO --- ✨
     if (btnNuevoClienteRapido) {
         btnNuevoClienteRapido.addEventListener('click', () => {
-            formClienteRapido.reset(); // Limpia el form
-            modalClienteRapido.style.display = 'flex';
+            // ✨ Verifica si el formulario existe ANTES de usarlo ✨
+            if (formClienteRapido) {
+                formClienteRapido.reset(); // Limpia el form
+            } else {
+                console.error("No se encontró el formulario 'form-nuevo-cliente-rapido'");
+            }
+            // Muestra el modal si existe
+            if (modalClienteRapido) {
+                modalClienteRapido.style.display = 'flex';
+            } else {
+                 console.error("No se encontró el modal 'modal-nuevo-cliente-rapido'");
+            }
         });
     }
-    if (closeModalClienteRapido) {
-        closeModalClienteRapido.addEventListener('click', () => {
-            modalClienteRapido.style.display = 'none';
-        });
-    }
-    // Cierra el modal si se hace clic fuera
-    window.addEventListener('click', (e) => {
-        if (e.target == modalClienteRapido) modalClienteRapido.style.display = 'none';
-    });
 
+    // Cierra el modal si se hace clic fuera
+    if (closeModalClienteRapido) {
+            closeModalClienteRapido.addEventListener('click', () => {
+                if (modalClienteRapido) modalClienteRapido.style.display = 'none';
+            });
+        }
+    window.addEventListener('click', (e) => {
+    if (e.target == modalClienteRapido) modalClienteRapido.style.display = 'none';
+    });
+    
     if (formClienteRapido) {
         formClienteRapido.addEventListener('submit', async (e) => {
             e.preventDefault();
