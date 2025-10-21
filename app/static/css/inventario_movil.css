@@ -115,3 +115,12 @@ input[type="number"], input[type="text"] {
     text-align: center;
     font-weight: bold;
 }
+.manual-entry {
+    margin-bottom: 20px; /* Espacio antes del escáner */
+}
+
+/* Oculta elementos al inicio hasta que se seleccione un negocio */
+#qr-reader.hidden, 
+#btn-start-scanner.hidden {
+    display: none;
+}
