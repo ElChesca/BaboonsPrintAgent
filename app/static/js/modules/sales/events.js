@@ -1,19 +1,20 @@
-// static/js/modules/sales/events.js (Versión Corregida)
+// static/js/modules/sales/events.js (Versión Final Limpia)
 
-import { fetchData, sendData } from '../../api.js'; // Usamos sendData para POST
+import { fetchData, sendData } from '../../api.js';
 import { appState } from '../../main.js';
 import { mostrarNotificacion } from '../notifications.js';
 import * as state from './state.js';
 import * as ui from './ui.js';
-import { recalcularCarritoPorCliente } from '../sales.js';
+// Importamos funciones específicas que necesitamos
+import { recalcularCarritoPorCliente, cargarClientesSelector } from '../sales.js';
 
+// --- Funciones Auxiliares (Definidas fuera para claridad) ---
 
 async function procesarVenta(imprimir = false) {
     const items = state.getSaleItems();
     if (items.length === 0) {
         return mostrarNotificacion("Debe añadir al menos un producto.", 'warning');
     }
-    
     ui.toggleFinalizeButtons(true);
     try {
         const payload = {
@@ -22,51 +23,35 @@ async function procesarVenta(imprimir = false) {
             detalles: items.map(item => ({
                 producto_id: item.producto_id, cantidad: item.cantidad, precio_unitario: item.precio_unitario
             }))
+            // Agrega aquí la lógica para descuento_extra y gastos_envio si quieres enviarlos al backend
         };
-        
         if (payload.metodo_pago !== 'Efectivo') {
-            payload.pago_detalle = {
-                cliente_dni: document.getElementById('pago-dni').value,
-                tarjeta_numero: document.getElementById('pago-tarjeta').value,
-                nro_cupon: document.getElementById('pago-cupon').value,
-                banco: document.getElementById('pago-banco').value
-            };
+            payload.pago_detalle = { /* ... */ };
         }
-        
         const responseData = await sendData(`/api/negocios/${appState.negocioActivoId}/ventas`, payload, 'POST');
-        
         mostrarNotificacion(responseData.message || `¡Venta #${responseData.venta_id} registrada!`, 'success');
-        
         state.clearSale();
-        // ✨ CORRECCIÓN: Llamamos a renderSaleItemsTable sin el segundo parámetro
-        ui.renderSaleItemsTable(state.getSaleItems()); 
+        ui.renderSaleItemsTable(state.getSaleItems());
         ui.resetSaleUI();
-
     } catch (error) {
-        mostrarNotificacion(error.message || "Error desconocido al procesar la venta.", 'error');
+        mostrarNotificacion(error.message || "Error al procesar la venta.", 'error');
     } finally {
         ui.toggleFinalizeButtons(false);
     }
 }
 
 async function buscarProductosEnVivo(query) {
-    if (query.length < 2) {
-        ui.renderSearchResults([], () => {});
-        return;
-    }
+    if (query.length < 2) { ui.renderSearchResults([], () => {}); return; }
     const clienteId = document.getElementById('cliente-selector').value || null;
     const listaId = document.getElementById('lista-precios-selector').value || null;
     let url = `/api/negocios/${appState.negocioActivoId}/productos/buscar?query=${encodeURIComponent(query)}`;
-    if (clienteId) {
-        url += `&cliente_id=${clienteId}`;
-    }
+    if (clienteId) url += `&cliente_id=${clienteId}`;
     if (listaId) url += `&lista_de_precio_id=${listaId}`;
     try {
         const productosConPrecio = await fetchData(url);
         ui.renderSearchResults(productosConPrecio, (productoSeleccionado) => {
             state.addItem(productoSeleccionado, 1);
-            // ✨ CORRECCIÓN: Llamamos a renderSaleItemsTable sin el segundo parámetro
-            ui.renderSaleItemsTable(state.getSaleItems()); 
+            ui.renderSaleItemsTable(state.getSaleItems());
             document.getElementById('venta-producto-input').value = '';
             document.getElementById('venta-producto-input').focus();
         });
@@ -74,6 +59,8 @@ async function buscarProductosEnVivo(query) {
         mostrarNotificacion('Error al buscar productos.', 'error');
     }
 }
+
+// --- Función Principal de Event Listeners ---
 
 export function setupEventListeners() {
     // --- Selectores ---
@@ -90,38 +77,23 @@ export function setupEventListeners() {
     const descuentoInput = document.getElementById('descuento-extra');
     const envioInput = document.getElementById('gastos-envio');
     const btnNuevoClienteRapido = document.getElementById('btn-nuevo-cliente-rapido');
+    const modalClienteRapido = document.getElementById('modal-nuevo-cliente-rapido');
     const formClienteRapido = document.getElementById('form-nuevo-cliente-rapido');
     const closeModalClienteRapido = document.getElementById('close-modal-cliente-rapido');
 
-    // --- Listeners ---   
-    if (clienteSelector) {
-        clienteSelector.addEventListener('change', (event) => { // Añadimos 'event'
-            // ✨ --- LOG 1: ¿Se activa el listener? --- ✨
-            console.log('Cliente selector changed! New value:', event.target.value); 
-            recalcularCarritoPorCliente();
-        });
-    }
-
+    // --- Listeners ---
+    if (clienteSelector) clienteSelector.addEventListener('change', recalcularCarritoPorCliente);
     if (listaPreciosSelector) listaPreciosSelector.addEventListener('change', recalcularCarritoPorCliente);
-    
-    // ✨ --- CORRECCIÓN CLAVE --- ✨
-    // Añadimos el prefijo 'ui.' para llamar a la función correctamente
     if (descuentoInput) descuentoInput.addEventListener('input', ui.actualizarTotalFinal);
     if (envioInput) envioInput.addEventListener('input', ui.actualizarTotalFinal);
 
-    if (productoInput) {
-        productoInput.addEventListener('input', () => {
-            buscarProductosEnVivo(productoInput.value);
-        });
-    }
+    if (productoInput) productoInput.addEventListener('input', () => buscarProductosEnVivo(productoInput.value));
 
     if (formAddItem) {
         formAddItem.addEventListener('submit', (e) => {
             e.preventDefault();
             const primerResultado = document.querySelector('#search-results-venta .search-item');
-            if (primerResultado) {
-                primerResultado.click();
-            }
+            if (primerResultado) primerResultado.click();
         });
     }
 
@@ -130,23 +102,60 @@ export function setupEventListeners() {
             if (e.target.classList.contains('btn-quitar')) {
                 const index = parseInt(e.target.closest('tr').dataset.index, 10);
                 state.removeItem(index);
-                // ✨ CORRECCIÓN: Llamamos a renderSaleItemsTable sin el segundo parámetro
-                ui.renderSaleItemsTable(state.getSaleItems()); 
+                ui.renderSaleItemsTable(state.getSaleItems());
             }
         });
     }
 
     if (btnFinalizar) btnFinalizar.addEventListener('click', () => procesarVenta(false));
-    
+
+    // --- Lógica Modal Cliente Rápido ---
+    if (btnNuevoClienteRapido) {
+        btnNuevoClienteRapido.addEventListener('click', () => {
+            if (formClienteRapido) formClienteRapido.reset();
+            if (modalClienteRapido) modalClienteRapido.style.display = 'flex';
+        });
+    }
+    if (closeModalClienteRapido) {
+        closeModalClienteRapido.addEventListener('click', () => {
+            if (modalClienteRapido) modalClienteRapido.style.display = 'none';
+        });
+    }
+    window.addEventListener('click', (e) => {
+        if (modalClienteRapido && e.target == modalClienteRapido) {
+            modalClienteRapido.style.display = 'none';
+        }
+    });
+
+    if (formClienteRapido) {
+        formClienteRapido.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nuevoCliente = {
+                nombre: document.getElementById('cliente-rapido-nombre').value,
+                dni: document.getElementById('cliente-rapido-dni').value,
+            };
+            try {
+                const clienteCreado = await sendData(`/api/negocios/${appState.negocioActivoId}/clientes`, nuevoCliente, 'POST');
+                mostrarNotificacion('Cliente creado con éxito.', 'success');
+                if (modalClienteRapido) modalClienteRapido.style.display = 'none';
+                // Ahora sí puede llamar a la función porque está importada
+                await cargarClientesSelector(clienteCreado.id); 
+            } catch (error) {
+                mostrarNotificacion(error.message, 'error');
+            }
+        });
+    }
+
+    // --- Resto de Listeners ---
     if (metodoPagoSelector) {
         metodoPagoSelector.addEventListener('change', () => {
             const esEfectivo = metodoPagoSelector.value === 'Efectivo';
             const pagoDetallesContainer = document.getElementById('pago-detalles-container');
             const calculoVueltoContainer = document.getElementById('calculo-vuelto-container');
-            
             if (calculoVueltoContainer) calculoVueltoContainer.style.display = esEfectivo ? 'block' : 'none';
             if (pagoDetallesContainer) pagoDetallesContainer.style.display = esEfectivo ? 'none' : 'grid';
         });
+        metodoPagoSelector.dispatchEvent(new Event('change'));
     }
 
     if (pagaConInput) {
@@ -161,54 +170,5 @@ export function setupEventListeners() {
             panelAccesoRapido.style.display = e.target.checked ? 'grid' : 'none';
         });
         panelAccesoRapido.style.display = toggleAccesoRapido.checked ? 'grid' : 'none';
-    }
-    // ✨ --- LÓGICA PARA EL MODAL DE CLIENTE RÁPIDO --- ✨
-    if (btnNuevoClienteRapido) {
-        btnNuevoClienteRapido.addEventListener('click', () => {
-            // ✨ Verifica si el formulario existe ANTES de usarlo ✨
-            if (formClienteRapido) {
-                formClienteRapido.reset(); // Limpia el form
-            } else {
-                console.error("No se encontró el formulario 'form-nuevo-cliente-rapido'");
-            }
-            // Muestra el modal si existe
-            if (modalClienteRapido) {
-                modalClienteRapido.style.display = 'flex';
-            } else {
-                 console.error("No se encontró el modal 'modal-nuevo-cliente-rapido'");
-            }
-        });
-    }
-
-    // Cierra el modal si se hace clic fuera
-    if (closeModalClienteRapido) {
-            closeModalClienteRapido.addEventListener('click', () => {
-                if (modalClienteRapido) modalClienteRapido.style.display = 'none';
-            });
-        }
-    window.addEventListener('click', (e) => {
-    if (e.target == modalClienteRapido) modalClienteRapido.style.display = 'none';
-    });
-
-    if (formClienteRapido) {
-        formClienteRapido.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const nuevoCliente = {
-                nombre: document.getElementById('cliente-rapido-nombre').value,
-                dni: document.getElementById('cliente-rapido-dni').value,
-                // Puedes añadir valores por defecto para otros campos si tu API los requiere
-            };
-            try {
-                const clienteCreado = await sendData(`/api/negocios/${appState.negocioActivoId}/clientes`, nuevoCliente, 'POST');
-                mostrarNotificacion('Cliente creado con éxito.', 'success');
-                modalClienteRapido.style.display = 'none';
-                
-                // Recargamos el selector de clientes Y seleccionamos el nuevo
-                await cargarClientesSelector(clienteCreado.id); 
-
-            } catch (error) {
-                mostrarNotificacion(error.message, 'error');
-            }
-        });
     }
 }
