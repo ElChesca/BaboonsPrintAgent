@@ -74,43 +74,74 @@ async function cargarProductosFiltro() {
 
 // --- Funciones de Exportación (Reutilizables) ---
 
+// static/js/modules/historial_inventario.js
+
 function exportarTablaAPDF(nombreArchivo, titulo) {
-    if (typeof jsPDF === 'undefined' || typeof jsPDF.autoTable === 'undefined') {
-        mostrarNotificacion('Error: Librería PDF no cargada.', 'error');
+    // ✨ CORRECCIÓN: Verifica window.jspdf y accede a jsPDF desde ahí ✨
+    if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
+        mostrarNotificacion('Error: La librería jsPDF no está cargada correctamente.', 'error');
+        console.error("window.jspdf or window.jspdf.jsPDF is undefined.");
         return;
     }
+    // Accedemos a la clase jsPDF a través del objeto global jspdf
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
+    // Verifica si la función autoTable existe
+    if (typeof doc.autoTable !== 'function') {
+         mostrarNotificacion('Error: La extensión jsPDF AutoTable no está cargada.', 'error');
+         console.error("doc.autoTable is not a function.");
+         return;
+    }
+
     doc.text(titulo, 14, 16);
-    doc.autoTable({
-        html: '#tabla-historial-inventario', // Usa el ID de tu tabla
-        startY: 22,
-        theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185] } // Azul oscuro
-    });
-    doc.save(`${nombreArchivo}.pdf`);
+    try {
+        doc.autoTable({
+            html: '#tabla-historial-inventario',
+            startY: 22,
+            theme: 'striped',
+            headStyles: { fillColor: [41, 128, 185] }
+        });
+        doc.save(`${nombreArchivo}.pdf`);
+    } catch (error) {
+         mostrarNotificacion('Error al generar el PDF: ' + error.message, 'error');
+         console.error("Error during PDF generation:", error);
+    }
 }
 
+// static/js/modules/historial_inventario.js
+
 function exportarTablaAExcel(nombreArchivo) {
-     if (typeof XLSX === 'undefined') {
-        mostrarNotificacion('Error: Librería Excel no cargada.', 'error');
+     // ✨ CORRECCIÓN: Verifica que XLSX exista en window ✨
+     if (typeof window.XLSX === 'undefined') {
+        mostrarNotificacion('Error: La librería XLSX (Excel) no está cargada correctamente.', 'error');
+        console.error("window.XLSX is undefined.");
         return;
     }
-    // Convertimos los datos actuales a un formato que XLSX entienda
-    const datosParaExportar = historialActual.map(mov => ({
-        Fecha: formatDateTime(mov.fecha_movimiento),
-        Producto: mov.producto_nombre,
-        Movimiento: mov.tipo_movimiento,
-        Cantidad: mov.cantidad_cambio,
-        'Stock Resultante': mov.stock_resultante,
-        Usuario: mov.usuario_nombre || ''
-    }));
 
-    const worksheet = XLSX.utils.json_to_sheet(datosParaExportar);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Historial");
-    XLSX.writeFile(workbook, `${nombreArchivo}.xlsx`);
+    if (historialActual.length === 0) {
+        mostrarNotificacion('No hay datos para exportar.', 'warning');
+        return;
+    }
+
+    try {
+        const datosParaExportar = historialActual.map(mov => ({
+            Fecha: formatDateTime(mov.fecha_movimiento),
+            Producto: mov.producto_nombre,
+            Movimiento: mov.tipo_movimiento,
+            Cantidad: mov.cantidad_cambio,
+            'Stock Resultante': mov.stock_resultante,
+            Usuario: mov.usuario_nombre || ''
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(datosParaExportar);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Historial");
+        XLSX.writeFile(workbook, `${nombreArchivo}.xlsx`);
+    } catch (error) {
+        mostrarNotificacion('Error al generar el archivo Excel: ' + error.message, 'error');
+        console.error("Error during Excel generation:", error);
+    }
 }
 
 // --- Inicialización ---
