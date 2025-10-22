@@ -1,0 +1,34 @@
+<link rel="stylesheet" href="/static/css/historial_inventario.css">
+
+<div class="card">
+    <h2>📈 Historial de Movimientos de Inventario</h2>
+
+    <div class="filtros-historial">
+        <div class="form-group">
+            <label for="filtro-fecha-desde">Desde:</label>
+            <input type="date" id="filtro-fecha-desde">
+        </div>
+        <div class="form-group">
+            <label for="filtro-fecha-hasta">Hasta:</label>
+            <input type="date" id="filtro-fecha-hasta">
+        </div>
+        <button id="btn-filtrar-historial" class="btn-secondary">Filtrar</button>
+    </div>
+
+    <div class="tabla-contenedor">
+        <table id="tabla-historial-inventario" class="tabla-bonita">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Producto</th>
+                    <th>Movimiento</th>
+                    <th>Cantidad</th>
+                    <th>Stock Resultante</th>
+                    </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="5" style="text-align: center;">Cargando historial...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>

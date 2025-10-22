@@ -1,0 +1,26 @@
+/* static/css/historial_inventario.css */
+
+.filtros-historial {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+#tabla-historial-inventario tbody tr td:nth-child(4), /* Cantidad */
+#tabla-historial-inventario tbody tr td:nth-child(5) /* Stock Resultante */ {
+    text-align: right;
+    font-weight: bold;
+}
+
+/* Color para cantidad positiva (Ingreso/Ajuste+) */
+#tabla-historial-inventario .cantidad-positiva {
+    color: #28a745; /* Verde */
+}
+
+/* Color para cantidad negativa (Venta/Ajuste-) */
+#tabla-historial-inventario .cantidad-negativa {
+    color: #dc3545; /* Rojo */
+}

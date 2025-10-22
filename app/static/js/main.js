@@ -22,6 +22,7 @@ import { inicializarLogicaPresupuestos } from './modules/presupuestos.js';
 import { inicializarLogicaHistorialPresupuestos } from './modules/historial_presupuestos.js';
 import { inicializarLogicaFactura } from './modules/factura.js';
 
+
 let onClienteCreadoCallback = null;
 
 // --- ESTADO GLOBAL ---
@@ -114,6 +115,10 @@ async function inicializarModulo(page) {
     const { inicializarLogicaUnidadesMedida } = await import('./modules/unidades_medida.js');
         inicializarLogicaUnidadesMedida();
     }
+    if (page.includes('historial_inventario.html')) {
+    const { inicializarHistorialInventario } = await import('./modules/historial_inventario.js');
+    inicializarHistorialInventario();
+}
 }
 
 async function poblarSelectorNegocios() {

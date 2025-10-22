@@ -27,12 +27,11 @@
         <div class="app-card" onclick="loadContent(event, 'static/inventario.html', this)">
             <img src="/static/img/icons/inventario.png" alt="Inventario" class="app-icon">
             <span class="app-name">Inventario</span>
-        </div>
+        </div>        
         <a href="/static/inventario_movil.html" class="app-card">
             <img src="/static/img/icons/inventariomovil.png" alt="Inventario Móvil" class="app-icon">
             <span class="app-name">Ajuste Inventario Móvil</span>
         </a>
-
         <div class="app-card" onclick="loadContent(event, 'static/clientes.html', this)">
             <img src="/static/img/icons/clientes.png" alt="Clientes" class="app-icon">
             <span class="app-name">Clientes</span>
@@ -55,9 +54,13 @@
 <hr>
 
 <div class="app-dashboard" style="padding-top: 15px;"> <h2 class="dashboard-title">Configuración y Reportes</h2>
-    <div class="app-grid admin-only"> <div class="app-card" onclick="loadContent(event, 'static/configuracion.html', this)">
+        <div class="app-grid admin-only"> <div class="app-card" onclick="loadContent(event, 'static/configuracion.html', this)">
             <img src="/static/img/icons/configuracion.png" alt="Configuracion y Reglas de Negocio" class="app-icon">
              <span class="app-name">Conf. y Reglas</span>
+        </div>
+        <div class="app-grid admin-only"> <div class="app-card" onclick="loadContent(event, 'static/historial_inventario.html', this)">
+            <img src="/static/img/icons/historial_inventario.png" alt="Configuracion y Reglas de Negocio" class="app-icon">
+             <span class="app-name">Historial Inventario</span>
         </div>
 
         <div class="app-card" onclick="loadContent(event, 'static/listas_precios.html', this)">
