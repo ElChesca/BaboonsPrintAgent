@@ -5,8 +5,8 @@ body {
     background-color: #f0f2f5; 
 }
 header { 
-    background-color: #2c3e50; 
-    color: white; 
+    background-color: #222222; /* Gris muy oscuro, casi negro */
+    color: white;    
     padding: 15px 30px; 
     display: flex; 
     align-items: center; 
@@ -15,6 +15,24 @@ header {
     position: sticky; /* Para que quede fija arriba */
     top: 0;
     z-index: 1000;
+}
+.logo-container {
+    height: 40px; /* Ajusta la altura según necesites */
+    display: flex;
+    align-items: center;
+}
+
+#header-logo {
+    height: 100%; /* El logo ocupará la altura del contenedor */
+    width: auto; /* Mantiene la proporción */
+    /* Podrías necesitar ajustar márgenes si el logo no está alineado */
+}
+
+/* Ajuste para el responsive si el logo se ve mal en móviles */
+@media (max-width: 900px) {
+    .logo-container {
+        height: 35px; /* Un poco más pequeño en móviles */
+    }
 }
 header h1 { 
     font-family: 'Bebas Neue', sans-serif; 
@@ -102,6 +120,7 @@ main {
         background-color: #34495e;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         z-index: 1000;
+        
     }
     
     .nav-container.is-active {
