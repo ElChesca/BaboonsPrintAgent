@@ -122,6 +122,10 @@ export async function inicializarPreciosEspecificos() {
     console.log("inicializarPreciosEspecificos iniciada.");     
     const selectorLista = document.getElementById('selector-lista-precios');
     const btnGuardar = document.getElementById('btn-guardar-precios');
+    const btnAbrirModalImportar = document.getElementById('btn-abrir-modal-importar');
+    const modalImportar = document.getElementById('modal-importar-precios');
+    const closeModalImportar = document.getElementById('close-modal-importar');
+    const btnIniciarImportacion = document.getElementById('btn-iniciar-importacion');
     
     if (!selectorLista || !btnGuardar) return;
 
@@ -141,4 +145,112 @@ export async function inicializarPreciosEspecificos() {
     });
     
     btnGuardar.addEventListener('click', guardarPrecios);
+    if (btnAbrirModalImportar) btnAbrirModalImportar.addEventListener('click', abrirModalImportar);
+    if (closeModalImportar) closeModalImportar.addEventListener('click', () => modalImportar.style.display = 'none');
+    window.addEventListener('click', (e) => { if (e.target == modalImportar) modalImportar.style.display = 'none'; });
+    if (btnIniciarImportacion) btnIniciarImportacion.addEventListener('click', iniciarImportacion);
+}
+
+function abrirModalImportar() {
+    const modal = document.getElementById('modal-importar-precios');
+    const selectorDestino = document.getElementById('importar-lista-destino');
+    const inputArchivo = document.getElementById('archivo-precios');
+    const progresoDiv = document.getElementById('importar-progreso');
+    const resultadosDiv = document.getElementById('importar-resultados');
+    
+    // Limpiar estado anterior
+    selectorDestino.innerHTML = document.getElementById('selector-lista-precios').innerHTML; // Copia las opciones
+    inputArchivo.value = ''; // Resetea el input file
+    progresoDiv.classList.add('hidden');
+    resultadosDiv.innerHTML = '';
+    
+    modal.style.display = 'flex';
+}
+
+async function iniciarImportacion() {
+    const listaId = document.getElementById('importar-lista-destino').value;
+    const archivoInput = document.getElementById('archivo-precios');
+    const progresoDiv = document.getElementById('importar-progreso');
+    const progresoTexto = document.getElementById('progreso-texto');
+    const progresoBarra = document.getElementById('progreso-barra');
+    const resultadosDiv = document.getElementById('importar-resultados');
+    const btnImportar = document.getElementById('btn-iniciar-importacion');
+
+    if (!listaId) {
+        mostrarNotificacion('Debe seleccionar una lista de precios destino.', 'warning');
+        return;
+    }
+    if (!archivoInput.files || archivoInput.files.length === 0) {
+        mostrarNotificacion('Debe seleccionar un archivo Excel.', 'warning');
+        return;
+    }
+
+    const archivo = archivoInput.files[0];
+    progresoDiv.classList.remove('hidden');
+    progresoTexto.textContent = `Leyendo ${archivo.name}...`;
+    progresoBarra.value = 0;
+    resultadosDiv.innerHTML = '';
+    btnImportar.disabled = true;
+
+    try {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                if (jsonData.length === 0) throw new Error("El archivo está vacío o no tiene datos.");
+
+                // Validar columnas básicas
+                if (!jsonData[0].hasOwnProperty('SKU') || !jsonData[0].hasOwnProperty('PRECIO')) {
+                    throw new Error("El archivo debe contener las columnas 'SKU' y 'PRECIO'.");
+                }
+                
+                progresoTexto.textContent = `Enviando ${jsonData.length} registros...`;
+                progresoBarra.value = 50; // Mitad del proceso
+
+                // Preparamos los datos para enviar al backend
+                const preciosPayload = jsonData.map(row => ({
+                    sku: row.SKU, // Enviamos SKU, el backend buscará el ID
+                    precio: row.PRECIO === null || row.PRECIO === '' ? null : parseFloat(row.PRECIO)
+                })).filter(item => item.sku); // Filtra filas sin SKU
+
+                const response = await sendData(`/api/negocios/${appState.negocioActivoId}/precios_especificos/importar`, { // Nueva ruta
+                    lista_de_precio_id: parseInt(listaId),
+                    precios: preciosPayload
+                }, 'POST');
+
+                progresoTexto.textContent = "Importación completada.";
+                progresoBarra.value = 100;
+                resultadosDiv.innerHTML = `<p style="color:green;">${response.message}</p>`;
+                if (response.errores && response.errores.length > 0) {
+                    resultadosDiv.innerHTML += '<h4>Errores:</h4><ul>';
+                    response.errores.forEach(err => {
+                        resultadosDiv.innerHTML += `<li>Fila ${err.fila}: ${err.error} (SKU: ${err.sku || 'N/A'})</li>`;
+                    });
+                    resultadosDiv.innerHTML += '</ul>';
+                }
+                
+                // Recargar precios si la lista actual es la importada
+                if(listaId === document.getElementById('selector-lista-precios').value) {
+                    cargarPreciosEspecificos(listaId);
+                }
+
+            } catch (error) {
+                console.error("Error procesando archivo:", error);
+                progresoTexto.textContent = "Error.";
+                resultadosDiv.innerHTML = `<p style="color:red;">${error.message}</p>`;
+            } finally {
+                btnImportar.disabled = false;
+            }
+        };
+        reader.readAsArrayBuffer(archivo);
+    } catch (error) {
+        mostrarNotificacion('Error inesperado al leer archivo: ' + error.message, 'error');
+        progresoDiv.classList.add('hidden');
+        btnImportar.disabled = false;
+    }
 }
