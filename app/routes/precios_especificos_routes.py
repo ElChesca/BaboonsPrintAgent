@@ -55,3 +55,27 @@ def save_precios_especificos_bulk(current_user, negocio_id):
         g.db_conn.rollback()
         print(f"!!! ERROR saving specific prices: {e}")
         return jsonify({'error': f'Error al guardar precios: {str(e)}'}), 500
+    
+
+@bp.route('/negocios/<int:negocio_id>/listas_precios/<int:lista_id>/precios_especificos', methods=['GET'])
+@token_required
+def get_precios_especificos_por_lista(current_user, negocio_id, lista_id):
+    """
+    Devuelve un diccionario {producto_id: precio} con los precios específicos
+    definidos para una lista y negocio específicos.
+    """
+    db = get_db()
+    try:
+        db.execute(
+            """
+            SELECT producto_id, precio 
+            FROM precios_especificos 
+            WHERE negocio_id = %s AND lista_de_precio_id = %s
+            """,
+            (negocio_id, lista_id)
+        )
+        precios = {row['producto_id']: float(row['precio']) for row in db.fetchall()}
+        return jsonify(precios)
+    except Exception as e:
+        print(f"!!! ERROR getting specific prices for list {lista_id}: {e}")
+        return jsonify({'error': f'Error al obtener precios específicos: {str(e)}'}), 500

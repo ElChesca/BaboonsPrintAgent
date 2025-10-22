@@ -32,31 +32,35 @@ async function cargarTodosLosProductos() {
 
 async function cargarPreciosEspecificos(listaId) {
     preciosEspecificosActuales = {}; // Limpia caché anterior
-    // NOTA: Necesitamos un endpoint que devuelva SOLO los precios específicos
-    // Por ahora, asumimos que no existe y cargaremos todos los productos y marcaremos
-    // (Idealmente, el backend devolvería { producto_id: precio } para esta lista)
-    // const precios = await fetchData(`/api/negocios/${appState.negocioActivoId}/listas/${listaId}/precios_especificos`);
-    // precios.forEach(p => { preciosEspecificosActuales[p.producto_id] = p.precio; });
     
-    // Por ahora, solo mostramos la tabla
+    // ✨ LLAMAMOS AL NUEVO ENDPOINT ✨
+    try {
+        preciosEspecificosActuales = await fetchData(`/api/negocios/${appState.negocioActivoId}/listas_precios/${listaId}/precios_especificos`);
+        console.log("Precios específicos cargados:", preciosEspecificosActuales); // Log para depurar
+    } catch (error) {
+        // Si falla (ej: 404 si no hay precios), continuamos con un objeto vacío
+        console.warn(`No se encontraron precios específicos para la lista ${listaId} o hubo un error:`, error.message);
+        preciosEspecificosActuales = {}; 
+    }
+    
+    // Mostramos la tabla (esta función ahora usará los precios cargados)
     renderizarTablaPrecios(); 
     document.getElementById('tabla-precios-container').classList.remove('hidden');
     document.getElementById('btn-guardar-precios').classList.remove('hidden');
 }
-
 // --- Renderizado ---
 function renderizarTablaPrecios() {
     const tbody = document.querySelector('#tabla-precios-especificos tbody');
     tbody.innerHTML = '';
     
-    if (todosLosProductos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4">No hay productos cargados en este negocio.</td></tr>';
-        return;
-    }
+    if (todosLosProductos.length === 0) { /* ... (mensaje no hay productos) ... */ return; }
 
     todosLosProductos.forEach(prod => {
-        // Busca si hay un precio específico guardado (requiere endpoint futuro)
-        const precioEsp = preciosEspecificosActuales[prod.id] || ''; 
+        // ✨ BUSCAMOS el precio específico cargado ✨
+        const precioEsp = preciosEspecificosActuales[prod.id] !== undefined 
+                           ? preciosEspecificosActuales[prod.id] 
+                           : ''; // Usamos '' si no existe para que el input quede vacío
+
         tbody.innerHTML += `
             <tr data-product-id="${prod.id}">
                 <td>${prod.nombre}</td>
@@ -75,7 +79,6 @@ function renderizarTablaPrecios() {
         `;
     });
 }
-
 // --- Guardado ---
 async function guardarPrecios() {
     const listaId = document.getElementById('selector-lista-precios').value;
