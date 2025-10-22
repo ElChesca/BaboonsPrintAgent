@@ -118,6 +118,11 @@ async function inicializarModulo(page) {
     if (page.includes('historial_inventario.html')) {
     const { inicializarHistorialInventario } = await import('./modules/historial_inventario.js');
     inicializarHistorialInventario();
+    
+    if (page.includes('precios_especificos.html')) {
+    const { inicializarPreciosEspecificos } = await import('./modules/precios_especificos.js');
+    inicializarPreciosEspecificos();
+}
 }
 }
 

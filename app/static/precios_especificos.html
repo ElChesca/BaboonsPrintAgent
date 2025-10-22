@@ -1,0 +1,32 @@
+<link rel="stylesheet" href="/static/css/precios_especificos.css">
+
+<div class="card">
+    <h2>💰 Gestión de Precios Específicos</h2>
+
+    <div class="seleccion-lista">
+        <div class="form-group">
+            <label for="selector-lista-precios">Seleccione la Lista de Precios a Editar:</label>
+            <select id="selector-lista-precios">
+                <option value="">-- Elija una lista --</option>
+                </select>
+        </div>
+        <button id="btn-guardar-precios" class="btn-primary hidden">💾 Guardar Cambios</button>
+    </div>
+
+    <div id="tabla-precios-container" class="hidden tabla-contenedor">
+        <p>Editá los precios en la columna 'Precio Específico'. Dejá vacío para usar el precio base o las reglas.</p>
+        <table id="tabla-precios-especificos" class="tabla-bonita tabla-editable">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>SKU</th>
+                    <th>Precio Base</th>
+                    <th>Precio Específico</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="4" style="text-align: center;">Seleccione una lista para ver los productos...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>

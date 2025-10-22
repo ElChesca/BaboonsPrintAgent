@@ -152,6 +152,11 @@ main {
     }
 }
 
+.app-grid.admin-only {
+    max-width: 900px; /* Reafirma el ancho máximo */
+    /* Puedes añadir !important si otra regla lo está sobreescribiendo, pero intenta evitarlo */
+    /* max-width: 900px !important; */ 
+}
 .toast-notification {
     color: #fff;
     padding: 15px 20px;
