@@ -8,7 +8,13 @@ let preciosEspecificosActuales = {}; // Guardará { producto_id: precio }
 
 // --- Funciones de Carga ---
 async function cargarListasPrecios() {
+    console.log("cargarListasPrecios iniciada.");
     const selector = document.getElementById('selector-lista-precios');
+    console.log("appState.negocioActivoId:", appState.negocioActivoId);
+    if (!appState.negocioActivoId) {
+        console.warn("No hay negocio activo, no se cargarán listas.");
+        return; // Salimos si no hay negocio
+    }
     try {
         const listas = await fetchData(`/api/negocios/${appState.negocioActivoId}/listas_precios`);
         selector.innerHTML = '<option value="">-- Elija una lista --</option>';
@@ -110,6 +116,7 @@ async function guardarPrecios() {
 
 // --- Inicialización ---
 export async function inicializarPreciosEspecificos() {
+    console.log("inicializarPreciosEspecificos iniciada.");     
     const selectorLista = document.getElementById('selector-lista-precios');
     const btnGuardar = document.getElementById('btn-guardar-precios');
     

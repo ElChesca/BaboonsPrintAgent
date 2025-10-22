@@ -118,13 +118,20 @@ async function inicializarModulo(page) {
     if (page.includes('historial_inventario.html')) {
     const { inicializarHistorialInventario } = await import('./modules/historial_inventario.js');
     inicializarHistorialInventario();
-    
-    if (page.includes('precios_especificos.html')) {
-    const { inicializarPreciosEspecificos } = await import('./modules/precios_especificos.js');
-    inicializarPreciosEspecificos();
+
+   if (page.includes('precios_especificos.html')) {
+        console.log("Detectada página precios_especificos.html, intentando inicializar..."); // <-- Añadí este log
+        try {
+            const { inicializarPreciosEspecificos } = await import('./modules/precios_especificos.js');
+            inicializarPreciosEspecificos();
+            console.log("inicializarPreciosEspecificos() llamada."); // <-- Añadí este log
+        } catch (error) {
+             console.error("Error al importar o inicializar precios_especificos.js:", error); // <-- Añadí este log
+        }
+    }
 }
 }
-}
+
 
 async function poblarSelectorNegocios() {
     // 1. Buscamos ambos posibles selectores.
