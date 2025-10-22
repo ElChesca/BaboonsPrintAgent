@@ -62,8 +62,7 @@ async function inicializarModulo(page) {
     console.log(`inicializarModulo llamada con page = "${page}"`);
     if (!page) return;
     if (page.includes('inventario.html')) inicializarLogicaInventario();
-    if (page.includes('login.html')) inicializarLogicaLogin();
-    if (page.includes('negocios.html')) inicializarLogicaNegocios();
+    if (page.includes('login.html')) inicializarLogicaLogin();    
     if (page.includes('clientes.html')) inicializarLogicaClientes();
     if (page.includes('usuarios.html')) inicializarLogicaUsuarios();
     if (page.includes('categorias.html')) inicializarLogicaCategorias();
@@ -71,6 +70,7 @@ async function inicializarModulo(page) {
     if (page.includes('caja.html')) inicializarLogicaCaja();
     if (page.includes('reporte_caja.html')) inicializarLogicaReporteCaja();
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias();    
+     
     if (page.includes('proveedores.html')) {        
         const { inicializarLogicaProveedores } = await import('./modules/proveedores.js');
         inicializarLogicaProveedores();
@@ -117,20 +117,21 @@ async function inicializarModulo(page) {
         inicializarLogicaUnidadesMedida();
     }
     if (page.includes('historial_inventario.html')) {
-    const { inicializarHistorialInventario } = await import('./modules/historial_inventario.js');
-    inicializarHistorialInventario();
-   console.log(`Verificando if para 'precios_especificos.html'. Valor de page: "${page}"`);
+        const { inicializarHistorialInventario } = await import('./modules/historial_inventario.js');
+        inicializarHistorialInventario();
+    } 
+    
+    // ✨ CORRECCIÓN: Este IF va AFUERA, separado ✨
     if (page.includes('precios_especificos.html')) {
-        console.log("Detectada página precios_especificos.html, intentando inicializar..."); // <-- Añadí este log
+        console.log("Detectada página precios_especificos.html, intentando inicializar..."); 
         try {
             const { inicializarPreciosEspecificos } = await import('./modules/precios_especificos.js');
             inicializarPreciosEspecificos();
-            console.log("inicializarPreciosEspecificos() llamada."); // <-- Añadí este log
+            console.log("inicializarPreciosEspecificos() llamada.");
         } catch (error) {
-             console.error("Error al importar o inicializar precios_especificos.js:", error); // <-- Añadí este log
+             console.error("Error al importar o inicializar precios_especificos.js:", error);
         }
     }
-}
 }
 
 
