@@ -59,6 +59,7 @@ export function esAdmin() {
 }
 
 async function inicializarModulo(page) {
+    console.log(`inicializarModulo llamada con page = "${page}"`);
     if (!page) return;
     if (page.includes('inventario.html')) inicializarLogicaInventario();
     if (page.includes('login.html')) inicializarLogicaLogin();
@@ -118,8 +119,8 @@ async function inicializarModulo(page) {
     if (page.includes('historial_inventario.html')) {
     const { inicializarHistorialInventario } = await import('./modules/historial_inventario.js');
     inicializarHistorialInventario();
-
-   if (page.includes('precios_especificos.html')) {
+   console.log(`Verificando if para 'precios_especificos.html'. Valor de page: "${page}"`);
+    if (page.includes('precios_especificos.html')) {
         console.log("Detectada página precios_especificos.html, intentando inicializar..."); // <-- Añadí este log
         try {
             const { inicializarPreciosEspecificos } = await import('./modules/precios_especificos.js');
