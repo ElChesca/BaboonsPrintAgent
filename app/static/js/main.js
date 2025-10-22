@@ -179,6 +179,7 @@ async function poblarSelectorNegocios() {
 }
 // --- FUNCIÓN PRINCIPAL DE FLUJO (MODIFICADA) ---
 export function loadContent(event, page, clickedLink, fromHistory = false) {
+    
     if (event) event.preventDefault();
     
     if (!fromHistory) {
@@ -223,6 +224,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
         .then(response => response.ok ? response.text() : Promise.reject('Error al cargar la página.'))
         .then(html => {
             document.getElementById('content-area').innerHTML = html;
+            console.log(`HTML cargado para ${page}. Justo antes de llamar a inicializarModulo...`);
             setTimeout(() => inicializarModulo(page), 0);
         })
         .catch(error => {
