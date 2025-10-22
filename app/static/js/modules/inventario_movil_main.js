@@ -108,40 +108,40 @@ function resetUI() {
 // --- Lógica del Escáner ---
 // en static/js/modules/inventario_movil_main.js
 
+// en static/js/modules/inventario_movil_main.js
+
 function onScanSuccess(decodedText, decodedResult) {
     console.log(`Código escaneado: ${decodedText}`);
     if(statusElement) statusElement.textContent = `Código detectado: ${decodedText}. Buscando...`;
     if(manualCodeInput) manualCodeInput.value = decodedText;
 
-    // ✨ --- CAMBIO CLAVE: NO detenemos el scanner todavía --- ✨
-    // if (html5QrcodeScannerInstance && ...) { /* clear() */ } 
-
-    // Llamamos a la función de búsqueda
     buscarProductoPorCodigo(decodedText)
         .then(producto => {
-            // ✨ LOG: ¿Llegamos aquí?
-            console.log("Resultado de buscarProductoPorCodigo:", producto); 
+            console.log("Resultado de buscarProductoPorCodigo:", producto);
 
             if (producto) {
-                navigator.vibrate(100);
+                // ✨ --- VERIFICACIÓN ANTES DE VIBRAR --- ✨
+                // Comprueba si la función existe antes de llamarla
+                if (navigator.vibrate) {
+                    console.log("Intentando vibrar...");
+                    navigator.vibrate(100); // Vibra por 100ms si es posible
+                } else {
+                    console.log("Vibration API no soportada o deshabilitada.");
+                }
                 mostrarInfoProducto(producto); // Muestra info y OCULTA el scanner
             } else {
                 mostrarError(`Producto con código ${decodedText} no encontrado.`);
-                // Mostramos el botón para reintentar manualmente
-                if(btnStartScanner) btnStartScanner.classList.remove('hidden'); 
-                if(qrReaderDiv) qrReaderDiv.classList.add('hidden'); // Ocultamos el div del scanner
+                if(btnStartScanner) btnStartScanner.classList.remove('hidden');
+                if(qrReaderDiv) qrReaderDiv.classList.add('hidden');
             }
         })
         .catch(err => {
-            // ✨ LOG: ¿Hubo error en la búsqueda?
-            console.error("Error en .catch de buscarProductoPorCodigo:", err); 
+            console.error("Error en .catch de buscarProductoPorCodigo:", err);
             mostrarError(`Error al buscar producto: ${err.message}`);
             if(btnStartScanner) btnStartScanner.classList.remove('hidden');
             if(qrReaderDiv) qrReaderDiv.classList.add('hidden');
         })
         .finally(() => {
-            // ✨ --- AHORA SÍ DETENEMOS EL SCANNER --- ✨
-            // Este bloque se ejecuta SIEMPRE, haya funcionado o no la búsqueda
             console.log("Ejecutando .finally() para limpiar el escáner.");
             if (html5QrcodeScannerInstance && html5QrcodeScannerInstance.getState() === Html5QrcodeScannerState.SCANNING) {
                 html5QrcodeScannerInstance.clear()

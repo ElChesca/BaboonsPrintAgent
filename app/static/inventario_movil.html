@@ -18,6 +18,14 @@
         </div>
         <hr>
 
+        <div id="qr-reader" style="width: 100%; max-width: 500px; margin: 20px auto;" class="hidden"></div>
+        <div id="scanner-container" class="hidden"> 
+            <video id="scanner-video" playsinline></video>
+            <div class="scan-marker"></div>
+        </div>
+        <button id="btn-start-scanner" class="btn btn-primary hidden">Iniciar Escáner</button>
+        <p id="scanner-status">Seleccione un negocio para empezar.</p>
+
         <div class="manual-entry card">
             <h3>Ingreso Manual</h3>
             <div class="form-group">
@@ -26,15 +34,6 @@
             </div>
             <button id="btn-buscar-manual" class="btn btn-secondary">Buscar Producto</button>
         </div>
-
-        <div id="qr-reader" style="width: 100%; max-width: 500px; margin: 20px auto;" class="hidden"></div>
-        <div id="scanner-container" class="hidden"> 
-            <video id="scanner-video" playsinline></video>
-            <div class="scan-marker"></div>
-        </div>
-        
-        <button id="btn-start-scanner" class="btn btn-primary hidden">Iniciar Escáner</button>
-        <p id="scanner-status">Seleccione un negocio para empezar.</p>
 
         <div id="product-info" class="card hidden">
             <h3 id="product-name"></h3>
