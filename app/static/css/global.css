@@ -19,7 +19,7 @@ main {
 .admin-only,
 .superadmin-only,
 .admin-operator-only {
-    display: none !important; /* Ocultos por defecto, !important para asegurar */
+    display: none; /* Ocultos por defecto (sin !important) */
 }
 
 /* --- 4. HEADER --- */

@@ -133,7 +133,6 @@ async function inicializarModulo(page) {
         }
     }
 }
-// en static/js/main.js
 
 async function poblarSelectorNegocios() {
     console.log("Iniciando poblarSelectorNegocios...");
@@ -149,56 +148,64 @@ async function poblarSelectorNegocios() {
 
     try {
         const negocios = await fetchData('/api/negocios');
-        console.log("Negocios recibidos del API:", negocios); // Ya vimos que esto funciona
+        console.log("Negocios recibidos del API:", negocios);
 
         const fillSelector = (selector, selectorName) => {
             console.log(`Intentando llenar selector: ${selectorName}`);
             if (!selector) {
                 console.log(`Selector ${selectorName} no encontrado.`);
-                return; // No intentar llenar si no existe
+                return;
             }
-            selector.innerHTML = ''; // Limpia opciones existentes
+            // Limpiamos de forma segura
+            while (selector.firstChild) {
+                selector.removeChild(selector.firstChild);
+            }
 
             if (!negocios || negocios.length === 0) {
-                selector.innerHTML = '<option value="">No asignados</option>';
+                const option = new Option("No asignados", "");
+                selector.appendChild(option);
                 console.log(`No hay negocios para agregar a ${selectorName}.`);
-                return; // Termina si no hay datos
+                return;
             }
 
             console.log(`Entrando al bucle forEach para ${selectorName}...`);
-            let optionsHtml = ''; // Construimos el HTML fuera del bucle por eficiencia
             negocios.forEach((negocio, index) => {
                 console.log(`  Procesando opción ${index + 1}: ${negocio.nombre} (ID: ${negocio.id})`);
-                // Aseguramos que id y nombre existan
                 if (negocio && typeof negocio.id !== 'undefined' && typeof negocio.nombre !== 'undefined') {
-                     optionsHtml += `<option value="${negocio.id}">${negocio.nombre}</option>`;
+                    // ✨ Usamos appendChild en lugar de innerHTML += ✨
+                    const option = new Option(negocio.nombre, negocio.id);
+                    selector.appendChild(option);
                 } else {
                      console.warn(`  Elemento inválido en negocios[${index}]:`, negocio);
                 }
             });
-            // ✨ Añadimos todas las opciones de una vez al final ✨
-            selector.innerHTML = optionsHtml;
-            console.log(`Bucle forEach para ${selectorName} completado. HTML generado:`, optionsHtml);
+            console.log(`Bucle forEach para ${selectorName} completado.`);
 
-            // --- Lógica de Preselección (Revisada) ---
+            // --- Lógica de Preselección (sin cambios) ---
             let idSeleccionado = null;
-            if (negocios.length > 0) { // Solo si hay negocios
-                idSeleccionado = negocios[0].id; // Default al primero
+            if (negocios.length > 0) {
+                idSeleccionado = negocios[0].id;
                 if (appState.negocioActivoId && negocios.some(n => n.id == appState.negocioActivoId)) {
                     idSeleccionado = appState.negocioActivoId;
                 } else {
-                    // Si no había uno guardado o no es válido, seleccionamos el primero y actualizamos estado
                     appState.negocioActivoId = idSeleccionado;
                     console.log("Estableciendo negocio activo inicial a:", idSeleccionado);
                 }
-                selector.value = idSeleccionado; // Establece selección visual
-                console.log(`Preseleccionado en ${selectorName}: ${idSeleccionado}`);
+                // Aseguramos que el valor exista antes de asignarlo
+                if (Array.from(selector.options).some(opt => opt.value == idSeleccionado)) {
+                     selector.value = idSeleccionado;
+                     console.log(`Preseleccionado en ${selectorName}: ${idSeleccionado}`);
+                } else {
+                     console.warn(`ID ${idSeleccionado} no encontrado en las opciones de ${selectorName}, seleccionando el primero.`);
+                     selector.selectedIndex = 0; // Selecciona la primera opción si la preselección falla
+                     idSeleccionado = selector.value;
+                     appState.negocioActivoId = idSeleccionado;
+                }
             } else {
-                 appState.negocioActivoId = null; // No hay negocios, no hay activo
+                 appState.negocioActivoId = null;
                  console.log("No hay negocios válidos para preseleccionar.");
             }
 
-            // Actualiza estado global (solo si cambió respecto a lo que ya había)
             if (String(appState.negocioActivoId) !== String(idSeleccionado)) {
                  appState.negocioActivoId = idSeleccionado;
                  console.log("Actualizando appState.negocioActivoId a:", idSeleccionado);
@@ -212,8 +219,12 @@ async function poblarSelectorNegocios() {
 
     } catch (error) {
         console.error("Error en poblarSelectorNegocios:", error);
-        if (mainSelector) mainSelector.innerHTML = '<option value="">Error</option>';
-        if (homeSelector) homeSelector.innerHTML = '<option value="">Error</option>';
+        // Llenar con opción de error
+        const fillError = (selector) => {
+            if(selector) selector.innerHTML = '<option value="">Error</option>';
+        };
+        fillError(mainSelector);
+        fillError(homeSelector);
     }
 }
 
