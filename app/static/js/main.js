@@ -80,10 +80,7 @@ async function inicializarModulo(page) {
     if (page.includes('negocios.html')) {
         const { inicializarLogicaNegocios } = await import('./modules/negocios.js');
         inicializarLogicaNegocios();
-    }  
-    if (page.includes('home.html')) {        
-        await poblarSelectorNegocios(); 
-    }  
+    }    
     if (page.includes('configuracion.html')) {        
         const { inicializarConfiguracion } = await import('./modules/configuracion.js');
         inicializarConfiguracion();
