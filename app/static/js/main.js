@@ -147,6 +147,7 @@ async function poblarSelectorNegocios() {
 
     try {
         const negocios = await fetchData('/api/negocios');
+        console.log("Negocios recibidos del API:", negocios);
         selectorNegocio.innerHTML = '';
         if (!negocios || negocios.length === 0) {
             selectorNegocio.innerHTML = '<option value="">No hay negocios asignados</option>';
