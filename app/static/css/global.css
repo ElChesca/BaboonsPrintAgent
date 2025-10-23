@@ -3,9 +3,8 @@
 .admin-operator-only {
     display: none; /* Ocultos por defecto */
 }
-/* Ocultamos también el display de nombre por defecto */
-.admin-operator-only {
-    display: none;
+.superadmin-only {
+    display: none; /* Ocultos por defecto */
 }
 
 body { 

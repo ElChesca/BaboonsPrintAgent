@@ -237,139 +237,81 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
 }
 
 // en static/js/main.js
+// en static/js/main.js
 
 export async function actualizarUIAutenticacion() {
-    console.log("--- Iniciando actualizarUIAutenticacion ---"); // LOG 1
-    
-    // --- Declaraciones de Variables al Principio ---
+    console.log("--- Iniciando actualizarUIAutenticacion ---"); 
     const user = getCurrentUser();
-    console.log("Usuario actual:", user); // LOG 2
-    const mainNav = document.querySelector('header nav');
-    const authLink = document.getElementById('auth-link');
+    console.log("Usuario actual:", user); 
+    // ... (Declaraciones de variables: mainNav, authLink, etc.) ...
     const businessSelectorBar = document.getElementById('business-selector-bar');
     const businessSelectorDropdown = document.getElementById('business-selector-dropdown');
     const businessDisplayName = document.getElementById('business-display-name');
     const activeBusinessNameDisplay = document.getElementById('active-business-name-display');
 
     if (user && user.nombre) {
-        console.log("Usuario válido encontrado. Actualizando UI..."); // LOG 3
+        console.log("Usuario válido encontrado. Actualizando UI..."); 
         try {
             appState.userRol = user.rol;
-            console.log("Rol asignado:", appState.userRol); // LOG 4
+            console.log("Rol asignado:", appState.userRol); 
 
-            // Muestra barras (si existen)
-            if (mainNav) { mainNav.style.display = 'flex'; console.log("Mostrando nav principal."); } // LOG 5
-            if (businessSelectorBar) { businessSelectorBar.style.display = 'flex'; console.log("Mostrando barra de negocio."); } // LOG 6
+            // Muestra barras y configura enlace Salir
+            if (mainNav) mainNav.style.display = 'flex'; 
+            if (businessSelectorBar) businessSelectorBar.style.display = 'flex'; 
+            if (authLink) { /* ... configurar logout ... */ }
 
-            // Configura enlace Salir
-            if (authLink) {
-                 authLink.innerHTML = `Salir (${user.nombre})`;
-                 authLink.onclick = (e) => { e.preventDefault(); logout(); };
-                 console.log("Configurado enlace 'Salir'."); // LOG 7
-            }
-
-            // --- Lógica Visibilidad Selector Negocio ---
-            console.log("Aplicando lógica de visibilidad del selector de negocio..."); // LOG 8
-
+            // Lógica Visibilidad Selector Negocio
+            console.log("Aplicando lógica selector negocio...");
             if (appState.userRol === 'superadmin') {
                 if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'flex';
                 if (businessDisplayName) businessDisplayName.style.display = 'none';
-                console.log("Es SuperAdmin, poblando selector..."); // LOG 9
                 await poblarSelectorNegocios(); // Poblar para SuperAdmin
-                console.log("Selector poblado."); // LOG 10
             } else { // Admin u Operador
                 if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'none';
                 if (businessDisplayName) businessDisplayName.style.display = 'flex';
-                console.log("No es SuperAdmin, mostrando nombre de negocio..."); // LOG 11
-
-                if (appState.negocioActivoId && activeBusinessNameDisplay) {
+                // Mostramos nombre negocio (requiere que poblarSelectorNegocios se llame ANTES)
+                // Llamamos a poblar ANTES para asegurar tener los datos
+                await poblarSelectorNegocios(); 
+                 if (appState.negocioActivoId && activeBusinessNameDisplay) {
                      const selector = document.getElementById('selector-negocio');
-                     // Aseguramos que poblarSelectorNegocios se ejecute ANTES para tener las opciones
-                     // Si no es superadmin, igual necesitamos los datos para mostrar el nombre.
-                     // Considera llamar a poblarSelectorNegocios() siempre ANTES de este bloque if/else.
-                     // (Moviendo la llamada fuera y antes) - Por ahora lo dejamos así para ver si llega.
-                     console.log("Intentando obtener nombre de negocio activo ID:", appState.negocioActivoId); // LOG 12
                      const selectedOption = selector ? Array.from(selector.options).find(opt => opt.value == appState.negocioActivoId) : null;
                      if (selectedOption) {
                          activeBusinessNameDisplay.textContent = selectedOption.text;
-                         console.log("Nombre encontrado:", selectedOption.text); // LOG 13
-                     } else {
-                         activeBusinessNameDisplay.textContent = `ID ${appState.negocioActivoId}`;
-                         console.warn("No se encontró el nombre del negocio en el selector poblado."); // LOG 14
-                     }
-                 } else if (activeBusinessNameDisplay) {
-                     activeBusinessNameDisplay.textContent = "No asignado";
-                     console.log("No hay negocio activo o elemento display no encontrado."); // LOG 15
-                 }
-            }
-            // --- Fin Lógica Selector ---
-
-            // Muestra/oculta elementos .admin-only y .superadmin-only
-            console.log("Aplicando visibilidad por roles..."); // LOG 16
-            
-            // Función auxiliar para manejar la visibilidad
-            const setDisplay = (elements, shouldShow) => {
-                if (elements && typeof elements.forEach === 'function') { // Verifica si es una NodeList válida
-                    elements.forEach(el => {
-                        if (el && el.style) { // Verifica si el elemento y su 'style' existen
-                            el.style.display = shouldShow ? 'block' : 'none';
-                        } else {
-                            console.warn("Elemento inválido encontrado:", el);
-                        }
-                    });
-                } else {
-                     console.warn("Resultado inesperado de querySelectorAll:", elements);
-                }
-            };
-            // Aplica la lógica para cada clase
-            setDisplay(
-                document.querySelectorAll('.admin-only'), 
-                (appState.userRol === 'admin' || appState.userRol === 'superadmin')
-            );
-            setDisplay(
-                document.querySelectorAll('.superadmin-only'), 
-                (appState.userRol === 'superadmin')
-            );
-            setDisplay(
-                document.querySelectorAll('.admin-operator-only'), 
-                (appState.userRol !== 'superadmin')
-            );
-
-             // Lógica para ocultar selector del HOME si NO es SuperAdmin
-             const homeSelectorWrapper = document.getElementById('home-business-selector-wrapper');
-              if (homeSelectorWrapper) { /* ... tu lógica add/remove hide-element ... */ }
-            
-            console.log("Actualización de UI completada."); // LOG 17
-
-            // ✨ CARGA INICIAL DEL CONTENIDO (SI NO HAY NADA CARGADO) ✨
-            // Si después de todo esto, el content-area está vacío, carga el home por defecto
-            const contentArea = document.getElementById('content-area');
-            if (contentArea && contentArea.innerHTML.trim() === '' && !window.location.hash) {
-                 console.log("Content area vacío, cargando home por defecto..."); // LOG 18
-                 loadContent(null, 'static/home.html'); 
+                     } else { activeBusinessNameDisplay.textContent = `ID ${appState.negocioActivoId}`; }
+                 } else if (activeBusinessNameDisplay) { activeBusinessNameDisplay.textContent = "No asignado"; }
             }
 
+            // Lógica Visibilidad por Roles (.admin-only, etc.)
+            console.log("Aplicando visibilidad por roles...");
+            // ... (Tu código setDisplay para las clases) ...
 
-        } catch (error) {
-            console.error("Fallo DENTRO del bloque try de actualizarUIAutenticacion. Cerrando sesión.", error); // LOG DE ERROR GRAVE
-            logout();
-        }
-    } else { // No hay usuario
-        console.log("Usuario NO válido o no encontrado. Redirigiendo a login..."); // LOG SIN USUARIO
-        appState.userRol = null;
-        if (mainNav) mainNav.style.display = 'none';
-        if (businessSelectorBar) businessSelectorBar.style.display = 'none';
-        if (!window.location.hash.includes('login')) {
-             console.log("No estamos en login, cargando página de login...");
-             loadContent(null, 'static/login.html');
-        } else {
-             console.log("Ya estamos en login.");
-        }
-    }
-     console.log("--- Fin actualizarUIAutenticacion ---"); // LOG FINAL
+            // Lógica selector home (se queda igual)
+            const homeSelectorWrapper = document.getElementById('home-business-selector-wrapper');
+            if (homeSelectorWrapper) { /* ... */ }
+            
+            console.log("Actualización de UI base completada.");
+
+            // ✨ --- CARGA DE CONTENIDO INICIAL --- ✨
+            // Verifica si hay una página específica pedida en el HASH
+            const requestedPage = window.location.hash.substring(1); // Ej: #ventas -> "ventas"
+            
+            // Si NO hay hash O el hash es inválido/home, carga home.html
+            if (!requestedPage || requestedPage === 'home') { 
+                console.log("No hay página específica o es home, cargando home.html...");
+                loadContent(null, 'static/home.html'); 
+            } else {
+                 // Si hay un hash válido (ej: #ventas), intenta cargar esa página
+                 // (Tu router/loadContent ya debería manejar esto si el hash coincide con un archivo)
+                 console.log(`Hash encontrado: #${requestedPage}. Dejando que loadContent maneje la ruta.`);
+                 // Opcionalmente, podrías forzar la carga aquí si loadContent no se activa con el hash:
+                 // loadContent(null, `static/${requestedPage}.html`);
+            }
+            // --- FIN CARGA CONTENIDO ---
+
+        } catch (error) { /* ... (manejo de error y logout) ... */ }
+    } else { /* ... (lógica si no hay usuario -> redirigir a login) ... */ }
+     console.log("--- Fin actualizarUIAutenticacion ---"); 
 }
-
-// ... (El resto de tu main.js)
 
 // --- INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
