@@ -6,25 +6,30 @@
     <title>Sistema de Gestión | Baboons</title>
     <link rel="icon" type="image/png" href="/static/img/logo.png">
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>     <!-- librería Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
-    <script src="https://unpkg.com/jspdf-autotable@3.5.23/dist/jspdf.plugin.autotable.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">    
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/global.css">
+    
+    <link rel="stylesheet" href="/static/css/ventas.css">
+    <link rel="stylesheet" href="/static/css/historial_inventario.css">
+    <link rel="stylesheet" href="/static/css/precios_especificos.css">
+    </head>
 
-</head>
-
-<body>  
+<body>
     <div id="notification-container"></div>
 
     <header>
         <div class="logo-container">
            <img src="/static/img/logo.png" alt="Baboons Logo" id="header-logo">
-        </div>        
+        </div>
         <button id="hamburger-btn" class="hamburger-btn">☰</button>
         
         <div class="nav-container">
@@ -48,20 +53,24 @@
                  <div class="dropdown admin-only">
                     <a href="#" class="dropbtn">⚙️ Configuración ▾</a>
                     <div class="dropdown-content">
-                        <a href="#" class="superadmin-only" onclick="loadContent(event, 'static/negocios.html', this)">🏢 Negocios</a>                        
-                        <a href="#" class="admin" onclick="loadContent(event, 'static/usuarios.html', this)">👥 Usuarios</a>
-                        <a href="#" onclick="loadContent(event, 'static/proveedores.html', this)">🚚 Proveedores</a>
-                        <a href="#" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a>
-                        <a href="#" onclick="loadContent(event, 'static/listas_precios.html', this)">🧾 Listas de Precios</a>
+                        <a href="#" class="superadmin-only" onclick="loadContent(event, 'static/negocios.html', this)">🏢 Negocios</a>
+                        <a href="#" class="admin-only" onclick="loadContent(event, 'static/usuarios.html', this)">👥 Usuarios</a>
+                        <a href="#" class="admin-only" onclick="loadContent(event, 'static/proveedores.html', this)">🚚 Proveedores</a>
+                        <a href="#" class="admin-only" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a>
+                        <a href="#" class="admin-only" onclick="loadContent(event, 'static/listas_precios.html', this)">🧾 Listas de Precios</a>
+                        <a href="#" class="admin-only" onclick="loadContent(event, 'static/precios_especificos.html', this)">💰 Precios Específicos</a>
+                        <a href="#" class="admin-only" onclick="loadContent(event, 'static/unidades_medida.html', this)">📏 Unidades de Medida</a>
+                        <a href="#" class="admin-only" onclick="loadContent(event, 'static/configuracion.html', this)">🔩 Conf. y Reglas</a>
                     </div>
                 </div>
 
-                <div class="dropdown">
+                <div class="dropdown admin-only">
                     <a href="#" class="dropbtn">📊 Reportes ▾</a>
                     <div class="dropdown-content">
                         <a href="#" onclick="loadContent(event, 'static/reportes.html', this)">Ventas Diarias</a> 
                         <a href="#" onclick="loadContent(event, 'static/reporte_caja.html', this)">Reporte de Caja</a>
                         <a href="#" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">Reporte de Ganancias</a>
+                        <a href="#" onclick="loadContent(event, 'static/historial_inventario.html', this)">Historial Inventario</a>
                     </div>
                 </div>
                 
@@ -71,10 +80,13 @@
     </header>
     
     <div id="business-selector-bar" style="display: none;">
-        <label for="selector-negocio">NEGOCIO ACTIVO:</label>
-        <select id="selector-negocio">
-            <option>Cargando...</option>
-        </select>
+        <div id="business-selector-dropdown" class="superadmin-only">
+            <label for="selector-negocio">NEGOCIO ACTIVO:</label>
+            <select id="selector-negocio"></select>
+        </div>
+        <div id="business-display-name" class="admin-operator-only" style="display: none;">
+            NEGOCIO ACTIVO: <span id="active-business-name-display">Cargando...</span>
+        </div>
     </div>
     
     <main id="content-area">
