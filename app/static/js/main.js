@@ -269,6 +269,7 @@ export async function actualizarUIAutenticacion() {
 
             // --- Lógica Visibilidad Selector Negocio ---
             console.log("Aplicando lógica de visibilidad del selector de negocio..."); // LOG 8
+
             if (appState.userRol === 'superadmin') {
                 if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'flex';
                 if (businessDisplayName) businessDisplayName.style.display = 'none';
@@ -304,9 +305,34 @@ export async function actualizarUIAutenticacion() {
 
             // Muestra/oculta elementos .admin-only y .superadmin-only
             console.log("Aplicando visibilidad por roles..."); // LOG 16
-            document.querySelectorAll('.admin-only').forEach(/* ... tu código ... */);
-            document.querySelectorAll('.superadmin-only').forEach(/* ... tu código ... */);
-            document.querySelectorAll('.admin-operator-only').forEach(/* ... tu código ... */);
+            
+            // Función auxiliar para manejar la visibilidad
+            const setDisplay = (elements, shouldShow) => {
+                if (elements && typeof elements.forEach === 'function') { // Verifica si es una NodeList válida
+                    elements.forEach(el => {
+                        if (el && el.style) { // Verifica si el elemento y su 'style' existen
+                            el.style.display = shouldShow ? 'block' : 'none';
+                        } else {
+                            console.warn("Elemento inválido encontrado:", el);
+                        }
+                    });
+                } else {
+                     console.warn("Resultado inesperado de querySelectorAll:", elements);
+                }
+            };
+            // Aplica la lógica para cada clase
+            setDisplay(
+                document.querySelectorAll('.admin-only'), 
+                (appState.userRol === 'admin' || appState.userRol === 'superadmin')
+            );
+            setDisplay(
+                document.querySelectorAll('.superadmin-only'), 
+                (appState.userRol === 'superadmin')
+            );
+            setDisplay(
+                document.querySelectorAll('.admin-operator-only'), 
+                (appState.userRol !== 'superadmin')
+            );
 
              // Lógica para ocultar selector del HOME si NO es SuperAdmin
              const homeSelectorWrapper = document.getElementById('home-business-selector-wrapper');
