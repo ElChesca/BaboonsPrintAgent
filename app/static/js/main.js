@@ -236,76 +236,97 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
 }
 
 
+// en static/js/main.js
+
 export async function actualizarUIAutenticacion() {
+    // --- Declaraciones de Variables al Principio ---
     const user = getCurrentUser();
     const mainNav = document.querySelector('header nav');
     const authLink = document.getElementById('auth-link');
-    const businessSelector = document.getElementById('business-selector-bar');
+    const businessSelectorBar = document.getElementById('business-selector-bar'); // La barra contenedora
+    const businessSelectorDropdown = document.getElementById('business-selector-dropdown');
+    const businessDisplayName = document.getElementById('business-display-name');
+    const activeBusinessNameDisplay = document.getElementById('active-business-name-display');
 
     if (user && user.nombre) {
         try {
-            appState.userRol = user.rol;          
+            appState.userRol = user.rol; // Guarda el rol
+
+            // Muestra barras (si existen)
             if (mainNav) mainNav.style.display = 'flex';
-            if (businessSelector) businessSelector.style.display = 'flex';
+            if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
+
+            // Configura enlace Salir
             if (authLink) {
                 authLink.innerHTML = `Salir (${user.nombre})`;
                 authLink.onclick = (e) => { e.preventDefault(); logout(); };
             }
-            document.querySelectorAll('.admin-only').forEach(el => esAdmin() ? el.style.display = 'block' : el.style.display = 'none');
-            
-            const homeAuthLink = document.getElementById('home-auth-link');
-            if (homeAuthLink) {
-                homeAuthLink.innerHTML = `Salir (${user.nombre})`;
-                homeAuthLink.onclick = (e) => { e.preventDefault(); logout(); };
-            }
-            await poblarSelectorNegocios();            
-            // --- ✨ LÓGICA DE VISIBILIDAD DEL SELECTOR DE NEGOCIO ---
+
+            // --- Lógica Visibilidad Selector Negocio ---
             if (appState.userRol === 'superadmin') {
-                // Mostramos el dropdown, ocultamos el texto
-                if (businessSelector) businessSelector.style.display = 'flex'; // O 'block'
-                if (businessDisplayName) businessDisplayName.style.display = 'none';
-                await poblarSelectorNegocios(); // Llenamos el desplegable para el SuperAdmin
-            } else {
-                // Ocultamos el dropdown, mostramos el texto
-                if (businessSelector) businessSelector.style.display = 'none';
-                if (businessDisplayName) businessDisplayName.style.display = 'flex'; // O 'block'                
-                // Obtenemos el nombre del negocio activo (necesitamos asegurar que se cargue)
-                // Esto asume que poblarSelectorNegocios ya cargó los negocios y
-                // appState.negocioActivoId tiene el ID correcto.
-                // Podríamos necesitar buscar el nombre del negocio aquí si no está disponible.
-                 if (appState.negocioActivoId && activeBusinessNameDisplay) {
-                     // Intenta obtener el nombre del negocio del selector (si ya se pobló)
-                     const selector = document.getElementById('selector-negocio');
-                     const selectedOption = selector ? selector.options[selector.selectedIndex] : null;
-                     if (selectedOption && selectedOption.value == appState.negocioActivoId) {
-                         activeBusinessNameDisplay.textContent = selectedOption.text;
-                     } else {
-                         // Fallback: Si no se encontró, muestra el ID o pide recargar
-                         activeBusinessNameDisplay.textContent = `ID ${appState.negocioActivoId} (Recarga para ver nombre)`;
-                         // Podríamos hacer una llamada API aquí para buscar el nombre si es crucial
-                     }
-                    } else if (activeBusinessNameDisplay) {
-                        activeBusinessNameDisplay.textContent = "No asignado";
+                if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'flex'; // Muestra dropdown
+                if (businessDisplayName) businessDisplayName.style.display = 'none'; // Oculta texto
+                await poblarSelectorNegocios(); // Poblar para SuperAdmin
+            } else { // Admin u Operador
+                if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'none'; // Oculta dropdown
+                if (businessDisplayName) businessDisplayName.style.display = 'flex'; // Muestra texto
+
+                // Muestra nombre negocio (intenta leer del select oculto o usa fallback)
+                if (appState.negocioActivoId && activeBusinessNameDisplay) {
+                    const selector = document.getElementById('selector-negocio');
+                    // Asegúrate de que poblarSelectorNegocios ya se haya ejecutado al menos una vez
+                    // para tener las opciones. Si no, esta parte podría fallar o necesitar
+                    // una llamada API extra para buscar el nombre por ID.
+                    const selectedOption = selector ? Array.from(selector.options).find(opt => opt.value == appState.negocioActivoId) : null;
+
+                    if (selectedOption) {
+                        activeBusinessNameDisplay.textContent = selectedOption.text;
+                    } else {
+                        // Fallback si no encontramos el nombre
+                        activeBusinessNameDisplay.textContent = `ID ${appState.negocioActivoId}`;
+                        // Opcionalmente, llamar a una función para buscar el nombre por ID aquí
                     }
+                } else if (activeBusinessNameDisplay) {
+                    activeBusinessNameDisplay.textContent = "No asignado";
                 }
-                  // Oculta/muestra elementos según el rol
-            document.querySelectorAll('.admin-only').forEach(el => 
-                (user.rol === 'admin' || user.rol === 'superadmin') ? el.style.display = 'block' : el.style.display = 'none'
+            }
+            // --- Fin Lógica Selector ---
+
+            // Muestra/oculta elementos .admin-only y .superadmin-only
+            document.querySelectorAll('.admin-only').forEach(el =>
+                (appState.userRol === 'admin' || appState.userRol === 'superadmin') ? el.style.display = 'block' : el.style.display = 'none'
             );
-            document.querySelectorAll('.superadmin-only').forEach(el => 
-                (user.rol === 'superadmin') ? el.style.display = 'block' : el.style.display = 'none'
+            document.querySelectorAll('.superadmin-only').forEach(el =>
+                (appState.userRol === 'superadmin') ? el.style.display = 'block' : el.style.display = 'none'
             );
+
+            // Lógica para ocultar elementos específicos si NO es SuperAdmin (ej, selector home)
+            const homeSelectorWrapper = document.getElementById('home-business-selector-wrapper');
+             if (homeSelectorWrapper) { // Verifica si existe
+                 if (appState.userRol !== 'superadmin') {
+                    homeSelectorWrapper.classList.add('hide-element'); // Oculta si NO es SuperAdmin
+                 } else {
+                    homeSelectorWrapper.classList.remove('hide-element'); // Muestra si ES SuperAdmin
+                 }
+             }
+
+
         } catch (error) {
-            console.error("Fallo al validar token. Cerrando sesión.", error);
-            logout();
+            console.error("Fallo al validar token o actualizar UI. Cerrando sesión.", error);
+            logout(); // Cierra sesión si hay cualquier error
         }
-    } else {
+    } else { // No hay usuario (token inválido o no logueado)
         appState.userRol = null;
         if (mainNav) mainNav.style.display = 'none';
-        if (businessSelector) businessSelector.style.display = 'none';
-        loadContent(null, 'static/login.html');
+        if (businessSelectorBar) businessSelectorBar.style.display = 'none';
+
+        // Redirige a login solo si NO estamos ya en la página de login
+        if (!window.location.hash.includes('login')) {
+             loadContent(null, 'static/login.html');
+        }
     }
 }
+
 
 // --- INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
