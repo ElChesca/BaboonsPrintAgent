@@ -134,52 +134,68 @@ async function inicializarModulo(page) {
     }
 }
 
-
 async function poblarSelectorNegocios() {
-    // 1. Buscamos ambos posibles selectores.
+    console.log("Iniciando poblarSelectorNegocios...");
+    // Usamos ambos selectores (el principal y el del home)
     const mainSelector = document.getElementById('selector-negocio');
     const homeSelector = document.getElementById('home-selector-negocio');
     
-    // 2. Decidimos cuál usar. El del Home tiene prioridad si existe.
-    const selectorNegocio = homeSelector || mainSelector;
-
-    if (!selectorNegocio) return; // Si no hay ningún selector en la página, no hacemos nada.
+    // Si no existe ninguno, no hacemos nada
+    if (!mainSelector && !homeSelector) {
+        console.warn("No se encontraron selectores de negocio.");
+        return; 
+    }
 
     try {
         const negocios = await fetchData('/api/negocios');
         console.log("Negocios recibidos del API:", negocios);
-        selectorNegocio.innerHTML = '';
-        if (!negocios || negocios.length === 0) {
-            selectorNegocio.innerHTML = '<option value="">No hay negocios asignados</option>';
-            return;
-        }
-        negocios.forEach(negocio => {
-            const option = new Option(negocio.nombre, negocio.id);
-            selectorNegocio.appendChild(option);
-        });
+
+        // Función auxiliar para llenar un selector
+        const fillSelector = (selector) => {
+            if (!selector) return; // Si este selector específico no existe, no hacemos nada
+            selector.innerHTML = ''; // Limpiamos opciones anteriores
+            if (!negocios || negocios.length === 0) {
+                selector.innerHTML = '<option value="">No asignados</option>';
+                return;
+            }
+            negocios.forEach(negocio => {
+                const option = new Option(negocio.nombre, negocio.id);
+                selector.appendChild(option);
+            });
+
+            // Intentamos preseleccionar el negocio activo guardado o el primero
+            let idSeleccionado = negocios[0].id; // Default al primero
+            if (appState.negocioActivoId && negocios.some(n => n.id == appState.negocioActivoId)) {
+                idSeleccionado = appState.negocioActivoId;
+            } else if(negocios.length > 0) {
+                 // Si no había uno guardado o el guardado no es válido, seleccionamos el primero y actualizamos el estado
+                 appState.negocioActivoId = idSeleccionado; 
+                 console.log("Estableciendo negocio activo inicial a:", idSeleccionado);
+            }
+
+            selector.value = idSeleccionado; // Establece la selección visual
+            
+            // Actualiza el estado global si es necesario (evita bucles infinitos)
+            if (String(appState.negocioActivoId) !== String(idSeleccionado)) {
+                 appState.negocioActivoId = idSeleccionado;
+                 console.log("Actualizando appState.negocioActivoId a:", idSeleccionado);
+                 // No disparamos 'change' aquí para evitar recargas si estamos en medio de la carga inicial
+            }
+        };
+
+        // Llenamos ambos selectores (si existen)
+        fillSelector(mainSelector);
+        fillSelector(homeSelector);
         
-        let idSeleccionado = negocios[0].id;
-        if (appState.negocioActivoId && negocios.some(n => n.id == appState.negocioActivoId)) {
-            idSeleccionado = appState.negocioActivoId;
-        }
-        
-        selectorNegocio.value = idSeleccionado;
-        
-        // 3. Sincronizamos el estado de la aplicación con el valor del selector.
-        // Esto es importante para la primera carga.
-        if (appState.negocioActivoId !== idSeleccionado) {
-            appState.negocioActivoId = idSeleccionado;
-            // Disparamos el evento 'change' para que la página se recargue si es necesario.
-            selectorNegocio.dispatchEvent(new Event('change'));
-        } else {
-             appState.negocioActivoId = idSeleccionado;
-        }
-        
+        console.log("Selectores de negocio poblados. Negocio activo final:", appState.negocioActivoId);
+
     } catch (error) {
-        selectorNegocio.innerHTML = '<option value="">Error al cargar</option>';
-        throw error;
+        console.error("Error en poblarSelectorNegocios:", error);
+        if (mainSelector) mainSelector.innerHTML = '<option value="">Error</option>';
+        if (homeSelector) homeSelector.innerHTML = '<option value="">Error</option>';
     }
 }
+
 // --- FUNCIÓN PRINCIPAL DE FLUJO (MODIFICADA) ---
 export function loadContent(event, page, clickedLink, fromHistory = false) {
     
@@ -236,6 +252,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
         });
 }
 // en static/js/main.js
+// en static/js/main.js
 
 export async function actualizarUIAutenticacion() {
     console.log("--- Iniciando actualizarUIAutenticacion ---");
@@ -269,50 +286,56 @@ export async function actualizarUIAutenticacion() {
 
             // --- Lógica Visibilidad Selector Negocio ---
             console.log("Aplicando lógica selector negocio..."); 
+
+            // SIEMPRE poblamos el selector primero para tener los datos listos
+            // Es asíncrono, así que esperamos a que termine antes de continuar
+            await poblarSelectorNegocios(); 
+            console.log("Selector poblado o datos cargados.");
+
             if (appState.userRol === 'superadmin') {
-                if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'flex'; // Muestra dropdown para SuperAdmin
+                if (businessSelectorDropdown) {
+                    businessSelectorDropdown.style.display = 'flex'; // Muestra dropdown para SuperAdmin
+                    console.log("Mostrando dropdown para SuperAdmin");
+                } else { console.warn("businessSelectorDropdown no encontrado"); }
                 if (businessDisplayName) businessDisplayName.style.display = 'none'; // Oculta texto
-                console.log("Es SuperAdmin, poblando selector..."); 
-                await poblarSelectorNegocios(); // Poblar para SuperAdmin
-                console.log("Selector poblado para SuperAdmin."); 
             } else { // Admin u Operador
                 if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'none'; // Oculta dropdown
-                if (businessDisplayName) businessDisplayName.style.display = 'flex'; // Muestra texto
-                console.log("No es SuperAdmin, mostrando nombre de negocio..."); 
-
-                // Aseguramos que los datos de negocios se carguen ANTES de intentar mostrar el nombre
-                await poblarSelectorNegocios(); // Llamamos siempre para tener los datos
-
-                 if (appState.negocioActivoId && activeBusinessNameDisplay) {
-                     const selector = document.getElementById('selector-negocio'); 
-                     console.log("Intentando obtener nombre de negocio activo ID:", appState.negocioActivoId); 
-                     const selectedOption = selector ? Array.from(selector.options).find(opt => opt.value == appState.negocioActivoId) : null;
-                     if (selectedOption) {
-                         activeBusinessNameDisplay.textContent = selectedOption.text;
-                         console.log("Nombre encontrado:", selectedOption.text); 
-                     } else {
-                         activeBusinessNameDisplay.textContent = `ID ${appState.negocioActivoId}`;
-                         console.warn("No se encontró el nombre del negocio en el selector poblado."); 
+                if (businessDisplayName) {
+                     businessDisplayName.style.display = 'flex'; // Muestra texto
+                     console.log("Mostrando nombre negocio para Admin/Operador");
+                     // Muestra nombre negocio
+                     if (appState.negocioActivoId && activeBusinessNameDisplay) {
+                         const selector = document.getElementById('selector-negocio');
+                         const selectedOption = selector ? Array.from(selector.options).find(opt => opt.value == appState.negocioActivoId) : null;
+                         if (selectedOption) {
+                             activeBusinessNameDisplay.textContent = selectedOption.text;
+                             console.log("Nombre encontrado:", selectedOption.text); 
+                         } else { 
+                             activeBusinessNameDisplay.textContent = `ID ${appState.negocioActivoId}`; 
+                             console.warn("No se encontró el nombre del negocio en el selector poblado."); 
+                         }
+                     } else if (activeBusinessNameDisplay) { 
+                         activeBusinessNameDisplay.textContent = "No asignado"; 
+                         console.log("No hay negocio activo o elemento display no encontrado."); 
                      }
-                 } else if (activeBusinessNameDisplay) {
-                     activeBusinessNameDisplay.textContent = "No asignado";
-                     console.log("No hay negocio activo o elemento display no encontrado."); 
-                 }
+                } else { console.warn("businessDisplayName no encontrado"); }
             }
             // --- Fin Lógica Selector ---
 
-            // --- Lógica de Visibilidad por Roles (Usando Clases CSS) ---
+            // --- Lógica de Visibilidad por Roles (Usando Clases CSS - COMPLETA) ---
             console.log("Aplicando visibilidad por roles..."); 
             const setDisplay = (elements, shouldShow) => {
                 if (elements && typeof elements.forEach === 'function') {
                     elements.forEach(el => {
                         if (el && el.style) {
-                            el.style.display = shouldShow ? 'block' : 'none'; // Usamos block por defecto, ajusta si necesitas otro display
+                            // Usamos flex aquí también por consistencia con la barra y otros elementos
+                            el.style.display = shouldShow ? 'flex' : 'none'; // Puedes cambiar 'flex' a 'block' si causa problemas de layout
                         } else { console.warn("Elemento inválido:", el); }
                     });
                 } else { console.warn("Resultado inesperado querySelectorAll:", elements); }
             };
 
+            // Aplica la lógica para cada clase
             setDisplay( document.querySelectorAll('.admin-only'), (appState.userRol === 'admin' || appState.userRol === 'superadmin') );
             setDisplay( document.querySelectorAll('.superadmin-only'), (appState.userRol === 'superadmin') );
             setDisplay( document.querySelectorAll('.admin-operator-only'), (appState.userRol !== 'superadmin') );
@@ -321,10 +344,13 @@ export async function actualizarUIAutenticacion() {
             // Lógica para ocultar selector del HOME si NO es SuperAdmin
              const homeSelectorWrapper = document.getElementById('home-business-selector-wrapper');
               if (homeSelectorWrapper) {
+                  // Usamos la clase CSS 'hide-element' que definimos antes
                   if (appState.userRol !== 'superadmin') {
                      homeSelectorWrapper.classList.add('hide-element'); 
+                     console.log("Ocultando selector home para no SuperAdmin.");
                   } else {
                      homeSelectorWrapper.classList.remove('hide-element'); 
+                     console.log("Mostrando selector home para SuperAdmin.");
                   }
               }
             
@@ -332,11 +358,18 @@ export async function actualizarUIAutenticacion() {
 
             // --- Carga de Contenido Inicial ---
             const requestedPage = window.location.hash.substring(1); 
-            if (!requestedPage || requestedPage === 'home') { 
+            const contentArea = document.getElementById('content-area'); // Verifica si hay contenido
+            
+            // Si NO hay hash O el hash es 'home' Y el área está vacía, carga home.html
+            if ((!requestedPage || requestedPage === 'home') && contentArea && contentArea.innerHTML.trim() === '') { 
                 console.log("Cargando home.html por defecto...");
                 loadContent(null, 'static/home.html'); 
+            } else if (requestedPage && requestedPage !== 'home') {
+                 console.log(`Hash encontrado: #${requestedPage}. Dejando que loadContent maneje la ruta si es necesario.`);
+                 // Si tu sistema de routing no se activa solo con el hash, podrías necesitar forzarlo:
+                 // loadContent(null, `static/${requestedPage}.html`);
             } else {
-                 console.log(`Hash encontrado: #${requestedPage}. Dejando que loadContent maneje la ruta.`);
+                 console.log("Ya hay contenido cargado o estamos en home, no se fuerza recarga.");
             }
             // --- Fin Carga Contenido ---
 
