@@ -1,6 +1,5 @@
 /* --- ESTILOS GENERALES (DESKTOP FIRST) --- */
 .admin-only { display: none; }
-.superadmin-only,
 .admin-operator-only {
     display: none; /* Ocultos por defecto */
 }
