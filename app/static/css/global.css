@@ -1,26 +1,32 @@
-/* --- ESTILOS GENERALES (DESKTOP FIRST) --- */
+/* ==========================================================================
+   GLOBAL.CSS - Estilos Generales Multinegocio Baboons (Versión Final Depurada)
+   ========================================================================== */
+
+/* --- 1. RESET BÁSICO Y FUENTES --- */
 body {
     font-family: 'Roboto', sans-serif;
     margin: 0;
     background-color: #f0f2f5;
+    color: #333; /* Color de texto por defecto */
 }
 
+/* --- 2. LAYOUT PRINCIPAL --- */
 main {
     padding: 30px;
 }
 
-/* --- VISIBILIDAD POR ROLES --- */
+/* --- 3. VISIBILIDAD POR ROLES --- */
 .admin-only,
 .superadmin-only,
 .admin-operator-only {
     display: none !important; /* Ocultos por defecto, !important para asegurar */
 }
 
-/* --- HEADER --- */
+/* --- 4. HEADER --- */
 header {
     background-color: #222222; /* Gris oscuro Baboons */
     color: white;
-    padding: 10px 30px; /* Un poco menos de padding vertical */
+    padding: 10px 30px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -28,10 +34,10 @@ header {
     position: sticky;
     top: 0;
     z-index: 1000;
-    min-height: 60px; /* Altura mínima */
+    min-height: 60px;
 }
 .logo-container {
-    height: 35px; /* Altura ajustada para el logo */
+    height: 35px;
     display: flex;
     align-items: center;
 }
@@ -40,49 +46,49 @@ header {
     width: auto;
 }
 
-/* --- BARRA SELECTOR NEGOCIO (Debajo del Header) --- */
+/* --- 5. BARRA SELECTOR NEGOCIO --- */
 #business-selector-bar {
     background-color: #f8f9fa;
-    padding: 8px 30px; /* Padding ajustado */
-    display: none; /* Oculta por defecto, JS la muestra */
+    padding: 8px 30px;
+    display: none; /* JS la muestra */
     align-items: center;
-    gap: 15px; /* Espacio entre label y select/texto */
+    gap: 15px;
     border-bottom: 1px solid #dee2e6;
-    min-height: 40px; /* Altura mínima */
+    min-height: 40px;
 }
 #business-selector-bar label,
 #business-display-name {
     font-weight: bold;
-    font-size: 0.85em; /* Un poco más pequeño */
-    margin: 0; /* Quitar margen por defecto */
+    font-size: 0.85em;
+    margin: 0;
     color: #333;
 }
 #business-selector-bar select {
-    padding: 5px 8px; /* Padding más ajustado */
+    padding: 5px 8px;
     border-radius: 4px;
     border: 1px solid #ccc;
     font-size: 0.85em;
-    margin-left: 5px; /* Pequeño espacio */
+    margin-left: 5px;
 }
 #active-business-name-display {
-    font-weight: normal; /* El nombre no necesita ser bold */
+    font-weight: normal;
 }
 
-/* --- NAVEGACIÓN PRINCIPAL --- */
+/* --- 6. NAVEGACIÓN PRINCIPAL --- */
 nav { display: flex; align-items: center; }
 nav a {
     color: white; text-decoration: none; margin-left: 15px;
     font-weight: bold; padding: 8px 12px; border-radius: 5px;
     transition: background-color 0.3s; white-space: nowrap;
 }
-nav a:hover, nav a.active { background-color: #444444; } /* Gris más claro para hover */
+nav a:hover, nav a.active { background-color: #444444; } /* Gris hover */
 
 /* Dropdown Menú */
 .dropdown { position: relative; display: inline-block; }
 .dropdown-content {
     display: none; position: absolute; background-color: #333333; /* Gris menú */
     min-width: 180px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-    z-index: 100; border-radius: 5px; right: 0; /* Alineado a la derecha */
+    z-index: 100; border-radius: 5px; right: 0;
 }
 .dropdown-content a {
     color: white; padding: 12px 16px; display: block;
@@ -92,101 +98,176 @@ nav a:hover, nav a.active { background-color: #444444; } /* Gris más claro para
 .dropdown:hover .dropdown-content { display: block; }
 
 /* Botón Hamburguesa (Móvil) */
-.hamburger-btn { /* Estilos se quedan igual */ }
+.hamburger-btn {
+    display: none; /* Oculto por defecto en escritorio */
+    font-size: 2em;
+    color: white; /* Color para tema gris */
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 10px;
+    margin: 0;
+}
 
-/* --- RESPONSIVE (Móvil) --- */
+/* --- 7. RESPONSIVE (Móvil) --- */
 @media (max-width: 900px) {
     header { padding: 10px 15px; min-height: 50px; }
     .logo-container { height: 30px; }
     .hamburger-btn { display: block; }
-    .nav-container { /* Estilos se quedan igual */ }
-    nav { /* Estilos se quedan igual */ }
-    nav a, .dropdown { border-bottom: 1px solid #555555; } /* Gris borde móvil */
-    .dropdown-content { /* Estilos se quedan igual */ }
+    .nav-container {
+        display: none; position: absolute; top: 60px; /* Ajusta si el header cambió */
+        left: 0; width: 100%; background-color: #333333; /* Gris menú */
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 999;
+    }
+    .nav-container.is-active { display: block; }
+    nav { flex-direction: column; align-items: flex-start; padding: 10px 0; }
+    nav a, .dropdown { width: 100%; margin-left: 0; padding: 15px; border-bottom: 1px solid #555555; }
+    .dropdown-content { position: static; display: block; background-color: transparent; box-shadow: none; padding-left: 20px; }
     #business-selector-bar { padding: 8px 15px; flex-direction: column; align-items: flex-start; }
 }
 
-/* --- DASHBOARD (Home) --- */
+/* --- 8. DASHBOARD (Home) --- */
 .app-dashboard { padding: 30px; text-align: center; }
 .dashboard-title { font-size: 2em; color: #333; margin-bottom: 30px; font-weight: 300; }
 .app-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); /* Ancho mínimo un poco mayor */
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     gap: 25px; justify-content: center; max-width: 900px; margin: 0 auto;
 }
-/* Asegura que AMBAS grillas respeten el max-width */
-.app-grid.admin-only { max-width: 900px; }
+.app-grid.admin-only { max-width: 900px; } /* Asegura max-width */
+.app-card {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background-color: #ffffff; border-radius: 12px; padding: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer; min-height: 120px; text-decoration: none; /* Para los <a> */
+}
+.app-card:hover { transform: translateY(-5px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); }
+.app-icon { width: 64px; height: 64px; margin-bottom: 10px; object-fit: contain; }
+.app-name { font-size: 0.9em; color: #555; text-align: center; font-weight: 500; }
 
-.app-card { /* Estilos se quedan igual */ }
-.app-card:hover { /* Estilos se quedan igual */ }
-.app-icon { /* Estilos se quedan igual */ }
-.app-name { /* Estilos se quedan igual */ }
-
-/* --- COMPONENTES GLOBALES --- */
+/* --- 9. COMPONENTES GLOBALES --- */
 /* Modales */
-.modal { /* Estilos se quedan igual */ }
-.modal-content { /* Estilos se quedan igual */ }
-.modal-content.large { /* Estilos se quedan igual */ }
-.modal-header { /* Estilos se quedan igual */ }
-.close-button { /* Estilos se quedan igual */ }
+.modal {
+    display: none; position: fixed; z-index: 1001; /* Encima del header */
+    left: 0; top: 0; width: 100%; height: 100%; overflow: auto;
+    background-color: rgba(0, 0, 0, 0.6); /* Más oscuro */
+    justify-content: center; align-items: center;
+}
+.modal-content {
+    background-color: #fff; padding: 25px; border-radius: 8px;
+    width: 90%; max-width: 500px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+.modal-content.large { max-width: 900px; }
+.modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px;
+}
+.modal-header h2, .modal-header h3 { margin: 0; color: #333; }
+.close-button {
+    color: #aaa; font-size: 32px; font-weight: bold; cursor: pointer;
+    line-height: 1; /* Mejor alineación vertical */
+}
+.close-button:hover, .close-button:focus { color: black; text-decoration: none; }
 
 /* Buscador con Resultados */
 .search-container { position: relative; }
-.search-results { /* Estilos se quedan igual */ }
-.search-item { /* Estilos se quedan igual */ }
-.search-item:hover { /* Estilos se quedan igual */ }
-.search-item .stock { /* Estilos se quedan igual */ }
+.search-results {
+    position: absolute; width: 100%; background-color: white;
+    border: 1px solid #ddd; border-top: none; border-radius: 0 0 6px 6px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 250px;
+    overflow-y: auto; z-index: 100;
+}
+.search-item {
+    padding: 10px 15px; cursor: pointer; display: flex;
+    justify-content: space-between; align-items: center; font-size: 0.9em;
+    border-bottom: 1px solid #f0f0f0;
+}
+.search-item:last-child { border-bottom: none; }
+.search-item:hover { background-color: #f0f0f0; }
+.search-item .stock { color: #6c757d; font-size: 0.85em; }
 
 /* Notificaciones (Toast) */
-#notification-container { /* Estilos se quedan igual */ }
-.toast-notification { /* Estilos se quedan igual */ }
-.toast-notification.success { /* ... */ } .toast-notification.warning { /* ... */ }
-.toast-notification.error { /* ... */ } .toast-notification.info { /* ... */ }
-@keyframes slideIn { /* ... */ } @keyframes slideOut { /* ... */ }
+#notification-container {
+    position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+}
+.toast-notification {
+    color: #fff; padding: 15px 20px; border-radius: 8px; min-width: 250px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0;
+    transform: translateX(100%); animation: slideIn 0.5s forwards;
+}
+.toast-notification.success { background-color: #5C8C6A; } /* Verde Baboons */
+.toast-notification.warning { background-color: #ffc107; color: #333; }
+.toast-notification.error { background-color: #dc3545; }
+.toast-notification.info { background-color: #777; } /* Gris Info */
+@keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
+@keyframes slideOut { to { opacity: 0; transform: translateX(100%); } }
 
 /* Input con Botón (+) */
-.input-with-button { /* Estilos se quedan igual */ }
-.btn-add-quick { /* Estilos se quedan igual */ }
-.btn-add-quick:hover { /* Estilos se quedan igual */ }
+.input-with-button { display: flex; gap: 10px; align-items: center; }
+.input-with-button select, .input-with-button input { flex-grow: 1; margin-bottom: 0 !important; /* Quitar margen si está dentro */ }
+.btn-add-quick {
+    flex-shrink: 0; padding: 8px 12px !important; font-size: 1.2em !important; font-weight: bold !important;
+    background-color: #5C8C6A !important; color: white !important; /* Verde Baboons */
+}
+.btn-add-quick:hover { background-color: #4a7055 !important; }
 
 /* Tablas */
-.tabla-bonita { /* Estilos se quedan igual */ }
-.tabla-bonita thead { background-color: #4A4A4A; } /* Cabecera gris oscuro */
-.tabla-bonita th, .tabla-bonita td { /* Estilos se quedan igual */ }
-.tabla-bonita tbody tr:hover { /* Estilos se quedan igual */ }
+.tabla-bonita {
+    width: 100%; border-collapse: collapse; margin-bottom: 20px;
+    background-color: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 8px; overflow: hidden; font-size: 0.9em; /* Ligeramente más pequeña */
+}
+.tabla-bonita thead { background-color: #4A4A4A; color: white; } /* Cabecera gris oscuro */
+.tabla-bonita th, .tabla-bonita td { padding: 10px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+.tabla-bonita tbody tr:hover { background-color: #f5f5f5; }
+.tabla-bonita tbody tr:last-child td { border-bottom: none; }
+.tabla-contenedor { overflow-x: auto; }
 
 /* Botones */
-.btn { /* Estilos base se quedan igual */ margin: 0 5px 5px 0; } /* Ajuste margen */
-.btn-primary { background-color: #555; } /* Botón primario gris oscuro */
-.btn-primary:hover { background-color: #333; }
-.btn-secondary { background-color: #aaa; color: #333; } /* Secundario gris claro */
-.btn-secondary:hover { background-color: #888; }
-.btn-danger { /* Estilos se quedan igual */ }
-.btn-danger:hover { /* Estilos se quedan igual */ }
-.btn-info { background-color: #777; color: white; } /* Botón info gris medio */
-.btn-info:hover { background-color: #555; }
-.btn-success { background-color: #5C8C6A; } /* Un verde más apagado */
-.btn-success:hover { background-color: #4a7055; }
-.btn-sm { padding: 5px 10px; font-size: 0.85em; } /* Botón pequeño */
+.btn {
+    padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;
+    font-size: 0.9em; transition: background-color 0.2s ease, transform 0.1s ease;
+    margin: 0 5px 5px 0; text-decoration: none; display: inline-block; text-align: center;
+    font-weight: 500;
+}
+.btn-primary { background-color: #555; color: white; }
+.btn-primary:hover { background-color: #333; transform: translateY(-1px); }
+.btn-secondary { background-color: #aaa; color: #333; }
+.btn-secondary:hover { background-color: #888; transform: translateY(-1px); }
+.btn-danger { background-color: #dc3545; color: white; }
+.btn-danger:hover { background-color: #c82333; transform: translateY(-1px); }
+.btn-info { background-color: #777; color: white; }
+.btn-info:hover { background-color: #555; transform: translateY(-1px); }
+.btn-success { background-color: #5C8C6A; color: white; }
+.btn-success:hover { background-color: #4a7055; transform: translateY(-1px); }
+.btn-sm { padding: 5px 10px; font-size: 0.85em; }
 
 /* Formularios */
 input[type="text"], input[type="number"], input[type="email"],
 input[type="password"], input[type="date"], select, textarea {
-    padding: 10px 12px; /* Padding unificado */
-    border: 1px solid #ccc; border-radius: 4px; font-size: 0.95em;
-    box-sizing: border-box; margin-bottom: 15px; /* Mayor margen */
-    width: 100%; /* Ocupan todo el ancho disponible por defecto */
+    padding: 10px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95em;
+    box-sizing: border-box; margin-bottom: 15px; width: 100%;
 }
-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23333' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 1em; padding-right: 30px; }
+select {
+    appearance: none; -webkit-appearance: none; -moz-appearance: none; /* Quitar apariencia nativa */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23555' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; background-size: 1em;
+    padding-right: 30px; background-color: #fff; /* Fondo blanco para tapar flecha nativa */
+}
 label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; color: #333; }
 .form-group { margin-bottom: 15px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
 /* Badges de Estado */
-.status-badge { /* Estilos se quedan igual */ }
-.status-pendiente { /* Estilos se quedan igual */ }
-.status-convertido { /* Estilos se quedan igual */ }
+.status-badge {
+    padding: 3px 8px; border-radius: 12px; font-size: 0.8em;
+    font-weight: 500; color: white; display: inline-block;
+}
+.status-pendiente { background-color: #ffc107; color: #333; }
+.status-convertido { background-color: #5C8C6A; } /* Verde Baboons */
 
-/* Utilidades */
+/* --- 10. UTILIDADES --- */
 .hidden { display: none !important; }
+.hide-element { display: none !important; } /* Clase específica para JS */
 .card { background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-.tabla-contenedor { overflow-x: auto; } /* Permite scroll horizontal en tablas */
