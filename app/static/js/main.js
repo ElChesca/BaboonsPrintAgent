@@ -238,95 +238,68 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
 
 // en static/js/main.js
 
+// en static/js/main.js
+
 export async function actualizarUIAutenticacion() {
-    // --- Declaraciones de Variables al Principio ---
+    // --- Declaraciones de Variables ---
     const user = getCurrentUser();
     const mainNav = document.querySelector('header nav');
     const authLink = document.getElementById('auth-link');
-    const businessSelectorBar = document.getElementById('business-selector-bar'); // La barra contenedora
-    const businessSelectorDropdown = document.getElementById('business-selector-dropdown');
-    const businessDisplayName = document.getElementById('business-display-name');
+    const businessSelectorBar = document.getElementById('business-selector-bar');
+    // Ya no necesitamos seleccionar los divs específicos aquí, solo el span del nombre
     const activeBusinessNameDisplay = document.getElementById('active-business-name-display');
 
     if (user && user.nombre) {
         try {
-            appState.userRol = user.rol; // Guarda el rol
+            appState.userRol = user.rol;
 
             // Muestra barras (si existen)
             if (mainNav) mainNav.style.display = 'flex';
             if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
 
             // Configura enlace Salir
-            if (authLink) {
-                authLink.innerHTML = `Salir (${user.nombre})`;
-                authLink.onclick = (e) => { e.preventDefault(); logout(); };
-            }
+            if (authLink) { /* ... */ }
 
-            // --- Lógica Visibilidad Selector Negocio ---
-            if (appState.userRol === 'superadmin') {
-                if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'flex'; // Muestra dropdown
-                if (businessDisplayName) businessDisplayName.style.display = 'none'; // Oculta texto
-                await poblarSelectorNegocios(); // Poblar para SuperAdmin
-            } else { // Admin u Operador
-                if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'none'; // Oculta dropdown
-                if (businessDisplayName) businessDisplayName.style.display = 'flex'; // Muestra texto
-
-                // Muestra nombre negocio (intenta leer del select oculto o usa fallback)
-                if (appState.negocioActivoId && activeBusinessNameDisplay) {
-                    const selector = document.getElementById('selector-negocio');
-                    // Asegúrate de que poblarSelectorNegocios ya se haya ejecutado al menos una vez
-                    // para tener las opciones. Si no, esta parte podría fallar o necesitar
-                    // una llamada API extra para buscar el nombre por ID.
-                    const selectedOption = selector ? Array.from(selector.options).find(opt => opt.value == appState.negocioActivoId) : null;
-
-                    if (selectedOption) {
-                        activeBusinessNameDisplay.textContent = selectedOption.text;
-                    } else {
-                        // Fallback si no encontramos el nombre
-                        activeBusinessNameDisplay.textContent = `ID ${appState.negocioActivoId}`;
-                        // Opcionalmente, llamar a una función para buscar el nombre por ID aquí
-                    }
-                } else if (activeBusinessNameDisplay) {
-                    activeBusinessNameDisplay.textContent = "No asignado";
-                }
-            }
-            // --- Fin Lógica Selector ---
-
+            // --- Lógica de Visibilidad de Roles (Usando Clases CSS) ---
             // Muestra/oculta elementos .admin-only y .superadmin-only
             document.querySelectorAll('.admin-only').forEach(el =>
                 (appState.userRol === 'admin' || appState.userRol === 'superadmin') ? el.style.display = 'block' : el.style.display = 'none'
             );
             document.querySelectorAll('.superadmin-only').forEach(el =>
-                (appState.userRol === 'superadmin') ? el.style.display = 'block' : el.style.display = 'none'
+                (appState.userRol === 'superadmin') ? el.style.display = 'block' : el.style.display = 'none' // Muestra si es superadmin
             );
+            // Muestra el nombre del negocio si NO es superadmin
+            document.querySelectorAll('.admin-operator-only').forEach(el =>
+                (appState.userRol !== 'superadmin') ? el.style.display = 'block' : el.style.display = 'none' // Muestra si NO es superadmin
+            );
+            // --- Fin Lógica Roles ---
 
-            // Lógica para ocultar elementos específicos si NO es SuperAdmin (ej, selector home)
+
+            // Poblar selector (se ejecuta SIEMPRE para tener los datos listos)
+            await poblarSelectorNegocios();
+
+            // Si NO es SuperAdmin, actualizamos el nombre del negocio visible
+            if (appState.userRol !== 'superadmin') {
+                if (appState.negocioActivoId && activeBusinessNameDisplay) {
+                    const selector = document.getElementById('selector-negocio'); // Leemos del select (aunque esté oculto)
+                    const selectedOption = selector ? Array.from(selector.options).find(opt => opt.value == appState.negocioActivoId) : null;
+                    if (selectedOption) {
+                        activeBusinessNameDisplay.textContent = selectedOption.text;
+                    } else {
+                        activeBusinessNameDisplay.textContent = `ID ${appState.negocioActivoId}`;
+                    }
+                } else if (activeBusinessNameDisplay) {
+                    activeBusinessNameDisplay.textContent = "No asignado";
+                }
+            }
+
+            // Lógica para ocultar selector del HOME si NO es SuperAdmin (se queda igual)
             const homeSelectorWrapper = document.getElementById('home-business-selector-wrapper');
-             if (homeSelectorWrapper) { // Verifica si existe
-                 if (appState.userRol !== 'superadmin') {
-                    homeSelectorWrapper.classList.add('hide-element'); // Oculta si NO es SuperAdmin
-                 } else {
-                    homeSelectorWrapper.classList.remove('hide-element'); // Muestra si ES SuperAdmin
-                 }
-             }
+            if (homeSelectorWrapper) { /* ... tu lógica add/remove hide-element ... */ }
 
-
-        } catch (error) {
-            console.error("Fallo al validar token o actualizar UI. Cerrando sesión.", error);
-            logout(); // Cierra sesión si hay cualquier error
-        }
-    } else { // No hay usuario (token inválido o no logueado)
-        appState.userRol = null;
-        if (mainNav) mainNav.style.display = 'none';
-        if (businessSelectorBar) businessSelectorBar.style.display = 'none';
-
-        // Redirige a login solo si NO estamos ya en la página de login
-        if (!window.location.hash.includes('login')) {
-             loadContent(null, 'static/login.html');
-        }
-    }
+        } catch (error) { /* ... */ }
+    } else { /* ... */ }
 }
-
 
 // --- INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {

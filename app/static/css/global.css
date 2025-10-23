@@ -1,7 +1,9 @@
 /* --- ESTILOS GENERALES (DESKTOP FIRST) --- */
-/* en global.css */
-.superadmin-only { display: none; } /* Oculto por defecto */
 .admin-only { display: none; }
+.superadmin-only,
+.admin-operator-only {
+    display: none; /* Ocultos por defecto */
+}
 /* Ocultamos también el display de nombre por defecto */
 .admin-operator-only {
     display: none;
