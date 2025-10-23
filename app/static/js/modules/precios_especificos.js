@@ -51,6 +51,11 @@ async function cargarPreciosEspecificos(listaId) {
 // --- Renderizado ---
 function renderizarTablaPrecios() {
     const tbody = document.querySelector('#tabla-precios-especificos tbody');
+    if (!tbody) {
+        console.error("Error: No se encontró el elemento tbody '#tabla-precios-especificos tbody'");
+        mostrarNotificacion("Error interno al intentar mostrar la tabla de precios.", "error");
+        return; // Detiene la ejecución si no encuentra el tbody
+    }
     tbody.innerHTML = '';
     
     if (todosLosProductos.length === 0) { /* ... (mensaje no hay productos) ... */ return; }

@@ -1,20 +1,36 @@
 <link rel="stylesheet" href="/static/css/precios_especificos.css">
 
 <div class="card">
-    <h2>💰 Gestión de Precios Específicos e Importacion de Listas</h2>
+    <h2>💰 Gestión de Precios Específicos</h2>
 
     <div class="seleccion-lista">
         <div class="form-group">
             <label for="selector-lista-precios">Seleccione la Lista de Precios a Editar:</label>
-            <select id="selector-lista-precios"> /* ... opciones ... */ </select>
+            <select id="selector-lista-precios">
+                <option value="">-- Elija una lista --</option>
+                </select>
         </div>
         <button id="btn-abrir-modal-importar" class="btn-secondary">Importar Precios</button>
         <button id="btn-guardar-precios" class="btn-primary hidden">💾 Guardar Cambios</button>
     </div>
 
+    <div id="tabla-precios-container" class="hidden tabla-contenedor">
+        <p>Editá los precios en la columna 'Precio Específico'. Dejá vacío para usar el precio base o las reglas.</p>
+        <table id="tabla-precios-especificos" class="tabla-bonita tabla-editable">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>SKU</th>
+                    <th>Precio Base</th>
+                    <th>Precio Específico</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="4" style="text-align: center;">Seleccione una lista para ver los productos...</td></tr>
+            </tbody>
+        </table>
     </div>
-
-<div id="modal-importar-precios" class="modal">
+    </div> <div id="modal-importar-precios" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h3>Importar Precios desde Excel (.xlsx)</h3>
@@ -47,3 +63,5 @@
         </div>
     </div>
 </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
