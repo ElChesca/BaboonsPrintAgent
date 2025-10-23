@@ -1,8 +1,17 @@
 <div class="home-header">
-    <div class="home-business-selector">
-        <label for="home-selector-negocio">NEGOCIO ACTIVO:</label>
-        <select id="home-selector-negocio"></select>
+    
+    <div id="business-selector-bar" style="background-color: #f8f9fa; padding: 5px 30px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #dee2e6;">
+
+        <div id="business-selector-dropdown" class="superadmin-only"> <label for="selector-negocio" style="font-weight: bold; font-size: 0.9em;">NEGOCIO ACTIVO:</label>
+            <select id="selector-negocio" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;"></select>
+        </div>
+
+        <div id="business-display-name" class="admin-operator-only" style="font-weight: bold; font-size: 0.9em; display: none;"> NEGOCIO ACTIVO: <span id="active-business-name-display">Cargando...</span>
+        </div>
+
     </div>
+
+
     <div class="home-user-menu">
         <button id="hamburger-btn" class="hamburger-btn" style="color: #333;">☰</button>
         <a href="#" id="home-auth-link"></a>

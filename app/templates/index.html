@@ -48,8 +48,8 @@
                  <div class="dropdown admin-only">
                     <a href="#" class="dropbtn">⚙️ Configuración ▾</a>
                     <div class="dropdown-content">
-                        <a href="#" onclick="loadContent(event, 'static/negocios.html', this)">🏢 Negocios</a>
-                        <a href="#" onclick="loadContent(event, 'static/usuarios.html', this)">👥 Usuarios</a>
+                        <a href="#" class="superadmin-only" onclick="loadContent(event, 'static/negocios.html', this)">🏢 Negocios</a>                        
+                        <a href="#" class="admin" onclick="loadContent(event, 'static/usuarios.html', this)">👥 Usuarios</a>
                         <a href="#" onclick="loadContent(event, 'static/proveedores.html', this)">🚚 Proveedores</a>
                         <a href="#" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a>
                         <a href="#" onclick="loadContent(event, 'static/listas_precios.html', this)">🧾 Listas de Precios</a>

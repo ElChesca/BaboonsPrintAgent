@@ -1,4 +1,12 @@
 /* --- ESTILOS GENERALES (DESKTOP FIRST) --- */
+/* en global.css */
+.superadmin-only { display: none; } /* Oculto por defecto */
+.admin-only { display: none; }
+/* Ocultamos también el display de nombre por defecto */
+.admin-operator-only {
+    display: none;
+}
+
 body { 
     font-family: 'Roboto', sans-serif; 
     margin: 0; 

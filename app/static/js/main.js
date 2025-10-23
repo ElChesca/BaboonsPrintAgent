@@ -244,7 +244,7 @@ export async function actualizarUIAutenticacion() {
 
     if (user && user.nombre) {
         try {
-            appState.userRol = user.rol;
+            appState.userRol = user.rol;          
             if (mainNav) mainNav.style.display = 'flex';
             if (businessSelector) businessSelector.style.display = 'flex';
             if (authLink) {
@@ -259,7 +259,42 @@ export async function actualizarUIAutenticacion() {
                 homeAuthLink.onclick = (e) => { e.preventDefault(); logout(); };
             }
             await poblarSelectorNegocios();            
-           
+            // --- ✨ LÓGICA DE VISIBILIDAD DEL SELECTOR DE NEGOCIO ---
+            if (appState.userRol === 'superadmin') {
+                // Mostramos el dropdown, ocultamos el texto
+                if (businessSelector) businessSelector.style.display = 'flex'; // O 'block'
+                if (businessDisplayName) businessDisplayName.style.display = 'none';
+                await poblarSelectorNegocios(); // Llenamos el desplegable para el SuperAdmin
+            } else {
+                // Ocultamos el dropdown, mostramos el texto
+                if (businessSelector) businessSelector.style.display = 'none';
+                if (businessDisplayName) businessDisplayName.style.display = 'flex'; // O 'block'                
+                // Obtenemos el nombre del negocio activo (necesitamos asegurar que se cargue)
+                // Esto asume que poblarSelectorNegocios ya cargó los negocios y
+                // appState.negocioActivoId tiene el ID correcto.
+                // Podríamos necesitar buscar el nombre del negocio aquí si no está disponible.
+                 if (appState.negocioActivoId && activeBusinessNameDisplay) {
+                     // Intenta obtener el nombre del negocio del selector (si ya se pobló)
+                     const selector = document.getElementById('selector-negocio');
+                     const selectedOption = selector ? selector.options[selector.selectedIndex] : null;
+                     if (selectedOption && selectedOption.value == appState.negocioActivoId) {
+                         activeBusinessNameDisplay.textContent = selectedOption.text;
+                     } else {
+                         // Fallback: Si no se encontró, muestra el ID o pide recargar
+                         activeBusinessNameDisplay.textContent = `ID ${appState.negocioActivoId} (Recarga para ver nombre)`;
+                         // Podríamos hacer una llamada API aquí para buscar el nombre si es crucial
+                     }
+                    } else if (activeBusinessNameDisplay) {
+                        activeBusinessNameDisplay.textContent = "No asignado";
+                    }
+                }
+                  // Oculta/muestra elementos según el rol
+            document.querySelectorAll('.admin-only').forEach(el => 
+                (user.rol === 'admin' || user.rol === 'superadmin') ? el.style.display = 'block' : el.style.display = 'none'
+            );
+            document.querySelectorAll('.superadmin-only').forEach(el => 
+                (user.rol === 'superadmin') ? el.style.display = 'block' : el.style.display = 'none'
+            );
         } catch (error) {
             console.error("Fallo al validar token. Cerrando sesión.", error);
             logout();
