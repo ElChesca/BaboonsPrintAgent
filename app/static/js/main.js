@@ -62,7 +62,41 @@ async function inicializarModulo(page) {
     console.log(`inicializarModulo llamada con page = "${page}"`);
     
     if (!page) return;
-    aplicarVisibilidadPorRoles();    
+
+    // 1. Verifica si hay un rol
+    if (appState.userRol) {
+        console.log(`Aplicando visibilidad en inicializarModulo para rol: ${appState.userRol}`);
+        
+        // 2. Función auxiliar para mostrar/ocultar
+        const setDisplay = (elements, shouldShow) => {
+            if (elements && typeof elements.forEach === 'function') {
+                elements.forEach(el => {
+                    if (el && el.style) {
+                        // Usamos 'flex' porque las app-card son flex
+                        el.style.display = shouldShow ? 'flex' : 'none'; 
+                    }
+                });
+            }
+        };
+
+        // 3. Aplica las reglas
+        setDisplay( document.querySelectorAll('.admin-only'), (appState.userRol === 'admin' || appState.userRol === 'superadmin') );
+        setDisplay( document.querySelectorAll('.superadmin-only'), (appState.userRol === 'superadmin') );
+        setDisplay( document.querySelectorAll('.admin-operator-only'), (appState.userRol !== 'superadmin') );
+
+        // 4. Lógica del selector del Home (si estamos en el home)
+        if (page.includes('home.html')) {
+            const homeSelectorWrapper = document.getElementById('home-business-selector-wrapper');
+            if (homeSelectorWrapper) {
+                if (appState.userRol !== 'superadmin') {
+                   homeSelectorWrapper.classList.add('hide-element'); 
+                } else {
+                   homeSelectorWrapper.classList.remove('hide-element'); 
+                }
+            }
+        }
+    }
+
     if (page.includes('inventario.html')) inicializarLogicaInventario();
     if (page.includes('login.html')) inicializarLogicaLogin();    
     if (page.includes('clientes.html')) inicializarLogicaClientes();
@@ -416,44 +450,6 @@ export function abrirModalNuevoCliente(callback) {
         modal.style.display = 'flex';
         document.getElementById('form-nuevo-cliente').reset();
     }
-}
-// en static/js/main.js
-
-// ✨ --- NUEVA FUNCIÓN --- ✨
-// Esta función se encargará de mostrar/ocultar elementos según el rol
-function aplicarVisibilidadPorRoles() {
-    if (!appState.userRol) {
-        console.warn("aplicarVisibilidadPorRoles: No hay rol de usuario, ocultando todo.");
-        // Oculta todo si no hay rol
-        document.querySelectorAll('.admin-only, .superadmin-only, .admin-operator-only').forEach(el => el.style.display = 'none');
-        return;
-    }
-
-    console.log(`Aplicando visibilidad para rol: ${appState.userRol}`);
-    
-    const setDisplay = (elements, shouldShow) => {
-        if (elements && typeof elements.forEach === 'function') {
-            elements.forEach(el => {
-                if (el && el.style) {
-                    el.style.display = shouldShow ? 'flex' : 'none'; // 'flex' o 'block' según tu layout
-                }
-            });
-        }
-    };
-
-    setDisplay( document.querySelectorAll('.admin-only'), (appState.userRol === 'admin' || appState.userRol === 'superadmin') );
-    setDisplay( document.querySelectorAll('.superadmin-only'), (appState.userRol === 'superadmin') );
-    setDisplay( document.querySelectorAll('.admin-operator-only'), (appState.userRol !== 'superadmin') );
-
-    // Lógica para ocultar selector del HOME si NO es SuperAdmin
-    const homeSelectorWrapper = document.getElementById('home-business-selector-wrapper');
-     if (homeSelectorWrapper) {
-         if (appState.userRol !== 'superadmin') {
-            homeSelectorWrapper.classList.add('hide-element'); 
-         } else {
-            homeSelectorWrapper.classList.remove('hide-element'); 
-         }
-     }
 }
 
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
