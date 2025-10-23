@@ -1,11 +1,11 @@
 <div class="home-header">
     
-    <div class="home-business-selector superadmin-only" id="home-business-selector-wrapper">
+    <div class="home-business-selector superadmin-only elemento-rol" id="home-business-selector-wrapper">
         <label for="home-selector-negocio">NEGOCIO ACTIVO:</label>
         <select id="home-selector-negocio"></select>
     </div>
 
-    <div class="home-business-selector admin-operator-only">
+    <div class="home-business-selector admin-operator-only elemento-rol">
          </div>
 
     <div class="home-user-menu">
@@ -16,31 +16,92 @@
 <div class="app-dashboard">
     <h2 class="dashboard-title">Mis Aplicaciones</h2>
     <div class="app-grid">
-        <div class="app-card" onclick="loadContent(event, 'static/dashboard.html', this)">...</div>
-        <div class="app-card" onclick="loadContent(event, 'static/ventas.html', this)">...</div>
+        
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/dashboard.html', this)">
+            <img src="/static/img/icons/dashboard.png" alt="Dashboard" class="app-icon">
+            <span class="app-name">Dashboard</span>
         </div>
-</div>
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/ventas.html', this)">
+            <img src="/static/img/icons/ventas.png" alt="Ventas" class="app-icon">
+            <span class="app-name">Ventas</span>
+        </div>
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/presupuestos.html', this)">
+            <img src="/static/img/icons/presupuesto.png" alt="Ventas" class="app-icon">
+            <span class="app-name">Presupuestos</span>
+        </div>
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/inventario.html', this)">
+            <img src="/static/img/icons/inventario.png" alt="Inventario" class="app-icon">
+            <span class="app-name">Inventario</span>
+        </div>      
+        <a href="/static/inventario_movil.html" class="app-card elemento-rol">
+            <img src="/static/img/icons/inventariomovil.png" alt="Inventario Móvil" class="app-icon">
+            <span class="app-name">Ajuste Inventario Móvil</span>
+        </a>
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/clientes.html', this)">
+            <img src="/static/img/icons/clientes.png" alt="Clientes" class="app-icon">
+            <span class="app-name">Clientes</span>
+        </div>
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/proveedores.html', this)">
+            <img src="/static/img/icons/proveedor.png" alt="Clientes" class="app-icon">
+            <span class="app-name">Proveedores</span>
+        </div>
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/caja.html', this)">
+            <img src="/static/img/icons/caja.png" alt="Caja" class="app-icon">
+            <span class="app-name">Caja</span>
+        </div>
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/ingresos.html', this)">
+            <img src="/static/img/icons/ingresos.png" alt="Ingresos" class="app-icon">
+            <span class="app-name">Ingresos</span>
+        </div>
 
+    </div>
+</div>
 <hr>
 
 <div class="app-dashboard" style="padding-top: 15px;"> 
     <h2 class="dashboard-title">Configuración y Reportes</h2>
     
-    <div class="app-grid admin-only"> 
+    <div class="app-grid admin-only elemento-rol"> 
         
-        <div class="app-card" onclick="loadContent(event, 'static/configuracion.html', this)">...</div>
-        <div class="app-card" onclick="loadContent(event, 'static/historial_inventario.html', this)">...</div>
-        <div class="app-card" onclick="loadContent(event, 'static/listas_precios.html', this)">...</div>
-        <div class="app-card" onclick="loadContent(event, 'static/precios_especificos.html', this)">...</div>
-        <div class="app-card" onclick="loadContent(event, 'static/unidades_medida.html', this)">...</div>
-        <div class="app-card" onclick="loadContent(event, 'static/usuarios.html', this)">...</div>
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/configuracion.html', this)">
+            <img src="/static/img/icons/configuracion.png" alt="Configuracion y Reglas de Negocio" class="app-icon">
+             <span class="app-name">Conf. y Reglas</span>
+        </div>
         
-        <div class="app-card superadmin-only" onclick="loadContent(event, 'static/negocios.html', this)">
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/historial_inventario.html', this)">
+            <img src="/static/img/icons/historial_inventario.png" alt="Historial Inventario" class="app-icon">
+             <span class="app-name">Historial Inventario</span>
+        </div>
+
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/listas_precios.html', this)">
+            <img src="/static/img/icons/price_list.png" alt="Listas de Precios" class="app-icon">
+            <span class="app-name">Listas de Precios</span>
+        </div>
+
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/precios_especificos.html', this)">
+            <img src="/static/img/icons/precios_especificos.png" alt="Precios Especificos" class="app-icon">
+            <span class="app-name">Precios Especificos</span>
+        </div>
+
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/unidades_medida.html', this)">
+            <img src="/static/img/icons/unidadesdemedida.png" alt="Unidades de Medida" class="app-icon">
+            <span class="app-name">Unidades de Medida</span>
+        </div>      
+        
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/usuarios.html', this)">
+            <img src="/static/img/icons/usuarios.png" alt="Usuarios" class="app-icon">
+            <span class="app-name">Usuarios</span>
+        </div>
+        
+        <div class="app-card superadmin-only elemento-rol" onclick="loadContent(event, 'static/negocios.html', this)">
             <img src="/static/img/icons/negocios.png" alt="Negocios" class="app-icon">
             <span class="app-name">Negocios ABM's</span>
         </div>
         
-        <div class="app-card" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">...</div>
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">
+            <img src="/static/img/icons/reportes.png" alt="Reporte Ganancias" class="app-icon">
+            <span class="app-name">Reporte Ganancias</span>
+        </div>
 
     </div> 
 </div>
