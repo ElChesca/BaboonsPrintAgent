@@ -52,46 +52,6 @@ function loadPageCSS(pageName) {
         });
     }
 }
-// static/js/main.js
-
-// ... (tus imports de siempre van aquí arriba) ...
-
-// --- FUNCIÓN AUXILIAR DE VISIBILIDAD ---
-function aplicarVisibilidadPorRoles() {
-    if (!appState.userRol) {
-        console.warn("aplicarVisibilidadPorRoles: No hay rol de usuario.");
-        // Oculta todo si no hay rol
-        document.querySelectorAll('.admin-only, .superadmin-only, .admin-operator-only').forEach(el => {
-            if (el && el.style) el.style.display = 'none';
-        });
-        return;
-    }
-    console.log(`Aplicando visibilidad para rol: ${appState.userRol}`);
-    
-    const setDisplay = (elements, shouldShow) => {
-        if (elements && elements.forEach) {
-            elements.forEach(el => {
-                if (el && el.style) {
-                    el.style.display = shouldShow ? 'flex' : 'none'; // 'flex' es mejor para las tarjetas
-                }
-            });
-        }
-    };
-
-    setDisplay( document.querySelectorAll('.admin-only'), (appState.userRol === 'admin' || appState.userRol === 'superadmin') );
-    setDisplay( document.querySelectorAll('.superadmin-only'), (appState.userRol === 'superadmin') );
-    setDisplay( document.querySelectorAll('.admin-operator-only'), (appState.userRol !== 'superadmin') );
-    
-    // Lógica del selector del Home (si existe en la página actual)
-    const homeSelectorWrapper = document.getElementById('home-business-selector-wrapper');
-     if (homeSelectorWrapper) {
-         if (appState.userRol !== 'superadmin') {
-            homeSelectorWrapper.classList.add('hide-element'); 
-         } else {
-            homeSelectorWrapper.classList.remove('hide-element'); 
-         }
-     }
-}
 
 // --- FUNCIÓN AUXILIAR PARA POBLAR SELECTORES ---
 function poblarSelectoresConDatos(negocios) {
@@ -146,13 +106,13 @@ function poblarSelectoresConDatos(negocios) {
     
     console.log("Poblado finalizado. Negocio activo state:", appState.negocioActivoId);
 }
-
-// --- FUNCIÓN PRINCIPAL DE AUTENTICACIÓN ---
+// en static/js/main.js
 export async function actualizarUIAutenticacion() {
     console.log("--- Iniciando actualizarUIAutenticacion ---");
     const user = getCurrentUser();
     console.log("Usuario actual:", user);
     
+    // --- Selectores de la Cáscara (index.html) ---
     const mainNav = document.querySelector('header nav');
     const authLink = document.getElementById('auth-link');
     const businessSelectorBar = document.getElementById('business-selector-bar');
@@ -163,36 +123,46 @@ export async function actualizarUIAutenticacion() {
     // Oculta todo por defecto
     if (mainNav) mainNav.style.display = 'none';
     if (businessSelectorBar) businessSelectorBar.style.display = 'none';
-    document.querySelectorAll('.admin-only, .superadmin-only, .admin-operator-only').forEach(el => {
+    // Oculta los elementos de rol en la cáscara (menú de navegación)
+    document.querySelectorAll('header .elemento-rol').forEach(el => {
         if (el && el.style) el.style.display = 'none';
     });
 
-    if (user && user.nombre && user.rol) {
+
+    if (user && user.nombre && user.rol) { // Usuario válido
         console.log("Usuario válido. Actualizando UI...");
         try {
             appState.userRol = user.rol;
             console.log("Rol asignado:", appState.userRol);
 
+            // Muestra la navegación y configura el link de "Salir"
             if (mainNav) mainNav.style.display = 'flex';
             if (authLink) {
                  authLink.innerHTML = `Salir (${user.nombre})`;
                  authLink.onclick = (e) => { e.preventDefault(); logout(); };
             }
 
+            // --- Lógica de Negocios (Carga y Visibilidad de la Barra) ---
             let negocios = [];
             try {
                 negocios = await fetchData('/api/negocios');
                 console.log("Negocios recibidos del API:", negocios);
-                poblarSelectoresConDatos(negocios);
                 
+                // Puebla el selector principal (siempre lo hacemos para tener los datos)
+                poblarSelectoresConDatos(negocios); 
+                
+                // Muestra la barra de negocio
                 if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
 
+                // Decide qué mostrar DENTRO de la barra
                 if (appState.userRol === 'superadmin') {
                     if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'flex';
                     if (businessDisplayName) businessDisplayName.style.display = 'none';
-                } else {
+                } else { // Admin u Operador
                     if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'none';
                     if (businessDisplayName) businessDisplayName.style.display = 'flex';
+                    
+                    // Actualiza el nombre del negocio (ahora sí tiene los datos)
                     if (appState.negocioActivoId && activeBusinessNameDisplay) {
                         const negocioActual = negocios.find(n => String(n.id) === String(appState.negocioActivoId));
                         activeBusinessNameDisplay.textContent = negocioActual ? negocioActual.nombre : "No asignado";
@@ -202,26 +172,53 @@ export async function actualizarUIAutenticacion() {
                 }
             } catch (error) {
                 console.error("Error al obtener o procesar negocios:", error);
-                // No llamamos a mostrarNotificacion aquí porque puede que aún no esté cargada
+                // No mostramos notificación aquí, puede ser molesto al cargar
             }
+            // --- Fin Lógica Selector ---
             
+            // --- Lógica de Visibilidad para la CÁSCARA (Menú Header) ---
+            console.log("Aplicando visibilidad de roles al Header...");
+            // Función auxiliar (solo para esta función)
+            const setHeaderDisplay = (elements, shouldShow) => {
+                if (elements && elements.forEach) {
+                    elements.forEach(el => {
+                        if (el && el.style) el.style.display = shouldShow ? 'block' : 'none'; // 'block' es mejor para <a> y <div> en un nav
+                    });
+                }
+            };
+            // Aplica reglas SOLO a los elementos dentro del header
+            setHeaderDisplay( document.querySelectorAll('header .admin-only'), (appState.userRol === 'admin' || appState.userRol === 'superadmin') );
+            setHeaderDisplay( document.querySelectorAll('header .superadmin-only'), (appState.userRol === 'superadmin') );
+            setHeaderDisplay( document.querySelectorAll('header .admin-operator-only'), (appState.userRol !== 'superadmin') );
+            // Muestra los elementos base (los que no tienen clase de rol)
+            setHeaderDisplay( document.querySelectorAll('header .elemento-rol:not(.admin-only):not(.superadmin-only):not(.admin-operator-only)'), true );
+
+
             console.log("Actualización de UI base completada.");
 
+            // --- Carga de Contenido Inicial ---
             const requestedPage = window.location.hash.substring(1);
             const contentArea = document.getElementById('content-area');
             if (contentArea && (contentArea.innerHTML.trim() === '' || !requestedPage)) {
                 console.log("Cargando home.html por defecto...");
                 loadContent(null, 'static/home.html');
-            } else {
-                 console.log("Ya hay contenido o un hash, no se fuerza carga de home.");
-                 aplicarVisibilidadPorRoles(); // Aplica visibilidad al contenido ya cargado
+            } else if (requestedPage) {
+                 console.log(`Hash encontrado: #${requestedPage}. Dejando que el router maneje la carga.`);
+                 // Si el hash existe, la lógica de popstate o el clic inicial ya debería llamar a loadContent
+                 // Pero si recargamos en #home, la lógica de arriba no lo carga. Forzamos aquí.
+                 if (requestedPage === 'home' && contentArea.innerHTML.trim() === '') {
+                     loadContent(null, 'static/home.html');
+                 } else if (contentArea.innerHTML.trim() !== '') {
+                      // Si ya hay contenido (ej. recarga en #clientes), aplicamos visibilidad
+                      aplicarVisibilidadPorRoles();
+                 }
             }
 
         } catch (error) {
             console.error("Fallo DENTRO del bloque try de actualizarUIAutenticacion. Cerrando sesión.", error);
             logout();
         }
-    } else {
+    } else { // No hay usuario
         console.log("Usuario NO válido o no encontrado. Redirigiendo a login...");
         appState.userRol = null;
         if (!window.location.hash.includes('login')) {
@@ -232,6 +229,42 @@ export async function actualizarUIAutenticacion() {
         }
     }
      console.log("--- Fin actualizarUIAutenticacion ---");
+}
+// en static/js/main.js
+
+function aplicarVisibilidadPorRoles() {
+    if (!appState.userRol) {
+        console.warn("aplicarVisibilidadPorRoles: No hay rol de usuario, ocultando todo.");
+        document.querySelectorAll('.admin-only, .superadmin-only, .admin-operator-only').forEach(el => {
+            if (el && el.style) el.style.display = 'none';
+        });
+        return;
+    }
+    console.log(`Aplicando visibilidad para rol: ${appState.userRol}`);
+    
+    const setDisplay = (elements, shouldShow) => {
+        if (elements && elements.forEach) {
+            elements.forEach(el => {
+                if (el && el.style) {
+                    el.style.display = shouldShow ? 'flex' : 'none'; 
+                }
+            });
+        }
+    };
+
+    setDisplay( document.querySelectorAll('.admin-only'), (appState.userRol === 'admin' || appState.userRol === 'superadmin') );
+    setDisplay( document.querySelectorAll('.superadmin-only'), (appState.userRol === 'superadmin') );
+    setDisplay( document.querySelectorAll('.admin-operator-only'), (appState.userRol !== 'superadmin') );
+    
+    // Lógica del selector del Home (se aplica aquí CADA VEZ)
+    const homeSelectorWrapper = document.getElementById('home-business-selector-wrapper');
+     if (homeSelectorWrapper) {
+         if (appState.userRol !== 'superadmin') {
+            homeSelectorWrapper.classList.add('hide-element'); 
+         } else {
+            homeSelectorWrapper.classList.remove('hide-element'); 
+         }
+     }
 }
 // --- FUNCIONES AUXILIARES ---
 export function esAdmin() {
