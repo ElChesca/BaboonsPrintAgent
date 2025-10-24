@@ -34,34 +34,24 @@
                 <a href="#" onclick="loadContent(event, 'static/home.html', this)" class="active elemento-rol">🏠 Home</a>
                 <a href="#" onclick="loadContent(event, 'static/ventas.html', this)" class="elemento-rol">💰 Nueva Venta</a>
                 <a href="#" onclick="loadContent(event, 'static/historial_ventas.html', this)" class="elemento-rol">📈 Historial Ventas</a>
-                <a href="#" onclick="loadContent(event, 'static/inventario.html', this)" class="elemento-rol">📦 Inventario</a>
-                <a href="#" onclick="loadContent(event, 'static/clientes.html', this)" class="elemento-rol">🧑‍🤝‍🧑 Clientes</a>
 
-                <div class="dropdown elemento-rol">
+                <div class="dropdown">
                     <a href="#" class="dropbtn">Más Opciones ▾</a>
-                    <div class="dropdown-content">
-                        <a href="#" onclick="loadContent(event, 'static/caja.html', this)">💼 Gestión de Caja</a>
-                        <a href="#" onclick="loadContent(event, 'static/presupuestos.html', this)">📑 Presupuestos</a>
-                        <a href="#" onclick="loadContent(event, 'static/historial_presupuestos.html', this)">🧾 Historial Presupuestos</a>
-                        <a href="#" onclick="loadContent(event, 'static/ingresos.html', this)">📥 Ingresos</a>
+                    <div class="dropdown-content">                        
+                        <a href="#" onclick="loadContent(event, 'static/historial_presupuestos.html', this)">🧾 Historial Presupuestos</a>                        
                     </div>
                 </div>
 
-                 <div class="dropdown admin-only elemento-rol">
+                 <div class="dropdown admin-only">
                     <a href="#" class="dropbtn">⚙️ Configuración ▾</a>
                     <div class="dropdown-content">
                         <a href="#" class="superadmin-only elemento-rol" onclick="loadContent(event, 'static/negocios.html', this)">🏢 Negocios</a>
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/usuarios.html', this)">👥 Usuarios</a>
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/proveedores.html', this)">🚚 Proveedores</a>
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a>
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/listas_precios.html', this)">🧾 Listas de Precios</a>
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/precios_especificos.html', this)">💰 Precios Específicos</a>
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/unidades_medida.html', this)">📏 Unidades de Medida</a>
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/configuracion.html', this)">🔩 Conf. y Reglas</a>
+                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/usuarios.html', this)">👥 Usuarios</a>                        
+                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a>                                                
                     </div>
                 </div>
 
-                <div class="dropdown admin-only elemento-rol">
+                <div class="dropdown admin-only">
                     <a href="#" class="dropbtn">📊 Reportes ▾</a>
                     <div class="dropdown-content">
                         <a href="#" onclick="loadContent(event, 'static/reportes.html', this)">Ventas Diarias</a> 
@@ -72,6 +62,7 @@
                 </div>
                 
                 <a href="#" id="auth-link"></a> 
+                <a href="#" id="force-reload-btn" class="hamburger-only">🔄 Forzar Recarga (Limpiar Caché)</a>
             </nav>
         </div>
     </header>

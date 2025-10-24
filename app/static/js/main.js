@@ -348,6 +348,16 @@ document.addEventListener('DOMContentLoaded', () => {
              if (e.target.tagName === 'A') navContainer.classList.remove('is-active');
          });
     }
+    const forceReloadBtn = document.getElementById('force-reload-btn');
+    if (forceReloadBtn) {
+        forceReloadBtn.addEventListener('click', (e) => {
+            e.preventDefault();            
+            // Esta es la magia:
+            // Forzamos la recarga pidiendo al navegador una versión "nueva" de la página.
+            // Esto evita que sirva el index.html del caché.
+            window.location.href = window.location.pathname + '?_cachebust=' + new Date().getTime();
+        });
+    }
     
     actualizarUIAutenticacion(); // Esta es la llamada inicial que arranca todo
 });
