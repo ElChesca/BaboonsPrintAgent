@@ -132,6 +132,52 @@ async function inicializarModulo(page) {
     }
 }
 
+// en static/js/main.js
+
+// ✨ --- 1. PEGÁ ESTA FUNCIÓN NUEVA --- ✨
+function aplicarVisibilidadPorRoles() {
+    // Verifica si hay un rol antes de hacer nada
+    if (!appState.userRol) {
+        console.warn("aplicarVisibilidadPorRoles: No hay rol de usuario, ocultando todo.");
+        // Oculta todo por si acaso
+        document.querySelectorAll('.admin-only, .superadmin-only, .admin-operator-only').forEach(el => {
+            if (el && el.style) el.style.display = 'none';
+        });
+        return;
+    }
+
+    console.log(`Aplicando visibilidad para rol: ${appState.userRol}`);
+    
+    // Función auxiliar para mostrar/ocultar
+    const setDisplay = (elements, shouldShow) => {
+        if (elements && typeof elements.forEach === 'function') {
+            elements.forEach(el => {
+                if (el && el.style) {
+                    // Usamos 'flex' para las tarjetas y 'block' o 'flex' para otros
+                    // 'flex' es más seguro para tus app-card
+                    el.style.display = shouldShow ? 'flex' : 'none'; 
+                }
+            });
+        }
+    };
+
+    // Aplica las reglas
+    setDisplay( document.querySelectorAll('.admin-only'), (appState.userRol === 'admin' || appState.userRol === 'superadmin') );
+    setDisplay( document.querySelectorAll('.superadmin-only'), (appState.userRol === 'superadmin') );
+    setDisplay( document.querySelectorAll('.admin-operator-only'), (appState.userRol !== 'superadmin') );
+    
+    // Lógica para ocultar selector del HOME si NO es SuperAdmin
+    const homeSelectorWrapper = document.getElementById('home-business-selector-wrapper');
+     if (homeSelectorWrapper) {
+         if (appState.userRol !== 'superadmin') {
+            homeSelectorWrapper.classList.add('hide-element');
+            console.log("Ocultando selector home para no SuperAdmin.");
+         } else {
+            homeSelectorWrapper.classList.remove('hide-element');
+            console.log("Mostrando selector home para SuperAdmin.");
+         }
+     }
+}
 
 // --- FUNCIÓN PRINCIPAL DE FLUJO (MODIFICADA) ---
 export function loadContent(event, page, clickedLink, fromHistory = false) {
