@@ -301,12 +301,14 @@ function poblarSelectoresConDatos(negocios) {
 }
 
 
-// --- Función Principal de Autenticación ---
+// en static/js/main.js
+
 export async function actualizarUIAutenticacion() {
     console.log("--- Iniciando actualizarUIAutenticacion ---");
     const user = getCurrentUser();
     console.log("Usuario actual:", user);
     
+    // --- Declaraciones de Variables ---
     const mainNav = document.querySelector('header nav');
     const authLink = document.getElementById('auth-link');
     const businessSelectorBar = document.getElementById('business-selector-bar');
@@ -317,14 +319,11 @@ export async function actualizarUIAutenticacion() {
     // Oculta todo por defecto
     if (mainNav) mainNav.style.display = 'none';
     if (businessSelectorBar) businessSelectorBar.style.display = 'none';
-    if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'none';
-    if (businessDisplayName) businessDisplayName.style.display = 'none';
-
-    // Limpia clases de rol
     document.querySelectorAll('.admin-only, .superadmin-only, .admin-operator-only').forEach(el => {
         if (el && el.style) el.style.display = 'none';
     });
 
+    // --- Lógica Principal: ¿Hay usuario? ---
     if (user && user.nombre && user.rol) {
         console.log("Usuario válido. Actualizando UI...");
         try {
@@ -332,23 +331,34 @@ export async function actualizarUIAutenticacion() {
             console.log("Rol asignado:", appState.userRol);
 
             if (mainNav) mainNav.style.display = 'flex';
+            if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
             if (authLink) {
                  authLink.innerHTML = `Salir (${user.nombre})`;
                  authLink.onclick = (e) => { e.preventDefault(); logout(); };
             }
 
+            // --- Lógica de Visibilidad y Carga de Negocios ---
+            console.log("Aplicando lógica selector negocio...");
             let negocios = [];
             try {
+                // 1. Carga los negocios (el backend ya filtra por rol)
                 negocios = await fetchData('/api/negocios');
                 console.log("Negocios recibidos del API:", negocios);
-                poblarSelectoresConDatos(negocios);
-                
-                if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
 
+                // 2. Puebla los selectores (los llena físicamente)
+                poblarSelectoresConDatos(negocios); 
+                
+                // 3. Decide qué mostrar
                 if (appState.userRol === 'superadmin') {
-                    if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'flex';
-                } else {
-                    if (businessDisplayName) businessDisplayName.style.display = 'flex';
+                    if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'flex'; // Muestra dropdown
+                    if (businessDisplayName) businessDisplayName.style.display = 'none'; // Oculta texto
+                    console.log("Mostrando dropdown para SuperAdmin");
+                } else { // Admin u Operador
+                    if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'none'; // Oculta dropdown
+                    if (businessDisplayName) businessDisplayName.style.display = 'flex'; // Muestra texto
+                    console.log("Mostrando nombre negocio para Admin/Operador");
+                    
+                    // 4. Actualiza el nombre del negocio (ahora sí tiene los datos)
                     if (appState.negocioActivoId && activeBusinessNameDisplay) {
                         const negocioActual = negocios.find(n => String(n.id) === String(appState.negocioActivoId));
                         activeBusinessNameDisplay.textContent = negocioActual ? negocioActual.nombre : "No asignado";
@@ -357,12 +367,19 @@ export async function actualizarUIAutenticacion() {
                     }
                 }
             } catch (error) {
-                console.error("Error al obtener/procesar negocios:", error);
+                console.error("Error al obtener o procesar negocios:", error);
                 mostrarNotificacion("Error al cargar datos del negocio.", "error");
+                if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'none';
+                if (businessDisplayName) businessDisplayName.style.display = 'none';
             }
+            // --- Fin Lógica Selector ---
             
+            // --- Lógica de Visibilidad por Roles (se ejecuta después) ---
+            aplicarVisibilidadPorRoles(); // Llama a la función auxiliar que ya creamos
+
             console.log("Actualización de UI base completada.");
 
+            // --- Carga de Contenido Inicial ---
             const requestedPage = window.location.hash.substring(1);
             const contentArea = document.getElementById('content-area');
             if (contentArea && (contentArea.innerHTML.trim() === '' || !requestedPage)) {
@@ -370,14 +387,14 @@ export async function actualizarUIAutenticacion() {
                 loadContent(null, 'static/home.html');
             } else {
                  console.log("Ya hay contenido o un hash, no se fuerza carga de home.");
-                 aplicarVisibilidadPorRoles(); // Aplica visibilidad al contenido ya cargado
+                 aplicarVisibilidadPorRoles(); 
             }
 
         } catch (error) {
             console.error("Fallo DENTRO del bloque try de actualizarUIAutenticacion. Cerrando sesión.", error);
             logout();
         }
-    } else {
+    } else { // No hay usuario
         console.log("Usuario NO válido o no encontrado. Redirigiendo a login...");
         appState.userRol = null;
         if (!window.location.hash.includes('login')) {
