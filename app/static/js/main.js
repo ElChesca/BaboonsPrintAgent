@@ -1,5 +1,5 @@
 // app/static/js/main.js
-import { fetchData } from './api.js';
+import { fetchData, sendData } from './api.js'; // Asegúrate de tener sendData
 import { inicializarLogicaLogin, getCurrentUser, logout } from './modules/auth.js';
 import { inicializarLogicaClientes } from './modules/clientes.js';
 import { inicializarLogicaIngresos } from './modules/ingresos.js';
@@ -21,7 +21,7 @@ import { inicializarLogicaHistorialAjustes } from './modules/historial_ajustes.j
 import { inicializarLogicaPresupuestos } from './modules/presupuestos.js';
 import { inicializarLogicaHistorialPresupuestos } from './modules/historial_presupuestos.js';
 import { inicializarLogicaFactura } from './modules/factura.js';
-
+import { mostrarNotificacion } from './modules/notifications.js'; // Importa la notificación
 
 let onClienteCreadoCallback = null;
 
@@ -31,11 +31,10 @@ export const appState = {
     userRol: null
 };
 
+// --- Carga de CSS por Página ---
 function loadPageCSS(pageName) {
     const existingStyle = document.getElementById('page-specific-style');
-    if (existingStyle) {
-        existingStyle.remove();
-    }
+    if (existingStyle) existingStyle.remove();
     if (pageName) {
         const cssFile = `${pageName}.css`;
         const link = document.createElement('link');
@@ -44,183 +43,122 @@ function loadPageCSS(pageName) {
         link.type = 'text/css';
         link.href = `/static/css/${cssFile}`;
         fetch(link.href).then(res => {
-            if (res.ok) {
-                document.head.appendChild(link);
-            } else {
-                console.warn(`Advertencia: No se encontró el archivo CSS opcional en ${link.href}`);
-            }
+            if (res.ok) document.head.appendChild(link);
+            else console.warn(`Advertencia: No se encontró CSS opcional en ${link.href}`);
         });
     }
 }
 
-// --- FUNCIÓN AUXILIAR PARA POBLAR SELECTORES ---
-function poblarSelectoresConDatos(negocios) {
-    console.log("Iniciando poblarSelectoresConDatos con:", negocios);
+// --- Función Auxiliar (Limpia) ---
+// Solo puebla los selectores, no toma decisiones de UI
+async function poblarSelectorNegocios() {
+    console.log("Iniciando poblarSelectorNegocios...");
     const mainSelector = document.getElementById('selector-negocio');
     const homeSelector = document.getElementById('home-selector-negocio');
-
-    const fillSelector = (selector, selectorName) => {
-        if (!selector) return; 
-        while (selector.firstChild) selector.removeChild(selector.firstChild);
-
-        if (!negocios || negocios.length === 0) {
-            selector.appendChild(new Option("No asignados", ""));
-            return;
-        }
-
-        console.log(`Poblando selector: ${selectorName}`);
-        negocios.forEach((negocio) => {
-            if (negocio && typeof negocio.id !== 'undefined' && typeof negocio.nombre !== 'undefined') {
-                selector.appendChild(new Option(negocio.nombre, negocio.id));
-            }
-        });
-
-        // --- Lógica de Preselección ---
-        let idSeleccionado = negocios[0].id; // Default al primero
-        const savedNegocioId = localStorage.getItem('negocioActivoId');
-        
-        if (savedNegocioId && negocios.some(n => String(n.id) === String(savedNegocioId))) {
-            idSeleccionado = savedNegocioId;
-        } else {
-            appState.negocioActivoId = idSeleccionado;
-            localStorage.setItem('negocioActivoId', appState.negocioActivoId);
-        }
-        
-        selector.value = idSeleccionado;
-        if (String(appState.negocioActivoId) !== String(idSeleccionado)) {
-             appState.negocioActivoId = idSeleccionado;
-             localStorage.setItem('negocioActivoId', appState.negocioActivoId);
-        }
-    };
-
-    fillSelector(mainSelector, 'mainSelector');
-    fillSelector(homeSelector, 'homeSelector');
     
-    if (!appState.negocioActivoId && negocios && negocios.length > 0) {
-         appState.negocioActivoId = negocios[0].id;
-         localStorage.setItem('negocioActivoId', appState.negocioActivoId);
-    } else if (!negocios || negocios.length === 0) {
-         appState.negocioActivoId = null;
-         localStorage.removeItem('negocioActivoId');
+    // Lista de selectores a poblar
+    const selectors = [mainSelector, homeSelector].filter(s => s != null); // Filtra los que no existen
+    if (selectors.length === 0) {
+         console.warn("No se encontraron selectores de negocio.");
+         return;
     }
-    
-    console.log("Poblado finalizado. Negocio activo state:", appState.negocioActivoId);
+
+    try {
+        const negocios = await fetchData('/api/negocios');
+        console.log("Negocios recibidos del API:", negocios);
+
+        // Lógica de preselección
+        let idSeleccionado = null;
+        if (negocios && negocios.length > 0) {
+            idSeleccionado = negocios[0].id; // Default al primero
+            const savedNegocioId = localStorage.getItem('negocioActivoId');
+            if (savedNegocioId && negocios.some(n => String(n.id) === String(savedNegocioId))) {
+                idSeleccionado = savedNegocioId;
+            }
+        }
+        appState.negocioActivoId = idSeleccionado; // Establece el estado global
+        if (idSeleccionado) localStorage.setItem('negocioActivoId', idSeleccionado);
+        else localStorage.removeItem('negocioActivoId');
+
+        // Llena todos los selectores encontrados
+        selectors.forEach(selector => {
+            while (selector.firstChild) selector.removeChild(selector.firstChild); // Limpia
+            if (!negocios || negocios.length === 0) {
+                selector.appendChild(new Option("No asignados", ""));
+                return;
+            }
+            negocios.forEach(negocio => {
+                selector.appendChild(new Option(negocio.nombre, negocio.id));
+            });
+            selector.value = idSeleccionado; // Preselecciona
+        });
+        
+        console.log("Poblado finalizado. Negocio activo state:", appState.negocioActivoId);
+    } catch (error) {
+        console.error("Error en poblarSelectorNegocios:", error);
+        mostrarNotificacion("Error al cargar negocios.", "error");
+        selectors.forEach(selector => selector.innerHTML = '<option value="">Error</option>');
+    }
 }
-// en static/js/main.js
+
+// --- FUNCIÓN PRINCIPAL DE AUTENTICACIÓN (Restaurada) ---
 export async function actualizarUIAutenticacion() {
     console.log("--- Iniciando actualizarUIAutenticacion ---");
     const user = getCurrentUser();
     console.log("Usuario actual:", user);
-    
-    // --- Selectores de la Cáscara (index.html) ---
+
     const mainNav = document.querySelector('header nav');
     const authLink = document.getElementById('auth-link');
     const businessSelectorBar = document.getElementById('business-selector-bar');
-    const businessSelectorDropdown = document.getElementById('business-selector-dropdown');
-    const businessDisplayName = document.getElementById('business-display-name');
-    const activeBusinessNameDisplay = document.getElementById('active-business-name-display');
 
-    // Oculta todo por defecto
-    if (mainNav) mainNav.style.display = 'none';
-    if (businessSelectorBar) businessSelectorBar.style.display = 'none';
-    // Oculta los elementos de rol en la cáscara (menú de navegación)
-    document.querySelectorAll('header .elemento-rol').forEach(el => {
-        if (el && el.style) el.style.display = 'none';
-    });
-
-
-    if (user && user.nombre && user.rol) { // Usuario válido
+    if (user && user.nombre && user.rol) {
         console.log("Usuario válido. Actualizando UI...");
         try {
             appState.userRol = user.rol;
             console.log("Rol asignado:", appState.userRol);
 
-            // Muestra la navegación y configura el link de "Salir"
             if (mainNav) mainNav.style.display = 'flex';
+            if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
             if (authLink) {
                  authLink.innerHTML = `Salir (${user.nombre})`;
                  authLink.onclick = (e) => { e.preventDefault(); logout(); };
+                 console.log("Configurado enlace 'Salir'.");
             }
-
-            // --- Lógica de Negocios (Carga y Visibilidad de la Barra) ---
-            let negocios = [];
-            try {
-                negocios = await fetchData('/api/negocios');
-                console.log("Negocios recibidos del API:", negocios);
-                
-                // Puebla el selector principal (siempre lo hacemos para tener los datos)
-                poblarSelectoresConDatos(negocios); 
-                
-                // Muestra la barra de negocio
-                if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
-
-                // Decide qué mostrar DENTRO de la barra
-                if (appState.userRol === 'superadmin') {
-                    if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'flex';
-                    if (businessDisplayName) businessDisplayName.style.display = 'none';
-                } else { // Admin u Operador
-                    if (businessSelectorDropdown) businessSelectorDropdown.style.display = 'none';
-                    if (businessDisplayName) businessDisplayName.style.display = 'flex';
-                    
-                    // Actualiza el nombre del negocio (ahora sí tiene los datos)
-                    if (appState.negocioActivoId && activeBusinessNameDisplay) {
-                        const negocioActual = negocios.find(n => String(n.id) === String(appState.negocioActivoId));
-                        activeBusinessNameDisplay.textContent = negocioActual ? negocioActual.nombre : "No asignado";
-                    } else if (activeBusinessNameDisplay) {
-                        activeBusinessNameDisplay.textContent = "No asignado";
-                    }
-                }
-            } catch (error) {
-                console.error("Error al obtener o procesar negocios:", error);
-                // No mostramos notificación aquí, puede ser molesto al cargar
-            }
-            // --- Fin Lógica Selector ---
             
-            // --- Lógica de Visibilidad para la CÁSCARA (Menú Header) ---
-            console.log("Aplicando visibilidad de roles al Header...");
-            // Función auxiliar (solo para esta función)
-            const setHeaderDisplay = (elements, shouldShow) => {
-                if (elements && elements.forEach) {
-                    elements.forEach(el => {
-                        if (el && el.style) el.style.display = shouldShow ? 'block' : 'none'; // 'block' es mejor para <a> y <div> en un nav
-                    });
-                }
-            };
-            // Aplica reglas SOLO a los elementos dentro del header
-            setHeaderDisplay( document.querySelectorAll('header .admin-only'), (appState.userRol === 'admin' || appState.userRol === 'superadmin') );
-            setHeaderDisplay( document.querySelectorAll('header .superadmin-only'), (appState.userRol === 'superadmin') );
-            setHeaderDisplay( document.querySelectorAll('header .admin-operator-only'), (appState.userRol !== 'superadmin') );
-            // Muestra los elementos base (los que no tienen clase de rol)
-            setHeaderDisplay( document.querySelectorAll('header .elemento-rol:not(.admin-only):not(.superadmin-only):not(.admin-operator-only)'), true );
+            // Carga los negocios (el backend filtra por rol)
+            await poblarSelectorNegocios();
+            console.log("Datos de negocio cargados.");
 
+            // Lógica de Visibilidad SIMPLE (Solo .admin-only)
+            document.querySelectorAll('.admin-only').forEach(el => {
+                if (el && el.style) {
+                    el.style.display = (appState.userRol === 'admin') ? 'block' : 'none'; // 'block' o 'flex'
+                }
+            });
+            console.log("Visibilidad por roles aplicada.");
 
             console.log("Actualización de UI base completada.");
 
-            // --- Carga de Contenido Inicial ---
             const requestedPage = window.location.hash.substring(1);
             const contentArea = document.getElementById('content-area');
             if (contentArea && (contentArea.innerHTML.trim() === '' || !requestedPage)) {
                 console.log("Cargando home.html por defecto...");
                 loadContent(null, 'static/home.html');
             } else if (requestedPage) {
-                 console.log(`Hash encontrado: #${requestedPage}. Dejando que el router maneje la carga.`);
-                 // Si el hash existe, la lógica de popstate o el clic inicial ya debería llamar a loadContent
-                 // Pero si recargamos en #home, la lógica de arriba no lo carga. Forzamos aquí.
-                 if (requestedPage === 'home' && contentArea.innerHTML.trim() === '') {
-                     loadContent(null, 'static/home.html');
-                 } else if (contentArea.innerHTML.trim() !== '') {
-                      // Si ya hay contenido (ej. recarga en #clientes), aplicamos visibilidad
-                      aplicarVisibilidadPorRoles();
-                 }
+                 console.log(`Hash #${requestedPage} detectado, cargando contenido...`);
+                 loadContent(null, `static/${requestedPage}.html`);
             }
 
         } catch (error) {
             console.error("Fallo DENTRO del bloque try de actualizarUIAutenticacion. Cerrando sesión.", error);
             logout();
         }
-    } else { // No hay usuario
+    } else {
         console.log("Usuario NO válido o no encontrado. Redirigiendo a login...");
         appState.userRol = null;
+        if (mainNav) mainNav.style.display = 'none';
+        if (businessSelectorBar) businessSelectorBar.style.display = 'none';
+        
         if (!window.location.hash.includes('login')) {
              console.log("No estamos en login, cargando página de login...");
              loadContent(null, 'static/login.html');
@@ -230,56 +168,22 @@ export async function actualizarUIAutenticacion() {
     }
      console.log("--- Fin actualizarUIAutenticacion ---");
 }
-// en static/js/main.js
 
-function aplicarVisibilidadPorRoles() {
-    if (!appState.userRol) {
-        console.warn("aplicarVisibilidadPorRoles: No hay rol de usuario, ocultando todo.");
-        document.querySelectorAll('.admin-only, .superadmin-only, .admin-operator-only').forEach(el => {
-            if (el && el.style) el.style.display = 'none';
-        });
-        return;
-    }
-    console.log(`Aplicando visibilidad para rol: ${appState.userRol}`);
-    
-    const setDisplay = (elements, shouldShow) => {
-        if (elements && elements.forEach) {
-            elements.forEach(el => {
-                if (el && el.style) {
-                    el.style.display = shouldShow ? 'flex' : 'none'; 
-                }
-            });
-        }
-    };
-
-    setDisplay( document.querySelectorAll('.admin-only'), (appState.userRol === 'admin' || appState.userRol === 'superadmin') );
-    setDisplay( document.querySelectorAll('.superadmin-only'), (appState.userRol === 'superadmin') );
-    setDisplay( document.querySelectorAll('.admin-operator-only'), (appState.userRol !== 'superadmin') );
-    
-    // Lógica del selector del Home (se aplica aquí CADA VEZ)
-    const homeSelectorWrapper = document.getElementById('home-business-selector-wrapper');
-     if (homeSelectorWrapper) {
-         if (appState.userRol !== 'superadmin') {
-            homeSelectorWrapper.classList.add('hide-element'); 
-         } else {
-            homeSelectorWrapper.classList.remove('hide-element'); 
-         }
-     }
-}
-// --- FUNCIONES AUXILIARES ---
-export function esAdmin() {
-    return appState.userRol === 'admin';
-}
-
-// --- Función de Inicialización de Módulos ---
+// --- FUNCIÓN DE INICIALIZACIÓN DE MÓDULOS (Restaurada) ---
 async function inicializarModulo(page) {
     console.log(`inicializarModulo llamada con page = "${page}"`);
     if (!page) return;
 
-    // ✨ APLICA VISIBILIDAD CADA VEZ QUE SE CARGA UN MÓDULO ✨
-    aplicarVisibilidadPorRoles(); 
+    // Lógica de visibilidad simple (se ejecuta CADA VEZ)
+    if (appState.userRol) {
+        document.querySelectorAll('.admin-only').forEach(el => {
+            if (el && el.style) {
+                el.style.display = (appState.userRol === 'admin') ? 'flex' : 'none'; // 'flex' para las tarjetas
+            }
+        });
+    }
 
-    // --- El resto de tus IFs para cada página ---
+    // --- IFs para cada página ---
     if (page.includes('inventario.html')) inicializarLogicaInventario();
     if (page.includes('login.html')) inicializarLogicaLogin();
     if (page.includes('clientes.html')) inicializarLogicaClientes();
@@ -291,6 +195,20 @@ async function inicializarModulo(page) {
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias(); 
     if (page.includes('reportes.html')) inicializarLogicaReportes();
     if (page.includes('factura.html')) inicializarLogicaFactura();
+    if (page.includes('historial_ingresos.html')) inicializarLogicaHistorial();
+    else if (page.includes('ingresos.html')) inicializarLogicaIngresos();
+    if (page.includes('historial_ventas.html')) inicializarLogicaHistorialVentas();
+    else if (page.includes('ventas.html')) inicializarLogicaVentas();
+    if (page.includes('historial_ajustes.html')) inicializarLogicaHistorialAjustes();
+    else if (page.includes('ajuste_caja.html')) inicializarLogicaAjusteCaja();
+    if (page.includes('historial_presupuestos.html')) inicializarLogicaHistorialPresupuestos();
+    else if (page.includes('presupuestos.html')) inicializarLogicaPresupuestos();
+    if (page.includes('home.html')) {
+        console.log("Módulo Home inicializado.");
+        await poblarSelectorNegocios(); // Vuelve a poblar el selector del home
+    }
+    
+    // --- Tus importaciones dinámicas ---
     if (page.includes('proveedores.html')) { 
         const { inicializarLogicaProveedores } = await import('./modules/proveedores.js');
         inicializarLogicaProveedores();
@@ -307,26 +225,6 @@ async function inicializarModulo(page) {
         const { inicializarGestionListasPrecios } = await import('./modules/listas_precios.js');
         inicializarGestionListasPrecios();
     }
-    if (page.includes('historial_ingresos.html')) {
-        inicializarLogicaHistorial();
-    } else if (page.includes('ingresos.html')) {
-        inicializarLogicaIngresos();
-    }
-    if (page.includes('historial_ventas.html')) {
-        inicializarLogicaHistorialVentas();
-    } else if (page.includes('ventas.html')) {
-        inicializarLogicaVentas();
-    }
-    if (page.includes('historial_ajustes.html')) {
-        inicializarLogicaHistorialAjustes();
-    } else if (page.includes('ajuste_caja.html')) {
-        inicializarLogicaAjusteCaja();
-    }
-    if (page.includes('historial_presupuestos.html')) {
-        inicializarLogicaHistorialPresupuestos();
-    } else if (page.includes('presupuestos.html')) {
-        inicializarLogicaPresupuestos();
-    }
     if (page.includes('unidades_medida.html')) {
         const { inicializarLogicaUnidadesMedida } = await import('./modules/unidades_medida.js');
         inicializarLogicaUnidadesMedida();
@@ -339,42 +237,34 @@ async function inicializarModulo(page) {
         const { inicializarPreciosEspecificos } = await import('./modules/precios_especificos.js');
         inicializarPreciosEspecificos();
     }
-    if (page.includes('home.html')) {
-        console.log("Módulo Home inicializado.");
-        // Ya no necesita hacer nada especial, todo se maneja en 'aplicarVisibilidadPorRoles' y 'actualizarUIAutenticacion'
-    }
 }
-// --- FUNCIÓN PRINCIPAL DE FLUJO (MODIFICADA) ---
+
+// --- FUNCIÓN loadContent (CON LÓGICA DE HEADER/BARRA DE NEGOCIO CORREGIDA) ---
 export function loadContent(event, page, clickedLink, fromHistory = false) {
-    
     if (event) event.preventDefault();
-    
     if (!fromHistory) {
         history.pushState({ page: page }, '', `#${page.replace('static/', '').replace('.html', '')}`);
     }
-
     const pageName = page.split('/').pop().replace('.html', '');
     loadPageCSS(pageName);
     
-    // ✨ LÓGICA DE VISIBILIDAD CORREGIDA ✨
-    const header = document.querySelector('header'); // La barra de navegación principal
-    const businessSelectorBar = document.getElementById('business-selector-bar'); // La barra de negocio secundaria
+    const header = document.querySelector('header');
+    const businessSelectorBar = document.getElementById('business-selector-bar');
 
-
-    if (page.includes('home.html')) {
-        // Si estamos en el home, ocultamos el header y la barra de negocio.
-        if (header) header.classList.add('hidden');
-        if (businessSelectorBar) businessSelectorBar.classList.add('hidden');
+    // Lógica de visibilidad de la CÁSCARA
+    if (page.includes('login.html')) {
+        // Si vamos al login, OCULTAMOS el header y la barra
+        if (header) header.style.display = 'none';
+        if (businessSelectorBar) businessSelectorBar.style.display = 'none';
     } else {
-        // Si estamos en cualquier otra página, nos aseguramos de que sean visibles.
-        if (header) header.classList.remove('hidden');
-        if (businessSelectorBar) businessSelectorBar.style.display = 'flex'; // Usamos flex para que se vea bien
+        // Si vamos a CUALQUIER OTRA PÁGINA, mostramos el header y la barra
+        if (header) header.style.display = 'flex';
+        if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
     }
-    // --- FIN DE LA LÓGICA ---
 
     const token = localStorage.getItem('jwt_token');
     if (!token && !page.includes('login.html')) {
-        actualizarUIAutenticacion();
+        actualizarUIAutenticacion(); // Esto nos redirigirá al login
         return;
     }
     
@@ -401,15 +291,53 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
 }
 
 export function abrirModalNuevoCliente(callback) {
-    const modal = document.getElementById('modal-nuevo-cliente');
-    if (modal) {
-        onClienteCreadoCallback = callback;
-        modal.style.display = 'flex';
-        document.getElementById('form-nuevo-cliente').reset();
-    }
+    // ... (tu código)
 }
 
+// --- INICIALIZACIÓN Y LISTENERS GLOBALES ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Listener para el selector de negocio principal
+    const mainSelector = document.getElementById('selector-negocio');
+    if (mainSelector) {
+        mainSelector.addEventListener('change', (e) => {
+            console.log("Cambio de negocio en selector principal.");
+            appState.negocioActivoId = e.target.value;
+            localStorage.setItem('negocioActivoId', e.target.value); // Guarda la selección
+            // Vuelve a cargar la página/módulo actual para refrescar los datos
+            const currentPage = window.location.hash.substring(1) || 'home';
+            loadContent(null, `static/${currentPage}.html`);
+        });
+    }
 
+    // Listener para el selector del home (delegación de eventos)
+    document.body.addEventListener('change', (e) => {
+        if (e.target.id === 'home-selector-negocio') {
+            console.log("Cambio de negocio en selector del home.");
+            appState.negocioActivoId = e.target.value;
+            localStorage.setItem('negocioActivoId', e.target.value);
+            // Recarga el home
+            loadContent(null, 'static/home.html');
+        }
+    });
+
+    window.addEventListener('authChange', actualizarUIAutenticacion);
+    window.addEventListener('popstate', (e) => {
+        if (e.state && e.state.page) {
+             loadContent(null, e.state.page, null, true);
+        }
+    });
+    
+    const hamburgerBtn = document.getElementById('hamburger-btn');
+    const navContainer = document.querySelector('.nav-container');
+    if (hamburgerBtn && navContainer) {
+         hamburgerBtn.addEventListener('click', () => navContainer.classList.toggle('is-active'));
+         navContainer.addEventListener('click', (e) => {
+             if (e.target.tagName === 'A') navContainer.classList.remove('is-active');
+         });
+    }
+    
+    actualizarUIAutenticacion(); // Esta es la llamada inicial que arranca todo
+});
 
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
 window.loadContent = loadContent;

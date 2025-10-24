@@ -16,11 +16,7 @@ main {
 }
 
 /* --- 3. VISIBILIDAD POR ROLES --- */
-.admin-only,
-.superadmin-only,
-.admin-operator-only {
-    display: none; /* Ocultos por defecto (sin !important) */
-}
+.admin-only {display: none;}
 
 /* --- 4. HEADER --- */
 header {
