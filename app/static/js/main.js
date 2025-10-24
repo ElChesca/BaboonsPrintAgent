@@ -22,6 +22,7 @@ import { inicializarLogicaPresupuestos } from './modules/presupuestos.js';
 import { inicializarLogicaHistorialPresupuestos } from './modules/historial_presupuestos.js';
 import { inicializarLogicaFactura } from './modules/factura.js';
 import { mostrarNotificacion } from './modules/notifications.js'; // Importa la notificación
+import { inicializarLogicaVerificador } from './modules/verificador.js';
 
 let onClienteCreadoCallback = null;
 
@@ -198,6 +199,8 @@ async function inicializarModulo(page) {
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias(); 
     if (page.includes('reportes.html')) inicializarLogicaReportes();
     if (page.includes('factura.html')) inicializarLogicaFactura();
+    if (page.includes('verificador.html')) inicializarLogicaVerificador();      
+
     if (page.includes('historial_ingresos.html')) inicializarLogicaHistorial();
     else if (page.includes('ingresos.html')) inicializarLogicaIngresos();
     if (page.includes('historial_ventas.html')) inicializarLogicaHistorialVentas();

@@ -1,5 +1,4 @@
 // app/static/js/modules/verificador.js
-
 // Importamos los helpers compartidos
 import { fetchData } from '../api.js';
 import { appState } from '../main.js';

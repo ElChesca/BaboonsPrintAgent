@@ -25,7 +25,7 @@ def create_app():
         (proveedor_routes.bp, '/api'), (ajuste_caja_routes.bp, '/api'), (presupuestos_routes.bp, '/api'),
         (facturacion_routes.bp, '/api'), (price_lists_routes.bp, '/api'), (unidades_medida_routes.bp, '/api'),
         (inventory_routes.bp,'/api'), (historial_inventario_routes.bp,'/api'), (precios_especificos_routes.bp,'/api'),
-        (mobile_routes.mobile_bp, '/api/mobile')
+        (mobile_routes.bp, '/api/mobile')
         
 
     ]
