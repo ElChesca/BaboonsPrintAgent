@@ -16,7 +16,7 @@ def create_app():
                         dashboard_routes, config_routes, caja_routes, report_routes, \
                         proveedor_routes, ajuste_caja_routes, presupuestos_routes, \
                         price_lists_routes, unidades_medida_routes, inventory_routes, \
-                        historial_inventario_routes, precios_especificos_routes
+                        historial_inventario_routes, precios_especificos_routes, mobile_routes
     blueprints = [
         (auth_routes.bp, '/api'), (product_routes.bp, '/api'), (negocios_routes.bp, '/api'),
         (user_routes.bp, '/api'), (clientes_routes.bp, '/api'), (income_routes.bp, '/api'),
@@ -24,7 +24,8 @@ def create_app():
         (config_routes.bp, '/api'), (caja_routes.bp, '/api'), (report_routes.bp, '/api'),
         (proveedor_routes.bp, '/api'), (ajuste_caja_routes.bp, '/api'), (presupuestos_routes.bp, '/api'),
         (facturacion_routes.bp, '/api'), (price_lists_routes.bp, '/api'), (unidades_medida_routes.bp, '/api'),
-        (inventory_routes.bp,'/api'), (historial_inventario_routes.bp,'/api'), (precios_especificos_routes.bp,'/api')
+        (inventory_routes.bp,'/api'), (historial_inventario_routes.bp,'/api'), (precios_especificos_routes.bp,'/api'),
+        (mobile_routes.mobile_bp, '/api/mobile')
         
 
     ]

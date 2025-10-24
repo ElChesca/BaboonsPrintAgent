@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificador de Precios</title>
+    <link rel="stylesheet" href="css/style.css"> 
+    </head>
+<body>
+    <div class="container">
+        <h1>Verificador de Precios</h1>
+
+        <div id="reader-verificador" style="width: 90%; max-width: 400px; margin: 15px auto; border: 2px solid #ccc; border-radius: 8px;"></div>
+        <p id="scan-status-verificador">Apuntá la cámara al código de barras...</p>
+
+        <div class="botones-verificador" style="margin-top: 15px;">
+            <button id="btn-limpiar-verificador" class="btn btn-danger">Limpiar Lecturas</button>
+        </div>
+
+        <div class="total-controls" style="margin: 15px 0;">
+            <label for="lista-precio-total-verificador">Usar para Total:</label>
+            <select id="lista-precio-total-verificador" class="form-control">
+                <option value="">(Elija lista)</option>
+            </select>
+        </div>
+
+        <div id="lista-items-verificador" style="margin-top: 20px;">
+            </div>
+
+        <div class="total-container" style="margin-top: 20px; padding: 15px; background-color: #333; color: white; border-radius: 8px; text-align: center;">
+            <h2>Total: <span id="total-monto-verificador">$ 0.00</span></h2>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode@2.0.9/dist/html5-qrcode.min.js"></script>
+</body>
+</html>
