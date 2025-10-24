@@ -25,6 +25,9 @@ import { mostrarNotificacion } from './modules/notifications.js'; // Importa la 
 
 let onClienteCreadoCallback = null;
 
+export function esAdmin() { // <-- ¡AQUÍ ESTÁ!
+    return appState.userRol === 'admin';
+}
 // --- ESTADO GLOBAL ---
 export const appState = {
     negocioActivoId: null,
