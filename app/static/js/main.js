@@ -293,8 +293,15 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
         });
 }
 
+// --- ABRIR MODAL CLIENTE (COMPLETA) ---
 export function abrirModalNuevoCliente(callback) {
-    // ... (tu código)
+    const modal = document.getElementById('modal-nuevo-cliente');
+    if (modal) {
+        onClienteCreadoCallback = callback;
+        modal.style.display = 'flex';
+        const form = document.getElementById('form-nuevo-cliente');
+        if (form) form.reset();
+    }
 }
 
 // --- INICIALIZACIÓN Y LISTENERS GLOBALES ---
