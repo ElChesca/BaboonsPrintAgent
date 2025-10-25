@@ -1,490 +1,95 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gestión | Baboons</title>
-    <link rel="icon" type="image/png" href="/static/img/logo.png">
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-    
-    <!-- 
-      AQUÍ ESTÁ EL CAMBIO:
-      Borramos el <link> y pegamos todo el CSS de global.css aquí adentro.
-    -->
-    <style>
-        /* ==========================================================================
-           GLOBAL.CSS - Estilos Generales Multinegocio Baboons (Versión Final Depurada)
-           ========================================================================== */
-
-        /* --- 1. RESET BÁSICO Y FUENTES --- */
-        body {
-            font-family: 'Roboto', sans-serif;
-            margin: 0;
-            background-color: #f0f2f5;
-            color: #333; /* Color de texto por defecto */
-        }
-
-        /* --- 2. LAYOUT PRINCIPAL --- */
-        main {
-            padding: 30px;
-        }
-
-        /* --- 3. VISIBILIDAD POR ROLES --- */
-        .admin-only {display: none;}
-
-        /* --- 4. HEADER (RECONSTRUIDO) --- */
-        header {
-            background-color: #222222;
-            color: white;
-            padding: 10px 30px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            min-height: 60px; /* <--- REGLA CLAVE RESTAURADA */
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .logo-container {
-            height: 35px;
-            display: flex;
-            align-items: center;
-        }
-        #header-logo {
-            height: 100%;
-            width: auto;
-        }
-
-
-        /* --- 5. BARRA SELECTOR NEGOCIO --- */
-        #business-selector-bar {
-            background-color: #f8f9fa;
-            padding: 8px 30px;
-            display: none; /* JS la muestra */
-            align-items: center;
-            gap: 15px;
-            border-bottom: 1px solid #dee2e6;
-            min-height: 40px;
-        }
-        #business-selector-bar label,
-        #business-display-name {
-            font-weight: bold;
-            font-size: 0.85em;
-            margin: 0;
-            color: #333;
-        }
-        #business-selector-bar select {
-            padding: 5px 8px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            font-size: 0.85em;
-            margin-left: 5px;
-        }
-        #active-business-name-display {
-            font-weight: normal;
-        }
-
-        /* --- 6. NAVEGACIÓN (RECONSTRUIDA) --- */
-
-        /* Contenedor principal de la nav */
-        .nav-container {
-            flex-grow: 1;
-            display: flex;
-            justify-content: flex-end;
-        }
-
-        /* La lista <nav> que es hija de .nav-container */
-        #main-nav {
-            display: flex;
-            align-items: center; /* Centra verticalmente los items */
-            list-style: none; 
-            margin: 0;
-            padding: 0;
-        }
-
-        /* Links y Dropdowns directos dentro de #main-nav */
-        #main-nav > a,
-        #main-nav > .dropdown {
-            color: white;
-            text-decoration: none;
-            font-weight: bold;
-            padding: 8px 12px;
-            border-radius: 5px;
-            margin-left: 10px; /* Espacio entre items */
-            display: flex;
-            align-items: center;
-            white-space: nowrap;
-            transition: background-color 0.3s;
-        }
-
-        #main-nav > a:hover,
-        .dropdown:hover .dropbtn {
-            background-color: #444444;
-        }
-
-        #main-nav > a.active {
-            box-shadow: inset 0 -3px 0 0 white;
-        }
-
-        /* Lógica de Dropdown */
-        .dropdown { position: relative; display: inline-block; }
-
-        /* El <a> dentro del dropdown */
-        .dropdown .dropbtn {
-            padding: 0; /* El padding ya está en el .dropdown padre */
-            margin: 0;
-            width: 100%;
-        }
-
-        .dropdown-content {
-            display: none; position: absolute; background-color: #333333;
-            min-width: 180px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-            z-index: 100; border-radius: 5px; right: 0;
-            margin-top: 3px;
-        }
-
-        .dropdown-content a {
-            color: white; padding: 12px 16px; display: block;
-            text-align: left; margin-left: 0; width: 100%; box-sizing: border-box;
-        }
-        .dropdown-content a:hover { background-color: #444444; }
-        .dropdown:hover .dropdown-content { display: block; }
-
-        /* Botón hamburguesa (oculto en desktop) */
-        .hamburger-btn {
-            display: none;
-        }
-
-
-        /* --- 7. RESPONSIVE (Móvil) (RECONSTRUIDO) --- */
-        @media (max-width: 900px) {
-            header { padding: 10px 15px; min-height: 50px; }
-            .logo-container { height: 30px; }
-            
-            /* Ocultamos la nav de escritorio */
-            .nav-container {
-                display: none; 
-                position: absolute;
-                top: 50px; /* Altura del header en móvil */
-                left: 0;
-                width: 100%;
-                background-color: #333333;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                z-index: 999;
-            }
-            
-            /* Clase que usa tu JS */
-            .nav-container.is-active {
-                display: block;
-            }
-            
-            /* Nav vertical */
-            #main-nav {
-                flex-direction: column;
-                align-items: flex-start;
-                padding: 10px 0;
-                width: 100%;
-            }
-            #main-nav > a,
-            #main-nav > .dropdown {
-                width: 100%;
-                margin-left: 0;
-                padding: 15px;
-                border-bottom: 1px solid #555555;
-                box-sizing: border-box;
-            }
-            #main-nav > a:last-child,
-            #main-nav > .dropdown:last-child {
-                border-bottom: none;
-            }
-            
-            /* Quitamos subrayado en móvil */
-            #main-nav > a.active {
-                box-shadow: none;
-                background-color: #444;
-            }
-
-            /* Arreglamos los dropdowns en móvil */
-            .dropdown-content {
-                position: static;
-                display: block; 
-                background-color: transparent;
-                box-shadow: none;
-                padding-left: 20px;
-                width: 100%;
-                box-sizing: border-box;
-            }
-            
-            /* Mostramos el botón hamburguesa */
-            .hamburger-btn {
-                display: block;
-                font-size: 2em;
-                color: white;
-                background: none;
-                border: none;
-                cursor: pointer;
-                padding: 0 10px;
-                margin: 0;
-            }
-
-            #business-selector-bar { padding: 8px 15px; flex-direction: column; align-items: flex-start; }
-            
-            /* --- ARREGLO PARA GRILLA DE APPS EN MÓVIL --- */
-            .app-dashboard {
-                padding: 20px 0 0 0; /* Quitamos padding lateral e inferior */
-            }
-            .app-grid {
-                /* Usamos 3 columnas en móvil */
-                grid-template-columns: repeat(3, 1fr);
-                /* Reducimos el max-width en móvil */
-                max-width: 100%; 
-                gap: 1px; /* Un gap muy pequeño para que se vean las líneas */
-                background-color: #ddd; /* Color de fondo para el gap */
-                border-top: 1px solid #ddd;
-            }
-            .app-card {
-                min-height: 110px; /* Un poco más chicas */
-                padding: 10px;
-                border-radius: 0; /* Quitamos bordes redondeados */
-                box-shadow: none; /* Quitamos sombra individual */
-                box-sizing: border-box; /* Asegura que el padding no rompa */
-            }
-            .app-icon {
-                width: 50px;
-                height: 50px;
-            }
-            .app-name {
-                font-size: 0.8em;
-            }
-            /* --- FIN DE ARREGLO --- */
-        }
-
-        /* --- 8. DASHBOARD (Home) (MODIFICADO) --- */
-        .app-dashboard { padding: 30px; text-align: center; }
-        .dashboard-title { font-size: 2em; color: #333; margin-bottom: 30px; font-weight: 300; }
-        .app-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr); /* <-- USAREMOS 5 COLUMNAS */
-            gap: 25px;
-            justify-content: center;
-            max-width: 1100px; 
-            margin: 0 auto;
-        }
-        .app-grid.admin-only {
-            max-width: 1100px; 
-        }
-        .app-card {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background-color: #ffffff; border-radius: 12px; padding: 15px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            cursor: pointer; min-height: 120px; text-decoration: none; /* Para los <a> */
-        }
-        .app-card:hover { transform: translateY(-5px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); }
-        .app-icon { width: 64px; height: 64px; margin-bottom: 10px; object-fit: contain; }
-        .app-name { font-size: 0.9em; color: #555; text-align: center; font-weight: 500; }
-
-        /* --- 9. COMPONENTES GLOBALES (Sin cambios) --- */
-        /* Modales */
-        .modal {
-            display: none; position: fixed; z-index: 1001; /* Encima del header */
-            left: 0; top: 0; width: 100%; height: 100%; overflow: auto;
-            background-color: rgba(0, 0, 0, 0.6); /* Más oscuro */
-            justify-content: center; align-items: center;
-        }
-        .modal-content {
-            background-color: #fff; padding: 25px; border-radius: 8px;
-            width: 90%; max-width: 500px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        }
-        .modal-content.large { max-width: 900px; }
-        .modal-header {
-            display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px;
-        }
-        .modal-header h2, .modal-header h3 { margin: 0; color: #333; }
-        .close-button {
-            color: #aaa; font-size: 32px; font-weight: bold; cursor: pointer;
-            line-height: 1; /* Mejor alineación vertical */
-        }
-        .close-button:hover, .close-button:focus { color: black; text-decoration: none; }
-
-        /* Buscador con Resultados */
-        .search-container { position: relative; }
-        .search-results {
-            position: absolute; width: 100%; background-color: white;
-            border: 1px solid #ddd; border-top: none; border-radius: 0 0 6px 6px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 250px;
-            overflow-y: auto; z-index: 100;
-        }
-        .search-item {
-            padding: 10px 15px; cursor: pointer; display: flex;
-            justify-content: space-between; align-items: center; font-size: 0.9em;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        .search-item:last-child { border-bottom: none; }
-        .search-item:hover { background-color: #f0f0f0; }
-        .search-item .stock { color: #6c757d; font-size: 0.85em; }
-
-        /* Notificaciones (Toast) */
-        #notification-container {
-            position: fixed; bottom: 20px; right: 20px; z-index: 9999;
-            display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
-        }
-        .toast-notification {
-            color: #fff; padding: 15px 20px; border-radius: 8px; min-width: 250px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0;
-            transform: translateX(100%); animation: slideIn 0.5s forwards;
-        }
-        .toast-notification.success { background-color: #5C8C6A; } /* Verde Baboons */
-        .toast-notification.warning { background-color: #ffc107; color: #333; }
-        .toast-notification.error { background-color: #dc3545; }
-        .toast-notification.info { background-color: #777; } /* Gris Info */
-        @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
-        @keyframes slideOut { to { opacity: 0; transform: translateX(100%); } }
-
-        /* Input con Botón (+) */
-        .input-with-button { display: flex; gap: 10px; align-items: center; }
-        .input-with-button select, .input-with-button input { flex-grow: 1; margin-bottom: 0 !important; /* Quitar margen si está dentro */ }
-        .btn-add-quick {
-            flex-shrink: 0; padding: 8px 12px !important; font-size: 1.2em !important; font-weight: bold !important;
-            background-color: #5C8C6A !important; color: white !important; /* Verde Baboons */
-        }
-        .btn-add-quick:hover { background-color: #4a7055 !important; }
-
-        /* Tablas */
-        .tabla-bonita {
-            width: 100%; border-collapse: collapse; margin-bottom: 20px;
-            background-color: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            border-radius: 8px; overflow: hidden; font-size: 0.9em; /* Ligeramente más pequeña */
-        }
-        .tabla-bonita thead { background-color: #4A4A4A; color: white; } /* Cabecera gris oscuro */
-        .tabla-bonita th, .tabla-bonita td { padding: 10px 15px; text-align: left; border-bottom: 1px solid #ddd; }
-        .tabla-bonita tbody tr:hover { background-color: #f5f5f5; }
-        .tabla-bonita tbody tr:last-child td { border-bottom: none; }
-        .tabla-contenedor { overflow-x: auto; }
-
-        /* Botones */
-        .btn {
-            padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;
-            font-size: 0.9em; transition: background-color 0.2s ease, transform 0.1s ease;
-            margin: 0 5px 5px 0; text-decoration: none; display: inline-block; text-align: center;
-            font-weight: 500;
-        }
-        .btn-primary { background-color: #555; color: white; }
-        .btn-primary:hover { background-color: #333; transform: translateY(-1px); }
-        .btn-secondary { background-color: #aaa; color: #333; }
-        .btn-secondary:hover { background-color: #888; transform: translateY(-1px); }
-        .btn-danger { background-color: #dc3545; color: white; }
-        .btn-danger:hover { background-color: #c82333; transform: translateY(-1px); }
-        .btn-info { background-color: #777; color: white; }
-        .btn-info:hover { background-color: #555; transform: translateY(-1px); }
-        .btn-success { background-color: #5C8C6A; color: white; }
-        .btn-success:hover { background-color: #4a7055; transform: translateY(-1px); }
-        .btn-sm { padding: 5px 10px; font-size: 0.85em; }
-
-        /* Formularios */
-        input[type="text"], input[type="number"], input[type="email"],
-        input[type="password"], input[type="date"], select, textarea {
-            padding: 10px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95em;
-            box-sizing: border-box; margin-bottom: 15px; width: 100%;
-        }
-        select {
-            appearance: none; -webkit-appearance: none; -moz-appearance: none; /* Quitar apariencia nativa */
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23555' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E");
-            background-repeat: no-repeat; background-position: right 10px center; background-size: 1em;
-            padding-right: 30px; background-color: #fff; /* Fondo blanco para tapar flecha nativa */
-        }
-        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; color: #333; }
-        .form-group { margin-bottom: 15px; }
-        .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-
-        /* Badges de Estado */
-        .status-badge {
-            padding: 3px 8px; border-radius: 12px; font-size: 0.8em;
-            font-weight: 500; color: white; display: inline-block;
-        }
-        .status-pendiente { background-color: #ffc107; color: #333; }
-        .status-convertido { background-color: #5C8C6A; } /* Verde Baboons */
-
-        /* --- 10. UTILIDADES --- */
-        .hidden { display: none !important; }
-        .hide-element { display: none !important; } /* Clase específica para JS */
-        .card { background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    </style>
-    
-</head>
-
-<body>
-    <div id="notification-container"></div>
-
-    <header>
-        <div class="logo-container">
-           <img src="/static/img/logo.png" alt="Baboons Logo" id="header-logo">
-        </div>
-        <button id="hamburger-btn" class="hamburger-btn">☰</button>
+<div class="app-dashboard">
+    <h2 class="dashboard-title">Mis Aplicaciones</h2>
+    <div class="app-grid">
         
-        <div class="nav-container">
-            <nav id="main-nav">
-                <a href="#" onclick="loadContent(event, 'static/home.html', this)" class="active elemento-rol">🏠 Home</a>
-                <a href="#" onclick="loadContent(event, 'static/ventas.html', this)" class="elemento-rol">💰 Nueva Venta</a>
-                <a href="#" onclick="loadContent(event, 'static/historial_ventas.html', this)" class="elemento-rol">📈 Historial Ventas</a>
-
-                <div class="dropdown">
-                    <a href="#" class="dropbtn">Más Opciones ▾</a>
-                    <div class="dropdown-content"> 
-                        <a href="#" onclick="loadContent(event, 'static/historial_presupuestos.html', this)">🧾 Historial Presupuestos</a> 
-                    </div>
-                </div>
-
-                 <div class="dropdown admin-only">
-                    <a href="#" class="dropbtn">⚙️ Configuración ▾</a>
-                    <div class="dropdown-content">
-                        <a href="#" class="superadmin-only elemento-rol" onclick="loadContent(event, 'static/negocios.html', this)">🏢 Negocios</a>
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/usuarios.html', this)">👥 Usuarios</a> 
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a> 
-                    </div>
-                 </div>
-
-                <div class="dropdown admin-only">
-                    <a href="#" class="dropbtn">📊 Reportes ▾</a>
-                    <div class="dropdown-content">
-                        <a href="#" onclick="loadContent(event, 'static/reportes.html', this)">Ventas Diarias</a> 
-                        <a href="#" onclick="loadContent(event, 'static/reporte_caja.html', this)">Reporte de Caja</a>
-                        <a href="#" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">Reporte de Ganancias</a>
-                        <a href="#" onclick="loadContent(event, 'static/historial_inventario.html', this)">Historial Inventario</a>
-                    </div>
-                </div>
-                
-                <a href="#" id="auth-link"></a> 
-            </nav>
+        <div class="app-card" onclick="loadContent(event, 'static/dashboard.html', this)">
+            <img src="/static/img/icons/dashboard.png" alt="Dashboard" class="app-icon">
+            <span class="app-name">Dashboard</span>
         </div>
-    </header>
-    
-    
-    <div id="business-selector-bar" style="display: none;">
-        <label for="selector-negocio">NEGOCIO ACTIVO:</label>
-        <select id="selector-negocio"></select>
+        <div class="app-card" onclick="loadContent(event, 'static/ventas.html', this)">
+            <img src="/static/img/icons/ventas.png" alt="Ventas" class="app-icon">
+            <span class="app-name">Ventas</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/presupuestos.html', this)">
+            <img src="/static/img/icons/presupuesto.png" alt="Presupuestos" class="app-icon">
+            <span class="app-name">Presupuestos</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/inventario.html', this)">
+            <img src="/static/img/icons/inventario.png" alt="Inventario" class="app-icon">
+            <span class="app-name">Inventario</span>
+        </div>      
+        <a href="/static/verificador.html" class="app-card elemento-rol">
+            <img src="/static/img/icons/verificador.png" alt="Verificador de Precios" class="app-icon">
+            <span class="app-name">Verificador Precios</span>
+        </a>
+        <a href="/static/inventario_movil.html" class="app-card elemento-rol">
+            <img src="/static/img/icons/inventariomovil.png" alt="Inventario Móvil" class="app-icon">
+            <span class="app-name">Ajuste Inventario Móvil</span>
+        </a>
+        <div class="app-card" onclick="loadContent(event, 'static/clientes.html', this)">
+            <img src="/static/img/icons/clientes.png" alt="Clientes" class="app-icon">
+            <span class="app-name">Clientes</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/proveedores.html', this)">
+            <img src="/static/img/icons/proveedor.png" alt="Proveedores" class="app-icon">
+            <span class="app-name">Proveedores</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/caja.html', this)">
+            <img src="/static/img/icons/caja.png" alt="Caja" class="app-icon">
+            <span class="app-name">Caja</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/ingresos.html', this)">
+            <img src="/static/img/icons/ingresos.png" alt="Ingresos" class="app-icon">
+            <span classs="app-name">Ingresos</span>
+        </div>
+
     </div>
+</div>
+
+<div class="app-dashboard" style="padding-top: 15px;"> 
+    <h2 class="dashboard-title">Configuración y Reportes</h2>
     
-    
-    <main id="content-area">
-    </main>
+    <div class="app-grid admin-only"> 
+        
+        <div class="app-card" onclick="loadContent(event, 'static/configuracion.html', this)">
+            <img src="/static/img/icons/configuracion.png" alt="Configuracion y Reglas de Negocio" class="app-icon">
+             <span class="app-name">Conf. y Reglas</span>
+        </div>
+        
+        <div class="app-card" onclick="loadContent(event, 'static/historial_inventario.html', this)">
+             <img src="/static/img/icons/historial_inventario.png" alt="Historial Inventario" class="app-icon">
+             <span class="app-name">Historial Inventario</span>
+        </div>
 
-    <script type="module" src="/static/js/main.js"></script>
-</body>
-</html>
+        <div class="app-card" onclick="loadContent(event, 'static/listas_precios.html', this)">
+            <img src="/static/img/icons/price_list.png" alt="Listas de Precios" class="app-icon">
+            <span class="app-name">Listas de Precios</span>
+        </div>
 
+        <div class="app-card" onclick="loadContent(event, 'static/precios_especificos.html', this)">
+            <img src="/static/img/icons/precios_especificos.png" alt="Precios Especificos" class="app-icon">
+            <span class="app-name">Precios Especificos</span>
+        </div>
 
+        <div class="app-card" onclick="loadContent(event, 'static/unidades_medida.html', this)">
+            <img src="/static/img/icons/unidadesdemedida.png" alt="Unidades de Medida" class="app-icon">
+            <span class="app-name">Unidades de Medida</span>
+        </div>      
+        
+        <div class="app-card" onclick="loadContent(event, 'static/usuarios.html', this)">
+            <img src="/static/img/icons/usuarios.png" alt="Usuarios" class="app-icon">
+            <span class="app-name">Usuarios</span>
+        </div>
+        
+        <div class="app-card admin-only" onclick="loadContent(event, 'static/negocios.html', this)">
+            <img src="/static/img/icons/negocios.png" alt="Negocios" class="app-icon">
+            <span class="app-name">Negocios ABM's</span>
+        </div>
+        
+        <div class="app-card" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">
+            <img src="/static/img/icons/reportes.png" alt="Reporte Ganancias" class="app-icon">
+            <span class="app-name">Reporte Ganancias</span>
+        </div>
+
+    </div> 
+</div>

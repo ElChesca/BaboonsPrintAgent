@@ -244,18 +244,23 @@
             
             /* --- ARREGLO PARA GRILLA DE APPS EN MÓVIL --- */
             .app-dashboard {
-                padding: 20px 15px; /* Menos padding en móvil */
+                padding: 20px 0 0 0; /* Quitamos padding lateral e inferior */
             }
             .app-grid {
                 /* Usamos 3 columnas en móvil */
                 grid-template-columns: repeat(3, 1fr);
                 /* Reducimos el max-width en móvil */
                 max-width: 100%; 
-                gap: 15px; /* Un poco menos de espacio en móvil */
+                gap: 1px; /* Un gap muy pequeño para que se vean las líneas */
+                background-color: #ddd; /* Color de fondo para el gap */
+                border-top: 1px solid #ddd;
             }
             .app-card {
                 min-height: 110px; /* Un poco más chicas */
                 padding: 10px;
+                border-radius: 0; /* Quitamos bordes redondeados */
+                box-shadow: none; /* Quitamos sombra individual */
+                box-sizing: border-box; /* Asegura que el padding no rompa */
             }
             .app-icon {
                 width: 50px;
@@ -481,4 +486,5 @@
     <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>
+
 
