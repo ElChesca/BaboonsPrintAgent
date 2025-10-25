@@ -36,7 +36,43 @@
         }
 
         /* --- 3. VISIBILIDAD POR ROLES --- */
-        .admin-only {display: none;}
+        
+        /* 3.1. Ocultamos los roles específicos por defecto */
+        .admin-only,
+        .superadmin-only {
+            /* Usamos !important para asegurarnos de que ganen sobre otras reglas de display */
+            display: none !important; 
+        }
+
+        /* 3.2. Mostramos según el rol en <body> */
+
+        /* Un Admin ve lo de Admin (pero no lo de SuperAdmin) */
+        body.rol-admin .admin-only {
+            display: block !important; /* Por defecto */
+        }
+
+        /* Un SuperAdmin ve lo de Admin Y lo de SuperAdmin */
+        body.rol-superadmin .admin-only,
+        body.rol-superadmin .superadmin-only {
+            display: block !important; /* Por defecto */
+        }
+        
+        /* 3.3. Ajustes para layouts específicos que no son 'block' */
+        
+        /* Los App-cards en el home usan 'flex' */
+        body.rol-admin .app-card.admin-only,
+        body.rol-superadmin .app-card.admin-only,
+        body.rol-superadmin .app-card.superadmin-only {
+            display: flex !important;
+        }
+        
+        /* Los Dropdowns en la nav usan 'inline-block' */
+        body.rol-admin .dropdown.admin-only,
+        body.rol-superadmin .dropdown.admin-only,
+        body.rol-superadmin .dropdown.superadmin-only {
+            display: inline-block !important;
+        }
+
 
         /* --- 4. HEADER (RECONSTRUIDO) --- */
         header {

@@ -26,8 +26,8 @@ import { inicializarLogicaVerificador } from './modules/verificador.js';
 
 let onClienteCreadoCallback = null;
 
-export function esAdmin() { // <-- ¡AQUÍ ESTÁ!
-    return appState.userRol === 'admin';
+export function esAdmin() { // <-- ¡AQUÍ ESTÁ!    
+     return appState.userRol === 'admin' || appState.userRol === 'superadmin';
 }
 // --- ESTADO GLOBAL ---
 export const appState = {
@@ -37,6 +37,7 @@ export const appState = {
 
 // --- Carga de CSS por Página ---
 function loadPageCSS(pageName) {
+
     const existingStyle = document.getElementById('page-specific-style');
     if (existingStyle) existingStyle.remove();
     if (pageName) {
@@ -110,6 +111,8 @@ export async function actualizarUIAutenticacion() {
     console.log("--- Iniciando actualizarUIAutenticacion ---");
     const user = getCurrentUser();
     console.log("Usuario actual:", user);
+    // Limpiamos cualquier rol anterior del body CADA VEZ que se ejecuta
+    document.body.className = ''
 
     const mainNav = document.querySelector('header nav');
     const authLink = document.getElementById('auth-link');
@@ -120,7 +123,10 @@ export async function actualizarUIAutenticacion() {
         try {
             appState.userRol = user.rol;
             console.log("Rol asignado:", appState.userRol);
-
+            if (appState.userRol) {
+                document.body.classList.add('rol-' + appState.userRol); // Ej: "rol-admin"
+                console.log("Rol aplicado al body:", 'rol-' + appState.userRol);
+            }
             if (mainNav) mainNav.style.display = 'flex';
             if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
             if (authLink) {
@@ -131,16 +137,8 @@ export async function actualizarUIAutenticacion() {
             
             // Carga los negocios (el backend filtra por rol)
             await poblarSelectorNegocios();
-            console.log("Datos de negocio cargados.");
-
-            // Lógica de Visibilidad SIMPLE (Solo .admin-only)
-            document.querySelectorAll('.admin-only').forEach(el => {
-                if (el && el.style) {
-                    el.style.display = (appState.userRol === 'admin') ? 'block' : 'none'; // 'block' o 'flex'
-                }
-            });
+            console.log("Datos de negocio cargados.");           
             console.log("Visibilidad por roles aplicada.");
-
             console.log("Actualización de UI base completada.");
 
             const requestedPage = window.location.hash.substring(1);
