@@ -107,6 +107,7 @@ nav a:hover, nav a.active { background-color: #444444; } /* Gris hover */
 
 /* --- 7. RESPONSIVE (Móvil) --- */
 @media (max-width: 900px) {
+    header { padding: 10px 15px; min-height: 50px; }
     .logo-container { height: 30px; }
     .hamburger-btn { display: block; }
     .nav-container {
@@ -266,5 +267,3 @@ label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;
 .hidden { display: none !important; }
 .hide-element { display: none !important; } /* Clase específica para JS */
 .card { background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-
-
