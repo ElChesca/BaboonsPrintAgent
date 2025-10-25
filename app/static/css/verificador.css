@@ -1,0 +1,68 @@
+/* Estilos específicos para el Verificador de Precios */
+
+#reader-verificador {
+    width: 90%;
+    max-width: 400px;
+    margin: 20px auto;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+}
+
+#scan-status-verificador {
+    text-align: center;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.botones-verificador {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.total-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.total-controls label {
+    margin-bottom: 0; /* Anula el margin-bottom global de los labels */
+}
+
+#lista-items-verificador {
+    margin-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.item-verificado {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.item-verificado .nombre {
+    font-weight: bold;
+}
+
+.item-verificado .precio {
+    font-size: 1.1em;
+    color: #000;
+}
+
+.total-container {
+    margin-top: 20px;
+    padding: 20px;
+    background-color: #333;
+    color: white;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.total-container h2 {
+    margin: 0;
+    font-size: 1.8em;
+}
