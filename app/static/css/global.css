@@ -224,7 +224,7 @@ header {
 .dashboard-title { font-size: 2em; color: #333; margin-bottom: 30px; font-weight: 300; }
 .app-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr); /* <-- CAMBIO: 5 columnas fijas */
+    grid-template-columns: repeat(4, 1fr); /* <-- CAMBIO: 5 columnas fijas */
     gap: 25px;
     justify-content: center;
     max-width: 1100px; /* <-- CAMBIO: Más espacio para 5 columnas */
