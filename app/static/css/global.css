@@ -18,31 +18,9 @@ main {
 /* --- 3. VISIBILIDAD POR ROLES --- */
 .admin-only {display: none;}
 
-/* --- 4. HEADER --- */
-header {
-    background-color: #222222;
-    color: white;
-    padding: 10px 30px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    min-height: 60px;
-    width: 100%;
-    box-sizing: border-box;
-}
-.logo-container {
-    height: 35px;
-    display: flex;
-    align-items: center;
-}
-#header-logo {
-    height: 100%;
-    width: auto;
-}
+/* --- 4. HEADER (BORRADO) --- */
+/* Estilos del header eliminados para resetear */
+
 
 /* --- 5. BARRA SELECTOR NEGOCIO --- */
 #business-selector-bar {
@@ -72,166 +50,13 @@ header {
     font-weight: normal;
 }
 
-/* --- 6. NAVEGACIÓN (VERSIÓN RESETEADA) --- */
-
-/* (1) Hacemos que la lista de navegación (#main-nav) sea horizontal */
-#main-nav {
-    display: flex;
-    align-items: center; /* Centra verticalmente los items */
-    list-style: none; /* Quita puntitos de lista si los hubiera */
-    margin: 0;
-    padding: 0;
-}
-
-/* (2) Estilos básicos para CADA item (links y dropdowns) */
-#main-nav > a,
-#main-nav > .dropdown {
-    color: white;
-    text-decoration: none;
-    font-weight: bold;
-    padding: 8px 12px;
-    border-radius: 5px;
-    margin-left: 10px; /* Espacio entre items */
-    transition: background-color 0.3s;
-    display: flex;
-    align-items: center;
-    white-space: nowrap;
-}
-
-/* (3) Hover simple */
-#main-nav > a:hover,
-.dropdown:hover .dropbtn { /* .dropbtn es el <a> dentro del dropdown */
-    background-color: #444444;
-}
-
-/* (4) Estilo 'active' simple (el subrayado) */
-#main-nav > a.active {
-    box-shadow: inset 0 -3px 0 0 white;
-}
-/* (MEJORA) Hace que el botón Dropdown parezca activo si un hijo lo está */
-.dropdown.active > .dropbtn { /* > .dropbtn es más específico */
-     box-shadow: inset 0 -3px 0 0 white;
-}
+/* --- 6. NAVEGACIÓN (BORRADO) --- */
+/* Estilos de navegación eliminados para resetear */
 
 
-/* (5) Contenedor de la nav (alinea a la derecha) */
-.nav-container {
-    flex-grow: 1;
-    display: flex;
-    justify-content: flex-end;
-}
-
-/* (6) Botón hamburguesa (oculto por ahora en desktop) */
-.hamburger-btn {
-    display: none;
-}
-
-/* (7) Lógica de Dropdown (TU CÓDIGO ORIGINAL - FUNCIONA) */
-.dropdown { position: relative; display: inline-block; }
-.dropdown-content {
-    display: none; position: absolute; background-color: #333333;
-    min-width: 180px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-    z-index: 100; border-radius: 5px; right: 0;
-    margin-top: 3px;
-}
-/* Hacemos que el link dentro del dropdown use todo el padding */
-.dropdown .dropbtn {
-    padding: 0;
-    margin: 0;
-    width: 100%;
-}
-.dropdown-content a {
-    color: white; padding: 12px 16px; display: block;
-    text-align: left; margin-left: 0; width: 100%; box-sizing: border-box;
-}
-.dropdown-content a:hover { background-color: #444444; }
-.dropdown:hover .dropdown-content { display: block; }
-.dropdown-content a.active {
-    background-color: #555555;
-}
-
-
-/* --- 7. RESPONSIVE (Móvil) (RESTAURADO y CORREGIDO) --- */
+/* --- 7. RESPONSIVE (Móvil) (MODIFICADO) --- */
 @media (max-width: 900px) {
-    header { padding: 10px 15px; min-height: 50px; }
-    .logo-container { height: 30px; }
-    
-    /* Ocultamos la nav de escritorio por defecto */
-    .nav-container {
-        display: none; 
-        /* La posicionamos para que aparezca bien */
-        position: absolute;
-        top: 50px; /* Altura del header en móvil (ajusta si min-height cambió) */
-        left: 0;
-        width: 100%;
-        background-color: #333333; /* Fondo para el menú desplegable */
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        z-index: 999;
-    }
-    
-    /* Esta es la clase que tu JS (main.js) está usando */
-    .nav-container.is-active {
-        display: block;
-    }
-    
-    /* Re-estilamos la nav para que sea vertical */
-    #main-nav {
-        flex-direction: column;
-        align-items: flex-start;
-        padding: 10px 0;
-        width: 100%;
-    }
-    #main-nav > a,
-    #main-nav > .dropdown {
-        width: 100%;
-        margin-left: 0;
-        padding: 15px;
-        border-bottom: 1px solid #555555;
-        box-sizing: border-box; /* Importante para el width 100% */
-    }
-    #main-nav > a:last-child,
-    #main-nav > .dropdown:last-child {
-        border-bottom: none; /* El último item no lleva borde */
-    }
-
-    /* Reseteamos el estilo 'active' de escritorio para móvil */
-    #main-nav > a.active,
-    .dropdown.active > .dropbtn {
-        box-shadow: none; /* Quitamos subrayado en móvil */
-        background-color: #444; /* Usamos el color de hover como 'active' */
-    }
-    
-    /* Arreglamos los dropdowns en móvil */
-    .dropdown-content {
-        position: static;
-        display: block; 
-        background-color: transparent;
-        box-shadow: none;
-        padding-left: 20px;
-        border-bottom: none; /* El link padre ya tiene borde */
-        width: 100%;
-        box-sizing: border-box;
-    }
-    .dropdown-content a { 
-        border-bottom: none; 
-        padding-top: 10px;
-        padding-bottom: 10px;
-    }
-    .dropdown:hover .dropdown-content {
-        display: block; /* Mantenemos consistencia */
-    }
-    
-    /* Mostramos el botón hamburguesa */
-    .hamburger-btn {
-        display: block;
-        font-size: 2em;
-        color: white;
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 0 10px;
-        margin: 0;
-    }
+    /* Reglas de header/nav eliminadas para resetear */
 
     #business-selector-bar { padding: 8px 15px; flex-direction: column; align-items: flex-start; }
 }
