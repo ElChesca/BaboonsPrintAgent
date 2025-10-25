@@ -340,14 +340,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
+    // --- Lógica para el botón Hamburguesa (MEJORADA) ---
     const hamburgerBtn = document.getElementById('hamburger-btn');
     const navContainer = document.querySelector('.nav-container');
+
     if (hamburgerBtn && navContainer) {
-         hamburgerBtn.addEventListener('click', () => navContainer.classList.toggle('is-active'));
-         navContainer.addEventListener('click', (e) => {
-             if (e.target.tagName === 'A') navContainer.classList.remove('is-active');
-         });
-    }   
+        // 1. Alterna el menú al tocar la hamburguesa
+        hamburgerBtn.addEventListener('click', () => {
+            navContainer.classList.toggle('is-active');
+        });
+
+        // 2. Cierra el menú inteligentemente al tocar un enlace
+        navContainer.addEventListener('click', (e) => {
+            // Solo nos interesa si el clic fue en un <a>
+            if (e.target.tagName !== 'A') {
+                return;
+            }
+
+            // Comprobamos si el <a> es el TÍTULO de un dropdown
+            // (En tu HTML, los títulos de dropdown tienen la clase 'dropbtn')
+            const isDropdownToggle = e.target.classList.contains('dropbtn');
+
+            // Si NO es un toggle de dropdown, es un enlace final
+            // (como Home, Iniciar Sesión, etc.)
+            // En ese caso, SÍ cerramos el menú.
+            if (!isDropdownToggle) {
+                navContainer.classList.remove('is-active');
+            }
+            
+            // Si SÍ es un toggle, no hacemos nada y dejamos que el CSS
+            // muestre/oculte el submenú.
+        });
+    }
+        
     
     actualizarUIAutenticacion(); // Esta es la llamada inicial que arranca todo
 });

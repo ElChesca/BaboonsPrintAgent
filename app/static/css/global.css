@@ -72,7 +72,7 @@ header {
     font-weight: normal;
 }
 
-/* --- 6. NAVEGACIÓN PRINCIPAL --- */
+/* --- 6. NAVEGACIÓN PRINCIPAL (MODIFICADA) --- */
 nav a,
 nav .dropdown { /* Aplica a links directos Y a los contenedores dropdown */
     color: white;
@@ -81,31 +81,66 @@ nav .dropdown { /* Aplica a links directos Y a los contenedores dropdown */
     font-weight: bold;
     padding: 8px 12px;
     border-radius: 5px;
-    transition: background-color 0.3s;
+    transition: background-color 0.3s, box-shadow 0.3s; /* Añadido box-shadow */
     white-space: nowrap;
     display: flex; /* Asegura alineación interna si son dropdowns */
     align-items: center; /* Centra verticalmente el texto/icono */
 }
-nav a:hover,
+
+/* --- (MEJORA) Separamos Hover de Active --- */
+nav a:hover {
+    background-color: #444444; /* Tu estilo de hover original */
+}
+
+/* (MEJORA) Estilo 'active' distintivo con un subrayado */
 nav a.active {
+    background-color: transparent; /* Quitamos fondo para que resalte el 'border' */
+    box-shadow: inset 0 -3px 0 0 white; /* Subrayado limpio */
+}
+nav a.active:hover {
+    background-color: #444444; /* Mantenemos el hover */
+    box-shadow: inset 0 -3px 0 0 white; /* Y el subrayado */
+}
+
+/* (MEJORA) Hace que el botón Dropdown parezca activo si un hijo lo está */
+.dropdown.active .dropbtn {
+     box-shadow: inset 0 -3px 0 0 white;
+}
+/* Aseguramos que el hover del dropdown se vea bien */
+.dropdown:hover .dropbtn {
     background-color: #444444;
 }
 
-/* Dropdown Menú */
+
+/* Dropdown Menú (Sin cambios) */
 .dropdown { position: relative; display: inline-block; }
+/* Hacemos que el .dropbtn (el <a> dentro) ocupe todo el espacio */
+.dropbtn {
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    /* Hereda el padding/estilos de 'nav a' */
+}
+
 .dropdown-content {
     display: none; position: absolute; background-color: #333333; /* Gris menú */
     min-width: 180px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
     z-index: 100; border-radius: 5px; right: 0;
+    margin-top: 3px; /* Pequeña separación */
 }
 .dropdown-content a {
     color: white; padding: 12px 16px; display: block;
     text-align: left; margin-left: 0; width: 100%; box-sizing: border-box;
+    box-shadow: none; /* Reseteamos el shadow 'active' en los hijos del dropdown */
 }
 .dropdown-content a:hover { background-color: #444444; }
+.dropdown-content a.active {
+    background-color: #555555; /* Un 'active' diferente para el submenú */
+    box-shadow: none;
+}
 .dropdown:hover .dropdown-content { display: block; }
 
-/* Botón Hamburguesa (Móvil) */
+/* Botón Hamburguesa (Móvil) (Sin cambios) */
 .hamburger-btn {
     display: none; /* Oculto por defecto en escritorio */
     font-size: 2em;
@@ -121,7 +156,8 @@ nav a.active {
     display: flex;
     justify-content: flex-end; /* Alinea la nav a la derecha */
 }
-/* --- 7. RESPONSIVE (Móvil) --- */
+
+/* --- 7. RESPONSIVE (Móvil) (Sin cambios) --- */
 @media (max-width: 900px) {
     header { padding: 10px 15px; min-height: 50px; }
     .logo-container { height: 30px; }
@@ -135,11 +171,19 @@ nav a.active {
     .nav-container.is-active { display: block; }
     nav { flex-direction: column; align-items: flex-start; padding: 10px 0; }
     nav a, .dropdown { width: 100%; margin-left: 0; padding: 15px; border-bottom: 1px solid #555555; }
-    .dropdown-content { position: static; display: block; background-color: transparent; box-shadow: none; padding-left: 20px; }
+    /* Reseteamos el estilo 'active' de escritorio para móvil */
+    nav a.active, .dropdown.active .dropbtn {
+        box-shadow: none;
+        background-color: #444; /* Usamos el color de hover como 'active' en móvil */
+    }
+    .dropdown-content { position: static; display: block; background-color: transparent; box-shadow: none; padding-left: 20px; border-bottom: none; }
+    .dropdown-content a { border-bottom: none; }
+    .dropdown-content a.active { background-color: #555; }
+
     #business-selector-bar { padding: 8px 15px; flex-direction: column; align-items: flex-start; }
 }
 
-/* --- 8. DASHBOARD (Home) --- */
+/* --- 8. DASHBOARD (Home) (Sin cambios) --- */
 .app-dashboard { padding: 30px; text-align: center; }
 .dashboard-title { font-size: 2em; color: #333; margin-bottom: 30px; font-weight: 300; }
 .app-grid {
@@ -158,7 +202,7 @@ nav a.active {
 .app-icon { width: 64px; height: 64px; margin-bottom: 10px; object-fit: contain; }
 .app-name { font-size: 0.9em; color: #555; text-align: center; font-weight: 500; }
 
-/* --- 9. COMPONENTES GLOBALES --- */
+/* --- 9. COMPONENTES GLOBALES (Sin cambios) --- */
 /* Modales */
 .modal {
     display: none; position: fixed; z-index: 1001; /* Encima del header */
@@ -284,3 +328,4 @@ label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;
 .hidden { display: none !important; }
 .hide-element { display: none !important; } /* Clase específica para JS */
 .card { background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+
