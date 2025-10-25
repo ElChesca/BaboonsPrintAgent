@@ -20,7 +20,7 @@ main {
 
 /* --- 4. HEADER --- */
 header {
-    background-color: #222222; /* Gris oscuro Baboons */
+    background-color: #222222;
     color: white;
     padding: 10px 30px;
     display: flex;
@@ -31,6 +31,8 @@ header {
     top: 0;
     z-index: 1000;
     min-height: 60px;
+    width: 100%;
+    box-sizing: border-box;
 }
 .logo-container {
     height: 35px;
@@ -115,6 +117,7 @@ nav a:hover, nav a.active { background-color: #444444; } /* Gris hover */
         left: 0; width: 100%; background-color: #333333; /* Gris menú */
         box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 999;
     }
+    
     .nav-container.is-active { display: block; }
     nav { flex-direction: column; align-items: flex-start; padding: 10px 0; }
     nav a, .dropdown { width: 100%; margin-left: 0; padding: 15px; border-bottom: 1px solid #555555; }
