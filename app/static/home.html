@@ -40,8 +40,8 @@
         </div>
         <div class="app-card" onclick="loadContent(event, 'static/ingresos.html', this)">
             <img src="/static/img/icons/ingresos.png" alt="Ingresos" class="app-icon">
-            <!-- Typo corregido: era classs -->
-            <span class="app-name">Ingresos</span>
+            <!-- Corregido el typo de 'classs' a 'class' -->
+            <span class="app-name">Ingresos</span> 
         </div>
 
     </div>
@@ -50,6 +50,7 @@
 <div class="app-dashboard" style="padding-top: 15px;"> 
     <h2 class="dashboard-title">Configuración y Reportes</h2>
     
+    <!-- Este contenedor SÍ es admin-only (lo ven admin y superadmin) -->
     <div class="app-grid admin-only"> 
         
         <div class="app-card" onclick="loadContent(event, 'static/configuracion.html', this)">
@@ -75,14 +76,16 @@
         <div class="app-card" onclick="loadContent(event, 'static/unidades_medida.html', this)">
             <img src="/static/img/icons/unidadesdemedida.png" alt="Unidades de Medida" class="app-icon">
             <span class="app-name">Unidades de Medida</span>
-        </div>      
+        </div>       
         
-        <div class="app-card" onclick="loadContent(event, 'static/usuarios.html', this)">
+        <!-- Tarjeta "Usuarios" - Debe ser admin-only -->
+        <div class="app-card admin-only" onclick="loadContent(event, 'static/usuarios.html', this)">
             <img src="/static/img/icons/usuarios.png" alt="Usuarios" class="app-icon">
             <span class="app-name">Usuarios</span>
         </div>
         
-        <div class="app-card admin-only" onclick="loadContent(event, 'static/negocios.html', this)">
+        <!-- Tarjeta "Negocios" - SOLO para superadmin -->
+        <div class="app-card superadmin-only" onclick="loadContent(event, 'static/negocios.html', this)">
             <img src="/static/img/icons/negocios.png" alt="Negocios" class="app-icon">
             <span class="app-name">Negocios ABM's</span>
         </div>
@@ -94,4 +97,3 @@
 
     </div> 
 </div>
-
