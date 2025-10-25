@@ -151,14 +151,74 @@ header {
 }
 
 
-/* --- 7. RESPONSIVE (Móvil) (RESETEADO) --- */
+/* --- 7. RESPONSIVE (Móvil) (RESTAURADO y CORREGIDO) --- */
 @media (max-width: 900px) {
     header { padding: 10px 15px; min-height: 50px; }
     .logo-container { height: 30px; }
     
-    /* Ocultamos la nav de escritorio */
+    /* Ocultamos la nav de escritorio por defecto */
     .nav-container {
-        display: none;
+        display: none; 
+        /* La posicionamos para que aparezca bien */
+        position: absolute;
+        top: 50px; /* Altura del header en móvil (ajusta si min-height cambió) */
+        left: 0;
+        width: 100%;
+        background-color: #333333; /* Fondo para el menú desplegable */
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        z-index: 999;
+    }
+    
+    /* Esta es la clase que tu JS (main.js) está usando */
+    .nav-container.is-active {
+        display: block;
+    }
+    
+    /* Re-estilamos la nav para que sea vertical */
+    #main-nav {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 10px 0;
+        width: 100%;
+    }
+    #main-nav > a,
+    #main-nav > .dropdown {
+        width: 100%;
+        margin-left: 0;
+        padding: 15px;
+        border-bottom: 1px solid #555555;
+        box-sizing: border-box; /* Importante para el width 100% */
+    }
+    #main-nav > a:last-child,
+    #main-nav > .dropdown:last-child {
+        border-bottom: none; /* El último item no lleva borde */
+    }
+
+    /* Reseteamos el estilo 'active' de escritorio para móvil */
+    #main-nav > a.active,
+    .dropdown.active > .dropbtn {
+        box-shadow: none; /* Quitamos subrayado en móvil */
+        background-color: #444; /* Usamos el color de hover como 'active' */
+    }
+    
+    /* Arreglamos los dropdowns en móvil */
+    .dropdown-content {
+        position: static;
+        display: block; 
+        background-color: transparent;
+        box-shadow: none;
+        padding-left: 20px;
+        border-bottom: none; /* El link padre ya tiene borde */
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .dropdown-content a { 
+        border-bottom: none; 
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+    .dropdown:hover .dropdown-content {
+        display: block; /* Mantenemos consistencia */
     }
     
     /* Mostramos el botón hamburguesa */
@@ -176,14 +236,20 @@ header {
     #business-selector-bar { padding: 8px 15px; flex-direction: column; align-items: flex-start; }
 }
 
-/* --- 8. DASHBOARD (Home) (Sin cambios) --- */
+/* --- 8. DASHBOARD (Home) (MODIFICADO) --- */
 .app-dashboard { padding: 30px; text-align: center; }
 .dashboard-title { font-size: 2em; color: #333; margin-bottom: 30px; font-weight: 300; }
 .app-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 25px; justify-content: center; max-width: 900px; margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr); /* <-- CAMBIO: 5 columnas fijas */
+    gap: 25px;
+    justify-content: center;
+    max-width: 1100px; /* <-- CAMBIO: Más espacio para 5 columnas */
+    margin: 0 auto;
 }
-.app-grid.admin-only { max-width: 900px; } /* Asegura max-width */
+.app-grid.admin-only {
+    max-width: 1100px; /* <-- CAMBIO: Más espacio para 5 columnas */
+}
 .app-card {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     background-color: #ffffff; border-radius: 12px; padding: 15px;
