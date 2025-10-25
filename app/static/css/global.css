@@ -73,13 +73,23 @@ header {
 }
 
 /* --- 6. NAVEGACIÓN PRINCIPAL --- */
-nav { display: flex; align-items: center; }
-nav a {
-    color: white; text-decoration: none; margin-left: 15px;
-    font-weight: bold; padding: 8px 12px; border-radius: 5px;
-    transition: background-color 0.3s; white-space: nowrap;
+nav a,
+nav .dropdown { /* Aplica a links directos Y a los contenedores dropdown */
+    color: white;
+    text-decoration: none;
+    margin-left: 15px; /* Mantiene separación */
+    font-weight: bold;
+    padding: 8px 12px;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+    white-space: nowrap;
+    display: flex; /* Asegura alineación interna si son dropdowns */
+    align-items: center; /* Centra verticalmente el texto/icono */
 }
-nav a:hover, nav a.active { background-color: #444444; } /* Gris hover */
+nav a:hover,
+nav a.active {
+    background-color: #444444;
+}
 
 /* Dropdown Menú */
 .dropdown { position: relative; display: inline-block; }
