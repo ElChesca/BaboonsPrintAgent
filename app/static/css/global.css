@@ -157,6 +157,15 @@ nav a.active:hover {
     justify-content: flex-end; /* Alinea la nav a la derecha */
 }
 
+/* --- (REGLA NUEVA AÑADIDA) --- */
+/* Esto alinea los items de la nav (links y dropdowns) en una fila */
+#main-nav {
+    display: flex;
+    align-items: center;
+}
+/* --- (FIN DE REGLA NUEVA) --- */
+
+
 /* --- 7. RESPONSIVE (Móvil) (Sin cambios) --- */
 @media (max-width: 900px) {
     header { padding: 10px 15px; min-height: 50px; }
