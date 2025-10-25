@@ -17,8 +17,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     
-    <!-- CSS INTEGRADO PARA EVITAR CACHÉ -->
-    <style>
+    <!-- CSS INTEGRADO PARA EVITAR CACHÉ --><style>
         /* ==========================================================================
            GLOBAL.CSS - Estilos Generales Multinegocio Baboons (Versión Final Depurada)
            ========================================================================== */
@@ -236,10 +235,10 @@
             .app-dashboard {
                 padding: 20px 15px; /* Damos padding lateral en móvil */
             }
-            .app-grid {
-                /* Usamos 2 columnas en móvil */
+            /* APLICAMOS LA GRILLA DE 2 COLUMNAS A CUALQUIER .app-grid DENTRO DEL DASHBOARD */
+            .app-dashboard .app-grid,
+            .app-dashboard .app-grid.admin-only { /* Aseguramos que se aplique, incluso con admin-only */
                 grid-template-columns: repeat(2, 1fr);
-                /* Reducimos el max-width en móvil */
                 max-width: 100%; 
                 gap: 15px; /* Espacio entre tarjetas */
             }
@@ -270,7 +269,9 @@
             max-width: 1100px; /* Aumentado para 5 columnas */
             margin: 0 auto;
         }
-        .app-grid.admin-only { max-width: 1100px; } /* Asegura max-width */
+        /* Esto ya no debería ser tan necesario, pero lo dejo */
+        .app-grid.admin-only { max-width: 1100px; } 
+
         .app-card {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             background-color: #ffffff; border-radius: 12px; padding: 15px;
