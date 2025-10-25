@@ -17,7 +17,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     
-    <!-- CSS INTEGRADO PARA EVITAR CACHÉ --><style>
+    
+
+<style>
         /* ==========================================================================
            GLOBAL.CSS - Estilos Generales Multinegocio Baboons (Versión Final Depurada)
            ========================================================================== */
@@ -35,44 +37,25 @@
             padding: 30px;
         }
 
-        /* --- 3. VISIBILIDAD POR ROLES --- */
-        
-        /* 3.1. Ocultamos los roles específicos por defecto */
-        .admin-only,
-        .superadmin-only {
-            /* Usamos !important para asegurarnos de que ganen sobre otras reglas de display */
-            display: none !important; 
+        /* --- 3. VISIBILIDAD POR ROLES (CORREGIDO) --- */
+        .admin-only, .superadmin-only { 
+            display: none !important; /* Oculta por defecto */
         }
 
-        /* 3.2. Mostramos según el rol en <body> */
-
-        /* Un Admin ve lo de Admin (pero no lo de SuperAdmin) */
-        body.rol-admin .admin-only {
-            display: block !important; /* Por defecto */
-        }
-
-        /* Un SuperAdmin ve lo de Admin Y lo de SuperAdmin */
+        /* Regla base para mostrar elementos */
+        body.rol-admin .admin-only,
         body.rol-superadmin .admin-only,
-        body.rol-superadmin .superadmin-only {
-            display: block !important; /* Por defecto */
-        }
-        
-        /* 3.3. Ajustes para layouts específicos que no son 'block' */
-        
-        /* Los App-cards en el home usan 'flex' */
-        body.rol-admin .app-card.admin-only,
-        body.rol-superadmin .app-card.admin-only,
-        body.rol-superadmin .app-card.superadmin-only {
-            display: flex !important;
-        }
-        
-        /* Los Dropdowns en la nav usan 'inline-block' */
-        body.rol-admin .dropdown.admin-only,
-        body.rol-superadmin .dropdown.admin-only,
-        body.rol-superadmin .dropdown.superadmin-only {
-            display: inline-block !important;
+        body.rol-superadmin .superadmin-only { 
+            display: block; /* 'block' o 'flex' para la mayoría */
         }
 
+        /* REGLA DE EXCEPCIÓN: Si el elemento también es un .app-grid, ¡usa grid! */
+        /* Esta es la corrección clave que arregla la segunda grilla */
+        body.rol-admin .app-grid.admin-only,
+        body.rol-superadmin .app-grid.admin-only,
+        body.rol-superadmin .app-grid.superadmin-only {
+            display: grid !important; 
+        }
 
         /* --- 4. HEADER (RECONSTRUIDO) --- */
         header {
@@ -104,7 +87,7 @@
         #business-selector-bar {
             background-color: #f8f9fa;
             padding: 8px 30px;
-            display: none; /* JS la muestra */
+            /* display: none; JS la muestra */
             align-items: center;
             gap: 15px;
             border-bottom: 1px solid #dee2e6;
@@ -272,9 +255,8 @@
                 padding: 20px 15px; /* Damos padding lateral en móvil */
             }
             /* APLICAMOS LA GRILLA DE 2 COLUMNAS A CUALQUIER .app-grid DENTRO DEL DASHBOARD */
-            .app-dashboard .app-grid,
-            .app-dashboard .app-grid.admin-only { /* Aseguramos que se aplique, incluso con admin-only */
-                grid-template-columns: repeat(2, 1fr);
+            .app-dashboard .app-grid {
+                grid-template-columns: repeat(2, 1fr) !important; /* !important para ganar la batalla */
                 max-width: 100%; 
                 gap: 15px; /* Espacio entre tarjetas */
             }
@@ -305,9 +287,7 @@
             max-width: 1100px; /* Aumentado para 5 columnas */
             margin: 0 auto;
         }
-        /* Esto ya no debería ser tan necesario, pero lo dejo */
-        .app-grid.admin-only { max-width: 1100px; } 
-
+        
         .app-card {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             background-color: #ffffff; border-radius: 12px; padding: 15px;
@@ -475,7 +455,9 @@
                  <div class="dropdown admin-only">
                     <a href="#" class="dropbtn">⚙️ Configuración ▾</a>
                     <div class="dropdown-content">
+                        <!-- Esta es superadmin-only -->
                         <a href="#" class="superadmin-only elemento-rol" onclick="loadContent(event, 'static/negocios.html', this)">🏢 Negocios</a>
+                        <!-- Esta es admin-only -->
                         <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/usuarios.html', this)">👥 Usuarios</a>                     
                         <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a>                                         
                     </div>
@@ -509,4 +491,3 @@
     <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>
-
