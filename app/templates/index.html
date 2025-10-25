@@ -17,10 +17,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     
-    <!-- 
-      AQUÍ ESTÁ EL CAMBIO:
-      Borramos el <link> y pegamos todo el CSS de global.css aquí adentro.
-    -->
+    <!-- CSS INTEGRADO PARA EVITAR CACHÉ -->
     <style>
         /* ==========================================================================
            GLOBAL.CSS - Estilos Generales Multinegocio Baboons (Versión Final Depurada)
@@ -54,7 +51,7 @@
             position: sticky;
             top: 0;
             z-index: 1000;
-            min-height: 60px; /* <--- REGLA CLAVE RESTAURADA */
+            min-height: 60px; /* <- La regla clave que faltaba */
             width: 100%;
             box-sizing: border-box;
         }
@@ -67,7 +64,6 @@
             height: 100%;
             width: auto;
         }
-
 
         /* --- 5. BARRA SELECTOR NEGOCIO --- */
         #business-selector-bar {
@@ -98,194 +94,183 @@
         }
 
         /* --- 6. NAVEGACIÓN (RECONSTRUIDA) --- */
-
-        /* Contenedor principal de la nav */
         .nav-container {
             flex-grow: 1;
             display: flex;
             justify-content: flex-end;
         }
-
-        /* La lista <nav> que es hija de .nav-container */
+        
+        /* Contenedor principal de la NAV en ESCRITORIO */
         #main-nav {
             display: flex;
-            align-items: center; /* Centra verticalmente los items */
-            list-style: none; 
-            margin: 0;
-            padding: 0;
+            align-items: center;
+            gap: 10px; /* Espacio entre elementos */
         }
 
-        /* Links y Dropdowns directos dentro de #main-nav */
-        #main-nav > a,
-        #main-nav > .dropdown {
+        /* Links directos y Títulos de Dropdown */
+        #main-nav > a, 
+        #main-nav > .dropdown > .dropbtn {
             color: white;
             text-decoration: none;
             font-weight: bold;
             padding: 8px 12px;
             border-radius: 5px;
-            margin-left: 10px; /* Espacio entre items */
+            transition: background-color 0.3s, box-shadow 0.3s;
+            white-space: nowrap;
             display: flex;
             align-items: center;
-            white-space: nowrap;
-            transition: background-color 0.3s;
         }
-
+        
+        /* Efecto HOVER (pasar el mouse) */
         #main-nav > a:hover,
-        .dropdown:hover .dropbtn {
+        #main-nav > .dropdown:hover > .dropbtn {
             background-color: #444444;
         }
 
+        /* Efecto ACTIVE (página actual) */
         #main-nav > a.active {
-            box-shadow: inset 0 -3px 0 0 white;
+            box-shadow: inset 0 -3px 0 0 white; /* Subrayado elegante */
         }
 
-        /* Lógica de Dropdown */
+        /* Dropdown Menú */
         .dropdown { position: relative; display: inline-block; }
-
-        /* El <a> dentro del dropdown */
-        .dropdown .dropbtn {
-            padding: 0; /* El padding ya está en el .dropdown padre */
-            margin: 0;
-            width: 100%;
-        }
-
+        
+        /* Oculta el .dropdown-content por defecto */
         .dropdown-content {
             display: none; position: absolute; background-color: #333333;
             min-width: 180px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
             z-index: 100; border-radius: 5px; right: 0;
-            margin-top: 3px;
+            margin-top: 5px; /* Pequeña separación */
         }
-
         .dropdown-content a {
             color: white; padding: 12px 16px; display: block;
             text-align: left; margin-left: 0; width: 100%; box-sizing: border-box;
+            text-decoration: none;
         }
         .dropdown-content a:hover { background-color: #444444; }
         .dropdown:hover .dropdown-content { display: block; }
-
-        /* Botón hamburguesa (oculto en desktop) */
-        .hamburger-btn {
-            display: none;
+        
+        /* Marca el dropdown padre si un hijo está activo */
+        .dropdown.active > .dropbtn {
+             box-shadow: inset 0 -3px 0 0 white;
         }
 
 
-        /* --- 7. RESPONSIVE (Móvil) (RECONSTRUIDO) --- */
+        /* Botón Hamburguesa (Oculto en escritorio) */
+        .hamburger-btn {
+            display: none;
+            font-size: 2em;
+            color: white;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0 10px;
+        }
+        
+        /* --- 7. RESPONSIVE (Móvil) --- */
         @media (max-width: 900px) {
             header { padding: 10px 15px; min-height: 50px; }
             .logo-container { height: 30px; }
             
+            /* Mostramos la hamburguesa */
+            .hamburger-btn { display: block; }
+
             /* Ocultamos la nav de escritorio */
             .nav-container {
-                display: none; 
-                position: absolute;
-                top: 50px; /* Altura del header en móvil */
-                left: 0;
-                width: 100%;
+                display: none; /* Oculto por defecto */
+                position: absolute; 
+                top: 50px; /* Justo debajo del header (altura móvil) */
+                left: 0; 
+                width: 100%; 
                 background-color: #333333;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
                 z-index: 999;
             }
             
-            /* Clase que usa tu JS */
-            .nav-container.is-active {
-                display: block;
-            }
-            
-            /* Nav vertical */
-            #main-nav {
-                flex-direction: column;
-                align-items: flex-start;
-                padding: 10px 0;
-                width: 100%;
-            }
-            #main-nav > a,
-            #main-nav > .dropdown {
-                width: 100%;
-                margin-left: 0;
-                padding: 15px;
-                border-bottom: 1px solid #555555;
-                box-sizing: border-box;
-            }
-            #main-nav > a:last-child,
-            #main-nav > .dropdown:last-child {
-                border-bottom: none;
-            }
-            
-            /* Quitamos subrayado en móvil */
-            #main-nav > a.active {
-                box-shadow: none;
-                background-color: #444;
-            }
-
-            /* Arreglamos los dropdowns en móvil */
-            .dropdown-content {
-                position: static;
+            /* Clase .is-active que pone el JS */
+            .nav-container.is-active { 
                 display: block; 
-                background-color: transparent;
-                box-shadow: none;
-                padding-left: 20px;
+            }
+            
+            /* Reordenamos la nav a vertical */
+            #main-nav { 
+                flex-direction: column; 
+                align-items: flex-start; 
+                padding: 10px 0;
+                gap: 0; /* Quitamos gap en móvil */
+            }
+            
+            /* Links y Dropdowns en móvil */
+            #main-nav > a, 
+            #main-nav > .dropdown { 
+                width: 100%; 
+                margin-left: 0; 
+                box-sizing: border-box; /* Importante para width 100% */
+            }
+            
+            #main-nav > a,
+            #main-nav > .dropdown > .dropbtn {
+                 padding: 15px 20px;
+                 border-bottom: 1px solid #555555;
+                 border-radius: 0;
+            }
+            
+            /* Dropdowns en móvil */
+            .dropdown-content { 
+                position: static; 
+                display: block; /* Siempre visible si el padre es clickeado (JS se encarga) */
+                background-color: #444; /* Un poco más claro */
+                box-shadow: none; 
+                padding-left: 20px; 
                 width: 100%;
                 box-sizing: border-box;
             }
-            
-            /* Mostramos el botón hamburguesa */
-            .hamburger-btn {
-                display: block;
-                font-size: 2em;
-                color: white;
-                background: none;
-                border: none;
-                cursor: pointer;
-                padding: 0 10px;
-                margin: 0;
+            .dropdown-content a {
+                padding-left: 30px; /* Indentado */
             }
-
+            
+            /* Barra de negocio en móvil */
             #business-selector-bar { padding: 8px 15px; flex-direction: column; align-items: flex-start; }
             
-            /* --- ARREGLO PARA GRILLA DE APPS EN MÓVIL --- */
+            /* --- ARREGLO PARA GRILLA DE APPS EN MÓVIL (2 COLUMNAS) --- */
             .app-dashboard {
-                padding: 20px 0 0 0; /* Quitamos padding lateral e inferior */
+                padding: 20px 15px; /* Damos padding lateral en móvil */
             }
             .app-grid {
-                /* Usamos 3 columnas en móvil */
-                grid-template-columns: repeat(3, 1fr);
+                /* Usamos 2 columnas en móvil */
+                grid-template-columns: repeat(2, 1fr);
                 /* Reducimos el max-width en móvil */
                 max-width: 100%; 
-                gap: 1px; /* Un gap muy pequeño para que se vean las líneas */
-                background-color: #ddd; /* Color de fondo para el gap */
-                border-top: 1px solid #ddd;
+                gap: 15px; /* Espacio entre tarjetas */
             }
             .app-card {
-                min-height: 110px; /* Un poco más chicas */
-                padding: 10px;
-                border-radius: 0; /* Quitamos bordes redondeados */
-                box-shadow: none; /* Quitamos sombra individual */
-                box-sizing: border-box; /* Asegura que el padding no rompa */
+                min-height: 120px; /* Altura original */
+                padding: 15px;
+                border-radius: 12px; /* Bordes redondeados de vuelta */
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Sombra de vuelta */
             }
             .app-icon {
-                width: 50px;
-                height: 50px;
+                width: 64px;
+                height: 64px;
             }
             .app-name {
-                font-size: 0.8em;
+                font-size: 0.9em;
             }
-            /* --- FIN DE ARREGLO --- */
         }
 
-        /* --- 8. DASHBOARD (Home) (MODIFICADO) --- */
+        /* --- 8. DASHBOARD (Home - Escritorio) --- */
         .app-dashboard { padding: 30px; text-align: center; }
         .dashboard-title { font-size: 2em; color: #333; margin-bottom: 30px; font-weight: 300; }
         .app-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr); /* <-- USAREMOS 5 COLUMNAS */
-            gap: 25px;
-            justify-content: center;
-            max-width: 1100px; 
+            display: grid; 
+            /* 5 COLUMNAS en ESCRITORIO */
+            grid-template-columns: repeat(5, 1fr);
+            gap: 25px; 
+            justify-content: center; 
+            max-width: 1100px; /* Aumentado para 5 columnas */
             margin: 0 auto;
         }
-        .app-grid.admin-only {
-            max-width: 1100px; 
-        }
+        .app-grid.admin-only { max-width: 1100px; } /* Asegura max-width */
         .app-card {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             background-color: #ffffff; border-radius: 12px; padding: 15px;
@@ -297,7 +282,8 @@
         .app-icon { width: 64px; height: 64px; margin-bottom: 10px; object-fit: contain; }
         .app-name { font-size: 0.9em; color: #555; text-align: center; font-weight: 500; }
 
-        /* --- 9. COMPONENTES GLOBALES (Sin cambios) --- */
+        /* --- 9. COMPONENTES GLOBALES --- */
+        /* (El resto de tus estilos... modales, tablas, botones, etc.) */
         /* Modales */
         .modal {
             display: none; position: fixed; z-index: 1001; /* Encima del header */
@@ -444,8 +430,8 @@
 
                 <div class="dropdown">
                     <a href="#" class="dropbtn">Más Opciones ▾</a>
-                    <div class="dropdown-content"> 
-                        <a href="#" onclick="loadContent(event, 'static/historial_presupuestos.html', this)">🧾 Historial Presupuestos</a> 
+                    <div class="dropdown-content">                     
+                        <a href="#" onclick="loadContent(event, 'static/historial_presupuestos.html', this)">🧾 Historial Presupuestos</a>                     
                     </div>
                 </div>
 
@@ -453,10 +439,10 @@
                     <a href="#" class="dropbtn">⚙️ Configuración ▾</a>
                     <div class="dropdown-content">
                         <a href="#" class="superadmin-only elemento-rol" onclick="loadContent(event, 'static/negocios.html', this)">🏢 Negocios</a>
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/usuarios.html', this)">👥 Usuarios</a> 
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a> 
+                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/usuarios.html', this)">👥 Usuarios</a>                     
+                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a>                                         
                     </div>
-                 </div>
+                </div>
 
                 <div class="dropdown admin-only">
                     <a href="#" class="dropbtn">📊 Reportes ▾</a>
@@ -486,5 +472,4 @@
     <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>
-
 
