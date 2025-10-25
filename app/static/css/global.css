@@ -18,8 +18,31 @@ main {
 /* --- 3. VISIBILIDAD POR ROLES --- */
 .admin-only {display: none;}
 
-/* --- 4. HEADER (BORRADO) --- */
-/* Estilos del header eliminados para resetear */
+/* --- 4. HEADER (RECONSTRUIDO) --- */
+header {
+    background-color: #222222;
+    color: white;
+    padding: 10px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    min-height: 60px; /* <--- REGLA CLAVE RESTAURADA */
+    width: 100%;
+    box-sizing: border-box;
+}
+.logo-container {
+    height: 35px;
+    display: flex;
+    align-items: center;
+}
+#header-logo {
+    height: 100%;
+    width: auto;
+}
 
 
 /* --- 5. BARRA SELECTOR NEGOCIO --- */
@@ -50,13 +73,148 @@ main {
     font-weight: normal;
 }
 
-/* --- 6. NAVEGACIÓN (BORRADO) --- */
-/* Estilos de navegación eliminados para resetear */
+/* --- 6. NAVEGACIÓN (RECONSTRUIDA) --- */
+
+/* Contenedor principal de la nav */
+.nav-container {
+    flex-grow: 1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* La lista <nav> que es hija de .nav-container */
+#main-nav {
+    display: flex;
+    align-items: center; /* Centra verticalmente los items */
+    list-style: none; 
+    margin: 0;
+    padding: 0;
+}
+
+/* Links y Dropdowns directos dentro de #main-nav */
+#main-nav > a,
+#main-nav > .dropdown {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    padding: 8px 12px;
+    border-radius: 5px;
+    margin-left: 10px; /* Espacio entre items */
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    transition: background-color 0.3s;
+}
+
+#main-nav > a:hover,
+.dropdown:hover .dropbtn {
+    background-color: #444444;
+}
+
+#main-nav > a.active {
+    box-shadow: inset 0 -3px 0 0 white;
+}
+
+/* Lógica de Dropdown */
+.dropdown { position: relative; display: inline-block; }
+
+/* El <a> dentro del dropdown */
+.dropdown .dropbtn {
+    padding: 0; /* El padding ya está en el .dropdown padre */
+    margin: 0;
+    width: 100%;
+}
+
+.dropdown-content {
+    display: none; position: absolute; background-color: #333333;
+    min-width: 180px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 100; border-radius: 5px; right: 0;
+    margin-top: 3px;
+}
+
+.dropdown-content a {
+    color: white; padding: 12px 16px; display: block;
+    text-align: left; margin-left: 0; width: 100%; box-sizing: border-box;
+}
+.dropdown-content a:hover { background-color: #444444; }
+.dropdown:hover .dropdown-content { display: block; }
+
+/* Botón hamburguesa (oculto en desktop) */
+.hamburger-btn {
+    display: none;
+}
 
 
-/* --- 7. RESPONSIVE (Móvil) (MODIFICADO) --- */
+/* --- 7. RESPONSIVE (Móvil) (RECONSTRUIDO) --- */
 @media (max-width: 900px) {
-    /* Reglas de header/nav eliminadas para resetear */
+    header { padding: 10px 15px; min-height: 50px; }
+    .logo-container { height: 30px; }
+    
+    /* Ocultamos la nav de escritorio */
+    .nav-container {
+        display: none; 
+        position: absolute;
+        top: 50px; /* Altura del header en móvil */
+        left: 0;
+        width: 100%;
+        background-color: #333333;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        z-index: 999;
+    }
+    
+    /* Clase que usa tu JS */
+    .nav-container.is-active {
+        display: block;
+    }
+    
+    /* Nav vertical */
+    #main-nav {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 10px 0;
+        width: 100%;
+    }
+    #main-nav > a,
+    #main-nav > .dropdown {
+        width: 100%;
+        margin-left: 0;
+        padding: 15px;
+        border-bottom: 1px solid #555555;
+        box-sizing: border-box;
+    }
+    #main-nav > a:last-child,
+    #main-nav > .dropdown:last-child {
+        border-bottom: none;
+    }
+    
+    /* Quitamos subrayado en móvil */
+    #main-nav > a.active {
+        box-shadow: none;
+        background-color: #444;
+    }
+
+    /* Arreglamos los dropdowns en móvil */
+    .dropdown-content {
+        position: static;
+        display: block; 
+        background-color: transparent;
+        box-shadow: none;
+        padding-left: 20px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    /* Mostramos el botón hamburguesa */
+    .hamburger-btn {
+        display: block;
+        font-size: 2em;
+        color: white;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0 10px;
+        margin: 0;
+    }
 
     #business-selector-bar { padding: 8px 15px; flex-direction: column; align-items: flex-start; }
 }
@@ -192,7 +350,7 @@ input[type="password"], input[type="date"], select, textarea {
 }
 select {
     appearance: none; -webkit-appearance: none; -moz-appearance: none; /* Quitar apariencia nativa */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23555' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%Cpath fill='none' stroke='%23555' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 10px center; background-size: 1em;
     padding-right: 30px; background-color: #fff; /* Fondo blanco para tapar flecha nativa */
 }
