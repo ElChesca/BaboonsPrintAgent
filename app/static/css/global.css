@@ -157,16 +157,21 @@ nav a.active:hover {
     justify-content: flex-end; /* Alinea la nav a la derecha */
 }
 
-/* --- (REGLA NUEVA AÑADIDA) --- */
+
+/* --- 7. RESPONSIVE (Móvil) --- */
+
+/* --- (REGLA MOVIDA) --- */
 /* Esto alinea los items de la nav (links y dropdowns) en una fila */
-#main-nav {
-    display: flex;
-    align-items: center;
+/* Se aplica SÓLO a desktop (min-width: 901px) */
+@media (min-width: 901px) {
+    #main-nav {
+        display: flex;
+        align-items: center;
+    }
 }
-/* --- (FIN DE REGLA NUEVA) --- */
+/* --- (FIN DE REGLA MOVIDA) --- */
 
 
-/* --- 7. RESPONSIVE (Móvil) (Sin cambios) --- */
 @media (max-width: 900px) {
     header { padding: 10px 15px; min-height: 50px; }
     .logo-container { height: 30px; }
@@ -178,7 +183,10 @@ nav a.active:hover {
     }
     
     .nav-container.is-active { display: block; }
+    
+    /* Esta regla ahora funcionará correctamente en móvil */
     nav { flex-direction: column; align-items: flex-start; padding: 10px 0; }
+    
     nav a, .dropdown { width: 100%; margin-left: 0; padding: 15px; border-bottom: 1px solid #555555; }
     /* Reseteamos el estilo 'active' de escritorio para móvil */
     nav a.active, .dropdown.active .dropbtn {
