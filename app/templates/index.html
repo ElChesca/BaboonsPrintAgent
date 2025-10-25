@@ -17,7 +17,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     
-        <link rel="stylesheet" href="/static/css/global.css?v=1.0.2">
+        <link rel="stylesheet" href="/static/css/global.css?v=1.0.3">
     
 </head>
 
@@ -38,7 +38,7 @@
 
                 <div class="dropdown">
                     <a href="#" class="dropbtn">Más Opciones ▾</a>
-                    <div class="dropdown-content">                        
+                  .   <div class="dropdown-content">                        
                         <a href="#" onclick="loadContent(event, 'static/historial_presupuestos.html', this)">🧾 Historial Presupuestos</a>                        
                     </div>
                 </div>
@@ -55,15 +55,15 @@
                 <div class="dropdown admin-only">
                     <a href="#" class="dropbtn">📊 Reportes ▾</a>
                     <div class="dropdown-content">
-            _             <a href="#" onclick="loadContent(event, 'static/reportes.html', this)">Ventas Diarias</a> 
+                        <a href="#" onclick="loadContent(event, 'static/reportes.html', this)">Ventas Diarias</a> 
                         <a href="#" onclick="loadContent(event, 'static/reporte_caja.html', this)">Reporte de Caja</a>
-                        <a href="#" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">Reporte de Ganancias</a>
+Si, la linea `_ <a href="#" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">Reporte de Ganancias</a>` esta rota.
                         <a href="#" onclick="loadContent(event, 'static/historial_inventario.html', this)">Historial Inventario</a>
                     </div>
                 </div>
                 
                 <a href="#" id="auth-link"></a> 
-                            </nav>
+            </nav>
         </div>
     </header>
     
@@ -73,10 +73,12 @@
         <select id="selector-negocio"></select>
     </div>
     
-        
+    
     <main id="content-area">
     </main>
 
-        <script type="module" src="/static/js/main.js?v=1.0.2"></script>
+    <link rel="stylesheet" href="/static/css/global.css?v=1.0.4">
+    <script type="module" src="/static/js/main.js?v=1.0.4"></script>
+
 </body>
 </html>
