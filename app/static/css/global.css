@@ -116,7 +116,11 @@ nav a.active {
     padding: 0 10px;
     margin: 0;
 }
-
+.nav-container {
+    flex-grow: 1; /* Permite que ocupe el espacio sobrante en el header */
+    display: flex;
+    justify-content: flex-end; /* Alinea la nav a la derecha */
+}
 /* --- 7. RESPONSIVE (Móvil) --- */
 @media (max-width: 900px) {
     header { padding: 10px 15px; min-height: 50px; }
