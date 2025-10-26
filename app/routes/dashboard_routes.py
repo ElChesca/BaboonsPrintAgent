@@ -140,7 +140,8 @@ def get_category_ranking(current_user, negocio_id):
             SELECT c.nombre, COALESCE(SUM(vd.subtotal), 0) AS total
             FROM ventas_detalle vd
             JOIN productos p ON vd.producto_id = p.id           
-            JOIN categorias c ON p.categoria_id = c.id -- ASUMO que la tabla se llama categorias
+            -- --- CAMBIO AQUÍ: Usamos el nombre correcto de la tabla ---
+            JOIN productos_categoria c ON p.categoria_id = c.id 
             JOIN ventas v ON vd.venta_id = v.id
             WHERE v.negocio_id = %(negocio_id)s AND v.estado = 'finalizada'
         """
@@ -168,3 +169,4 @@ def get_category_ranking(current_user, negocio_id):
     except Exception as e:
         print(f"Error en get_category_ranking: {e}")
         return jsonify({'error': 'Ocurrió un error al obtener el ranking de categorías.'}), 500
+
