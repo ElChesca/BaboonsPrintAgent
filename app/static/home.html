@@ -18,14 +18,18 @@
             <img src="/static/img/icons/inventario.png" alt="Inventario" class="app-icon">
             <span class="app-name">Inventario</span>
         </div>      
-        <a href="/static/verificador.html" class="app-card elemento-rol">
+        <!-- Cambiado de <a href="..."> a <div onclick="..."> -->
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/verificador.html', this)">
             <img src="/static/img/icons/verificador.png" alt="Verificador de Precios" class="app-icon">
             <span class="app-name">Verificador Precios</span>
-        </a>
-        <a href="/static/inventario_movil.html" class="app-card elemento-rol">
+        </div>        
+        <!-- Este también lo corrijo por si acaso -->
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/inventario_movil.html', this)">
             <img src="/static/img/icons/inventariomovil.png" alt="Inventario Móvil" class="app-icon">
             <span class="app-name">Ajuste Inventario Móvil</span>
-        </a>
+        </div>
+
+
         <div class="app-card" onclick="loadContent(event, 'static/clientes.html', this)">
             <img src="/static/img/icons/clientes.png" alt="Clientes" class="app-icon">
             <span class="app-name">Clientes</span>

@@ -1,0 +1,20 @@
+{
+  "short_name": "Multinegocio",
+  "name": "Sistema de Gestión Baboons",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#f0f2f5",
+  "theme_color": "#222222",
+  "icons": [
+    {
+      "src": "/static/img/logo-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/static/img/logo-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

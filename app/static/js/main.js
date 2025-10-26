@@ -26,9 +26,11 @@ import { inicializarLogicaVerificador } from './modules/verificador.js';
 
 let onClienteCreadoCallback = null;
 
-export function esAdmin() { // <-- ¡AQUÍ ESTÁ!    
-     return appState.userRol === 'admin' || appState.userRol === 'superadmin';
+// --- CAMBIO AQUÍ: esAdmin() ahora incluye 'superadmin' ---
+export function esAdmin() { 
+    return appState.userRol === 'admin' || appState.userRol === 'superadmin';
 }
+
 // --- ESTADO GLOBAL ---
 export const appState = {
     negocioActivoId: null,
@@ -37,7 +39,6 @@ export const appState = {
 
 // --- Carga de CSS por Página ---
 function loadPageCSS(pageName) {
-
     const existingStyle = document.getElementById('page-specific-style');
     if (existingStyle) existingStyle.remove();
     if (pageName) {
@@ -109,10 +110,11 @@ async function poblarSelectorNegocios() {
 // --- FUNCIÓN PRINCIPAL DE AUTENTICACIÓN (Restaurada) ---
 export async function actualizarUIAutenticacion() {
     console.log("--- Iniciando actualizarUIAutenticacion ---");
-    const user = getCurrentUser();
+    // --- CAMBIO AQUÍ: Limpiamos las clases de rol del body ANTES de hacer nada ---
+    document.body.className = '';
+
+    const user = getCurrentUser(); // Esto decodifica el token
     console.log("Usuario actual:", user);
-    // Limpiamos cualquier rol anterior del body CADA VEZ que se ejecuta
-    document.body.className = ''
 
     const mainNav = document.querySelector('header nav');
     const authLink = document.getElementById('auth-link');
@@ -123,10 +125,11 @@ export async function actualizarUIAutenticacion() {
         try {
             appState.userRol = user.rol;
             console.log("Rol asignado:", appState.userRol);
-            if (appState.userRol) {
-                document.body.classList.add('rol-' + appState.userRol); // Ej: "rol-admin"
-                console.log("Rol aplicado al body:", 'rol-' + appState.userRol);
-            }
+            
+            // --- CAMBIO AQUÍ: Añadimos la clase del rol al body ---
+            // Esto permite que el CSS (Sección 3) controle la visibilidad
+            document.body.classList.add('rol-' + user.rol); // ej: "rol-admin", "rol-superadmin"
+
             if (mainNav) mainNav.style.display = 'flex';
             if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
             if (authLink) {
@@ -137,8 +140,13 @@ export async function actualizarUIAutenticacion() {
             
             // Carga los negocios (el backend filtra por rol)
             await poblarSelectorNegocios();
-            console.log("Datos de negocio cargados.");           
-            console.log("Visibilidad por roles aplicada.");
+            console.log("Datos de negocio cargados.");
+
+            // --- CAMBIO AQUÍ: ¡BORRAMOS la lógica de visibilidad de JS! ---
+            // Ya no necesitamos esto, el CSS lo hace automáticamente.
+            // document.querySelectorAll('.admin-only').forEach(el => { ... });
+            console.log("Visibilidad por roles ahora controlada por CSS.");
+
             console.log("Actualización de UI base completada.");
 
             const requestedPage = window.location.hash.substring(1);
@@ -176,14 +184,9 @@ async function inicializarModulo(page) {
     console.log(`inicializarModulo llamada con page = "${page}"`);
     if (!page) return;
 
-    // Lógica de visibilidad simple (se ejecuta CADA VEZ)
-    if (appState.userRol) {
-        document.querySelectorAll('.admin-only').forEach(el => {
-            if (el && el.style) {
-                el.style.display = (appState.userRol === 'admin') ? 'flex' : 'none'; // 'flex' para las tarjetas
-            }
-        });
-    }
+    // --- CAMBIO AQUÍ: ¡BORRAMOS la lógica de visibilidad de JS! ---
+    // El CSS en index.html (Sección 3 y 7) se encarga de esto globalmente.
+    // if (appState.userRol) { ... }
 
     // --- IFs para cada página ---
     if (page.includes('inventario.html')) inicializarLogicaInventario();
@@ -197,7 +200,7 @@ async function inicializarModulo(page) {
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias(); 
     if (page.includes('reportes.html')) inicializarLogicaReportes();
     if (page.includes('factura.html')) inicializarLogicaFactura();
-    if (page.includes('verificador.html')) inicializarLogicaVerificador();      
+    if (page.includes('verificador.html')) inicializarLogicaVerificador();     
 
     if (page.includes('historial_ingresos.html')) inicializarLogicaHistorial();
     else if (page.includes('ingresos.html')) inicializarLogicaIngresos();
@@ -262,8 +265,12 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
         if (businessSelectorBar) businessSelectorBar.style.display = 'none';
     } else {
         // Si vamos a CUALQUIER OTRA PÁGINA, mostramos el header y la barra
-        if (header) header.style.display = 'flex';
-        if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
+        // (El JS en actualizarUIAutenticacion() ya se encarga de esto, pero 
+        // esta es una buena redundancia por si acaso)
+        if (getCurrentUser()) {
+            if (header) header.style.display = 'flex';
+            if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
+        }
     }
 
     const token = localStorage.getItem('jwt_token');
@@ -373,6 +380,22 @@ document.addEventListener('DOMContentLoaded', () => {
         
     
     actualizarUIAutenticacion(); // Esta es la llamada inicial que arranca todo
+
+
+    // --- ¡NUEVO BLOQUE PARA REGISTRAR EL SERVICE WORKER! ---
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then((registration) => {
+            console.log('¡Service Worker registrado con éxito! Alcance:', registration.scope);
+          })
+          .catch((error) => {
+            console.log('Falló el registro del Service Worker:', error);
+          });
+      });
+    }
+    // --- FIN DEL NUEVO BLOQUE ---
+
 });
 
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
