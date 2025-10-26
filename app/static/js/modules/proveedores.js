@@ -26,8 +26,6 @@ function renderizarTabla() {
     if (!tbody) return; // Añadido chequeo por si el elemento no existe aún
     tbody.innerHTML = '';
     proveedoresCache.forEach(p => {
-        // --- CAMBIO AQUÍ: Añadimos la celda para saldo_cta_cte ---
-        // --- CAMBIO AQUÍ: Usamos data-id en los botones para JS ---
         tbody.innerHTML += `
             <tr>
                 <td>${p.nombre}</td>
@@ -72,19 +70,19 @@ async function guardarProveedor(e) {
     const method = esEdicion ? 'PUT' : 'POST';
 
     try {
-        // Usamos sendData que maneja la respuesta JSON
+        // Usamos fetchData que maneja la respuesta JSON
         const responseData = await fetchData(url, { method, body: JSON.stringify(data), headers: {'Content-Type': 'application/json'} });
         mostrarNotificacion(`Proveedor ${esEdicion ? 'actualizado' : 'creado'} con éxito.`, 'success');
         resetFormulario();
         cargarProveedores(); // Recarga la tabla para mostrar el nuevo/actualizado proveedor
     } catch (error) {
-        // El error ya viene formateado desde fetchData/sendData
+        // El error ya viene formateado desde fetchData
         mostrarNotificacion(error.message || 'Ocurrió un error al guardar el proveedor.', 'error');
     }
 }
 
-// --- CAMBIO AQUÍ: Quitamos window.editarProveedor ---
-/* export */ function editarProveedorLocal(id) { // Renombramos a Local para evitar conflicto global
+// --- CAMBIO AQUÍ: Renombramos de vuelta y EXPORTAMOS ---
+export function editarProveedor(id) { // Quitamos 'Local' y añadimos 'export'
     const proveedor = proveedoresCache.find(p => p.id === id);
     if (!proveedor) return;
 
@@ -98,9 +96,8 @@ async function guardarProveedor(e) {
     form.scrollIntoView({ behavior: 'smooth' }); // Mejor que window.scrollTo
 }
 
-// --- CAMBIO AQUÍ: Quitamos window.borrarProveedor y añadimos EXPORT ---
-export async function borrarProveedor(id) { // Añadimos export
-    // Reemplazar confirm con un modal personalizado si es posible
+// --- Mantenemos el export de borrarProveedor ---
+export async function borrarProveedor(id) { 
     if (!confirm('¿Estás seguro de que quieres eliminar este proveedor? Esta acción no se puede deshacer.')) return; 
     try {
         await fetchData(`/api/proveedores/${id}`, { method: 'DELETE' });
@@ -113,11 +110,11 @@ export async function borrarProveedor(id) { // Añadimos export
 
 export function inicializarLogicaProveedores() {
     form = document.getElementById('form-proveedor');
-    const tablaBody = document.querySelector('#tabla-proveedores tbody'); // Necesitamos el tbody para los listeners
+    const tablaBody = document.querySelector('#tabla-proveedores tbody'); 
 
     if (!form || !tablaBody) {
         console.error("Formulario o tabla de proveedores no encontrados.");
-        return; // Salir si falta algo
+        return; 
     }
 
     tituloForm = document.getElementById('form-proveedor-titulo');
@@ -128,7 +125,6 @@ export function inicializarLogicaProveedores() {
     emailInput = document.getElementById('proveedor-email');
     btnCancelar = document.getElementById('btn-cancelar-edicion');
     
-    // Asegurarse de que todos los elementos existan antes de añadir listeners
     if (!tituloForm || !idInput || !nombreInput || !contactoInput || !telefonoInput || !emailInput || !btnCancelar) {
         console.error("Faltan elementos en el formulario de proveedores.");
         return;
@@ -137,11 +133,11 @@ export function inicializarLogicaProveedores() {
     form.addEventListener('submit', guardarProveedor);
     btnCancelar.addEventListener('click', resetFormulario);
 
-    // --- CAMBIO AQUÍ: Usamos delegación de eventos para Editar/Borrar ---
+    // Usamos delegación de eventos para Editar/Borrar
     tablaBody.addEventListener('click', (e) => {
         if (e.target.classList.contains('btn-edit')) {
             const id = e.target.dataset.id;
-            editarProveedorLocal(parseInt(id)); // Llamamos a la función local
+            editarProveedor(parseInt(id)); // Llamamos a la función ahora exportada
         } else if (e.target.classList.contains('btn-delete')) {
             const id = e.target.dataset.id;
             borrarProveedor(parseInt(id)); // Llamamos a la función exportada
@@ -151,4 +147,6 @@ export function inicializarLogicaProveedores() {
     cargarProveedores();
 }
 
+// --- CAMBIO AQUÍ: Eliminamos la línea comentada de window.editarProveedor ---
+// Ya no es necesaria porque exportamos la función correctamente.
 
