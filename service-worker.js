@@ -7,7 +7,7 @@ const CACHE_NAME = 'baboons-cache-v1';
 const urlsToCache = [
   '/', // La página principal
   '/index.html',
-  '/static/css/global.css?v=2.1', // ¡Coincide con tu index!
+  '/static/css/global.css?v=2.2', // ¡Coincide con tu index!
   '/static/js/main.js',
   '/static/js/api.js',
   '/static/js/modules/auth.js',
