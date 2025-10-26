@@ -1,9 +1,24 @@
 <div id="seccion-dashboard" class="seccion-contenido-dinamico">
     <h2>📊 Dashboard Principal</h2>
 
+    <!-- === NUEVO BLOQUE DE FILTROS === -->
+    <div class="dashboard-filtros card" style="margin-bottom: 20px; padding: 15px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="fecha-desde">Desde:</label>
+            <input type="date" id="fecha-desde" style="width: auto;"> 
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="fecha-hasta">Hasta:</label>
+            <input type="date" id="fecha-hasta" style="width: auto;">
+        </div>
+        <button id="btn-filtrar-dashboard" class="btn btn-primary" style="margin-top: 20px;">Aplicar Filtro</button> 
+        </div>
+    <!-- === FIN NUEVO BLOQUE === -->
+
     <div class="dashboard-stats">
         <div class="stat-card">
-            <h3>Ventas de Hoy</h3>
+            <!-- Título modificado para reflejar el rango -->
+            <h3>Ventas <span class="rango-fechas">(Hoy)</span></h3> 
             <p id="stat-ventas-hoy">$0.00</p>
         </div>
         <div class="stat-card">
@@ -18,12 +33,14 @@
 
     <div class="dashboard-grid">
         <div class="stat-card">
-            <h3>Ingresos por Método de Pago (Últimos 30 días)</h3>
+            <!-- Título modificado -->
+            <h3>Ingresos por Método de Pago <span class="rango-fechas">(Últimos 30 días)</span></h3>
             <canvas id="payment-methods-chart"></canvas>
         </div>
 
         <div class="stat-card">
-            <h3>Top 5 Categorías (Últimos 30 días)</h3>
+            <!-- Título modificado -->
+            <h3>Top 5 Categorías <span class="rango-fechas">(Últimos 30 días)</span></h3>
             <table class="tabla-bonita">
                 <thead>
                     <tr>
@@ -32,13 +49,15 @@
                     </tr>
                 </thead>
                 <tbody id="category-ranking-table">
-                    </tbody>
+                    <!-- Contenido dinámico -->
+                </tbody>
             </table>
         </div>
     </div>
 
     <div class="actividad-reciente stat-card">
-        <h3>Actividad Reciente (Últimas 5 ventas)</h3>
+         <!-- Título modificado -->
+        <h3>Actividad Reciente <span class="rango-fechas">(Hoy)</span></h3>
         <div class="tabla-contenedor">
             <table class="tabla-bonita">
                 <thead>
