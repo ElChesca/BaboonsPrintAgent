@@ -27,6 +27,7 @@ function renderizarTabla() {
     tbody.innerHTML = '';
     proveedoresCache.forEach(p => {
         // --- CAMBIO AQUÍ: Añadimos la celda para saldo_cta_cte ---
+        // --- CAMBIO AQUÍ: Usamos data-id en los botones para JS ---
         tbody.innerHTML += `
             <tr>
                 <td>${p.nombre}</td>
@@ -35,8 +36,8 @@ function renderizarTabla() {
                 <td>${p.email || '-'}</td>
                 <td>${formatCurrency(p.saldo_cta_cte)}</td> 
                 <td>
-                    <button class="btn btn-secondary btn-sm" onclick="editarProveedor(${p.id})">Editar</button>
-                    <button class="btn btn-danger btn-sm" onclick="borrarProveedor(${p.id})">Borrar</button>
+                    <button class="btn btn-secondary btn-sm btn-edit" data-id="${p.id}">Editar</button>
+                    <button class="btn btn-danger btn-sm btn-delete" data-id="${p.id}">Borrar</button>
                 </td>
             </tr>
         `;
@@ -82,8 +83,8 @@ async function guardarProveedor(e) {
     }
 }
 
-// Asegurarse que las funciones estén disponibles globalmente si se llaman desde HTML
-window.editarProveedor = (id) => {
+// --- CAMBIO AQUÍ: Quitamos window.editarProveedor ---
+/* export */ function editarProveedorLocal(id) { // Renombramos a Local para evitar conflicto global
     const proveedor = proveedoresCache.find(p => p.id === id);
     if (!proveedor) return;
 
@@ -97,7 +98,8 @@ window.editarProveedor = (id) => {
     form.scrollIntoView({ behavior: 'smooth' }); // Mejor que window.scrollTo
 }
 
-window.borrarProveedor = async (id) => {
+// --- CAMBIO AQUÍ: Quitamos window.borrarProveedor y añadimos EXPORT ---
+export async function borrarProveedor(id) { // Añadimos export
     // Reemplazar confirm con un modal personalizado si es posible
     if (!confirm('¿Estás seguro de que quieres eliminar este proveedor? Esta acción no se puede deshacer.')) return; 
     try {
@@ -111,9 +113,11 @@ window.borrarProveedor = async (id) => {
 
 export function inicializarLogicaProveedores() {
     form = document.getElementById('form-proveedor');
-    if (!form) {
-        console.error("Formulario de proveedor no encontrado.");
-        return; // Salir si el formulario no está
+    const tablaBody = document.querySelector('#tabla-proveedores tbody'); // Necesitamos el tbody para los listeners
+
+    if (!form || !tablaBody) {
+        console.error("Formulario o tabla de proveedores no encontrados.");
+        return; // Salir si falta algo
     }
 
     tituloForm = document.getElementById('form-proveedor-titulo');
@@ -133,5 +137,18 @@ export function inicializarLogicaProveedores() {
     form.addEventListener('submit', guardarProveedor);
     btnCancelar.addEventListener('click', resetFormulario);
 
+    // --- CAMBIO AQUÍ: Usamos delegación de eventos para Editar/Borrar ---
+    tablaBody.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-edit')) {
+            const id = e.target.dataset.id;
+            editarProveedorLocal(parseInt(id)); // Llamamos a la función local
+        } else if (e.target.classList.contains('btn-delete')) {
+            const id = e.target.dataset.id;
+            borrarProveedor(parseInt(id)); // Llamamos a la función exportada
+        }
+    });
+
     cargarProveedores();
 }
+
+
