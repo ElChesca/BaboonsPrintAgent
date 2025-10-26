@@ -23,6 +23,8 @@ import { inicializarLogicaHistorialPresupuestos } from './modules/historial_pres
 import { inicializarLogicaFactura } from './modules/factura.js';
 import { mostrarNotificacion } from './modules/notifications.js'; // Importa la notificación
 import { inicializarLogicaVerificador } from './modules/verificador.js';
+import { inicializarLogicaPagosProveedores } from './modules/payments.js';
+
 
 let onClienteCreadoCallback = null;
 
@@ -200,7 +202,8 @@ async function inicializarModulo(page) {
     if (page.includes('reporte_ganancias.html')) inicializarLogicaReporteGanancias(); 
     if (page.includes('reportes.html')) inicializarLogicaReportes();
     if (page.includes('factura.html')) inicializarLogicaFactura();
-    if (page.includes('verificador.html')) inicializarLogicaVerificador();     
+    if (page.includes('verificador.html')) inicializarLogicaVerificador();    
+    if (page.includes('payments.html')) inicializarLogicaPagosProveedores(); 
 
     if (page.includes('historial_ingresos.html')) inicializarLogicaHistorial();
     else if (page.includes('ingresos.html')) inicializarLogicaIngresos();
@@ -215,6 +218,8 @@ async function inicializarModulo(page) {
         await poblarSelectorNegocios(); // Vuelve a poblar el selector del home
     }
     
+
+
     // --- Tus importaciones dinámicas ---
     if (page.includes('proveedores.html')) { 
         const { inicializarLogicaProveedores } = await import('./modules/proveedores.js');
