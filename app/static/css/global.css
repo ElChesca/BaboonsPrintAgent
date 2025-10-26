@@ -17,9 +17,9 @@ main {
 
 /* --- 3. VISIBILIDAD POR ROLES (CORREGIDO) --- */
 .admin-only, .superadmin-only { 
-    display: none !important; /* Oculta por defecto con alta prioridad */
+    /* --- CORRECCIÓN AQUÍ: Quitamos el !important --- */
+    display: none; /* Oculta por defecto, pero con baja prioridad */
 }
-
 /* Regla base para mostrar elementos */
 body.rol-admin .admin-only,
 body.rol-superadmin .admin-only,
