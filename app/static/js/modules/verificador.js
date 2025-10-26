@@ -31,8 +31,6 @@ function renderizarLista() {
         let precioParaTotal = 0;
         
         // Buscamos el precio correspondiente a la lista seleccionada
-        // --- ¡ARREGLO N°1! ---
-        // Nos aseguramos que item.precios exista antes de buscar (find)
         if (listaIdParaTotal && item.precios && Array.isArray(item.precios)) {
             const precioEncontrado = item.precios.find(p => p.lista_id == listaIdParaTotal);
             if (precioEncontrado && precioEncontrado.valor !== null) {
@@ -44,20 +42,16 @@ function renderizarLista() {
         // --- HTML para la tarjeta del item ---
         let preciosHtml = '<ul style="padding-left: 20px; margin-top: 5px;">';
         
-        // --- ¡ARREGLO N°2! (El que arregla el error 'precios.forEach') ---
-        // Verificamos que item.precios exista y sea un array antes de recorrerlo
         if (item.precios && Array.isArray(item.precios)) {
             item.precios.forEach(p => {
                 const valorDisplay = (p.valor !== null) ? formatCurrency(p.valor) : '(Sin precio)';
                 preciosHtml += `<li><b>${p.nombre_lista}: ${valorDisplay}</b> (Regla: ${p.regla_aplicada || 'N/A'})</li>`;
             });
         } else {
-            // Si no hay precios, mostramos un mensaje
             preciosHtml += '<li>(Este producto no tiene precios definidos)</li>';
         }
         preciosHtml += '</ul>';
 
-        // Usé clases genéricas, podés adaptarlas a tu framework (Bootstrap, etc.)
         const itemHtml = `
             <div class="card" style="margin-bottom: 10px;">
                 <div class="card-body">
@@ -80,13 +74,10 @@ function actualizarListasDePrecio(precios) {
     const elSelectListaTotal = document.getElementById('lista-precio-total-verificador');
     if (!elSelectListaTotal) return;
     
-    // --- ¡ARREGLO N°3! (El que arregla el error 'precios.forEach') ---
-    // Si 'precios' es undefined o no es un array, no hacemos nada.
     if (!precios || !Array.isArray(precios)) {
         console.warn("actualizarListasDePrecio fue llamado sin un array de precios.");
         return; 
     }
-    // --- FIN DEL ARREGLO ---
 
     let hayNuevasListas = false;
     precios.forEach(p => {
@@ -117,6 +108,11 @@ function limpiarLecturas() {
     if (elScanStatus) {
         elScanStatus.textContent = "Lecturas limpiadas. Listo para escanear.";
     }
+    // Opcional: Podríamos detener y reiniciar el scanner aquí si fuera necesario
+    // if (html5QrcodeScanner) {
+    //     html5QrcodeScanner.clear().catch(err => console.error("Error al limpiar scanner:", err));
+    //     inicializarLogicaVerificador(); // O una función más específica para reiniciar
+    // }
 }
 
 /**
@@ -127,40 +123,36 @@ async function onScanSuccess(decodedText, decodedResult) {
     elScanStatus.textContent = "Buscando producto...";
     
     try {
-        // Usamos el helper 'fetchData' y el 'appState'
         const producto = await fetchData(
             `/api/negocios/${appState.negocioActivoId}/mobile/check-producto/${decodedText}`
         );
         
-        // ¡Importante! 'producto.precios' puede ser undefined si la API no lo devuelve.
-        // Las funciones de abajo (actualizarListasDePrecio, renderizarLista)
-        // ya están "blindadas" gracias a los arreglos N°1, 2 y 3.
-        
         itemsEscaneados.push(producto);
         
-        // Actualizamos la UI
-        actualizarListasDePrecio(producto.precios); // Esto ahora es seguro
-        renderizarLista(); // Esto ahora es seguro
+        actualizarListasDePrecio(producto.precios); 
+        renderizarLista(); 
         elScanStatus.textContent = `✅ "${producto.descripcion}" agregado.`;
 
     } catch (error) {
-        // Usamos el helper 'mostrarNotificacion'
         mostrarNotificacion(error.message, 'error');
         elScanStatus.textContent = `❌ Error: ${error.message}`;
     }
     
+    // Dejamos el mensaje por más tiempo para que el usuario lo vea
     setTimeout(() => {
-        // Validamos que el scanner exista y esté en estado "SCANNING" (2)
-        if (html5QrcodeScanner && html5QrcodeScanner.getState() === 2) { 
-           elScanStatus.textContent = "Apuntá la cámara al código de barras...";
+        const currentStatus = document.getElementById('scan-status-verificador');
+        // Solo volvemos a "Apuntá..." si no hubo otro escaneo o error mientras tanto
+        if (currentStatus && currentStatus.textContent.startsWith('✅') || currentStatus.textContent.startsWith('❌')) {
+             currentStatus.textContent = "Apuntá la cámara al código de barras...";
         }
-    }, 2000);
+    }, 3000); // 3 segundos
 }
 
 /**
  * Función de inicialización principal (EXPORTADA)
  */
 export function inicializarLogicaVerificador() {
+    console.log("Inicializando Verificador..."); // Log para depurar
     // Reseteamos el estado por si se está re-cargando
     itemsEscaneados = [];
     listasDePrecioDisponibles = new Map();
@@ -177,37 +169,70 @@ export function inicializarLogicaVerificador() {
     }
     
     // --- LIMPIEZA ADICIONAL ---
-    // Reseteamos el select por si quedó con datos de la carga anterior
     selectLista.innerHTML = '<option value="">(Elija lista)</option>';
 
 
     // 2. Asignamos Eventos
     btnLimpiar.addEventListener('click', limpiarLecturas);
-    selectLista.addEventListener('change', renderizarLista); // Recalcula si cambia el select
+    selectLista.addEventListener('change', renderizarLista); 
 
     // 3. Inicializar el Scanner
-    // Verificamos si ya existe una instancia para no duplicarla
-    // Y nos aseguramos de que no esté ya renderizado (estado 1 o 2)
-    if (!html5QrcodeScanner || html5QrcodeScanner.getState() === 1 /* NOT_STARTED */ ) {
-        html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader-verificador", // ID del div
-            { fps: 10, qrbox: { width: 250, height: 150 } }, // Ajuste de tamaño
-            false // verbose
-        );
-    }
     
+    // --- CAMBIO AQUÍ: Simplificamos la inicialización ---
+    // Si ya existe una instancia Y ESTÁ ESCANEANDO, no hacemos nada más.
+    // Esto evita que se intente renderizar múltiples veces si el usuario navega rápido.
+    if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+         console.log("Scanner ya estaba activo.");
+         renderizarLista(); // Aseguramos que la lista se muestre vacía
+         // Ponemos el mensaje inicial por si acaso
+         const elScanStatus = document.getElementById('scan-status-verificador');
+         if(elScanStatus) elScanStatus.textContent = "Apuntá la cámara al código de barras...";
+         return; 
+    }
+
+    // Si no existe o no estaba escaneando, creamos una NUEVA instancia.
+    // Esto es importante porque clear() destruye la instancia anterior.
+    // Aseguramos limpiar cualquier instancia previa por si quedó "colgada"
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.clear().catch(err => console.error("Error al limpiar scanner previo:", err));
+    }
+
+    console.log("Creando nueva instancia de Html5QrcodeScanner...");
+    html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader-verificador", 
+        { 
+            fps: 10, 
+            qrbox: { width: 250, height: 150 },
+            // Intentamos usar la cámara trasera por defecto
+            facingMode: "environment" 
+        },
+        /* verbose= */ false 
+    );
+        
     // Iniciamos el render del scanner
-    // (Asegúrate de que la biblioteca Html5Qrcode esté cargada globalmente)
     try {
-        // Solo renderizamos si no está ya escaneando
-        if (html5QrcodeScanner.getState() !== 2 /* SCANNING */) {
-            html5QrcodeScanner.render(onScanSuccess);
-        }
+        console.log("Llamando a html5QrcodeScanner.render()...");
+        html5QrcodeScanner.render(onScanSuccess, (errorMessage) => {
+             // Función opcional para manejar errores DURANTE el escaneo
+             // console.warn(`QR error = ${errorMessage}`); 
+        });
+        console.log("html5QrcodeScanner.render() llamado con éxito.");
+        // Agregamos una propiedad para saber si está escaneando
+        html5QrcodeScanner.isScanning = true; 
     } catch (e) {
         console.error("Error al iniciar el scanner:", e);
         mostrarNotificacion("No se pudo iniciar la cámara. Verifique los permisos.", "error");
+        // Aseguramos que isScanning quede en false si falla
+        if(html5QrcodeScanner) html5QrcodeScanner.isScanning = false;
     }
 
     // 4. Render inicial
     renderizarLista();
 }
+
+// --- Limpieza al salir del módulo ---
+// Esto es importante para detener la cámara cuando el usuario navega a otra sección.
+// Necesitaríamos una forma de detectar cuándo se "descarga" el módulo.
+// Por ahora, asumimos que 'inicializarLogicaVerificador' se llama cada vez que entra.
+// El código actual ya detiene el scanner anterior al crear uno nuevo.
+
