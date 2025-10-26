@@ -32,6 +32,9 @@ def create_app():
     for bp, prefix in blueprints:
         app.register_blueprint(bp, url_prefix=prefix)
 
+
+
+
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def catch_all(path):
