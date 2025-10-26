@@ -31,7 +31,9 @@ function renderizarLista() {
         let precioParaTotal = 0;
         
         // Buscamos el precio correspondiente a la lista seleccionada
-        if (listaIdParaTotal) {
+        // --- ¡ARREGLO N°1! ---
+        // Nos aseguramos que item.precios exista antes de buscar (find)
+        if (listaIdParaTotal && item.precios && Array.isArray(item.precios)) {
             const precioEncontrado = item.precios.find(p => p.lista_id == listaIdParaTotal);
             if (precioEncontrado && precioEncontrado.valor !== null) {
                 precioParaTotal = precioEncontrado.valor;
@@ -41,10 +43,18 @@ function renderizarLista() {
 
         // --- HTML para la tarjeta del item ---
         let preciosHtml = '<ul style="padding-left: 20px; margin-top: 5px;">';
-        item.precios.forEach(p => {
-            const valorDisplay = (p.valor !== null) ? formatCurrency(p.valor) : '(Sin precio)';
-            preciosHtml += `<li><b>${p.nombre_lista}: ${valorDisplay}</b> (Regla: ${p.regla_aplicada || 'N/A'})</li>`;
-        });
+        
+        // --- ¡ARREGLO N°2! (El que arregla el error 'precios.forEach') ---
+        // Verificamos que item.precios exista y sea un array antes de recorrerlo
+        if (item.precios && Array.isArray(item.precios)) {
+            item.precios.forEach(p => {
+                const valorDisplay = (p.valor !== null) ? formatCurrency(p.valor) : '(Sin precio)';
+                preciosHtml += `<li><b>${p.nombre_lista}: ${valorDisplay}</b> (Regla: ${p.regla_aplicada || 'N/A'})</li>`;
+            });
+        } else {
+            // Si no hay precios, mostramos un mensaje
+            preciosHtml += '<li>(Este producto no tiene precios definidos)</li>';
+        }
         preciosHtml += '</ul>';
 
         // Usé clases genéricas, podés adaptarlas a tu framework (Bootstrap, etc.)
@@ -70,6 +80,14 @@ function actualizarListasDePrecio(precios) {
     const elSelectListaTotal = document.getElementById('lista-precio-total-verificador');
     if (!elSelectListaTotal) return;
     
+    // --- ¡ARREGLO N°3! (El que arregla el error 'precios.forEach') ---
+    // Si 'precios' es undefined o no es un array, no hacemos nada.
+    if (!precios || !Array.isArray(precios)) {
+        console.warn("actualizarListasDePrecio fue llamado sin un array de precios.");
+        return; 
+    }
+    // --- FIN DEL ARREGLO ---
+
     let hayNuevasListas = false;
     precios.forEach(p => {
         if (!listasDePrecioDisponibles.has(p.lista_id)) {
@@ -114,11 +132,15 @@ async function onScanSuccess(decodedText, decodedResult) {
             `/api/negocios/${appState.negocioActivoId}/mobile/check-producto/${decodedText}`
         );
         
+        // ¡Importante! 'producto.precios' puede ser undefined si la API no lo devuelve.
+        // Las funciones de abajo (actualizarListasDePrecio, renderizarLista)
+        // ya están "blindadas" gracias a los arreglos N°1, 2 y 3.
+        
         itemsEscaneados.push(producto);
         
         // Actualizamos la UI
-        actualizarListasDePrecio(producto.precios);
-        renderizarLista();
+        actualizarListasDePrecio(producto.precios); // Esto ahora es seguro
+        renderizarLista(); // Esto ahora es seguro
         elScanStatus.textContent = `✅ "${producto.descripcion}" agregado.`;
 
     } catch (error) {
@@ -153,6 +175,11 @@ export function inicializarLogicaVerificador() {
         mostrarNotificacion("Error de página: Faltan componentes del verificador.", "error");
         return;
     }
+    
+    // --- LIMPIEZA ADICIONAL ---
+    // Reseteamos el select por si quedó con datos de la carga anterior
+    selectLista.innerHTML = '<option value="">(Elija lista)</option>';
+
 
     // 2. Asignamos Eventos
     btnLimpiar.addEventListener('click', limpiarLecturas);
@@ -160,10 +187,11 @@ export function inicializarLogicaVerificador() {
 
     // 3. Inicializar el Scanner
     // Verificamos si ya existe una instancia para no duplicarla
-    if (!html5QrcodeScanner) {
+    // Y nos aseguramos de que no esté ya renderizado (estado 1 o 2)
+    if (!html5QrcodeScanner || html5QrcodeScanner.getState() === 1 /* NOT_STARTED */ ) {
         html5QrcodeScanner = new Html5QrcodeScanner(
             "reader-verificador", // ID del div
-            { fps: 10, qrbox: 250 },
+            { fps: 10, qrbox: { width: 250, height: 150 } }, // Ajuste de tamaño
             false // verbose
         );
     }
@@ -171,7 +199,10 @@ export function inicializarLogicaVerificador() {
     // Iniciamos el render del scanner
     // (Asegúrate de que la biblioteca Html5Qrcode esté cargada globalmente)
     try {
-        html5QrcodeScanner.render(onScanSuccess);
+        // Solo renderizamos si no está ya escaneando
+        if (html5QrcodeScanner.getState() !== 2 /* SCANNING */) {
+            html5QrcodeScanner.render(onScanSuccess);
+        }
     } catch (e) {
         console.error("Error al iniciar el scanner:", e);
         mostrarNotificacion("No se pudo iniciar la cámara. Verifique los permisos.", "error");
