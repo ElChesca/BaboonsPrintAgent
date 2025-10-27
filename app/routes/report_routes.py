@@ -248,6 +248,7 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
             'fecha_hasta': fecha_hasta.strftime('%Y-%m-%d')
         })
 
+#voy a hacer una prueba de error
     except Exception as e:
         print(f"Error en get_cta_cte_proveedor (Proveedor ID: {proveedor_id}):")
         traceback.print_exc()
