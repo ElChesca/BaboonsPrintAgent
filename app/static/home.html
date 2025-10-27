@@ -10,6 +10,10 @@
             <img src="/static/img/icons/ventas.png" alt="Ventas" class="app-icon">
             <span class="app-name">Ventas</span>
         </div>
+            <div class="app-card" onclick="loadContent(event, 'static/caja.html', this)">
+            <img src="/static/img/icons/caja.png" alt="Caja" class="app-icon">
+            <span class="app-name">Caja</span>
+        </div>
         <div class="app-card" onclick="loadContent(event, 'static/presupuestos.html', this)">
             <img src="/static/img/icons/presupuesto.png" alt="Presupuestos" class="app-icon">
             <span class="app-name">Presupuestos</span>
@@ -18,18 +22,6 @@
             <img src="/static/img/icons/inventario.png" alt="Inventario" class="app-icon">
             <span class="app-name">Inventario</span>
         </div>      
-        <!-- Cambiado de <a href="..."> a <div onclick="..."> -->
-        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/verificador.html', this)">
-            <img src="/static/img/icons/verificador.png" alt="Verificador de Precios" class="app-icon">
-            <span class="app-name">Verificador Precios</span>
-        </div>        
-        <!-- Este también lo corrijo por si acaso -->
-        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/inventario_movil.html', this)">
-            <img src="/static/img/icons/inventariomovil.png" alt="Inventario Móvil" class="app-icon">
-            <span class="app-name">Ajuste Inventario Móvil</span>
-        </div>
-
-
         <div class="app-card" onclick="loadContent(event, 'static/clientes.html', this)">
             <img src="/static/img/icons/clientes.png" alt="Clientes" class="app-icon">
             <span class="app-name">Clientes</span>
@@ -38,18 +30,24 @@
             <img src="/static/img/icons/proveedor.png" alt="Proveedores" class="app-icon">
             <span class="app-name">Proveedores</span>
         </div>
-        <div class="app-card" onclick="loadContent(event, 'static/caja.html', this)">
-            <img src="/static/img/icons/caja.png" alt="Caja" class="app-icon">
-            <span class="app-name">Caja</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/ingresos.html', this)">
-            <img src="/static/img/icons/ingresos.png" alt="Ingresos" class="app-icon">            
-            <span class="app-name">Ingresos de Stock</span> 
-        </div>
         <div class="app-card" onclick="loadContent(event, 'static/payments.html', this)">
             <img src="/static/img/icons/payments.png" alt="Pagos Prov." class="app-icon">            
             <span class="app-name">Pago Proveed.</span> 
+        </div>        
+        <div class="app-card" onclick="loadContent(event, 'static/ingresos.html', this)">
+            <img src="/static/img/icons/ingresos.png" alt="Ingresos" class="app-icon">            
+            <span class="app-name">Ingresos de Stock</span> 
+        </div>          
+        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/inventario_movil.html', this)">
+            <img src="/static/img/icons/inventariomovil.png" alt="Inventario Móvil" class="app-icon">
+            <span class="app-name">Ajuste Inventario Móvil</span>
         </div>
+         <div class="app-card elemento-rol" onclick="loadContent(event, 'static/verificador.html', this)">
+            <img src="/static/img/icons/verificador.png" alt="Verificador de Precios" class="app-icon">
+            <span class="app-name">Verificador Precios</span>
+        </div>  
+    
+     
 
     </div>
 </div>

@@ -1,6 +1,7 @@
 <div class="seccion-contenido-dinamico">
     <h2>👥 Gestión de Proveedores</h2>
     <div class="main-grid">
+        <!-- Formulario (sin cambios) -->
         <div class="card">
             <h3 id="form-proveedor-titulo">Añadir Nuevo Proveedor</h3>
             <form id="form-proveedor">
@@ -22,11 +23,13 @@
                     <input type="email" id="proveedor-email">
                 </div>
                 <div class="form-actions">
-                    <button type="submit" class="btn-primary">Guardar</button>
-                    <button type="button" id="btn-cancelar-edicion" class="btn-secondary" style="display: none;">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <button type="button" id="btn-cancelar-edicion" class="btn btn-secondary" style="display: none;">Cancelar</button>
                 </div>
             </form>
         </div>
+
+        <!-- Tabla de Proveedores (con nuevo botón) -->
         <div class="card">
             <h3>Lista de Proveedores</h3>
             <div class="tabla-contenedor">
@@ -38,16 +41,48 @@
                             <th>Teléfono</th>
                             <th>Email</th>
                             <th>Saldo Cta. Cte.</th>
-                            <!-- Columna de Acciones más ancha -->
-                            <th style="width: 250px;">Acciones</th> 
+                            <th style="width: 280px;">Acciones</th> <!-- Ancho ajustado para más botones -->
                         </tr>
                     </thead>
-                    <tbody>
-                        <!-- Contenido llenado por JS -->
-                    </tbody>
+                    <tbody></tbody>
                 </table>
             </div>
         </div>
     </div>
-</div>
 
+    <!-- ✨ NUEVO: Modal para Reporte Cuenta Corriente ✨ -->
+    <div id="modal-cta-cte" class="modal">
+        <div class="modal-content large"> <!-- Usar clase 'large' -->
+            <div class="modal-header">
+                <h3 id="modal-cta-cte-titulo">Cuenta Corriente Proveedor</h3>
+                <span id="close-modal-cta-cte" class="close-button">&times;</span>
+            </div>
+
+            <!-- Filtros dentro del modal -->
+            <div class="filtros-cta-cte" style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; align-items: flex-end;">
+                 <input type="hidden" id="cta-cte-proveedor-id"> <!-- Para guardar el ID del proveedor -->
+                 <div class="form-group" style="margin-bottom: 0; flex-grow: 1;">
+                     <label for="cta-cte-fecha-desde">Desde:</label>
+                     <input type="date" id="cta-cte-fecha-desde" style="width: auto;">
+                 </div>
+                 <div class="form-group" style="margin-bottom: 0; flex-grow: 1;">
+                     <label for="cta-cte-fecha-hasta">Hasta:</label>
+                     <input type="date" id="cta-cte-fecha-hasta" style="width: auto;">
+                 </div>
+                 <button id="btn-generar-cta-cte" class="btn btn-primary">Generar</button>
+            </div>
+
+            <!-- Área para mostrar el reporte -->
+            <div id="reporte-cta-cte-container" class="tabla-contenedor"> <!-- Añadir scroll si es necesario -->
+                 <p style="text-align: center;">Seleccione un rango de fechas y presione 'Generar'.</p>
+                 <!-- La tabla se generará aquí con JS -->
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="form-actions" style="margin-top: 20px;">
+                <button id="btn-imprimir-cta-cte" class="btn btn-secondary" disabled>Imprimir</button>
+                <button id="btn-exportar-cta-cte" class="btn btn-success" disabled>Exportar Excel</button>
+            </div>
+        </div>
+    </div>
+</div>
