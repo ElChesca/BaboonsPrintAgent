@@ -200,50 +200,139 @@ def registrar_pago_proveedor(current_user, negocio_id):
              return jsonify({'error': 'Ocurrió un error interno al registrar el pago.'}), 500
 
 
-# --- ✨ RUTA 3: Obtener Historial de Pagos (AÑADIDA AQUÍ) ---
-@bp.route('/negocios/<int:negocio_id>/pagos-proveedores/historial', methods=['GET'])
+# --- ✨ RUTA CUENTA CORRIENTE PROVEEDOR ---
+@bp.route('/negocios/<int:negocio_id>/proveedores/<int:proveedor_id>/cuenta-corriente', methods=['GET'])
 @token_required
-def get_historial_pagos_proveedor(current_user, negocio_id):
+def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
     """
-    Devuelve el historial de pagos registrados, opcionalmente filtrado por proveedor.
+    Genera el reporte de cuenta corriente para un proveedor en un rango de fechas.
+    Devuelve saldo inicial, movimientos (ingresos y pagos) y saldo final por movimiento.
     """
     db = get_db()
-    # Leer el proveedor_id del query string (opcional)
-    proveedor_id_filtro = request.args.get('proveedor_id')
+
+    fecha_desde_str = request.args.get('fecha_desde')
+    fecha_hasta_str = request.args.get('fecha_hasta')
 
     try:
-        params = [negocio_id]
-        query = """
+        if not fecha_hasta_str:
+            fecha_hasta = datetime.date.today()
+        else:
+            fecha_hasta = datetime.datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+
+        if not fecha_desde_str:
+            fecha_hoy = datetime.date.today()
+            fecha_desde = fecha_hoy.replace(day=1)
+        else:
+            fecha_desde = datetime.datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+
+        if fecha_desde > fecha_hasta:
+             return jsonify({'error': 'La fecha "Desde" no puede ser mayor que la fecha "Hasta"'}), 400
+
+    except ValueError:
+        return jsonify({'error': 'Formato de fecha inválido. Usar YYYY-MM-DD'}), 400
+
+    try:
+        # --- Calcular Saldo Inicial ---
+        params_saldo_inicial = {
+            'negocio_id': negocio_id,
+            'proveedor_id': proveedor_id,
+            'fecha_desde': fecha_desde
+        }
+        db.execute(
+            """
+            SELECT COALESCE(SUM(total_factura), 0) as total_debe
+            FROM ingresos_mercaderia
+            WHERE negocio_id = %(negocio_id)s
+              AND proveedor_id = %(proveedor_id)s
+              AND DATE(fecha) < %(fecha_desde)s
+              AND total_factura IS NOT NULL
+            """, params_saldo_inicial
+        )
+        total_debe_anterior = db.fetchone()['total_debe'] or Decimal(0)
+
+        db.execute(
+            """
+            SELECT COALESCE(SUM(monto_total), 0) as total_haber
+            FROM pagos_proveedores
+            WHERE negocio_id = %(negocio_id)s
+              AND proveedor_id = %(proveedor_id)s
+              AND DATE(fecha) < %(fecha_desde)s
+            """, params_saldo_inicial
+        )
+        total_haber_anterior = db.fetchone()['total_haber'] or Decimal(0)
+
+        saldo_inicial = total_debe_anterior - total_haber_anterior
+
+        # --- Obtener Movimientos en el Rango ---
+        params_movimientos = {
+            'negocio_id': negocio_id,
+            'proveedor_id': proveedor_id,
+            'fecha_desde': fecha_desde,
+            'fecha_hasta': fecha_hasta # Usar fecha_hasta directamente
+        }
+        query_movimientos = """
             SELECT
-                pp.id, pp.fecha, pp.monto_total, pp.metodo_pago, pp.referencia,
-                prov.nombre as proveedor_nombre,
-                u.nombre as usuario_nombre -- Opcional: Nombre de quien registró
-            FROM pagos_proveedores pp
-            JOIN proveedores prov ON pp.proveedor_id = prov.id
-            LEFT JOIN usuarios u ON pp.usuario_id = u.id -- Unión opcional con usuarios
-            WHERE pp.negocio_id = %s
+                fecha, 'Ingreso Factura' as tipo, id, total_factura as debe, 0 as haber,
+                factura_tipo, factura_prefijo, factura_numero, referencia
+            FROM ingresos_mercaderia
+            WHERE negocio_id = %(negocio_id)s AND proveedor_id = %(proveedor_id)s
+              AND DATE(fecha) >= %(fecha_desde)s AND DATE(fecha) <= %(fecha_hasta)s -- Cambiado a <=
+              AND total_factura IS NOT NULL
+            UNION ALL
+            SELECT
+                fecha, 'Pago Realizado' as tipo, id, 0 as debe, monto_total as haber,
+                NULL, NULL, NULL, referencia
+            FROM pagos_proveedores
+            WHERE negocio_id = %(negocio_id)s AND proveedor_id = %(proveedor_id)s
+              AND DATE(fecha) >= %(fecha_desde)s AND DATE(fecha) <= %(fecha_hasta)s -- Cambiado a <=
+            ORDER BY fecha ASC, tipo DESC;
         """
-        # Añadir filtro de proveedor si se proporcionó
-        if proveedor_id_filtro:
-            query += " AND pp.proveedor_id = %s"
-            params.append(proveedor_id_filtro)
+        db.execute(query_movimientos, params_movimientos)
+        movimientos_db = db.fetchall()
 
-        query += " ORDER BY pp.fecha DESC;"
+        # --- Procesar Movimientos ---
+        movimientos_procesados = []
+        saldo_actual = saldo_inicial
+        movimientos_procesados.append({
+            'fecha': fecha_desde.strftime('%Y-%m-%d'),
+            'tipo': 'Saldo Anterior',
+            'concepto': f"Saldo al {fecha_desde.strftime('%d/%m/%Y')}",
+            'debe': None, 'haber': None, 'saldo': float(saldo_inicial)
+        })
 
-        db.execute(query, tuple(params)) # Pasar parámetros como tupla
-        pagos = db.fetchall()
+        for mov in movimientos_db:
+            debe = mov['debe'] or Decimal(0)
+            haber = mov['haber'] or Decimal(0)
+            saldo_actual += debe - haber
+            concepto = ""
+            if mov['tipo'] == 'Ingreso Factura':
+                 nro_factura = f"{mov['factura_tipo'] or 'FC'} {str(mov['factura_prefijo']).padStart(4,'0')}-{str(mov['factura_numero']).padStart(8,'0')}" if mov['factura_prefijo'] and mov['factura_numero'] else f"ID:{mov['id']}"
+                 concepto = f"Factura {nro_factura}"
+                 if mov['referencia']: concepto += f" ({mov['referencia']})"
+            elif mov['tipo'] == 'Pago Realizado':
+                 # --- ¡¡¡CORRECCIÓN AQUÍ!!! ---
+                 # Usar {mov['id']} en lugar de ['id'] dentro de la f-string
+                 concepto = f"Pago ({mov['referencia'] or f'ID:{mov['id']}'})"
+                 # --- FIN CORRECCIÓN ---
 
-        # Convertir Decimal a float para jsonify
-        pagos_list = []
-        for row in pagos:
-            row_dict = dict(row)
-            row_dict['monto_total'] = float(row_dict.get('monto_total') or 0)
-            pagos_list.append(row_dict)
+            movimientos_procesados.append({
+                'fecha': mov['fecha'].isoformat(),
+                'tipo': mov['tipo'],
+                'concepto': concepto,
+                'debe': float(debe) if debe > 0 else None,
+                'haber': float(haber) if haber > 0 else None,
+                'saldo': float(saldo_actual)
+            })
 
-        return jsonify(pagos_list) # ¡Devolver la lista!
+        # --- Devolver Resultados ---
+        return jsonify({
+            'saldo_inicial': float(saldo_inicial),
+            'movimientos': movimientos_procesados,
+            'fecha_desde': fecha_desde.strftime('%Y-%m-%d'),
+            'fecha_hasta': fecha_hasta.strftime('%Y-%m-%d')
+        })
 
     except Exception as e:
-        print(f"Error en get_historial_pagos_proveedor:")
+        print(f"Error en get_cta_cte_proveedor (Proveedor ID: {proveedor_id}):")
         traceback.print_exc()
-        return jsonify({'error': f'Error al obtener el historial de pagos: {str(e)}'}), 500
-
+        return jsonify({'error': f'Error al generar cuenta corriente: {str(e)}'}), 500
