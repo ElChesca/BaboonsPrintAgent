@@ -6,7 +6,6 @@ import { inicializarLogicaClientes } from './modules/clientes.js';
 import { inicializarLogicaIngresos } from './modules/ingresos.js';
 import { inicializarLogicaVentas } from './modules/sales.js';
 import { inicializarLogicaUsuarios, abrirModalEditarUsuario } from './modules/users.js';
-// --- CAMBIO AQUÍ: Importar el nombre correcto ---
 import { inicializarLogicaHistorialIngresos, mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js';
 import { inicializarLogicaNegocios } from './modules/negocios.js';
 import { inicializarLogicaHistorialVentas } from './modules/historial_ventas.js';
