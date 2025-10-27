@@ -1,0 +1,34 @@
+<div class="card seccion-contenido-dinamico">
+    <h2>💵 Historial de Pagos a Proveedores</h2>
+
+    <!-- Filtro por Proveedor -->
+    <div class="filtros-historial" style="margin-bottom: 20px;">
+        <label for="filtro-proveedor-pagos">Filtrar por Proveedor:</label>
+        <select id="filtro-proveedor-pagos">
+            <option value="">-- Todos --</option>
+            <!-- Opciones se llenan con JS -->
+        </select>
+    </div>
+
+    <div class="tabla-contenedor">
+        <table id="tabla-historial-pagos" class="tabla-bonita">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Proveedor</th>
+                    <th>Monto Pagado</th>
+                    <th>Método</th>
+                    <th>Referencia</th>
+                    <!-- <th>Registrado Por</th> Opcional -->
+                    <!-- <th>Acciones</th> Opcional: Ver detalle del pago? -->
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Contenido llenado por JS -->
+                <tr><td colspan="5" style="text-align: center;">Cargando historial...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Podrías añadir un modal para ver a qué facturas se aplicó cada pago si lo necesitas -->
+</div>

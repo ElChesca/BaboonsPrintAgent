@@ -25,6 +25,7 @@ import { mostrarNotificacion } from './modules/notifications.js';
 import { inicializarLogicaVerificador } from './modules/verificador.js';
 // --- CAMBIO AQUÍ: Nombre del archivo corregido ---
 import { inicializarLogicaPagosProveedores } from './modules/payments.js';
+import { inicializarLogicaHistorialPagosProveedores } from './modules/historial_pagos_proveedores.js';
 
 
 let onClienteCreadoCallback = null;
@@ -250,11 +251,15 @@ async function inicializarModulo(page) {
         case 'ajuste_caja': inicializarLogicaAjusteCaja(); break;
         case 'historial_presupuestos': inicializarLogicaHistorialPresupuestos(); break;
         case 'presupuestos': inicializarLogicaPresupuestos(); break;
+        case 'historial_pagos_proveedores': inicializarLogicaHistorialPagosProveedores(); break
+        
         case 'home':
             console.log("Módulo Home detectado.");
             await poblarSelectorNegocios();
             break;
         case 'proveedores': inicializarLogicaProveedores(); break;
+
+
         case 'negocios': inicializarLogicaNegocios(); break;
         // Usamos 'payments' como nombre de módulo (igual que el archivo .js)
         case 'payments': inicializarLogicaPagosProveedores(); break; 

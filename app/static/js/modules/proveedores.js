@@ -197,7 +197,7 @@ function handleTablaClick(e) {
         // TODO: Necesitamos crear historial_pagos_proveedores.html y .js
         // Opción: Pasarlo en el hash
         window.location.hash = `#historial_pagos_proveedores?proveedor=${id}`;
-        mostrarNotificacion(`Módulo 'Historial de Pagos a Proveedores' no implementado aún.`, 'warning');
+       // mostrarNotificacion(`Módulo 'Historial de Pagos a Proveedores' no implementado aún.`, 'warning');
     }
 }
 
