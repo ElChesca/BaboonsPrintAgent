@@ -1,18 +1,48 @@
-<div class="card">    
-    <h2>Historial de Ingresos de Mercadería</h2>
-    
-    <div class="tabla-contenedor"></div>
-        <table id="tabla-historial" class="tabla-bonita">
+<div class="card seccion-contenido-dinamico">
+    <h2>🧾 Historial de Ingresos de Mercadería</h2>
+
+    <!-- Filtro por Proveedor -->
+    <div class="filtros-historial" style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+        <label for="filtro-proveedor-ingresos" style="margin-bottom: 0;">Filtrar por Proveedor:</label>
+        <select id="filtro-proveedor-ingresos" style="flex-grow: 1;">
+            <option value="">-- Todos --</option>
+            <!-- Opciones se llenan con JS -->
+        </select>
+    </div>
+
+    <div class="tabla-contenedor">
+        <table id="tabla-historial-ingresos" class="tabla-bonita">
             <thead>
                 <tr>
                     <th>Fecha</th>
                     <th>Proveedor</th>
+                    <th>Factura Nro.</th>
                     <th>Referencia</th>
+                    <th>Total Factura</th>
+                    <th>Monto Pagado</th>
+                    <th>Saldo Pendiente</th>
+                    <th>Estado</th>
                     <th>Ver Detalles</th>
                 </tr>
             </thead>
             <tbody>
-                </tbody>
+                <!-- Contenido llenado por JS -->
+                <tr><td colspan="9" style="text-align: center;">Cargando historial...</td></tr>
+            </tbody>
         </table>
     </div>
+
+    <!-- Modal para Detalles del Ingreso -->
+    <div id="modal-detalles-ingreso" class="modal">
+        <div class="modal-content large"> <!-- Usamos 'large' si lo definiste en global.css -->
+            <div class="modal-header">
+                <h3>Detalles del Ingreso</h3>
+                <span id="close-detalles-ingreso" class="close-button">&times;</span>
+            </div>
+            <div id="contenido-detalles-ingreso">
+                <!-- Detalles se cargarán aquí -->
+            </div>
+        </div>
+    </div>
 </div>
+

@@ -251,13 +251,14 @@ async function inicializarModulo(page) {
         case 'ajuste_caja': inicializarLogicaAjusteCaja(); break;
         case 'historial_presupuestos': inicializarLogicaHistorialPresupuestos(); break;
         case 'presupuestos': inicializarLogicaPresupuestos(); break;
+        case 'proveedores': inicializarLogicaProveedores(); break;
         case 'historial_pagos_proveedores': inicializarLogicaHistorialPagosProveedores(); break
-        
+
         case 'home':
             console.log("Módulo Home detectado.");
             await poblarSelectorNegocios();
             break;
-        case 'proveedores': inicializarLogicaProveedores(); break;
+      
 
 
         case 'negocios': inicializarLogicaNegocios(); break;
