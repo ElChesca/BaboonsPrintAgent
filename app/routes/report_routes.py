@@ -1,6 +1,9 @@
 from flask import Blueprint, jsonify, request
 from app.database import get_db
 from app.auth_decorator import token_required
+from decimal import Decimal
+import datetime
+import traceback
 
 
 bp = Blueprint('reports', __name__)
@@ -114,9 +117,7 @@ def get_detalles_venta(current_user, venta_id):
     detalles = db.fetchall()
     return jsonify([dict(row) for row in detalles])
 
-
-
-# --- ✨ RUTA CUENTA CORRIENTE PROVEEDOR (Añadida) ---
+# --- ✨ RUTA CUENTA CORRIENTE PROVEEDOR ---
 @bp.route('/negocios/<int:negocio_id>/proveedores/<int:proveedor_id>/cuenta-corriente', methods=['GET'])
 @token_required
 def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
@@ -126,7 +127,6 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
     """
     db = get_db()
 
-    # --- 1. Leer Parámetros ---
     fecha_desde_str = request.args.get('fecha_desde')
     fecha_hasta_str = request.args.get('fecha_hasta')
 
@@ -137,10 +137,8 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
             fecha_hasta = datetime.datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
 
         if not fecha_desde_str:
-            # Default: inicio del mes actual si no hay fecha desde
             fecha_hoy = datetime.date.today()
             fecha_desde = fecha_hoy.replace(day=1)
-            #fecha_desde = fecha_hasta - datetime.timedelta(days=30) # O últimos 30 días
         else:
             fecha_desde = datetime.datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
 
@@ -151,7 +149,7 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
         return jsonify({'error': 'Formato de fecha inválido. Usar YYYY-MM-DD'}), 400
 
     try:
-        # --- 2. Calcular Saldo Inicial ---
+        # --- Calcular Saldo Inicial ---
         params_saldo_inicial = {
             'negocio_id': negocio_id,
             'proveedor_id': proveedor_id,
@@ -163,7 +161,7 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
             FROM ingresos_mercaderia
             WHERE negocio_id = %(negocio_id)s
               AND proveedor_id = %(proveedor_id)s
-              AND DATE(fecha) < %(fecha_desde)s -- Usar DATE() si fecha es TIMESTAMP
+              AND DATE(fecha) < %(fecha_desde)s
               AND total_factura IS NOT NULL
             """, params_saldo_inicial
         )
@@ -175,19 +173,19 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
             FROM pagos_proveedores
             WHERE negocio_id = %(negocio_id)s
               AND proveedor_id = %(proveedor_id)s
-              AND DATE(fecha) < %(fecha_desde)s -- Usar DATE() si fecha es TIMESTAMP
+              AND DATE(fecha) < %(fecha_desde)s
             """, params_saldo_inicial
         )
         total_haber_anterior = db.fetchone()['total_haber'] or Decimal(0)
 
         saldo_inicial = total_debe_anterior - total_haber_anterior
 
-        # --- 3. Obtener Movimientos en el Rango ---
+        # --- Obtener Movimientos en el Rango ---
         params_movimientos = {
             'negocio_id': negocio_id,
             'proveedor_id': proveedor_id,
             'fecha_desde': fecha_desde,
-            'fecha_hasta': fecha_hasta # Incluir fecha_hasta en la comparación
+            'fecha_hasta': fecha_hasta # Usar fecha_hasta directamente
         }
         query_movimientos = """
             SELECT
@@ -195,7 +193,7 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
                 factura_tipo, factura_prefijo, factura_numero, referencia
             FROM ingresos_mercaderia
             WHERE negocio_id = %(negocio_id)s AND proveedor_id = %(proveedor_id)s
-              AND DATE(fecha) >= %(fecha_desde)s AND DATE(fecha) <= %(fecha_hasta)s
+              AND DATE(fecha) >= %(fecha_desde)s AND DATE(fecha) <= %(fecha_hasta)s -- Cambiado a <=
               AND total_factura IS NOT NULL
             UNION ALL
             SELECT
@@ -203,13 +201,13 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
                 NULL, NULL, NULL, referencia
             FROM pagos_proveedores
             WHERE negocio_id = %(negocio_id)s AND proveedor_id = %(proveedor_id)s
-              AND DATE(fecha) >= %(fecha_desde)s AND DATE(fecha) <= %(fecha_hasta)s
+              AND DATE(fecha) >= %(fecha_desde)s AND DATE(fecha) <= %(fecha_hasta)s -- Cambiado a <=
             ORDER BY fecha ASC, tipo DESC;
         """
         db.execute(query_movimientos, params_movimientos)
         movimientos_db = db.fetchall()
 
-        # --- 4. Procesar Movimientos ---
+        # --- Procesar Movimientos ---
         movimientos_procesados = []
         saldo_actual = saldo_inicial
         movimientos_procesados.append({
@@ -229,7 +227,10 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
                  concepto = f"Factura {nro_factura}"
                  if mov['referencia']: concepto += f" ({mov['referencia']})"
             elif mov['tipo'] == 'Pago Realizado':
+                 # --- ¡¡¡CORRECCIÓN AQUÍ!!! ---
+                 # Usar {mov['id']} en lugar de ['id'] dentro de la f-string
                  concepto = f"Pago ({mov['referencia'] or f'ID:{mov['id']}'})"
+                 # --- FIN CORRECCIÓN ---
 
             movimientos_procesados.append({
                 'fecha': mov['fecha'].isoformat(),
@@ -240,7 +241,7 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
                 'saldo': float(saldo_actual)
             })
 
-        # --- 5. Devolver Resultados ---
+        # --- Devolver Resultados ---
         return jsonify({
             'saldo_inicial': float(saldo_inicial),
             'movimientos': movimientos_procesados,
