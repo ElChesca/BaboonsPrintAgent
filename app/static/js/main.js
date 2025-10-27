@@ -1,14 +1,11 @@
 // app/static/js/main.js
 import { fetchData, sendData } from './api.js';
 import { inicializarLogicaLogin, getCurrentUser, logout } from './modules/auth.js';
-// Quitamos editarProveedor de la importación
 import { borrarProveedor, inicializarLogicaProveedores } from './modules/proveedores.js';
-// (El resto de tus imports...)
 import { inicializarLogicaClientes } from './modules/clientes.js';
 import { inicializarLogicaIngresos } from './modules/ingresos.js';
 import { inicializarLogicaVentas } from './modules/sales.js';
 import { inicializarLogicaUsuarios, abrirModalEditarUsuario } from './modules/users.js';
-// --- CAMBIO: Renombramos import para evitar conflicto ---
 import { inicializarLogicaHistorial as inicializarLogicaHistorialIngresos, mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js';
 import { inicializarLogicaNegocios } from './modules/negocios.js';
 import { inicializarLogicaHistorialVentas } from './modules/historial_ventas.js';
@@ -26,7 +23,8 @@ import { inicializarLogicaHistorialPresupuestos } from './modules/historial_pres
 import { inicializarLogicaFactura } from './modules/factura.js';
 import { mostrarNotificacion } from './modules/notifications.js';
 import { inicializarLogicaVerificador } from './modules/verificador.js';
-import { inicializarLogicaPagosProveedores } from './modules/pagos_proveedores.js';
+// --- CAMBIO AQUÍ: Nombre del archivo corregido ---
+import { inicializarLogicaPagosProveedores } from './modules/payments.js';
 
 
 let onClienteCreadoCallback = null;
@@ -38,7 +36,6 @@ export function esAdmin() {
 export const appState = {
     negocioActivoId: null,
     userRol: null,
-    // --- NUEVO: Para pasar filtros entre módulos ---
     filtroProveedorId: null
 };
 
@@ -176,7 +173,6 @@ export async function actualizarUIAutenticacion() {
 
             console.log("Actualización de UI base completada.");
 
-            // --- CAMBIO AQUÍ: Ignorar query params al leer hash inicial ---
             const requestedPage = window.location.hash.substring(1).split('?')[0];
             const contentArea = document.getElementById('content-area');
 
@@ -186,11 +182,11 @@ export async function actualizarUIAutenticacion() {
             }
 
             const pageToLoad = requestedPage && requestedPage !== 'login' ? requestedPage : 'home';
-
-            // Siempre intentar cargar la página correspondiente al hash (o home)
-            // loadContent se encargará de no recargar si ya estamos ahí
             console.log(`Intentando cargar página inicial: ${pageToLoad}`);
-            await loadContent(null, `static/${pageToLoad}.html`);
+            // Pasamos la URL completa (con query params si existen) a loadContent
+            const fullHash = window.location.hash.substring(1);
+            const pageUrlToLoad = `static/${fullHash || 'home.html'}`; 
+            await loadContent(null, pageUrlToLoad);
 
 
         } catch (error) {
@@ -207,11 +203,9 @@ export async function actualizarUIAutenticacion() {
 
         if (!window.location.hash.includes('login')) {
              console.log("No estamos en #login, cargando página de login...");
-             // No bloquear UI, dejar que loadContent maneje la carga
              loadContent(null, 'static/login.html');
         } else {
              console.log("Ya estamos en #login.");
-             // Asegurar inicialización si ya estamos en la URL correcta
              inicializarModulo('static/login.html');
         }
     }
@@ -225,7 +219,6 @@ async function inicializarModulo(page) {
         return;
     }
 
-    // --- CAMBIO AQUÍ: Ignorar query params al obtener pageName ---
     const pageName = page.split('/').pop().replace('.html', '').split('?')[0];
     console.log(`Inicializando módulo: ${pageName}`);
 
@@ -235,7 +228,7 @@ async function inicializarModulo(page) {
         window.currentChartInstance = null;
     }
 
-    // --- CAMBIO: Usar el nombre importado correctamente ---
+    // --- CAMBIO AQUÍ: Nombre del case corregido ---
     switch(pageName) {
         case 'inventario': inicializarLogicaInventario(); break;
         case 'login': inicializarLogicaLogin(); break;
@@ -249,7 +242,6 @@ async function inicializarModulo(page) {
         case 'reportes': inicializarLogicaReportes(); break;
         case 'factura': inicializarLogicaFactura(); break;
         case 'verificador': inicializarLogicaVerificador(); break;
-        // Usamos el nombre importado: inicializarLogicaHistorialIngresos
         case 'historial_ingresos': inicializarLogicaHistorialIngresos(); break;
         case 'ingresos': inicializarLogicaIngresos(); break;
         case 'historial_ventas': inicializarLogicaHistorialVentas(); break;
@@ -264,7 +256,8 @@ async function inicializarModulo(page) {
             break;
         case 'proveedores': inicializarLogicaProveedores(); break;
         case 'negocios': inicializarLogicaNegocios(); break;
-        case 'pagos_proveedores': inicializarLogicaPagosProveedores(); break;
+        // Usamos 'payments' como nombre de módulo (igual que el archivo .js)
+        case 'payments': inicializarLogicaPagosProveedores(); break; 
         case 'configuracion':
             const { inicializarConfiguracion } = await import('./modules/configuracion.js');
             inicializarConfiguracion();
@@ -295,27 +288,27 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
      console.log(`loadContent llamado para: ${page}, desde historial: ${fromHistory}`);
     if (event) event.preventDefault();
 
-    // --- CAMBIO AQUÍ: Ignorar query params al generar hash y pageName ---
-    const pageName = page.split('/').pop().replace('.html', '').split('?')[0];
-    const targetHash = `#${pageName}`; // Hash sin query params
+    // --- Mantenemos la lógica de separar nombre y query params ---
+    const pageParts = page.split('?');
+    const pagePath = pageParts[0]; // Ej: static/proveedores.html
+    const queryString = pageParts.length > 1 ? `?${pageParts[1]}` : ''; // Ej: ?proveedor=5
+    const pageName = pagePath.split('/').pop().replace('.html', ''); // Ej: proveedores
+    const targetHash = `#${pageName}`; // Ej: #proveedores
+    const fullTargetHash = targetHash + queryString; // Ej: #proveedores?proveedor=5
 
-    // Usar la URL base + hash limpio para comparar y pushear
-    const baseUrl = window.location.origin + window.location.pathname; // URL sin hash ni query
-    const targetUrl = baseUrl + targetHash;
-    const currentUrl = baseUrl + window.location.hash.split('?')[0]; // URL actual sin query
-
-    // Leer los query params de la URL original (si los había)
-    const queryString = page.includes('?') ? page.substring(page.indexOf('?')) : '';
-    const fullTargetHash = targetHash + queryString; // Hash completo con query params
+    const baseUrl = window.location.origin + window.location.pathname; 
+    const targetUrlBase = baseUrl + targetHash; // URL sin query para comparar
+    const currentUrlBase = baseUrl + window.location.hash.split('?')[0]; // URL actual sin query
 
     // Evitar recargar si la URL base + hash limpio ya es la actual
-    if (!fromHistory && currentUrl === targetUrl) {
-         console.log(`Ya estamos en ${targetHash} (ignorando query params), no se recarga HTML.`);
-         // Pero sí actualizamos el hash por si cambiaron los query params
+    if (!fromHistory && currentUrlBase === targetUrlBase) {
+         console.log(`Ya estamos en ${targetHash}, no se recarga HTML.`);
+         // Actualizar hash solo si los query params cambiaron
          if(window.location.hash !== fullTargetHash) {
-            history.pushState({ page: page }, '', fullTargetHash);
+            history.pushState({ page: page }, '', fullTargetHash); // Pushear con query params
+            // Si solo cambió el query param, podríamos querer re-inicializar el módulo
+            // inicializarModulo(page).catch(err => console.error...); // Descomentar si es necesario
          }
-         // Y cerramos el menú si aplica
          const navContainer = document.querySelector('.nav-container');
          if (navContainer && navContainer.classList.contains('is-active')) {
              navContainer.classList.remove('is-active');
@@ -324,20 +317,16 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     }
 
     if (!fromHistory) {
-        // Pushear el estado con la página *original* (con query params) y el hash *completo*
-        history.pushState({ page: page }, '', fullTargetHash);
+        history.pushState({ page: page }, '', fullTargetHash); // Usar hash completo
     }
 
-    loadPageCSS(pageName); // Usar pageName limpio para CSS
+    loadPageCSS(pageName); // CSS por nombre limpio
 
     const header = document.querySelector('header');
-    const businessSelectorBar = document.getElementById('business-selector-bar');
-
-    const isLoginPage = pageName === 'login'; // Usar pageName limpio
+    const isLoginPage = pageName === 'login';
     if (header) header.style.display = isLoginPage ? 'none' : 'flex';
 
-    // Usar la página SIN query params para el fetch del HTML
-    const pageToFetch = `static/${pageName}.html`;
+    const pageToFetch = pagePath; // Fetch usando el path limpio
 
     fetch(pageToFetch)
         .then(response => {
@@ -361,7 +350,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
                           const parentDropdown = linkToActivate.closest('.dropdown');
                          if (parentDropdown) parentDropdown.querySelector('.dropbtn')?.classList.add('active');
                      } else {
-                         console.warn(`No se encontró link activo para selector: ${linkSelector}`);
+                          console.warn(`No se encontró link activo para selector: ${linkSelector}`);
                      }
 
                      // Inicializar el módulo (usando la página *original* con query params)
@@ -377,8 +366,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
         .catch(error => {
             console.error("Error en loadContent fetch:", error);
             mostrarNotificacion(`No se pudo cargar la página ${pageName}.`, 'error');
-            window.location.hash = '#home'; // Ir a home como fallback seguro
-            // No llamar a loadContent de nuevo para evitar bucle infinito si home falla
+            window.location.hash = '#home';
             loadPageCSS(null);
         });
 
@@ -413,7 +401,6 @@ document.addEventListener('DOMContentLoaded', () => {
                  appState.negocioActivoId = nuevoNegocioId;
                  localStorage.setItem('negocioActivoId', nuevoNegocioId);
                  console.log("Negocio activo actualizado a:", nuevoNegocioId);
-                 // --- CAMBIO AQUÍ: Ignorar query params al recargar ---
                  const currentPage = window.location.hash.substring(1).split('?')[0] || 'home';
                  console.log(`Recargando módulo actual: ${currentPage}`);
                  loadContent(null, `static/${currentPage}.html`);
@@ -429,20 +416,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('popstate', (e) => {
         console.log("Evento popstate detectado:", e.state);
-        // --- CAMBIO AQUÍ: Obtener pageName limpio del hash actual ---
         const currentHashPageName = window.location.hash.substring(1).split('?')[0];
-        const pageFromState = e.state?.page; // Página original con query params
+        const pageFromState = e.state?.page; 
 
         if (pageFromState) {
              console.log(`Cargando página desde historial: ${pageFromState}`);
-             // Cargar usando la página completa del estado, marcar como 'fromHistory'
              loadContent(null, pageFromState, null, true);
         } else if (!window.location.hash || currentHashPageName === 'home') {
-             // Si volvemos a la URL base o #home, cargar home
              console.log("URL base o #home detectada, cargando home desde popstate.");
              loadContent(null, 'static/home.html', null, true);
         } else if (currentHashPageName && currentHashPageName !== 'login'){
-            // Si hay un hash pero no estado (ej. link externo), cargar esa página
             console.log(`Hash ${currentHashPageName} sin estado detectado, cargando página.`);
             loadContent(null, `static/${currentHashPageName}.html`, null, true);
         } else {
@@ -500,4 +483,3 @@ window.editarCategoria = editarCategoria;
 window.borrarCategoria = borrarCategoria;
 window.mostrarDetallesCaja = mostrarDetallesCaja;
 window.abrirModalNuevoCliente = abrirModalNuevoCliente;
-
