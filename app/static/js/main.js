@@ -6,7 +6,8 @@ import { inicializarLogicaClientes } from './modules/clientes.js';
 import { inicializarLogicaIngresos } from './modules/ingresos.js';
 import { inicializarLogicaVentas } from './modules/sales.js';
 import { inicializarLogicaUsuarios, abrirModalEditarUsuario } from './modules/users.js';
-import { inicializarLogicaHistorial as inicializarLogicaHistorialIngresos, mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js';
+// --- CAMBIO AQUÍ: Importar el nombre correcto ---
+import { inicializarLogicaHistorialIngresos, mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js';
 import { inicializarLogicaNegocios } from './modules/negocios.js';
 import { inicializarLogicaHistorialVentas } from './modules/historial_ventas.js';
 import { inicializarLogicaInventario, abrirModalEditarProducto, borrarProducto } from './modules/inventory.js';
@@ -23,9 +24,7 @@ import { inicializarLogicaHistorialPresupuestos } from './modules/historial_pres
 import { inicializarLogicaFactura } from './modules/factura.js';
 import { mostrarNotificacion } from './modules/notifications.js';
 import { inicializarLogicaVerificador } from './modules/verificador.js';
-// --- CAMBIO AQUÍ: Nombre del archivo corregido ---
 import { inicializarLogicaPagosProveedores } from './modules/payments.js';
-import { inicializarLogicaHistorialPagosProveedores } from './modules/historial_pagos_proveedores.js';
 
 
 let onClienteCreadoCallback = null;
@@ -184,9 +183,8 @@ export async function actualizarUIAutenticacion() {
 
             const pageToLoad = requestedPage && requestedPage !== 'login' ? requestedPage : 'home';
             console.log(`Intentando cargar página inicial: ${pageToLoad}`);
-            // Pasamos la URL completa (con query params si existen) a loadContent
             const fullHash = window.location.hash.substring(1);
-            const pageUrlToLoad = `static/${fullHash || 'home.html'}`; 
+            const pageUrlToLoad = `static/${fullHash || 'home.html'}`;
             await loadContent(null, pageUrlToLoad);
 
 
@@ -223,13 +221,12 @@ async function inicializarModulo(page) {
     const pageName = page.split('/').pop().replace('.html', '').split('?')[0];
     console.log(`Inicializando módulo: ${pageName}`);
 
-    // Limpiar gráficos anteriores (ejemplo)
     if (window.currentChartInstance) {
         window.currentChartInstance.destroy();
         window.currentChartInstance = null;
     }
 
-    // --- CAMBIO AQUÍ: Nombre del case corregido ---
+    // --- CAMBIO AQUÍ: Usar el nombre importado correctamente ---
     switch(pageName) {
         case 'inventario': inicializarLogicaInventario(); break;
         case 'login': inicializarLogicaLogin(); break;
@@ -243,6 +240,7 @@ async function inicializarModulo(page) {
         case 'reportes': inicializarLogicaReportes(); break;
         case 'factura': inicializarLogicaFactura(); break;
         case 'verificador': inicializarLogicaVerificador(); break;
+        // Usamos inicializarLogicaHistorialIngresos
         case 'historial_ingresos': inicializarLogicaHistorialIngresos(); break;
         case 'ingresos': inicializarLogicaIngresos(); break;
         case 'historial_ventas': inicializarLogicaHistorialVentas(); break;
@@ -251,19 +249,13 @@ async function inicializarModulo(page) {
         case 'ajuste_caja': inicializarLogicaAjusteCaja(); break;
         case 'historial_presupuestos': inicializarLogicaHistorialPresupuestos(); break;
         case 'presupuestos': inicializarLogicaPresupuestos(); break;
-        case 'proveedores': inicializarLogicaProveedores(); break;
-        case 'historial_pagos_proveedores': inicializarLogicaHistorialPagosProveedores(); break
-
         case 'home':
             console.log("Módulo Home detectado.");
             await poblarSelectorNegocios();
             break;
-      
-
-
+        case 'proveedores': inicializarLogicaProveedores(); break;
         case 'negocios': inicializarLogicaNegocios(); break;
-        // Usamos 'payments' como nombre de módulo (igual que el archivo .js)
-        case 'payments': inicializarLogicaPagosProveedores(); break; 
+        case 'payments': inicializarLogicaPagosProveedores(); break;
         case 'configuracion':
             const { inicializarConfiguracion } = await import('./modules/configuracion.js');
             inicializarConfiguracion();
@@ -294,26 +286,21 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
      console.log(`loadContent llamado para: ${page}, desde historial: ${fromHistory}`);
     if (event) event.preventDefault();
 
-    // --- Mantenemos la lógica de separar nombre y query params ---
     const pageParts = page.split('?');
-    const pagePath = pageParts[0]; // Ej: static/proveedores.html
-    const queryString = pageParts.length > 1 ? `?${pageParts[1]}` : ''; // Ej: ?proveedor=5
-    const pageName = pagePath.split('/').pop().replace('.html', ''); // Ej: proveedores
-    const targetHash = `#${pageName}`; // Ej: #proveedores
-    const fullTargetHash = targetHash + queryString; // Ej: #proveedores?proveedor=5
+    const pagePath = pageParts[0];
+    const queryString = pageParts.length > 1 ? `?${pageParts[1]}` : '';
+    const pageName = pagePath.split('/').pop().replace('.html', '');
+    const targetHash = `#${pageName}`;
+    const fullTargetHash = targetHash + queryString;
 
-    const baseUrl = window.location.origin + window.location.pathname; 
-    const targetUrlBase = baseUrl + targetHash; // URL sin query para comparar
-    const currentUrlBase = baseUrl + window.location.hash.split('?')[0]; // URL actual sin query
+    const baseUrl = window.location.origin + window.location.pathname;
+    const targetUrlBase = baseUrl + targetHash;
+    const currentUrlBase = baseUrl + window.location.hash.split('?')[0];
 
-    // Evitar recargar si la URL base + hash limpio ya es la actual
     if (!fromHistory && currentUrlBase === targetUrlBase) {
          console.log(`Ya estamos en ${targetHash}, no se recarga HTML.`);
-         // Actualizar hash solo si los query params cambiaron
          if(window.location.hash !== fullTargetHash) {
-            history.pushState({ page: page }, '', fullTargetHash); // Pushear con query params
-            // Si solo cambió el query param, podríamos querer re-inicializar el módulo
-            // inicializarModulo(page).catch(err => console.error...); // Descomentar si es necesario
+            history.pushState({ page: page }, '', fullTargetHash);
          }
          const navContainer = document.querySelector('.nav-container');
          if (navContainer && navContainer.classList.contains('is-active')) {
@@ -323,16 +310,16 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     }
 
     if (!fromHistory) {
-        history.pushState({ page: page }, '', fullTargetHash); // Usar hash completo
+        history.pushState({ page: page }, '', fullTargetHash);
     }
 
-    loadPageCSS(pageName); // CSS por nombre limpio
+    loadPageCSS(pageName);
 
     const header = document.querySelector('header');
     const isLoginPage = pageName === 'login';
     if (header) header.style.display = isLoginPage ? 'none' : 'flex';
 
-    const pageToFetch = pagePath; // Fetch usando el path limpio
+    const pageToFetch = pagePath;
 
     fetch(pageToFetch)
         .then(response => {
@@ -347,9 +334,8 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
                  contentArea.innerHTML = html;
                  console.log(`HTML cargado para ${pageToFetch}. Llamando a inicializarModulo...`);
                  requestAnimationFrame(() => {
-                     // Marcar link activo (usando pageName limpio)
                      document.querySelectorAll('#main-nav a, #main-nav .dropbtn').forEach(link => link.classList.remove('active'));
-                     const linkSelector = `#main-nav a[onclick*="'static/${pageName}.html'"]`;
+                     const linkSelector = `#main-nav a[onclick*="'${pagePath}'"]`; // Usar pagePath para buscar
                      const linkToActivate = document.querySelector(linkSelector);
                      if (linkToActivate) {
                          linkToActivate.classList.add('active');
@@ -359,8 +345,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
                           console.warn(`No se encontró link activo para selector: ${linkSelector}`);
                      }
 
-                     // Inicializar el módulo (usando la página *original* con query params)
-                     inicializarModulo(page).catch(err => {
+                     inicializarModulo(page).catch(err => { // Pasar 'page' original con query params
                           console.error(`Error durante inicializarModulo para ${page}:`, err);
                           mostrarNotificacion(`Error al inicializar la sección ${pageName}.`, 'error');
                      });
@@ -423,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('popstate', (e) => {
         console.log("Evento popstate detectado:", e.state);
         const currentHashPageName = window.location.hash.substring(1).split('?')[0];
-        const pageFromState = e.state?.page; 
+        const pageFromState = e.state?.page;
 
         if (pageFromState) {
              console.log(`Cargando página desde historial: ${pageFromState}`);
