@@ -26,7 +26,6 @@ const formatDate = (dateString) => {
 
 /** Renderiza la tabla del historial de pagos */
 function renderizarHistorialPagos(pagos) {
-    // <-- DEBUG: Verificar si llegamos a renderizar
     console.log("DEBUG: Entrando a renderizarHistorialPagos. Datos recibidos:", pagos);
 
     if (!tablaBodyHistorialPagos) {
@@ -35,11 +34,12 @@ function renderizarHistorialPagos(pagos) {
     }
     tablaBodyHistorialPagos.innerHTML = ''; // Limpiar
 
-    // Verificar si 'pagos' es realmente un Array
     if (!Array.isArray(pagos)) {
         console.error("renderizarHistorialPagos recibió algo que no es un array:", pagos);
-        mostrarNotificacion("Error inesperado al procesar los datos de pagos.", "error");
-        tablaBodyHistorialPagos.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Error al procesar datos. Verifique la consola.</td></tr>';
+        // Si fetchData devolvió un error con .message, mostrarlo.
+        const errorMessage = pagos?.message || "Error inesperado al procesar los datos de pagos.";
+        mostrarNotificacion(errorMessage, "error");
+        tablaBodyHistorialPagos.innerHTML = `<tr><td colspan="5" style="text-align: center; color: red;">${errorMessage}</td></tr>`;
         return;
     }
 
@@ -61,7 +61,6 @@ function renderizarHistorialPagos(pagos) {
         `;
         tablaBodyHistorialPagos.appendChild(row);
     });
-    // <-- DEBUG: Confirmar fin de renderizado
     console.log("DEBUG: renderizarHistorialPagos completado.");
 }
 
@@ -69,20 +68,13 @@ function renderizarHistorialPagos(pagos) {
 
 /** Carga el historial de pagos desde la API, aplicando filtros */
 async function cargarHistorialPagos() {
-    // <-- DEBUG: Inicio de la función
     console.log("DEBUG: Iniciando cargarHistorialPagos...");
 
-    // <-- DEBUG: Verificar elementos antes de usarlos
-    if (!tablaBodyHistorialPagos) {
-        console.error("DEBUG: cargarHistorialPagos abortado - tablaBodyHistorialPagos no encontrado.");
+    if (!tablaBodyHistorialPagos || !filtroProveedorSelectPagos) {
+        console.error("DEBUG: cargarHistorialPagos abortado - elementos HTML no encontrados.");
         return;
     }
-     if (!filtroProveedorSelectPagos) {
-         console.error("DEBUG: cargarHistorialPagos abortado - filtroProveedorSelectPagos no encontrado.");
-         return;
-     }
 
-    // <-- DEBUG: Verificar negocio activo
     console.log("DEBUG: Verificando negocio activo. ID:", appState.negocioActivoId);
     if (!appState.negocioActivoId) {
          tablaBodyHistorialPagos.innerHTML = '<tr><td colspan="5" style="text-align: center;">Seleccione un negocio activo.</td></tr>';
@@ -92,55 +84,50 @@ async function cargarHistorialPagos() {
 
     tablaBodyHistorialPagos.innerHTML = '<tr><td colspan="5" style="text-align: center;">Cargando historial...</td></tr>';
 
-    let url = `/api/negocios/${appState.negocioActivoId}/pagos-proveedores`;
+    // --- ¡¡¡CORRECCIÓN CLAVE AQUÍ!!! ---
+    // La URL correcta debe incluir '/historial' al final
+    let url = `/api/negocios/${appState.negocioActivoId}/pagos-proveedores/historial`;
+    // --- FIN DE LA CORRECCIÓN ---
+
     const proveedorIdSeleccionado = filtroProveedorSelectPagos.value;
-    // <-- DEBUG: Verificar ID de proveedor seleccionado
     console.log("DEBUG: ID Proveedor seleccionado en filtro:", proveedorIdSeleccionado);
-    // Usar el filtro de la URL si existe y el select está en "Todos"
     const proveedorIdFinal = proveedorIdSeleccionado || appState.filtroProveedorId;
     console.log("DEBUG: ID Proveedor final a usar:", proveedorIdFinal);
 
-
     if (proveedorIdFinal) {
         url += `?proveedor_id=${proveedorIdFinal}`;
-        // Preseleccionar si usamos el de appState
         if (!proveedorIdSeleccionado && appState.filtroProveedorId) {
             if (Array.from(filtroProveedorSelectPagos.options).some(opt => opt.value === appState.filtroProveedorId)){
                 filtroProveedorSelectPagos.value = appState.filtroProveedorId;
                 console.log("DEBUG: Preseleccionado filtro por appState.filtroProveedorId");
              } else {
                  console.warn(`DEBUG: Proveedor ID ${appState.filtroProveedorId} del hash no existe, mostrando todos.`);
-                 appState.filtroProveedorId = null; // Limpiar si no existe
+                 appState.filtroProveedorId = null;
              }
         }
     }
-    // Limpiar filtro temporal DESPUÉS de usarlo
     console.log("DEBUG: Limpiando appState.filtroProveedorId");
     appState.filtroProveedorId = null;
 
     try {
-        // <-- DEBUG: URL final antes del fetch
         console.log(`DEBUG: Llamando a fetchData con URL: ${url}`);
         const pagos = await fetchData(url);
-        // <-- DEBUG: Respuesta recibida de fetchData
         console.log("DEBUG: Datos recibidos de fetchData:", pagos);
         renderizarHistorialPagos(pagos);
     } catch (error) {
-        // <-- DEBUG: Error durante fetchData o renderizado
         console.error("DEBUG: Error en cargarHistorialPagos (fetchData o renderizar):", error);
-        // fetchData ya muestra notificación si la API dio error 500, etc.
-        // Solo mostramos error genérico en tabla si no es un error ya notificado
-        if (tablaBodyHistorialPagos && !error.notified) { // Asumiendo que fetchData añade 'notified'
-             tablaBodyHistorialPagos.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Error al cargar historial. Verifique la consola.</td></tr>';
+        // fetchData ya maneja y notifica errores 404, 500, etc.
+        // renderizarHistorialPagos mostrará el error en la tabla si fetchData devuelve un error.
+        // No necesitamos hacer nada extra aquí a menos que fetchData no devuelva error.message
+        if (tablaBodyHistorialPagos && !error.message) {
+            tablaBodyHistorialPagos.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Error desconocido al cargar historial.</td></tr>';
         }
     }
-    // <-- DEBUG: Fin de cargarHistorialPagos
     console.log("DEBUG: Fin de cargarHistorialPagos.");
 }
 
 /** Llena el selector de proveedores para el filtro */
 async function poblarFiltroProveedoresPagos() {
-    // <-- DEBUG: Inicio de poblar filtro
     console.log("DEBUG: Iniciando poblarFiltroProveedoresPagos...");
 
     if (!filtroProveedorSelectPagos) {
@@ -150,19 +137,16 @@ async function poblarFiltroProveedoresPagos() {
     filtroProveedorSelectPagos.innerHTML = '<option value="">-- Todos --</option>';
     filtroProveedorSelectPagos.disabled = true;
 
-    // <-- DEBUG: Verificar negocio activo
     console.log("DEBUG: Verificando negocio activo (poblar filtro). ID:", appState.negocioActivoId);
     if (!appState.negocioActivoId) {
         console.warn("DEBUG: poblarFiltroProveedoresPagos abortado - No hay negocio activo.");
-        return Promise.resolve(); // Resuelve, no hay nada que cargar
+        return Promise.resolve();
     }
 
     try {
         const proveedores = await fetchData(`/api/negocios/${appState.negocioActivoId}/proveedores`);
-        // <-- DEBUG: Proveedores recibidos para el filtro
         console.log("DEBUG: Proveedores recibidos para filtro:", proveedores);
-        
-        // Verificar si es un array antes de iterar
+
         if(Array.isArray(proveedores)) {
             proveedores.forEach(p => {
                 filtroProveedorSelectPagos.appendChild(new Option(p.nombre, p.id));
@@ -172,10 +156,6 @@ async function poblarFiltroProveedoresPagos() {
              throw new Error("Formato de respuesta de proveedores incorrecto.");
         }
 
-
-        // Seleccionar valor si appState.filtroProveedorId tiene algo
-        // (appState.filtroProveedorId se setea en inicializarLogica...)
-        // <-- DEBUG: Verificar filtroProveedorId antes de seleccionar
         console.log("DEBUG: appState.filtroProveedorId antes de seleccionar en filtro:", appState.filtroProveedorId);
         if (appState.filtroProveedorId) {
             if (Array.from(filtroProveedorSelectPagos.options).some(opt => opt.value === appState.filtroProveedorId)) {
@@ -183,13 +163,11 @@ async function poblarFiltroProveedoresPagos() {
                  console.log(`DEBUG: Filtro proveedor preseleccionado a ID: ${appState.filtroProveedorId}`);
             } else {
                  console.warn(`DEBUG: Proveedor ID ${appState.filtroProveedorId} del hash no existe, mostrando todos.`);
-                 // No limpiar appState aquí, se limpia en cargarHistorialPagos
-                 filtroProveedorSelectPagos.value = ""; // Asegurar "Todos"
+                 filtroProveedorSelectPagos.value = "";
             }
         } else {
-             filtroProveedorSelectPagos.value = ""; // Asegurar "Todos"
+             filtroProveedorSelectPagos.value = "";
         }
-
 
         filtroProveedorSelectPagos.disabled = false;
         console.log("DEBUG: Filtro de proveedores poblado.");
@@ -211,8 +189,7 @@ export function inicializarLogicaHistorialPagosProveedores() {
     filtroProveedorSelectPagos = document.getElementById('filtro-proveedor-pagos');
 
     if (!tablaBodyHistorialPagos || !filtroProveedorSelectPagos) {
-        console.error("Error crítico: Faltan elementos HTML en historial_pagos_proveedores.html. IDs buscados:",
-            '#tabla-historial-pagos tbody', '#filtro-proveedor-pagos');
+        console.error("Error crítico: Faltan elementos HTML en historial_pagos_proveedores.html.");
         mostrarNotificacion("Error al cargar la página de historial de pagos.", "error");
         return;
     }
@@ -226,22 +203,19 @@ export function inicializarLogicaHistorialPagosProveedores() {
     filtroProveedorSelectPagos.addEventListener('change', cargarHistorialPagos);
     console.log("DEBUG: Nuevo listener de filtro añadido.");
 
-    // Leer ID de proveedor desde query params (si venimos del botón 'Pagos')
+    // Leer ID de proveedor desde query params
     const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
     const proveedorIdFromUrl = urlParams.get('proveedor');
 
-    // Resetear filtro en appState AL INICIO de la inicialización
     appState.filtroProveedorId = proveedorIdFromUrl || null;
     console.log(`DEBUG: Filtro inicial de proveedor ID desde URL (pagos): ${appState.filtroProveedorId}`);
 
-
-    // Carga inicial: poblar filtro y LUEGO cargar historial
     (async () => {
         try {
             console.log("DEBUG: Llamando a poblarFiltroProveedoresPagos...");
-            await poblarFiltroProveedoresPagos(); // Espera a que el filtro se llene y seleccione
+            await poblarFiltroProveedoresPagos();
             console.log("DEBUG: Llamando a cargarHistorialPagos después de poblar filtro...");
-            await cargarHistorialPagos(); // Carga con el filtro correcto
+            await cargarHistorialPagos();
         } catch (error) {
             console.error("DEBUG: Error durante la inicialización de Historial Pagos:", error);
             if(tablaBodyHistorialPagos) tablaBodyHistorialPagos.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Error al inicializar. Verifique la consola.</td></tr>';
