@@ -229,7 +229,7 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
             elif mov['tipo'] == 'Pago Realizado':
                  # --- ¡¡¡CORRECCIÓN AQUÍ!!! ---
                  # Usar {mov['id']} en lugar de ['id'] dentro de la f-string
-                 concepto = f"Pago ({mov['referencia'] or f'ID:{mov['id']}'})"
+                 concepto = f"Pago ({mov['referencia'] or f'ID:{mov['id']}'})"                 
                  # --- FIN CORRECCIÓN ---
 
             movimientos_procesados.append({
@@ -240,8 +240,7 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
                 'haber': float(haber) if haber > 0 else None,
                 'saldo': float(saldo_actual)
             })
-
-        # --- Devolver Resultados ---
+        
         return jsonify({
             'saldo_inicial': float(saldo_inicial),
             'movimientos': movimientos_procesados,
