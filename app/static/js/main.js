@@ -27,7 +27,7 @@ import { inicializarLogicaPagosProveedores } from './modules/payments.js';
 // --- ASEGÚRATE QUE ESTA IMPORTACIÓN ESTÉ PRESENTE ---
 import { inicializarLogicaInventarioMovil } from './modules/inventario_movil_main.js';
 import { inicializarLogicaHistorialPagosProveedores } from './modules/historial_pagos_proveedores.js';
-
+import { showGlobalLoader, hideGlobalLoader } from '/static/js/uiHelpers.js';
 
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
 window.loadContent = loadContent; // Esencial
