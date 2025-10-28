@@ -25,6 +25,7 @@ import { mostrarNotificacion } from './modules/notifications.js';
 import { inicializarLogicaVerificador } from './modules/verificador.js';
 import { inicializarLogicaPagosProveedores } from './modules/payments.js';
 // --- ASEGÚRATE QUE ESTA IMPORTACIÓN ESTÉ PRESENTE ---
+import { inicializarLogicaInventarioMovil } from './modules/inventario_movil_main.js';
 import { inicializarLogicaHistorialPagosProveedores } from './modules/historial_pagos_proveedores.js';
 
 
@@ -267,6 +268,7 @@ async function inicializarModulo(page) {
         case 'ajuste_caja': inicializarLogicaAjusteCaja(); break;
         case 'historial_presupuestos': inicializarLogicaHistorialPresupuestos(); break;
         case 'presupuestos': inicializarLogicaPresupuestos(); break;
+        case 'inventario_movil':inicializarLogicaInventarioMovil(); break;
         case 'home':
             console.log("Módulo Home detectado.");
             await poblarSelectorNegocios();

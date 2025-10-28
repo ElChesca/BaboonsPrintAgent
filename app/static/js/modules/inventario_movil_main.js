@@ -171,7 +171,7 @@ function iniciarScanner() {
     }
 
     try {
-        if (typeof Html5QrcodeScanner === 'undefined') throw new Error("La librería Html5QrcodeScanner no se cargó.");
+        if (typeof Html5QrcodeScannerState === 'undefined') throw new Error("La librería Html5QrcodeScanner no se cargó.");
         console.log("Html5QrcodeScanner encontrado!");
 
         const formatsToSupport = [
@@ -204,77 +204,77 @@ async function buscarYMostrarProducto(codigo) {
 }
 
 // --- Inicialización y Listeners ---
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log("DOM Cargado.");
+export async function inicializarLogicaInventarioMovil() {
+    console.log("DOM Cargado.");
 
-    // Verifica si TODOS los elementos esenciales existen
-    if (!negocioSelector || !manualCodeInput || !btnBuscarManual || !qrReaderDiv || !statusElement || !productInfoDiv || !productNameEl || !productSkuEl || !productStockEl || !productIdInput || !cantidadNuevaInput || !btnAjustar || !btnCancelar || !btnStartScanner || !errorDiv) {
-        console.error("Error FATAL: Faltan elementos esenciales del DOM. Verifica IDs en inventario_movil.html.");
-        alert("Error: La página no cargó correctamente. Faltan elementos.");
-        return;
-    }
-    console.log("Elementos esenciales encontrados.");
+    // Verifica si TODOS los elementos esenciales existen
+    if (!negocioSelector || !manualCodeInput || !btnBuscarManual || !qrReaderDiv || !statusElement || !productInfoDiv || !productNameEl || !productSkuEl || !productStockEl || !productIdInput || !cantidadNuevaInput || !btnAjustar || !btnCancelar || !btnStartScanner || !errorDiv) {
+        console.error("Error FATAL: Faltan elementos esenciales del DOM. Verifica IDs en inventario_movil.html.");
+        alert("Error: La página no cargó correctamente. Faltan elementos.");
+        return;
+    }
+    console.log("Elementos esenciales encontrados.");
 
-    // --- Carga de Negocios ---
-    try {
-        const negocios = await fetchWithAuth('/api/negocios');
-        negocioSelector.innerHTML = '<option value="">-- Seleccione Negocio --</option>';
-        negocios.forEach(n => { negocioSelector.innerHTML += `<option value="${n.id}">${n.nombre}</option>`; });
-        const savedNegocioId = localStorage.getItem('negocioActivoId');
-        if (savedNegocioId && negocios.some(n => n.id == savedNegocioId)) {
-            negocioSelector.value = savedNegocioId;
-            NEGOCIO_ACTIVO_ID = savedNegocioId;
-            btnStartScanner.classList.remove('hidden');
-            statusElement.textContent = 'Listo. Apunte cámara o ingrese código.';
-        } else {
-             statusElement.textContent = 'Seleccione un negocio.';
-             btnStartScanner.classList.add('hidden'); // Asegura ocultar si no hay negocio
-        }
-    } catch (error) {
-        mostrarError("Error al cargar negocios: " + error.message);
-        negocioSelector.innerHTML = '<option value="">Error</option>';
-        statusElement.textContent = 'Error al cargar negocios.';
-         btnStartScanner.classList.add('hidden'); // Asegura ocultar si hay error
-    }
+    // --- Carga de Negocios ---
+    try {
+        const negocios = await fetchWithAuth('/api/negocios');
+        negocioSelector.innerHTML = '<option value="">-- Seleccione Negocio --</option>';
+        negocios.forEach(n => { negocioSelector.innerHTML += `<option value="${n.id}">${n.nombre}</option>`; });
+        const savedNegocioId = localStorage.getItem('negocioActivoId');
+        if (savedNegocioId && negocios.some(n => n.id == savedNegocioId)) {
+            negocioSelector.value = savedNegocioId;
+            NEGOCIO_ACTIVO_ID = savedNegocioId;
+            btnStartScanner.classList.remove('hidden');
+            statusElement.textContent = 'Listo. Apunte cámara o ingrese código.';
+        } else {
+             statusElement.textContent = 'Seleccione un negocio.';
+             btnStartScanner.classList.add('hidden'); // Asegura ocultar si no hay negocio
+        }
+    } catch (error) {
+        mostrarError("Error al cargar negocios: " + error.message);
+        negocioSelector.innerHTML = '<option value="">Error</option>';
+        statusElement.textContent = 'Error al cargar negocios.';
+         btnStartScanner.classList.add('hidden'); // Asegura ocultar si hay error
+    }
 
-    // --- Listeners ---
-    negocioSelector.addEventListener('change', (e) => {
-        NEGOCIO_ACTIVO_ID = e.target.value;
-        localStorage.setItem('negocioActivoId', NEGOCIO_ACTIVO_ID);
-        resetUI();
-        console.log("Negocio activo:", NEGOCIO_ACTIVO_ID);
-    });
-    btnBuscarManual.addEventListener('click', () => buscarYMostrarProducto(manualCodeInput.value));
-    manualCodeInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarYMostrarProducto(manualCodeInput.value); } });
-    btnStartScanner.addEventListener('click', iniciarScanner);
-    btnAjustar.addEventListener('click', async () => {
-        const productoId = productIdInput.value;
-        const cantidad = cantidadNuevaInput.value;
-        if (!productoId || cantidad === '' || isNaN(parseInt(cantidad))) { // Verifica que cantidad sea un número
-            mostrarError("Ingrese una cantidad válida."); return;
-        }
-        btnAjustar.disabled = true; btnAjustar.textContent = 'Ajustando...';
-        const resultado = await ajustarStock(productoId, cantidad);
-        if (resultado) { alert('Stock ajustado con éxito.'); resetUI(); }
-        // Si hubo error, ajustarStock ya mostró el mensaje
-        btnAjustar.disabled = false; btnAjustar.textContent = '✅ Ajustar Stock';
-    });
-    btnCancelar.addEventListener('click', resetUI);
+    // --- Listeners ---
+    negocioSelector.addEventListener('change', (e) => {
+        NEGOCIO_ACTIVO_ID = e.target.value;
+        localStorage.setItem('negocioActivoId', NEGOCIO_ACTIVO_ID);
+        resetUI();
+        console.log("Negocio activo:", NEGOCIO_ACTIVO_ID);
+    });
+    btnBuscarManual.addEventListener('click', () => buscarYMostrarProducto(manualCodeInput.value));
+    manualCodeInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarYMostrarProducto(manualCodeInput.value); } });
+    btnStartScanner.addEventListener('click', iniciarScanner);
+    btnAjustar.addEventListener('click', async () => {
+        const productoId = productIdInput.value;
+        const cantidad = cantidadNuevaInput.value;
+        if (!productoId || cantidad === '' || isNaN(parseInt(cantidad))) { // Verifica que cantidad sea un número
+            mostrarError("Ingrese una cantidad válida."); return;
+        }
+        btnAjustar.disabled = true; btnAjustar.textContent = 'Ajustando...';
+        const resultado = await ajustarStock(productoId, cantidad);
+        if (resultado) { alert('Stock ajustado con éxito.'); resetUI(); }
+        // Si hubo error, ajustarStock ya mostró el mensaje
+        btnAjustar.disabled = false; btnAjustar.textContent = '✅ Ajustar Stock';
+    });
+    btnCancelar.addEventListener('click', resetUI);
 
-    // Estado inicial UI (redundante pero seguro)
-    qrReaderDiv.classList.add('hidden');
-    productInfoDiv.classList.add('hidden');
-    if (!NEGOCIO_ACTIVO_ID) btnStartScanner.classList.add('hidden');
+    // Estado inicial UI (redundante pero seguro)
+    qrReaderDiv.classList.add('hidden');
+    productInfoDiv.classList.add('hidden');
+    if (!NEGOCIO_ACTIVO_ID) btnStartScanner.classList.add('hidden');
 
-    console.log("Configuración inicial completa.");
-});
+    console.log("Configuración inicial completa.");
+}
 
 // Polyfill para getState() si no existe (algunas versiones viejas de la librería no lo tienen)
 if (typeof Html5QrcodeScannerState === 'undefined') {
     var Html5QrcodeScannerState = { SCANNING: 'SCANNING', NOT_STARTED: 'NOT_STARTED', PAUSED: 'PAUSED' };
     // Añade un método getState simple si no existe
-    if (typeof Html5QrcodeScanner.prototype.getState === 'undefined') {
-         Html5QrcodeScanner.prototype.getState = function() {
+    if (typeof Html5QrcodeScannerState.prototype.getState === 'undefined') {
+         Html5QrcodeScannerState.prototype.getState = function() {
              // Esto es una simplificación, no siempre será 100% preciso
              return this._isScanning ? Html5QrcodeScannerState.SCANNING : Html5QrcodeScannerState.NOT_STARTED;
          };

@@ -52,21 +52,45 @@ def get_negocios(current_user):
 @bp.route('/negocios', methods=['POST'])
 @token_required
 def add_negocio(current_user):
+    # 1. Verificación de rol (sin cambios)
     if current_user['rol'] != 'superadmin':
         return jsonify({'message': 'Acción no permitida'}), 403
+    
     data = request.get_json()
     if not data or 'nombre' not in data:
         return jsonify({'error': 'El campo "nombre" es obligatorio'}), 400
     
+    # ✨ Obtenemos el ID del usuario que está creando el negocio
+    creador_id = current_user['id']
+    
     db = get_db()
     try:
-        db.execute('INSERT INTO negocios (nombre, direccion) VALUES (%s, %s) RETURNING id', (data['nombre'], data.get('direccion', '')))
+        # --- INICIO DE LA TRANSACCIÓN ---
+        
+        # 2. Insertar el nuevo negocio (como antes)
+        db.execute(
+            'INSERT INTO negocios (nombre, direccion) VALUES (%s, %s) RETURNING id', 
+            (data['nombre'], data.get('direccion', ''))
+        )
         nuevo_id = db.fetchone()['id']
+        
+        # 3. ✨ ¡NUEVO! Asignar este negocio recién creado al usuario que lo creó
+        db.execute(
+            'INSERT INTO usuarios_negocios (usuario_id, negocio_id) VALUES (%s, %s)',
+            (creador_id, nuevo_id)
+        )
+        
+        # 4. Confirmar la transacción (ambas inserciones)
         g.db_conn.commit()
+        # --- FIN DE LA TRANSACCIÓN ---
+        
         return jsonify({'id': nuevo_id, 'nombre': data['nombre'], 'direccion': data.get('direccion', '')}), 201
+    
     except Exception as e:
+        # Si algo falla (cualquiera de las dos inserciones), revertimos todo
         g.db_conn.rollback()
-        return jsonify({'error': str(e)}), 500
+        print(f"!!! DATABASE ERROR in add_negocio: {e}") # Mejor log de error
+        return jsonify({'error': f'Error al crear y asignar negocio: {str(e)}'}), 500
 
 @bp.route('/negocios/<int:id>', methods=['GET'])
 @token_required
