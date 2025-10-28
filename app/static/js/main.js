@@ -28,6 +28,19 @@ import { inicializarLogicaPagosProveedores } from './modules/payments.js';
 import { inicializarLogicaHistorialPagosProveedores } from './modules/historial_pagos_proveedores.js';
 
 
+// --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
+window.loadContent = loadContent; // Esencial
+window.borrarProveedor = borrarProveedor; // Mantenido
+// Exponer las otras que SÍ se usan en onclicks de otros módulos HTML
+window.borrarProducto = borrarProducto;
+window.abrirModalEditarProducto = abrirModalEditarProducto;
+window.abrirModalEditarUsuario = abrirModalEditarUsuario;
+window.mostrarDetalleIngreso = mostrarDetalleIngreso;
+window.editarCategoria = editarCategoria;
+window.borrarCategoria = borrarCategoria;
+window.mostrarDetallesCaja = mostrarDetallesCaja;
+window.abrirModalNuevoCliente = abrirModalNuevoCliente;
+
 let onClienteCreadoCallback = null;
 
 export function esAdmin() {
@@ -477,17 +490,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
-
-// --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
-window.loadContent = loadContent; // Esencial
-window.borrarProveedor = borrarProveedor; // Mantenido
-
-// Exponer las otras que SÍ se usan en onclicks de otros módulos HTML
-window.borrarProducto = borrarProducto;
-window.abrirModalEditarProducto = abrirModalEditarProducto;
-window.abrirModalEditarUsuario = abrirModalEditarUsuario;
-window.mostrarDetalleIngreso = mostrarDetalleIngreso;
-window.editarCategoria = editarCategoria;
-window.borrarCategoria = borrarCategoria;
-window.mostrarDetallesCaja = mostrarDetallesCaja;
-window.abrirModalNuevoCliente = abrirModalNuevoCliente;
