@@ -3,8 +3,6 @@ from functools import wraps
 from flask import request, jsonify
 import jwt
 import os # Necesario para leer la SECRET_KEY
-# Asumo que tienes una forma de buscar el usuario, por ejemplo, en database.py
-# from .database import get_db 
 
 def token_required(f):
     @wraps(f)

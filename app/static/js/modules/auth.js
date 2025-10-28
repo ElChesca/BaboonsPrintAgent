@@ -1,4 +1,3 @@
-// ✨ LA RUTA CLAVE: Desde /modules/, busca 'api.js' subiendo un nivel ('../')
 import { fetchData } from '../api.js';
 
 const jwt_decode = window.jwt_decode;
@@ -36,6 +35,10 @@ export function inicializarLogicaLogin() {
     
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        // ✨ 1. MOSTRAR LOADER AL ENVIAR
+        showGlobalLoader(); // Usamos la misma función global
+        errorMessageDiv.textContent = ''; // Limpiar errores previos
+
         const email = document.getElementById('email')?.value;
         const password = document.getElementById('password')?.value;
         const errorMessageDiv = document.getElementById('login-error-message');
@@ -67,6 +70,7 @@ export function inicializarLogicaLogin() {
         } catch (error) {
             errorMessageDiv.textContent = error.message || 'Error de conexión.';
             errorMessageDiv.style.display = 'block';
+            hideGlobalLoader();
         }
     });
 }

@@ -1,3 +1,51 @@
+/* --- Estilos para el Loader Global --- */
+.loader-overlay {
+    /* Posicionamiento para cubrir todo */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    
+    /* Fondo semi-transparente con blur */
+    background-color: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(4px);
+    
+    /* Centrar el contenido */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    
+    /* Asegurar que esté por encima de todo */
+    z-index: 9999;
+    
+    /* Transición suave */
+    transition: opacity 0.3s ease;
+}
+
+/* El spinner (la animación de círculo) */
+.loader-spinner {
+    border: 6px solid #f3f3f3; /* Gris claro */
+    border-top: 6px solid #007bff; /* Azul primario (ajústalo a tu color) */
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1.2s linear infinite;
+}
+
+.loader-overlay p {
+    margin-top: 20px;
+    font-size: 1.1rem;
+    color: #333;
+    font-weight: 500;
+}
+
+/* Animación de rotación */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 /* ==========================================================================
    GLOBAL.CSS - Estilos Generales Multinegocio Baboons (Versión Final Depurada)
    ========================================================================== */

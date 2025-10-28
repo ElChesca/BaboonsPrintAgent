@@ -144,26 +144,35 @@ async function poblarSelectorNegocios() {
 }
 
 export async function actualizarUIAutenticacion() {
-    // ... (código sin cambios) ...
+    // ✨ 1. MOSTRAR EL LOADER INMEDIATAMENTE
+    showGlobalLoader();
+
     console.log("--- Iniciando actualizarUIAutenticacion ---");
-    document.body.className = '';
 
-    const user = getCurrentUser();
-    console.log("Usuario actual (desde token):", user);
+    // ✨ 2. ENVOLVER TODA LA LÓGICA EN UN TRY...FINALLY
+    try {
+        document.body.className = '';
 
-    const mainNav = document.querySelector('#main-nav');
-    const authLink = document.getElementById('auth-link');
-    const businessSelectorBar = document.getElementById('business-selector-bar');
-    const header = document.querySelector('header');
+        const user = getCurrentUser();
+        console.log("Usuario actual (desde token):", user);
 
-    if (!mainNav || !authLink || !businessSelectorBar || !header) {
-        console.error("Error crítico: Faltan elementos base de la UI.");
-        return;
-    }
+        const mainNav = document.querySelector('#main-nav');
+        const authLink = document.getElementById('auth-link');
+        const businessSelectorBar = document.getElementById('business-selector-bar');
+        const header = document.querySelector('header');
 
-    if (user && user.nombre && user.rol) {
-        console.log("Usuario válido. Actualizando UI...");
-        try {
+        if (!mainNav || !authLink || !businessSelectorBar || !header) {
+            console.error("Error crítico: Faltan elementos base de la UI.");
+            // El 'finally' se ejecutará de todas formas antes de salir
+            return;
+        }
+
+        if (user && user.nombre && user.rol) {
+            console.log("Usuario válido. Actualizando UI...");
+            
+            // Eliminamos el try/catch interno para que el 'catch' principal
+            // maneje cualquier error y fuerce el logout si algo falla.
+            
             appState.userRol = user.rol;
             console.log("Rol asignado al estado:", appState.userRol);
 
@@ -179,12 +188,13 @@ export async function actualizarUIAutenticacion() {
             newAuthLink.textContent = `Salir (${user.nombre})`;
             authLink.parentNode.replaceChild(newAuthLink, authLink);
             newAuthLink.addEventListener('click', (e) => {
-                 e.preventDefault();
-                 console.log("Logout iniciado por clic.");
-                 logout();
+                e.preventDefault();
+                console.log("Logout iniciado por clic.");
+                logout();
             });
             console.log("Configurado enlace 'Salir'.");
 
+            // --- PUNTO LENTO 1 ---
             await poblarSelectorNegocios();
             console.log("Selectores de negocio poblados.");
 
@@ -194,41 +204,67 @@ export async function actualizarUIAutenticacion() {
             const contentArea = document.getElementById('content-area');
 
             if (!contentArea) {
-                 console.error("Error crítico: No se encontró #content-area.");
-                 return;
+                console.error("Error crítico: No se encontró #content-area.");
+                return; // El 'finally' se ejecutará
             }
 
             const pageToLoad = requestedPage && requestedPage !== 'login' ? requestedPage : 'home';
             console.log(`Intentando cargar página inicial: ${pageToLoad}`);
             const fullHash = window.location.hash.substring(1);
-            // Asegurarse de que si fullHash está vacío, carguemos home.html
+            
             const pageUrlToLoad = `static/${fullHash.split('?')[0] ? fullHash.split('?')[0] + '.html' : 'home.html'}${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
-             //const pageUrlToLoad = `static/${fullHash || 'home.html'}`; // Lógica anterior, puede fallar si hash es vacío
             console.log(`URL completa a cargar: ${pageUrlToLoad}`);
+            
+            // --- PUNTO LENTO 2 ---
             await loadContent(null, pageUrlToLoad);
 
-
-        } catch (error) {
-            console.error("Fallo DENTRO del bloque try de actualizarUIAutenticacion:", error);
-            logout();
-        }
-    } else {
-        console.log("Usuario NO válido o no encontrado. Preparando UI para login...");
-        appState.userRol = null;
-        appState.negocioActivoId = null;
-        localStorage.removeItem('negocioActivoId');
-
-        header.style.display = 'none';
-
-        if (!window.location.hash.includes('login')) {
-             console.log("No estamos en #login, cargando página de login...");
-             loadContent(null, 'static/login.html');
         } else {
-             console.log("Ya estamos en #login.");
-             inicializarModulo('static/login.html');
+            console.log("Usuario NO válido o no encontrado. Preparando UI para login...");
+            appState.userRol = null;
+            appState.negocioActivoId = null;
+            localStorage.removeItem('negocioActivoId');
+
+            header.style.display = 'none';
+
+            if (!window.location.hash.includes('login')) {
+                console.log("No estamos en #login, cargando página de login...");
+                // --- PUNTO LENTO 3 (en caso de no estar logueado) ---
+                await loadContent(null, 'static/login.html');
+            } else {
+                console.log("Ya estamos en #login.");
+                inicializarModulo('static/login.html');
+            }
         }
+    } catch (error) {
+        // ✨ 3. CAPTURAR CUALQUIER ERROR
+        console.error("Fallo DENTRO del bloque try de actualizarUIAutenticacion:", error);
+        // Si algo falla, es mejor desloguear al usuario para que vuelva a empezar
+        logout();
+    } finally {
+        // ✨ 4. OCULTAR EL LOADER AL FINAL (SIEMPRE)
+        // Esto se ejecuta después del 'try' (si tuvo éxito) o
+        // después del 'catch' (si hubo un error).
+        console.log("--- Fin actualizarUIAutenticacion (finally) ---");
+        hideGlobalLoader();
     }
-     console.log("--- Fin actualizarUIAutenticacion ---");
+}
+
+// --- Funciones para controlar el Loader Global ---
+
+function showGlobalLoader() {
+    const loader = document.getElementById('global-loader');
+    if (loader) {
+        console.log("Mostrando loader global...");
+        loader.style.display = 'flex';
+    }
+}
+
+function hideGlobalLoader() {
+    const loader = document.getElementById('global-loader');
+    if (loader) {
+        console.log("Ocultando loader global...");
+        loader.style.display = 'none';
+    }
 }
 
 async function inicializarModulo(page) {
