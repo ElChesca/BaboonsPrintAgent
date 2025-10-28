@@ -248,25 +248,6 @@ export async function actualizarUIAutenticacion() {
         hideGlobalLoader();
     }
 }
-
-// --- Funciones para controlar el Loader Global ---
-
-function showGlobalLoader() {
-    const loader = document.getElementById('global-loader');
-    if (loader) {
-        console.log("Mostrando loader global...");
-        loader.style.display = 'flex';
-    }
-}
-
-function hideGlobalLoader() {
-    const loader = document.getElementById('global-loader');
-    if (loader) {
-        console.log("Ocultando loader global...");
-        loader.style.display = 'none';
-    }
-}
-
 async function inicializarModulo(page) {
     console.log(`inicializarModulo llamada con page = "${page}"`);
     if (!page) {

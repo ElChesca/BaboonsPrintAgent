@@ -1,4 +1,5 @@
 import { fetchData } from '../api.js';
+import { showGlobalLoader, hideGlobalLoader } from '/static/js/uiHelpers.js';
 
 const jwt_decode = window.jwt_decode;
 
