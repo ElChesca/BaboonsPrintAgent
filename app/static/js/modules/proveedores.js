@@ -104,8 +104,3 @@ function handleTablaClick(e) { /* ... sin cambios ... */ }
 function closeModalCtaCteHandler() { /* ... sin cambios ... */ }
 
 export function inicializarLogicaProveedores() { /* ... sin cambios ... */ }
-
-// --- ¡¡¡CORRECCIÓN FINAL!!! ---
-// Quitamos la exportación duplicada de borrarProveedor al final
-// export { inicializarLogicaProveedores, borrarProveedor }; // <-- LÍNEA ELIMINADA O CORREGIDA ASÍ:
-export { inicializarLogicaProveedores }; // Solo exportamos la función de inicialización aquí
