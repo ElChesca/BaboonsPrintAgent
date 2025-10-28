@@ -82,5 +82,6 @@ def create_app():
         app.logger.debug(f"Ruta '{path}' no reconocida, sirviendo index.html.")
         return render_template("index.html")
 
+    print(app.url_map)
     return app
 
