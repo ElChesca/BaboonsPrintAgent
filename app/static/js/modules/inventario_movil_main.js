@@ -206,7 +206,18 @@ async function buscarYMostrarProducto(codigo) {
 // --- Inicialización y Listeners ---
 export async function inicializarLogicaInventarioMovil() {
     console.log("DOM Cargado.");
-
+    // Polyfill para getState() si no existe (algunas versiones viejas de la librería no lo tienen)
+    if (typeof Html5QrcodeScannerState === 'undefined') {
+        var Html5QrcodeScannerState = { SCANNING: 'SCANNING', NOT_STARTED: 'NOT_STARTED', PAUSED: 'PAUSED' };
+        // Añade un método getState simple si no existe
+        if (typeof Html5QrcodeScannerState.prototype.getState === 'undefined') {
+            Html5QrcodeScannerState.prototype.getState = function() {
+                // Esto es una simplificación, no siempre será 100% preciso
+                return this._isScanning ? Html5QrcodeScannerState.SCANNING : Html5QrcodeScannerState.NOT_STARTED;
+            };
+        }
+    }
+    console.log("La Funcion Poylfill se ha aplicado si era necesario.");
     // Verifica si TODOS los elementos esenciales existen
     if (!negocioSelector || !manualCodeInput || !btnBuscarManual || !qrReaderDiv || !statusElement || !productInfoDiv || !productNameEl || !productSkuEl || !productStockEl || !productIdInput || !cantidadNuevaInput || !btnAjustar || !btnCancelar || !btnStartScanner || !errorDiv) {
         console.error("Error FATAL: Faltan elementos esenciales del DOM. Verifica IDs en inventario_movil.html.");
@@ -269,14 +280,3 @@ export async function inicializarLogicaInventarioMovil() {
     console.log("Configuración inicial completa.");
 }
 
-// Polyfill para getState() si no existe (algunas versiones viejas de la librería no lo tienen)
-if (typeof Html5QrcodeScannerState === 'undefined') {
-    var Html5QrcodeScannerState = { SCANNING: 'SCANNING', NOT_STARTED: 'NOT_STARTED', PAUSED: 'PAUSED' };
-    // Añade un método getState simple si no existe
-    if (typeof Html5QrcodeScannerState.prototype.getState === 'undefined') {
-         Html5QrcodeScannerState.prototype.getState = function() {
-             // Esto es una simplificación, no siempre será 100% preciso
-             return this._isScanning ? Html5QrcodeScannerState.SCANNING : Html5QrcodeScannerState.NOT_STARTED;
-         };
-    }
-}
