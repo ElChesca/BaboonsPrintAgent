@@ -157,3 +157,5 @@ def get_historial_pagos_proveedor(current_user, negocio_id):
         print(f"Error en get_historial_pagos_proveedor:")
         traceback.print_exc()
         return jsonify({'error': f'Error al obtener historial de pagos: {str(e)}'}), 500
+    
+    #Prueba final
