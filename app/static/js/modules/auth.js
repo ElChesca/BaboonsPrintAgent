@@ -29,24 +29,33 @@ export function logout() {
 }
 
 // ... (al principio de auth.js, los imports y otras funciones no cambian)
-
 export function inicializarLogicaLogin() {
     const form = document.getElementById('login-form');
     if (!form) return;
     
+    // ✨ 1. Declara 'errorMessageDiv' aquí arriba, una sola vez.
+    const errorMessageDiv = document.getElementById('login-error-message');
+    if (!errorMessageDiv) {
+        console.error("Error crítico: No se encontró el div 'login-error-message'");
+        return;
+    }
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        // ✨ 1. MOSTRAR LOADER AL ENVIAR
-        showGlobalLoader(); // Usamos la misma función global
-        errorMessageDiv.textContent = ''; // Limpiar errores previos
+        
+        // ✨ 2. MOSTRAR LOADER AL ENVIAR
+        showGlobalLoader(); 
+        errorMessageDiv.textContent = ''; // <-- Ahora esto funciona perfectamente
+        errorMessageDiv.style.display = 'none'; // <-- Ocultarlo también
 
         const email = document.getElementById('email')?.value;
         const password = document.getElementById('password')?.value;
-        const errorMessageDiv = document.getElementById('login-error-message');
+        
 
         if (!email || !password) {
             errorMessageDiv.textContent = 'Por favor, complete ambos campos.';
             errorMessageDiv.style.display = 'block';
+            hideGlobalLoader(); // <-- No olvides ocultar el loader si hay error
             return;
         }
         
@@ -60,18 +69,15 @@ export function inicializarLogicaLogin() {
 
             localStorage.setItem('jwt_token', data.token);
             
-            // 1. "Toca el timbre" para que main.js actualice la UI (menú, etc.)
             window.dispatchEvent(new Event('authChange'));
 
-            // ✨ 2. LA CORRECCIÓN CLAVE: El login ahora se encarga de la redirección.
-            // Buscamos el enlace del home para pasarlo a loadContent y que lo marque como activo.
             const homeLink = document.querySelector('a[onclick*="home.html"]');
             window.loadContent(null, 'static/home.html', homeLink);
 
         } catch (error) {
             errorMessageDiv.textContent = error.message || 'Error de conexión.';
             errorMessageDiv.style.display = 'block';
-            hideGlobalLoader();
+            hideGlobalLoader(); // <-- Ocultar el loader si la API falla
         }
     });
 }
