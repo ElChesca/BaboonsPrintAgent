@@ -9,33 +9,22 @@ const v = `?v=${APP_VERSION}`;
 
 
 // --- ✨ 2. IMPORTACIONES ESTÁTICAS (Núcleo de la App) ---
-// Mantenemos solo lo que se usa en *todas* las páginas o en este mismo archivo.
-import { showGlobalLoader, hideGlobalLoader } from `/static/js/uiHelpers.js${v}`;
-import { fetchData, sendData } from './api.js${v}';
-// Solo importamos lo global de auth. 'inicializarLogicaLogin' será dinámico.
-import { getCurrentUser, logout } from './modules/auth.js${v}';
-import { mostrarNotificacion } from './modules/notifications.js${v}';
+// ✨ ¡CORREGIDO! Estos 'import' deben ser strings fijos, sin la variable '${v}'.
+// ✨ El navegador maneja el cache-busting de estos módulos principales
+// ✨ a través de la carga del propio main.js (que sí tiene el ?v=).
+import { showGlobalLoader, hideGlobalLoader } from '/static/js/uiHelpers.js';
+import { fetchData, sendData } from './api.js';
+import { getCurrentUser, logout } from './modules/auth.js';
+import { mostrarNotificacion } from './modules/notifications.js';
 
 // --- ✨ 3. FUNCIONES GLOBALES (para onclick) ---
-// Para no romper tus 'onclick="borrarProducto(...)"', mantenemos estas
-// importaciones estáticas.
-import { borrarProveedor } from './modules/proveedores.js${v}';
-import { abrirModalEditarUsuario } from './modules/users.js${v}';
-import { mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js${v}';
-import { abrirModalEditarProducto, borrarProducto } from './modules/inventory.js${v}';
-import { editarCategoria, borrarCategoria } from './modules/categorias.js${v}';
-import { mostrarDetallesCaja } from './modules/reporte_caja.js${v}';
-
-
-/* // ✨ 4. IMPORTACIONES DINÁMICAS (Eliminadas de aquí)
-// Todas estas líneas fueron eliminadas del inicio para cargarlas dinámicamente.
-// Ya no están:
-// import { inicializarLogicaProveedores } from './modules/proveedores.js';
-// import { inicializarLogicaClientes } from './modules/clientes.js';
-// import { inicializarLogicaIngresos } from './modules/ingresos.js';
-// ...y todos los demás 'inicializarLogica...'
-*/
-
+// ✨ ¡CORREGIDO! Estos también deben ser strings fijos.
+import { borrarProveedor } from './modules/proveedores.js';
+import { abrirModalEditarUsuario } from './modules/users.js';
+import { mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js';
+import { abrirModalEditarProducto, borrarProducto } from './modules/inventory.js';
+import { editarCategoria, borrarCategoria } from './modules/categorias.js';
+import { mostrarDetallesCaja } from './modules/reporte_caja.js';
 
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES (Sin cambios) ---
 window.loadContent = loadContent; // Esencial
@@ -65,7 +54,7 @@ function loadPageCSS(pageName) {
     const existingStyle = document.getElementById('page-specific-style');
     if (existingStyle) existingStyle.remove();
     if (pageName) {
-        // ✨ Añadido el versionado al CSS
+        // ✨ El CSS sí es dinámico, por lo que SÍ usa 'v'
         const cssFile = `${pageName}.css${v}`;
         const link = document.createElement('link');
         link.id = 'page-specific-style';
@@ -80,10 +69,7 @@ function loadPageCSS(pageName) {
     }
 }
 
-// 'poblarSelectorNegocios' y 'actualizarUIAutenticacion'
-// se mantienen idénticos en su lógica. No los pego para abreviar.
 async function poblarSelectorNegocios() {
-    // ... (código sin cambios) ...
     console.log("Iniciando poblarSelectorNegocios...");
     const mainSelector = document.getElementById('selector-negocio');
     const homeSelector = document.getElementById('home-selector-negocio');
@@ -100,137 +86,139 @@ async function poblarSelectorNegocios() {
     });
 
     try {
-         const negocios = await fetchData(`/api/negocios${v}`); // Aseguramos cache-busting en API
-         console.log("Negocios recibidos del API:", negocios);
+        // ✨ fetchData SÍ usa 'v' (pero esto lo maneja la función api.js)
+        // ✨ ¡PERO! la URL de la API no debería llevar el ?v=, 
+        // ✨ eso es para archivos estáticos, no para endpoints.
+        // ✨ Quitamos el ${v} de la llamada a la API.
+        const negocios = await fetchData(`/api/negocios`); 
+        console.log("Negocios recibidos del API:", negocios);
 
-         let idSeleccionado = null;
-         if (negocios && negocios.length > 0) {
-             idSeleccionado = negocios[0].id;
-             const savedNegocioId = localStorage.getItem('negocioActivoId');
-             if (savedNegocioId && negocios.some(n => String(n.id) === String(savedNegocioId))) {
-                 idSeleccionado = savedNegocioId;
-             }
-         }
+        let idSeleccionado = null;
+        if (negocios && negocios.length > 0) {
+            idSeleccionado = negocios[0].id;
+            const savedNegocioId = localStorage.getItem('negocioActivoId');
+            if (savedNegocioId && negocios.some(n => String(n.id) === String(savedNegocioId))) {
+                idSeleccionado = savedNegocioId;
+            }
+        }
 
-         appState.negocioActivoId = idSeleccionado ? String(idSeleccionado) : null;
+        appState.negocioActivoId = idSeleccionado ? String(idSeleccionado) : null;
 
-         if (appState.negocioActivoId) {
-             localStorage.setItem('negocioActivoId', appState.negocioActivoId);
-         } else {
-             localStorage.removeItem('negocioActivoId');
-             console.warn("No hay negocio activo o seleccionado.");
-         }
+        if (appState.negocioActivoId) {
+            localStorage.setItem('negocioActivoId', appState.negocioActivoId);
+        } else {
+            localStorage.removeItem('negocioActivoId');
+            console.warn("No hay negocio activo o seleccionado.");
+        }
 
 
-         selectors.forEach(selector => {
-             selector.innerHTML = '';
-             if (!negocios || negocios.length === 0) {
-                 selector.appendChild(new Option("No asignados", ""));
-                 selector.disabled = true;
-             } else {
-                 negocios.forEach(negocio => {
-                     selector.appendChild(new Option(negocio.nombre, negocio.id));
-                 });
-                 if (appState.negocioActivoId && negocios.some(n => String(n.id) === appState.negocioActivoId)) {
-                     selector.value = appState.negocioActivoId;
-                 } else if (negocios.length > 0) {
-                     selector.value = negocios[0].id;
-                     appState.negocioActivoId = String(negocios[0].id);
-                     localStorage.setItem('negocioActivoId', appState.negocioActivoId);
-                 }
-                 selector.disabled = false;
-             }
-         });
+        selectors.forEach(selector => {
+            selector.innerHTML = '';
+            if (!negocios || negocios.length === 0) {
+                selector.appendChild(new Option("No asignados", ""));
+                selector.disabled = true;
+            } else {
+                negocios.forEach(negocio => {
+                    selector.appendChild(new Option(negocio.nombre, negocio.id));
+                });
+                if (appState.negocioActivoId && negocios.some(n => String(n.id) === appState.negocioActivoId)) {
+                    selector.value = appState.negocioActivoId;
+                } else if (negocios.length > 0) {
+                    selector.value = negocios[0].id;
+                    appState.negocioActivoId = String(negocios[0].id);
+                    localStorage.setItem('negocioActivoId', appState.negocioActivoId);
+                }
+                selector.disabled = false;
+            }
+        });
 
-         console.log("Poblado finalizado. Negocio activo state:", appState.negocioActivoId);
+        console.log("Poblado finalizado. Negocio activo state:", appState.negocioActivoId);
     } catch (error) {
-         console.error("Error en poblarSelectorNegocios:", error);
-         mostrarNotificacion("Error al cargar negocios.", "error");
-         selectors.forEach(selector => {
-             selector.innerHTML = '<option value="">Error</option>';
-             selector.disabled = true;
-         });
+        console.error("Error en poblarSelectorNegocios:", error);
+        mostrarNotificacion("Error al cargar negocios.", "error");
+        selectors.forEach(selector => {
+            selector.innerHTML = '<option value="">Error</option>';
+            selector.disabled = true;
+        });
     }
 }
 
 export async function actualizarUIAutenticacion() {
-    // ... (código sin cambios) ...
     showGlobalLoader();
     console.log("--- Iniciando actualizarUIAutenticacion ---");
     try {
-         document.body.className = '';
-         const user = getCurrentUser();
-         console.log("Usuario actual (desde token):", user);
-         const mainNav = document.querySelector('#main-nav');
-         const authLink = document.getElementById('auth-link');
-         const businessSelectorBar = document.getElementById('business-selector-bar');
-         const header = document.querySelector('header');
+        document.body.className = '';
+        const user = getCurrentUser();
+        console.log("Usuario actual (desde token):", user);
+        const mainNav = document.querySelector('#main-nav');
+        const authLink = document.getElementById('auth-link');
+        const businessSelectorBar = document.getElementById('business-selector-bar');
+        const header = document.querySelector('header');
 
-         if (!mainNav || !authLink || !businessSelectorBar || !header) {
-             console.error("Error crítico: Faltan elementos base de la UI.");
-             return;
-         }
+        if (!mainNav || !authLink || !businessSelectorBar || !header) {
+            console.error("Error crítico: Faltan elementos base de la UI.");
+            return;
+        }
 
-         if (user && user.nombre && user.rol) {
-             console.log("Usuario válido. Actualizando UI...");
-             appState.userRol = user.rol;
-             console.log("Rol asignado al estado:", appState.userRol);
-             document.body.classList.add('rol-' + user.rol);
-             console.log("Clase de rol añadida al body:", 'rol-' + user.rol);
-             header.style.display = 'flex';
-             mainNav.style.display = 'flex';
-             businessSelectorBar.style.display = 'flex';
-             authLink.textContent = `Salir (${user.nombre})`;
-             const newAuthLink = authLink.cloneNode(true);
-             newAuthLink.textContent = `Salir (${user.nombre})`;
-             authLink.parentNode.replaceChild(newAuthLink, authLink);
-             newAuthLink.addEventListener('click', (e) => {
-                 e.preventDefault();
-                 console.log("Logout iniciado por clic.");
-                 logout();
-             });
-             console.log("Configurado enlace 'Salir'.");
-             await poblarSelectorNegocios();
-             console.log("Selectores de negocio poblados.");
-             console.log("Actualización de UI base completada.");
-             const requestedPage = window.location.hash.substring(1).split('?')[0];
-             const contentArea = document.getElementById('content-area');
+        if (user && user.nombre && user.rol) {
+            console.log("Usuario válido. Actualizando UI...");
+            appState.userRol = user.rol;
+            console.log("Rol asignado al estado:", appState.userRol);
+            document.body.classList.add('rol-' + user.rol);
+            console.log("Clase de rol añadida al body:", 'rol-' + user.rol);
+            header.style.display = 'flex';
+            mainNav.style.display = 'flex';
+            businessSelectorBar.style.display = 'flex';
+            authLink.textContent = `Salir (${user.nombre})`;
+            const newAuthLink = authLink.cloneNode(true);
+            newAuthLink.textContent = `Salir (${user.nombre})`;
+            authLink.parentNode.replaceChild(newAuthLink, authLink);
+            newAuthLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log("Logout iniciado por clic.");
+                logout();
+            });
+            console.log("Configurado enlace 'Salir'.");
+            await poblarSelectorNegocios();
+            console.log("Selectores de negocio poblados.");
+            console.log("Actualización de UI base completada.");
+            const requestedPage = window.location.hash.substring(1).split('?')[0];
+            const contentArea = document.getElementById('content-area');
 
-             if (!contentArea) {
-                 console.error("Error crítico: No se encontró #content-area.");
-                 return;
-             }
+            if (!contentArea) {
+                console.error("Error crítico: No se encontró #content-area.");
+                return;
+            }
 
-             const pageToLoad = requestedPage && requestedPage !== 'login' ? requestedPage : 'home';
-             console.log(`Intentando cargar página inicial: ${pageToLoad}`);
-             const fullHash = window.location.hash.substring(1);
-             const pageUrlToLoad = `static/${fullHash.split('?')[0] ? fullHash.split('?')[0] + '.html' : 'home.html'}${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
-             console.log(`URL completa a cargar: ${pageUrlToLoad}`);
-             await loadContent(null, pageUrlToLoad);
+            const pageToLoad = requestedPage && requestedPage !== 'login' ? requestedPage : 'home';
+            console.log(`Intentando cargar página inicial: ${pageToLoad}`);
+            const fullHash = window.location.hash.substring(1);
+            const pageUrlToLoad = `static/${fullHash.split('?')[0] ? fullHash.split('?')[0] + '.html' : 'home.html'}${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
+            console.log(`URL completa a cargar: ${pageUrlToLoad}`);
+            await loadContent(null, pageUrlToLoad);
 
-         } else {
-             console.log("Usuario NO válido o no encontrado. Preparando UI para login...");
-             appState.userRol = null;
-             appState.negocioActivoId = null;
-             localStorage.removeItem('negocioActivoId');
-             header.style.display = 'none';
+        } else {
+            console.log("Usuario NO válido o no encontrado. Preparando UI para login...");
+            appState.userRol = null;
+            appState.negocioActivoId = null;
+            localStorage.removeItem('negocioActivoId');
+            header.style.display = 'none';
 
-             if (!window.location.hash.includes('login')) {
-                 console.log("No estamos en #login, cargando página de login...");
-                 await loadContent(null, 'static/login.html');
-             } else {
-                 console.log("Ya estamos en #login.");
-                 // Aseguramos que el módulo login se inicialice si ya estamos en el hash
-                 const pageUrl = `static/login.html${window.location.hash.split('?')[1] ? '?' + window.location.hash.split('?')[1] : ''}`;
-                 await inicializarModulo(pageUrl);
-             }
-         }
+            if (!window.location.hash.includes('login')) {
+                console.log("No estamos en #login, cargando página de login...");
+                await loadContent(null, 'static/login.html');
+            } else {
+                console.log("Ya estamos en #login.");
+                const pageUrl = `static/login.html${window.location.hash.split('?')[1] ? '?' + window.location.hash.split('?')[1] : ''}`;
+                await inicializarModulo(pageUrl);
+            }
+        }
     } catch (error) {
-         console.error("Fallo DENTRO del bloque try de actualizarUIAutenticacion:", error);
-         logout();
+        console.error("Fallo DENTRO del bloque try de actualizarUIAutenticacion:", error);
+        logout();
     } finally {
-         console.log("--- Fin actualizarUIAutenticacion (finally) ---");
-         hideGlobalLoader();
+        console.log("--- Fin actualizarUIAutenticacion (finally) ---");
+        hideGlobalLoader();
     }
 }
 
@@ -252,7 +240,8 @@ async function inicializarModulo(page) {
         window.currentChartInstance = null;
     }
 
-    // ✨ Usamos try/catch para manejar errores en la carga dinámica
+    // ✨ Aquí SÍ usamos la variable 'v' con template literals (backticks `)
+    // ✨ porque es un import() DINÁMICO.
     try {
         switch(pageName) {
             case 'inventario': 
@@ -360,7 +349,6 @@ async function inicializarModulo(page) {
                 inicializarLogicaHistorialPagosProveedores(); 
                 break;
             
-            // Módulos que ya eran dinámicos, solo añadimos el versionado
             case 'configuracion':
                 const { inicializarConfiguracion } = await import(`./modules/configuracion.js${v}`);
                 inicializarConfiguracion();
@@ -386,7 +374,6 @@ async function inicializarModulo(page) {
         }
         console.log(`Módulo ${pageName} inicializado.`);
     } catch (error) {
-        // Captura errores de import() o de inicialización
         console.error(`Error al cargar dinámicamente el módulo ${pageName}:`, error);
         mostrarNotificacion(`Error fatal al cargar la sección ${pageName}.`, 'error');
     }
@@ -396,10 +383,7 @@ async function inicializarModulo(page) {
 // ==========================================================================
 
 
-// 'loadContent' y 'abrirModalNuevoCliente' 
-// se mantienen idénticos en su lógica. No los pego para abreviar.
 export function loadContent(event, page, clickedLink, fromHistory = false) {
-    // ... (código sin cambios) ...
     console.log(`loadContent llamado para: ${page}, desde historial: ${fromHistory}`);
     if (event) event.preventDefault();
 
@@ -417,13 +401,11 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     if (!fromHistory && currentUrlBase === targetUrlBase) {
          console.log(`Ya estamos en ${targetHash}, no se recarga HTML.`);
          if(window.location.hash !== fullTargetHash) {
-             history.pushState({ page: page }, '', fullTargetHash);
-             // Opcional: Re-inicializar si solo cambian query params
-             // inicializarModulo(page).catch(err => console.error...);
+              history.pushState({ page: page }, '', fullTargetHash);
          }
          const navContainer = document.querySelector('.nav-container');
          if (navContainer && navContainer.classList.contains('is-active')) {
-             navContainer.classList.remove('is-active');
+              navContainer.classList.remove('is-active');
          }
          return;
     }
@@ -438,7 +420,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     const isLoginPage = pageName === 'login';
     if (header) header.style.display = isLoginPage ? 'none' : 'flex';
 
-    // ✨ Añadimos el versionado al 'fetch' del HTML
+    // ✨ El fetch del HTML SÍ usa 'v'
     const pageToFetch = `${pagePath}${v}`;
 
     fetch(pageToFetch)
@@ -467,7 +449,6 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
                           console.warn(`No se encontró link activo para ${pageName} usando selectores: ${linkSelectorOnClick}, ${linkSelectorHref}`);
                      }
 
-                     // 'inicializarModulo' ahora es async, lo manejamos con catch
                      inicializarModulo(page).catch(err => {
                           console.error(`Error durante inicializarModulo para ${page}:`, err);
                           mostrarNotificacion(`Error al inicializar la sección ${pageName}.`, 'error');
@@ -491,7 +472,6 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
 }
 
 export function abrirModalNuevoCliente(callback) {
-    // ... (código sin cambios) ...
     const modal = document.getElementById('modal-nuevo-cliente');
     const form = document.getElementById('form-nuevo-cliente');
     if (modal) {
@@ -514,24 +494,20 @@ function reiniciarTemporizador() {
     clearTimeout(temporizadorInactividad);
     
     temporizadorInactividad = setTimeout(() => {
-        // Usamos las funciones importadas 'getCurrentUser' y 'logout'
-        const user = getCurrentUser();
-        if (user && !window.location.hash.includes('login')) {
-            console.log("Inactividad detectada. Deslogueando...");
-            mostrarNotificacion("Sesión cerrada por inactividad.", "warning");
-            logout(); // Llama a tu función de logout existente
-        }
+         const user = getCurrentUser();
+         if (user && !window.location.hash.includes('login')) {
+             console.log("Inactividad detectada. Deslogueando...");
+             mostrarNotificacion("Sesión cerrada por inactividad.", "warning");
+             logout(); 
+         }
     }, TIMEOUT_INACTIVIDAD);
 }
 
-// Eventos que cuentan como "actividad"
 window.addEventListener('mousemove', reiniciarTemporizador);
 window.addEventListener('keydown', reiniciarTemporizador);
 window.addEventListener('scroll', reiniciarTemporizador);
 window.addEventListener('click', reiniciarTemporizador);
 window.addEventListener('touchstart', reiniciarTemporizador);
-// ==========================================================================
-// ✨ FIN DE TEMPORIZADOR
 // ==========================================================================
 
 
@@ -542,49 +518,47 @@ document.addEventListener('DOMContentLoaded', () => {
     reiniciarTemporizador();
 
     document.body.addEventListener('change', (e) => {
-        if (e.target.id === 'selector-negocio') {
-            console.log("Cambio de negocio en selector principal.");
-            const nuevoNegocioId = e.target.value;
-            if (nuevoNegocioId && appState.negocioActivoId !== nuevoNegocioId) {
+         if (e.target.id === 'selector-negocio') {
+             console.log("Cambio de negocio en selector principal.");
+             const nuevoNegocioId = e.target.value;
+             if (nuevoNegocioId && appState.negocioActivoId !== nuevoNegocioId) {
                  appState.negocioActivoId = nuevoNegocioId;
                  localStorage.setItem('negocioActivoId', nuevoNegocioId);
                  console.log("Negocio activo actualizado a:", nuevoNegocioId);
                  const currentPage = window.location.hash.substring(1).split('?')[0] || 'home';
                  console.log(`Recargando módulo actual: ${currentPage}`);
-                 // Añadimos el query string si existe
                  const queryString = window.location.hash.split('?')[1];
                  const pageUrl = `static/${currentPage}.html${queryString ? '?' + queryString : ''}`;
                  loadContent(null, pageUrl);
-            } else if (!nuevoNegocioId) {
+             } else if (!nuevoNegocioId) {
                  console.warn("Se seleccionó 'No asignados' o valor inválido.");
                  const contentArea = document.getElementById('content-area');
                  if(contentArea) contentArea.innerHTML = '<p style="text-align: center; margin-top: 50px;">Por favor, seleccione un negocio activo.</p>';
                  appState.negocioActivoId = null;
                  localStorage.removeItem('negocioActivoId');
-            }
-        }
+             }
+         }
     });
 
     window.addEventListener('popstate', (e) => {
-        console.log("Evento popstate detectado:", e.state);
-        const currentHashPageName = window.location.hash.substring(1).split('?')[0];
-        const pageFromState = e.state?.page;
+         console.log("Evento popstate detectado:", e.state);
+         const currentHashPageName = window.location.hash.substring(1).split('?')[0];
+         const pageFromState = e.state?.page;
 
-        if (pageFromState) {
+         if (pageFromState) {
              console.log(`Cargando página desde historial: ${pageFromState}`);
              loadContent(null, pageFromState, null, true);
-        } else if (!window.location.hash || currentHashPageName === 'home') {
+         } else if (!window.location.hash || currentHashPageName === 'home') {
              console.log("URL base o #home detectada, cargando home desde popstate.");
              loadContent(null, 'static/home.html', null, true);
-        } else if (currentHashPageName && currentHashPageName !== 'login'){
+         } else if (currentHashPageName && currentHashPageName !== 'login'){
              console.log(`Hash ${currentHashPageName} sin estado detectado, cargando página.`);
-             // Reconstruimos la URL completa desde el hash actual
              const fullHash = window.location.hash.substring(1);
              const pageUrl = `static/${fullHash.split('?')[0]}.html${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
              loadContent(null, pageUrl, null, true);
-        } else {
+         } else {
              console.log("Popstate sin estado relevante o ya en login.");
-        }
+         }
     });
 
 
@@ -610,7 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ✨ 8. REGISTRO DEL SERVICE WORKER (Con versionado)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        // Añadimos 'v' para forzar la actualización del SW
+        // ✨ El SW SÍ usa 'v' para forzar la actualización
         navigator.serviceWorker.register(`/service-worker.js${v}`) 
           .then((registration) => {
             console.log('¡Service Worker registrado con éxito! Alcance:', registration.scope);
