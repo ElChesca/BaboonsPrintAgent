@@ -1,49 +1,66 @@
-// El nombre de nuestra "caja" de caché.
-// ¡IMPORTANTE! Si alguna vez actualizás tus archivos (ej: global.css?v=2.1),
-// tenés que cambiar este nombre (ej: 'baboons-cache-v2') para forzar la actualización.
-const CACHE_NAME = 'baboons-cache-v1';
+// app/static/service-worker.js
 
-// ¡Tu global.css DEBE coincidir con la versión del index.html!
+// ✨ ========================================================================
+// ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
+// ✨ ¡IMPORTANTE! Esta versión DEBE ser IDÉNTICA a la de tu main.js
+// ✨ Es el único paso "manual" que debes hacer.
+// ✨ ========================================================================
+const APP_VERSION = "1.0.1"; 
+// ==========================================================================
+
+const v = `?v=${APP_VERSION}`;
+// El nombre de la caché AHORA depende de la versión de la app.
+// Cuando cambies a "1.0.1", se creará una caché nueva: 'baboons-cache-v1.0.1'
+const CACHE_NAME = `baboons-cache-v${APP_VERSION}`;
+
+// ✨ Lista de archivos del "App Shell" (Lo mínimo para arrancar)
+// ✨ Ahora todos usan la variable 'v' para coincidir con lo que
+// ✨ pedirán tu index.html y tu main.js
 const urlsToCache = [
-  '/', // La página principal
-  '/index.html',
-  '/static/css/global.css?v=2.4', // tiene que se coincidente con index!
-  '/static/js/main.js',
-  '/static/js/api.js',
-  '/static/js/modules/auth.js',
-  '/static/js/modules/notifications.js',
-  '/static/home.html', // El módulo principal
-  '/static/login.html', // El módulo de login
-  '/static/img/logo.png',
-  '/static/img/logo-192.png', // Los íconos de la PWA
+  '/',
+  `/index.html`, // Generalmente no se versiona el index.html
+  `/static/css/global.css${v}`, // ¡Debe coincidir con tu index.html!
+  `/static/js/main.js${v}`,
+  `/static/js/api.js${v}`,
+  `/static/js/uiHelpers.js${v}`,
+  `/static/js/modules/auth.js${v}`,
+  `/static/js/modules/notifications.js${v}`,
+  `/static/home.html${v}`, // Los HTML que carga fetch SÍ se versionan
+  `/static/login.html${v}`,
+  '/static/img/logo.png', // Los logos no suelen cambiar
+  '/static/img/logo-192.png',
   '/static/img/logo-512.png',
-  'https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js' // La librería JWT
+  'https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js'
 ];
 
-// Evento 'install': Se dispara cuando el navegador instala el Service Worker.
-// Aquí es donde guardamos nuestros archivos esenciales en la caché.
+// --- Evento 'install': Guarda el "App Shell" en la caché ---
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Instalando...');
+  console.log(`[Service Worker] Instalando v${APP_VERSION}...`);
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('[Service Worker] Abriendo caché y guardando archivos esenciales');
+        console.log('[Service Worker] Precargando App Shell en caché.');
+        // Usamos addAll. Si UN SOLO archivo falla (ej. 404), la instalación falla.
         return cache.addAll(urlsToCache);
       })
       .then(() => {
-        self.skipWaiting(); // Forza al SW a activarse inmediatamente
+        self.skipWaiting(); // Forza al SW a activarse
+      })
+      .catch((error) => {
+          console.error('[Service Worker] Falló la instalación (addAll):', error);
+          // Si falla aquí, el SW no se instalará. Revisa que todas las rutas en urlsToCache sean correctas.
       })
   );
 });
 
-// Evento 'activate': Se dispara cuando el Service Worker se activa.
-// Aquí limpiamos cachés viejas si hemos actualizado la versión (CACHE_NAME).
+// --- Evento 'activate': Limpia las cachés antiguas ---
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activando...');
+  console.log(`[Service Worker] Activando v${APP_VERSION}...`);
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
+          // ✨ ¡Magia! Borra CUALQUIER caché que no sea la actual.
           if (cacheName !== CACHE_NAME) {
             console.log('[Service Worker] Borrando caché antigua:', cacheName);
             return caches.delete(cacheName);
@@ -52,35 +69,46 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  return self.clients.claim(); // Toma control de todas las pestañas abiertas
+  return self.clients.claim();
 });
 
-// Evento 'fetch': ¡El más importante! Se dispara CADA VEZ que tu app pide un recurso.
+// --- Evento 'fetch': Intercepta todas las peticiones ---
 self.addEventListener('fetch', (event) => {
-  // Solo nos interesan las peticiones GET (no POST a la API)
+  // No nos interesan peticiones que no sean GET (ej. POST a la API)
   if (event.request.method !== 'GET') {
     return;
   }
+  
+  // No cacheamos las peticiones a la API (o cualquier ruta que incluya '/api/')
+  if (event.request.url.includes('/api/')) {
+    return;
+  }
 
-  // Estrategia: "Cache first, falling back to network" (Primero caché, si falla, red)
+  // Estrategia: "Cache first, falling back to network"
+  // (Primero caché, si falla, red)
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // 1. Si encontramos el recurso en la CACHÉ, lo devolvemos al instante.
+        // 1. Si está en la CACHÉ, lo devolvemos al instante.
+        //    (Esto funcionará para 'login.css?v=1.0.0' en la 2da carga)
         if (response) {
-          // console.log('[Service Worker] Recurso encontrado en caché:', event.request.url);
+          // console.log('[Service Worker] Sirviendo desde caché:', event.request.url);
           return response;
         }
 
         // 2. Si NO está en la caché, lo pedimos a INTERNET.
-        // console.log('[Service Worker] Recurso no encontrado, pidiendo a la red:', event.request.url);
+        //    (Esto pasará con 'login.css?v=1.0.0' la 1ra vez)
+        // console.log('[Service Worker] Pidiendo a la red:', event.request.url);
+        
         return fetch(event.request)
           .then((networkResponse) => {
-            // 3. ¡Y lo guardamos en la caché para la próxima vez!
-            // Clonamos la respuesta porque solo se puede "leer" una vez.
+            
+            // 3. ¡Lo guardamos en la caché para la próxima vez!
+            //    Clonamos la respuesta porque solo se puede leer una vez.
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME)
               .then((cache) => {
+                // Guardamos la petición con su 'v=' como clave.
                 cache.put(event.request, responseToCache);
               });
             
@@ -88,11 +116,18 @@ self.addEventListener('fetch', (event) => {
             return networkResponse;
           })
           .catch(() => {
+            // ✨ ¡AQUÍ ESTÁ EL ARREGLO DEL 502! ✨
             // 5. Si internet también falla (¡estamos offline de verdad!),
-            // podríamos devolver una página de "fallback"
-            // Por ahora, simplemente fallará (lo cual está bien para empezar).
-            console.log('[Service Worker] Fallo al buscar en red y caché.');
-            // (Opcional: podrías devolver un /offline.html)
+            //    ya no devolvemos "nada". Devolvemos una respuesta de error.
+            console.warn(`[Service Worker] Fallo al buscar en red: ${event.request.url}`);
+            
+            // Devolvemos una respuesta de error estándar.
+            // Esto evita el 502 y le permite al 'fetch' de tu app
+            // caer en su propio '.catch()' correctamente.
+            return new Response(
+              JSON.stringify({ error: 'Fallo al conectar con la red.' }),
+              { status: 503, headers: { 'Content-Type': 'application/json' } }
+            );
           });
       })
   );
