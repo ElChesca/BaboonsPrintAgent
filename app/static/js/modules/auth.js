@@ -41,8 +41,7 @@ export function inicializarLogicaLogin() {
     }
 
     form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
+        e.preventDefault();        
         // ✨ 2. MOSTRAR LOADER AL ENVIAR
         showGlobalLoader(); 
         errorMessageDiv.textContent = ''; // <-- Ahora esto funciona perfectamente

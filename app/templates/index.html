@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -6,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión | Baboons</title>
     <link rel="icon" type="image/png" href="/static/img/logo.png">
-    <!-- Meta tag para el color de la barra de estado en móviles -->
     <meta name="theme-color" content="#222222">
-    <!-- Link al Manifest de la PWA -->
     <link rel="manifest" href="/manifest.json">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -17,16 +14,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-       <!-- ¡SCRIPT DE CÁMARA AÑADIDO AQUÍ! -->
-    <script src="https://unpkg.com/html5-qrcode@2.0.9/dist/html5-qrcode.min.js"></script>
+        <script src="https://unpkg.com/html5-qrcode@2.0.9/dist/html5-qrcode.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     
-    <!-- 
-      PASO CLAVE: Enlazamos el CSS externo con un número de versión.
-      Esto fuerza al navegador a descargar el archivo nuevo.
-    -->
     <link rel="stylesheet" href="/static/css/global.css?v=2.4">
     
 </head>
@@ -48,19 +40,17 @@
 
                 <div class="dropdown">
                     <a href="#" class="dropbtn">Más Opciones ▾</a>
-                    <div class="dropdown-content">                     
-                        <a href="#" onclick="loadContent(event, 'static/historial_presupuestos.html', this)">🧾 Historial Presupuestos</a>                     
+                    <div class="dropdown-content">
+                        <a href="#" onclick="loadContent(event, 'static/historial_presupuestos.html', this)">🧾 Historial Presupuestos</a>
                     </div>
                 </div>
 
-                 <div class="dropdown admin-only">
+                <div class="dropdown admin-only">
                     <a href="#" class="dropbtn">⚙️ Configuración ▾</a>
                     <div class="dropdown-content">
-                        <!-- Esta es superadmin-only -->
                         <a href="#" class="superadmin-only elemento-rol" onclick="loadContent(event, 'static/negocios.html', this)">🏢 Negocios</a>
-                        <!-- Esta es admin-only -->
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/usuarios.html', this)">👥 Usuarios</a>                     
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a>                                         
+                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/usuarios.html', this)">👥 Usuarios</a>
+                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/categorias.html', this)">🏷️ Categorías</a>
                     </div>
                 </div>
 
@@ -89,6 +79,4 @@
     <main id="content-area">
     </main>
 
-    <script type="module" src="/static/js/main.js"></script>
-</body>
-</html>
+    <script type

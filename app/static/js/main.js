@@ -1,38 +1,45 @@
 // app/static/js/main.js
-import { fetchData, sendData } from './api.js';
-import { inicializarLogicaLogin, getCurrentUser, logout } from './modules/auth.js';
-import { borrarProveedor, inicializarLogicaProveedores } from './modules/proveedores.js';
-import { inicializarLogicaClientes } from './modules/clientes.js';
-import { inicializarLogicaIngresos } from './modules/ingresos.js';
-import { inicializarLogicaVentas } from './modules/sales.js';
-import { inicializarLogicaUsuarios, abrirModalEditarUsuario } from './modules/users.js';
-import { inicializarLogicaHistorialIngresos, mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js'; // Nombre corregido en import
-import { inicializarLogicaNegocios } from './modules/negocios.js';
-import { inicializarLogicaHistorialVentas } from './modules/historial_ventas.js';
-import { inicializarLogicaInventario, abrirModalEditarProducto, borrarProducto } from './modules/inventory.js';
-import { inicializarLogicaCategorias, editarCategoria, borrarCategoria } from './modules/categorias.js';
-import { inicializarLogicaReportes } from './modules/reportes.js';
-import { inicializarLogicaDashboard } from './modules/dashboard.js';
-import { inicializarLogicaCaja } from './modules/caja.js';
-import { inicializarLogicaReporteCaja, mostrarDetallesCaja } from './modules/reporte_caja.js';
-import { inicializarLogicaReporteGanancias } from './modules/reporte_ganancias.js';
-import { inicializarLogicaAjusteCaja } from './modules/ajuste_caja.js';
-import { inicializarLogicaHistorialAjustes } from './modules/historial_ajustes.js';
-import { inicializarLogicaPresupuestos } from './modules/presupuestos.js';
-import { inicializarLogicaHistorialPresupuestos } from './modules/historial_presupuestos.js';
-import { inicializarLogicaFactura } from './modules/factura.js';
-import { mostrarNotificacion } from './modules/notifications.js';
-import { inicializarLogicaVerificador } from './modules/verificador.js';
-import { inicializarLogicaPagosProveedores } from './modules/payments.js';
-// --- ASEGÚRATE QUE ESTA IMPORTACIÓN ESTÉ PRESENTE ---
-import { inicializarLogicaInventarioMovil } from './modules/inventario_movil_main.js';
-import { inicializarLogicaHistorialPagosProveedores } from './modules/historial_pagos_proveedores.js';
-import { showGlobalLoader, hideGlobalLoader } from '/static/js/uiHelpers.js';
 
-// --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
+// ✨ ========================================================================
+// ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
+// ✨ ========================================================================
+const APP_VERSION = "1.0.0";
+const v = `?v=${APP_VERSION}`;
+// ==========================================================================
+
+
+// --- ✨ 2. IMPORTACIONES ESTÁTICAS (Núcleo de la App) ---
+// Mantenemos solo lo que se usa en *todas* las páginas o en este mismo archivo.
+import { showGlobalLoader, hideGlobalLoader } from `/static/js/uiHelpers.js${v}`;
+import { fetchData, sendData } from './api.js${v}';
+// Solo importamos lo global de auth. 'inicializarLogicaLogin' será dinámico.
+import { getCurrentUser, logout } from './modules/auth.js${v}';
+import { mostrarNotificacion } from './modules/notifications.js${v}';
+
+// --- ✨ 3. FUNCIONES GLOBALES (para onclick) ---
+// Para no romper tus 'onclick="borrarProducto(...)"', mantenemos estas
+// importaciones estáticas.
+import { borrarProveedor } from './modules/proveedores.js${v}';
+import { abrirModalEditarUsuario } from './modules/users.js${v}';
+import { mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js${v}';
+import { abrirModalEditarProducto, borrarProducto } from './modules/inventory.js${v}';
+import { editarCategoria, borrarCategoria } from './modules/categorias.js${v}';
+import { mostrarDetallesCaja } from './modules/reporte_caja.js${v}';
+
+
+/* // ✨ 4. IMPORTACIONES DINÁMICAS (Eliminadas de aquí)
+// Todas estas líneas fueron eliminadas del inicio para cargarlas dinámicamente.
+// Ya no están:
+// import { inicializarLogicaProveedores } from './modules/proveedores.js';
+// import { inicializarLogicaClientes } from './modules/clientes.js';
+// import { inicializarLogicaIngresos } from './modules/ingresos.js';
+// ...y todos los demás 'inicializarLogica...'
+*/
+
+
+// --- EXPOSICIÓN DE FUNCIONES GLOBALES (Sin cambios) ---
 window.loadContent = loadContent; // Esencial
-window.borrarProveedor = borrarProveedor; // Mantenido
-// Exponer las otras que SÍ se usan en onclicks de otros módulos HTML
+window.borrarProveedor = borrarProveedor;
 window.borrarProducto = borrarProducto;
 window.abrirModalEditarProducto = abrirModalEditarProducto;
 window.abrirModalEditarUsuario = abrirModalEditarUsuario;
@@ -51,19 +58,20 @@ export function esAdmin() {
 export const appState = {
     negocioActivoId: null,
     userRol: null,
-    filtroProveedorId: null // Mantenido para filtros temporales
+    filtroProveedorId: null
 };
 
 function loadPageCSS(pageName) {
     const existingStyle = document.getElementById('page-specific-style');
     if (existingStyle) existingStyle.remove();
     if (pageName) {
-        const cssFile = `${pageName}.css`;
+        // ✨ Añadido el versionado al CSS
+        const cssFile = `${pageName}.css${v}`;
         const link = document.createElement('link');
         link.id = 'page-specific-style';
         link.rel = 'stylesheet';
         link.type = 'text/css';
-        link.href = `/static/css/${cssFile}`;
+        link.href = `/static/css/${cssFile}`; 
         document.head.appendChild(link);
         link.onerror = () => {
              console.warn(`Advertencia: No se encontró CSS opcional en ${link.href}`);
@@ -72,6 +80,8 @@ function loadPageCSS(pageName) {
     }
 }
 
+// 'poblarSelectorNegocios' y 'actualizarUIAutenticacion'
+// se mantienen idénticos en su lógica. No los pego para abreviar.
 async function poblarSelectorNegocios() {
     // ... (código sin cambios) ...
     console.log("Iniciando poblarSelectorNegocios...");
@@ -85,169 +95,148 @@ async function poblarSelectorNegocios() {
     }
 
     selectors.forEach(selector => {
-        selector.innerHTML = '<option value="">Cargando...</option>';
-        selector.disabled = true;
+         selector.innerHTML = '<option value="">Cargando...</option>';
+         selector.disabled = true;
     });
 
     try {
-        const negocios = await fetchData('/api/negocios');
-        console.log("Negocios recibidos del API:", negocios);
+         const negocios = await fetchData(`/api/negocios${v}`); // Aseguramos cache-busting en API
+         console.log("Negocios recibidos del API:", negocios);
 
-        let idSeleccionado = null;
-        if (negocios && negocios.length > 0) {
-            idSeleccionado = negocios[0].id;
-            const savedNegocioId = localStorage.getItem('negocioActivoId');
-            if (savedNegocioId && negocios.some(n => String(n.id) === String(savedNegocioId))) {
-                idSeleccionado = savedNegocioId;
-            }
-        }
+         let idSeleccionado = null;
+         if (negocios && negocios.length > 0) {
+             idSeleccionado = negocios[0].id;
+             const savedNegocioId = localStorage.getItem('negocioActivoId');
+             if (savedNegocioId && negocios.some(n => String(n.id) === String(savedNegocioId))) {
+                 idSeleccionado = savedNegocioId;
+             }
+         }
 
-        appState.negocioActivoId = idSeleccionado ? String(idSeleccionado) : null;
+         appState.negocioActivoId = idSeleccionado ? String(idSeleccionado) : null;
 
-        if (appState.negocioActivoId) {
+         if (appState.negocioActivoId) {
              localStorage.setItem('negocioActivoId', appState.negocioActivoId);
-        } else {
+         } else {
              localStorage.removeItem('negocioActivoId');
              console.warn("No hay negocio activo o seleccionado.");
-        }
+         }
 
 
-        selectors.forEach(selector => {
-            selector.innerHTML = '';
-            if (!negocios || negocios.length === 0) {
-                selector.appendChild(new Option("No asignados", ""));
-                selector.disabled = true;
-            } else {
+         selectors.forEach(selector => {
+             selector.innerHTML = '';
+             if (!negocios || negocios.length === 0) {
+                 selector.appendChild(new Option("No asignados", ""));
+                 selector.disabled = true;
+             } else {
                  negocios.forEach(negocio => {
-                    selector.appendChild(new Option(negocio.nombre, negocio.id));
+                     selector.appendChild(new Option(negocio.nombre, negocio.id));
                  });
                  if (appState.negocioActivoId && negocios.some(n => String(n.id) === appState.negocioActivoId)) {
-                    selector.value = appState.negocioActivoId;
+                     selector.value = appState.negocioActivoId;
                  } else if (negocios.length > 0) {
                      selector.value = negocios[0].id;
                      appState.negocioActivoId = String(negocios[0].id);
                      localStorage.setItem('negocioActivoId', appState.negocioActivoId);
                  }
                  selector.disabled = false;
-            }
-        });
+             }
+         });
 
-        console.log("Poblado finalizado. Negocio activo state:", appState.negocioActivoId);
+         console.log("Poblado finalizado. Negocio activo state:", appState.negocioActivoId);
     } catch (error) {
-        console.error("Error en poblarSelectorNegocios:", error);
-        mostrarNotificacion("Error al cargar negocios.", "error");
-        selectors.forEach(selector => {
+         console.error("Error en poblarSelectorNegocios:", error);
+         mostrarNotificacion("Error al cargar negocios.", "error");
+         selectors.forEach(selector => {
              selector.innerHTML = '<option value="">Error</option>';
              selector.disabled = true;
-        });
+         });
     }
 }
 
 export async function actualizarUIAutenticacion() {
-    // ✨ 1. MOSTRAR EL LOADER INMEDIATAMENTE
+    // ... (código sin cambios) ...
     showGlobalLoader();
-
     console.log("--- Iniciando actualizarUIAutenticacion ---");
-
-    // ✨ 2. ENVOLVER TODA LA LÓGICA EN UN TRY...FINALLY
     try {
-        document.body.className = '';
+         document.body.className = '';
+         const user = getCurrentUser();
+         console.log("Usuario actual (desde token):", user);
+         const mainNav = document.querySelector('#main-nav');
+         const authLink = document.getElementById('auth-link');
+         const businessSelectorBar = document.getElementById('business-selector-bar');
+         const header = document.querySelector('header');
 
-        const user = getCurrentUser();
-        console.log("Usuario actual (desde token):", user);
+         if (!mainNav || !authLink || !businessSelectorBar || !header) {
+             console.error("Error crítico: Faltan elementos base de la UI.");
+             return;
+         }
 
-        const mainNav = document.querySelector('#main-nav');
-        const authLink = document.getElementById('auth-link');
-        const businessSelectorBar = document.getElementById('business-selector-bar');
-        const header = document.querySelector('header');
+         if (user && user.nombre && user.rol) {
+             console.log("Usuario válido. Actualizando UI...");
+             appState.userRol = user.rol;
+             console.log("Rol asignado al estado:", appState.userRol);
+             document.body.classList.add('rol-' + user.rol);
+             console.log("Clase de rol añadida al body:", 'rol-' + user.rol);
+             header.style.display = 'flex';
+             mainNav.style.display = 'flex';
+             businessSelectorBar.style.display = 'flex';
+             authLink.textContent = `Salir (${user.nombre})`;
+             const newAuthLink = authLink.cloneNode(true);
+             newAuthLink.textContent = `Salir (${user.nombre})`;
+             authLink.parentNode.replaceChild(newAuthLink, authLink);
+             newAuthLink.addEventListener('click', (e) => {
+                 e.preventDefault();
+                 console.log("Logout iniciado por clic.");
+                 logout();
+             });
+             console.log("Configurado enlace 'Salir'.");
+             await poblarSelectorNegocios();
+             console.log("Selectores de negocio poblados.");
+             console.log("Actualización de UI base completada.");
+             const requestedPage = window.location.hash.substring(1).split('?')[0];
+             const contentArea = document.getElementById('content-area');
 
-        if (!mainNav || !authLink || !businessSelectorBar || !header) {
-            console.error("Error crítico: Faltan elementos base de la UI.");
-            // El 'finally' se ejecutará de todas formas antes de salir
-            return;
-        }
+             if (!contentArea) {
+                 console.error("Error crítico: No se encontró #content-area.");
+                 return;
+             }
 
-        if (user && user.nombre && user.rol) {
-            console.log("Usuario válido. Actualizando UI...");
-            
-            // Eliminamos el try/catch interno para que el 'catch' principal
-            // maneje cualquier error y fuerce el logout si algo falla.
-            
-            appState.userRol = user.rol;
-            console.log("Rol asignado al estado:", appState.userRol);
+             const pageToLoad = requestedPage && requestedPage !== 'login' ? requestedPage : 'home';
+             console.log(`Intentando cargar página inicial: ${pageToLoad}`);
+             const fullHash = window.location.hash.substring(1);
+             const pageUrlToLoad = `static/${fullHash.split('?')[0] ? fullHash.split('?')[0] + '.html' : 'home.html'}${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
+             console.log(`URL completa a cargar: ${pageUrlToLoad}`);
+             await loadContent(null, pageUrlToLoad);
 
-            document.body.classList.add('rol-' + user.rol);
-            console.log("Clase de rol añadida al body:", 'rol-' + user.rol);
+         } else {
+             console.log("Usuario NO válido o no encontrado. Preparando UI para login...");
+             appState.userRol = null;
+             appState.negocioActivoId = null;
+             localStorage.removeItem('negocioActivoId');
+             header.style.display = 'none';
 
-            header.style.display = 'flex';
-            mainNav.style.display = 'flex';
-            businessSelectorBar.style.display = 'flex';
-
-            authLink.textContent = `Salir (${user.nombre})`;
-            const newAuthLink = authLink.cloneNode(true);
-            newAuthLink.textContent = `Salir (${user.nombre})`;
-            authLink.parentNode.replaceChild(newAuthLink, authLink);
-            newAuthLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log("Logout iniciado por clic.");
-                logout();
-            });
-            console.log("Configurado enlace 'Salir'.");
-
-            // --- PUNTO LENTO 1 ---
-            await poblarSelectorNegocios();
-            console.log("Selectores de negocio poblados.");
-
-            console.log("Actualización de UI base completada.");
-
-            const requestedPage = window.location.hash.substring(1).split('?')[0];
-            const contentArea = document.getElementById('content-area');
-
-            if (!contentArea) {
-                console.error("Error crítico: No se encontró #content-area.");
-                return; // El 'finally' se ejecutará
-            }
-
-            const pageToLoad = requestedPage && requestedPage !== 'login' ? requestedPage : 'home';
-            console.log(`Intentando cargar página inicial: ${pageToLoad}`);
-            const fullHash = window.location.hash.substring(1);
-            
-            const pageUrlToLoad = `static/${fullHash.split('?')[0] ? fullHash.split('?')[0] + '.html' : 'home.html'}${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
-            console.log(`URL completa a cargar: ${pageUrlToLoad}`);
-            
-            // --- PUNTO LENTO 2 ---
-            await loadContent(null, pageUrlToLoad);
-
-        } else {
-            console.log("Usuario NO válido o no encontrado. Preparando UI para login...");
-            appState.userRol = null;
-            appState.negocioActivoId = null;
-            localStorage.removeItem('negocioActivoId');
-
-            header.style.display = 'none';
-
-            if (!window.location.hash.includes('login')) {
-                console.log("No estamos en #login, cargando página de login...");
-                // --- PUNTO LENTO 3 (en caso de no estar logueado) ---
-                await loadContent(null, 'static/login.html');
-            } else {
-                console.log("Ya estamos en #login.");
-                inicializarModulo('static/login.html');
-            }
-        }
+             if (!window.location.hash.includes('login')) {
+                 console.log("No estamos en #login, cargando página de login...");
+                 await loadContent(null, 'static/login.html');
+             } else {
+                 console.log("Ya estamos en #login.");
+                 // Aseguramos que el módulo login se inicialice si ya estamos en el hash
+                 const pageUrl = `static/login.html${window.location.hash.split('?')[1] ? '?' + window.location.hash.split('?')[1] : ''}`;
+                 await inicializarModulo(pageUrl);
+             }
+         }
     } catch (error) {
-        // ✨ 3. CAPTURAR CUALQUIER ERROR
-        console.error("Fallo DENTRO del bloque try de actualizarUIAutenticacion:", error);
-        // Si algo falla, es mejor desloguear al usuario para que vuelva a empezar
-        logout();
+         console.error("Fallo DENTRO del bloque try de actualizarUIAutenticacion:", error);
+         logout();
     } finally {
-        // ✨ 4. OCULTAR EL LOADER AL FINAL (SIEMPRE)
-        // Esto se ejecuta después del 'try' (si tuvo éxito) o
-        // después del 'catch' (si hubo un error).
-        console.log("--- Fin actualizarUIAutenticacion (finally) ---");
-        hideGlobalLoader();
+         console.log("--- Fin actualizarUIAutenticacion (finally) ---");
+         hideGlobalLoader();
     }
 }
+
+// ✨ ========================================================================
+// ✨ 5. INICIALIZADOR DE MÓDULOS (Ahora Asíncrono y Dinámico)
+// ✨ ========================================================================
 async function inicializarModulo(page) {
     console.log(`inicializarModulo llamada con page = "${page}"`);
     if (!page) {
@@ -263,68 +252,155 @@ async function inicializarModulo(page) {
         window.currentChartInstance = null;
     }
 
-    // --- ASEGÚRATE QUE ESTE CASE ESTÉ PRESENTE Y CORRECTO ---
-    switch(pageName) {
-        case 'inventario': inicializarLogicaInventario(); break;
-        case 'login': inicializarLogicaLogin(); break;
-        case 'clientes': inicializarLogicaClientes(); break;
-        case 'usuarios': inicializarLogicaUsuarios(); break;
-        case 'categorias': inicializarLogicaCategorias(); break;
-        case 'dashboard': inicializarLogicaDashboard(); break;
-        case 'caja': inicializarLogicaCaja(); break;
-        case 'reporte_caja': inicializarLogicaReporteCaja(); break;
-        case 'reporte_ganancias': inicializarLogicaReporteGanancias(); break;
-        case 'reportes': inicializarLogicaReportes(); break;
-        case 'factura': inicializarLogicaFactura(); break;
-        case 'verificador': inicializarLogicaVerificador(); break;
-        case 'historial_ingresos': inicializarLogicaHistorialIngresos(); break; // Nombre corregido
-        case 'ingresos': inicializarLogicaIngresos(); break;
-        case 'historial_ventas': inicializarLogicaHistorialVentas(); break;
-        case 'ventas': inicializarLogicaVentas(); break;
-        case 'historial_ajustes': inicializarLogicaHistorialAjustes(); break;
-        case 'ajuste_caja': inicializarLogicaAjusteCaja(); break;
-        case 'historial_presupuestos': inicializarLogicaHistorialPresupuestos(); break;
-        case 'presupuestos': inicializarLogicaPresupuestos(); break;
-        case 'inventario_movil':inicializarLogicaInventarioMovil(); break;
-        case 'home':
-            console.log("Módulo Home detectado.");
-            await poblarSelectorNegocios();
-            break;
-        case 'proveedores': inicializarLogicaProveedores(); break;
-        case 'negocios': inicializarLogicaNegocios(); break;
-        case 'payments': inicializarLogicaPagosProveedores(); break;
-        // --- AQUÍ ESTÁ EL CASE QUE FALTABA O ESTABA MAL ---
-        case 'historial_pagos_proveedores': inicializarLogicaHistorialPagosProveedores(); break; 
-        // --- FIN DEL CASE ---
-        case 'configuracion':
-            const { inicializarConfiguracion } = await import('./modules/configuracion.js');
-            inicializarConfiguracion();
-            break;
-        case 'listas_precios':
-            const { inicializarGestionListasPrecios } = await import('./modules/listas_precios.js');
-            inicializarGestionListasPrecios();
-            break;
-        case 'unidades_medida':
-            const { inicializarLogicaUnidadesMedida } = await import('./modules/unidades_medida.js');
-            inicializarLogicaUnidadesMedida();
-            break;
-         case 'historial_inventario':
-             const { inicializarHistorialInventario } = await import('./modules/historial_inventario.js');
-             inicializarHistorialInventario();
-             break;
-         case 'precios_especificos':
-             const { inicializarPreciosEspecificos } = await import('./modules/precios_especificos.js');
-             inicializarPreciosEspecificos();
-             break;
-        default:
-            console.warn(`No se encontró lógica de inicialización para el módulo: ${pageName}`);
+    // ✨ Usamos try/catch para manejar errores en la carga dinámica
+    try {
+        switch(pageName) {
+            case 'inventario': 
+                const { inicializarLogicaInventario } = await import(`./modules/inventory.js${v}`);
+                inicializarLogicaInventario(); 
+                break;
+            case 'login': 
+                const { inicializarLogicaLogin } = await import(`./modules/auth.js${v}`);
+                inicializarLogicaLogin(); 
+                break;
+            case 'clientes': 
+                const { inicializarLogicaClientes } = await import(`./modules/clientes.js${v}`);
+                inicializarLogicaClientes(); 
+                break;
+            case 'usuarios': 
+                const { inicializarLogicaUsuarios } = await import(`./modules/users.js${v}`);
+                inicializarLogicaUsuarios(); 
+                break;
+            case 'categorias': 
+                const { inicializarLogicaCategorias } = await import(`./modules/categorias.js${v}`);
+                inicializarLogicaCategorias(); 
+                break;
+            case 'dashboard': 
+                const { inicializarLogicaDashboard } = await import(`./modules/dashboard.js${v}`);
+                inicializarLogicaDashboard(); 
+                break;
+            case 'caja': 
+                const { inicializarLogicaCaja } = await import(`./modules/caja.js${v}`);
+                inicializarLogicaCaja(); 
+                break;
+            case 'reporte_caja': 
+                const { inicializarLogicaReporteCaja } = await import(`./modules/reporte_caja.js${v}`);
+                inicializarLogicaReporteCaja(); 
+                break;
+            case 'reporte_ganancias': 
+                const { inicializarLogicaReporteGanancias } = await import(`./modules/reporte_ganancias.js${v}`);
+                inicializarLogicaReporteGanancias(); 
+                break;
+            case 'reportes': 
+                const { inicializarLogicaReportes } = await import(`./modules/reportes.js${v}`);
+                inicializarLogicaReportes(); 
+                break;
+            case 'factura': 
+                const { inicializarLogicaFactura } = await import(`./modules/factura.js${v}`);
+                inicializarLogicaFactura(); 
+                break;
+            case 'verificador': 
+                const { inicializarLogicaVerificador } = await import(`./modules/verificador.js${v}`);
+                inicializarLogicaVerificador(); 
+                break;
+            case 'historial_ingresos': 
+                const { inicializarLogicaHistorialIngresos } = await import(`./modules/historial_ingresos.js${v}`);
+                inicializarLogicaHistorialIngresos(); 
+                break;
+            case 'ingresos': 
+                const { inicializarLogicaIngresos } = await import(`./modules/ingresos.js${v}`);
+                inicializarLogicaIngresos(); 
+                break;
+            case 'historial_ventas': 
+                const { inicializarLogicaHistorialVentas } = await import(`./modules/historial_ventas.js${v}`);
+                inicializarLogicaHistorialVentas(); 
+                break;
+            case 'ventas': 
+                const { inicializarLogicaVentas } = await import(`./modules/sales.js${v}`);
+                inicializarLogicaVentas(); 
+                break;
+            case 'historial_ajustes': 
+                const { inicializarLogicaHistorialAjustes } = await import(`./modules/historial_ajustes.js${v}`);
+                inicializarLogicaHistorialAjustes(); 
+                break;
+            case 'ajuste_caja': 
+                const { inicializarLogicaAjusteCaja } = await import(`./modules/ajuste_caja.js${v}`);
+                inicializarLogicaAjusteCaja(); 
+                break;
+            case 'historial_presupuestos': 
+                const { inicializarLogicaHistorialPresupuestos } = await import(`./modules/historial_presupuestos.js${v}`);
+                inicializarLogicaHistorialPresupuestos(); 
+                break;
+            case 'presupuestos': 
+                const { inicializarLogicaPresupuestos } = await import(`./modules/presupuestos.js${v}`);
+                inicializarLogicaPresupuestos(); 
+                break;
+            case 'inventario_movil':
+                const { inicializarLogicaInventarioMovil } = await import(`./modules/inventario_movil_main.js${v}`);
+                inicializarLogicaInventarioMovil(); 
+                break;
+            case 'home':
+                console.log("Módulo Home detectado.");
+                await poblarSelectorNegocios();
+                break;
+            case 'proveedores': 
+                const { inicializarLogicaProveedores } = await import(`./modules/proveedores.js${v}`);
+                inicializarLogicaProveedores(); 
+                break;
+            case 'negocios': 
+                const { inicializarLogicaNegocios } = await import(`./modules/negocios.js${v}`);
+                inicializarLogicaNegocios(); 
+                break;
+            case 'payments': 
+                const { inicializarLogicaPagosProveedores } = await import(`./modules/payments.js${v}`);
+                inicializarLogicaPagosProveedores(); 
+                break;
+            case 'historial_pagos_proveedores': 
+                const { inicializarLogicaHistorialPagosProveedores } = await import(`./modules/historial_pagos_proveedores.js${v}`);
+                inicializarLogicaHistorialPagosProveedores(); 
+                break;
+            
+            // Módulos que ya eran dinámicos, solo añadimos el versionado
+            case 'configuracion':
+                const { inicializarConfiguracion } = await import(`./modules/configuracion.js${v}`);
+                inicializarConfiguracion();
+                break;
+            case 'listas_precios':
+                const { inicializarGestionListasPrecios } = await import(`./modules/listas_precios.js${v}`);
+                inicializarGestionListasPrecios();
+                break;
+            case 'unidades_medida':
+                const { inicializarLogicaUnidadesMedida } = await import(`./modules/unidades_medida.js${v}`);
+                inicializarLogicaUnidadesMedida();
+                break;
+            case 'historial_inventario':
+                const { inicializarHistorialInventario } = await import(`./modules/historial_inventario.js${v}`);
+                inicializarHistorialInventario();
+                break;
+            case 'precios_especificos':
+                const { inicializarPreciosEspecificos } = await import(`./modules/precios_especificos.js${v}`);
+                inicializarPreciosEspecificos();
+                break;
+            default:
+                console.warn(`No se encontró lógica de inicialización para el módulo: ${pageName}`);
+        }
+        console.log(`Módulo ${pageName} inicializado.`);
+    } catch (error) {
+        // Captura errores de import() o de inicialización
+        console.error(`Error al cargar dinámicamente el módulo ${pageName}:`, error);
+        mostrarNotificacion(`Error fatal al cargar la sección ${pageName}.`, 'error');
     }
-     console.log(`Módulo ${pageName} inicializado.`);
 }
+// ==========================================================================
+// ✨ FIN DE CAMBIOS EN inicializarModulo
+// ==========================================================================
 
+
+// 'loadContent' y 'abrirModalNuevoCliente' 
+// se mantienen idénticos en su lógica. No los pego para abreviar.
 export function loadContent(event, page, clickedLink, fromHistory = false) {
     // ... (código sin cambios) ...
-     console.log(`loadContent llamado para: ${page}, desde historial: ${fromHistory}`);
+    console.log(`loadContent llamado para: ${page}, desde historial: ${fromHistory}`);
     if (event) event.preventDefault();
 
     const pageParts = page.split('?');
@@ -341,9 +417,9 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     if (!fromHistory && currentUrlBase === targetUrlBase) {
          console.log(`Ya estamos en ${targetHash}, no se recarga HTML.`);
          if(window.location.hash !== fullTargetHash) {
-            history.pushState({ page: page }, '', fullTargetHash);
-            // Considerar re-inicializar si solo cambian query params
-            // inicializarModulo(page).catch(err => console.error...);
+             history.pushState({ page: page }, '', fullTargetHash);
+             // Opcional: Re-inicializar si solo cambian query params
+             // inicializarModulo(page).catch(err => console.error...);
          }
          const navContainer = document.querySelector('.nav-container');
          if (navContainer && navContainer.classList.contains('is-active')) {
@@ -353,34 +429,34 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     }
 
     if (!fromHistory) {
-        history.pushState({ page: page }, '', fullTargetHash);
+         history.pushState({ page: page }, '', fullTargetHash);
     }
 
-    loadPageCSS(pageName);
+    loadPageCSS(pageName); // Esto ya usa el cache-busting 'v'
 
     const header = document.querySelector('header');
     const isLoginPage = pageName === 'login';
     if (header) header.style.display = isLoginPage ? 'none' : 'flex';
 
-    const pageToFetch = pagePath;
+    // ✨ Añadimos el versionado al 'fetch' del HTML
+    const pageToFetch = `${pagePath}${v}`;
 
     fetch(pageToFetch)
-        .then(response => {
+         .then(response => {
              if (!response.ok) {
                  throw new Error(`Error ${response.status} al cargar ${pageToFetch}`);
              }
              return response.text();
-        })
-        .then(html => {
-            const contentArea = document.getElementById('content-area');
-            if (contentArea) {
+         })
+         .then(html => {
+             const contentArea = document.getElementById('content-area');
+             if (contentArea) {
                  contentArea.innerHTML = html;
                  console.log(`HTML cargado para ${pageToFetch}. Llamando a inicializarModulo...`);
                  requestAnimationFrame(() => {
                      document.querySelectorAll('#main-nav a, #main-nav .dropbtn').forEach(link => link.classList.remove('active'));
-                     // Intentar buscar por onclick o por href (más robusto para hash)
                      const linkSelectorOnClick = `#main-nav a[onclick*="'${pagePath}'"]`;
-                     const linkSelectorHref = `#main-nav a[href$="${targetHash}"]`; // Buscar por href que termine en el hash
+                     const linkSelectorHref = `#main-nav a[href$="${targetHash}"]`;
                      let linkToActivate = document.querySelector(linkSelectorOnClick) || document.querySelector(linkSelectorHref);
 
                      if (linkToActivate) {
@@ -391,21 +467,22 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
                           console.warn(`No se encontró link activo para ${pageName} usando selectores: ${linkSelectorOnClick}, ${linkSelectorHref}`);
                      }
 
+                     // 'inicializarModulo' ahora es async, lo manejamos con catch
                      inicializarModulo(page).catch(err => {
                           console.error(`Error durante inicializarModulo para ${page}:`, err);
                           mostrarNotificacion(`Error al inicializar la sección ${pageName}.`, 'error');
                      });
                  });
-            } else {
+             } else {
                  console.error("Error crítico: No se encontró #content-area.");
-            }
-        })
-        .catch(error => {
-            console.error("Error en loadContent fetch:", error);
-            mostrarNotificacion(`No se pudo cargar la página ${pageName}.`, 'error');
-            window.location.hash = '#home';
-            loadPageCSS(null);
-        });
+             }
+         })
+         .catch(error => {
+             console.error("Error en loadContent fetch:", error);
+             mostrarNotificacion(`No se pudo cargar la página ${pageName}.`, 'error');
+             window.location.hash = '#home';
+             loadPageCSS(null);
+         });
 
      const navContainer = document.querySelector('.nav-container');
      if (window.innerWidth <= 900 && navContainer && navContainer.classList.contains('is-active')) {
@@ -413,23 +490,56 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
      }
 }
 
-
 export function abrirModalNuevoCliente(callback) {
+    // ... (código sin cambios) ...
     const modal = document.getElementById('modal-nuevo-cliente');
     const form = document.getElementById('form-nuevo-cliente');
-
     if (modal) {
-        onClienteCreadoCallback = callback;
-        if (form) form.reset();
-        modal.style.display = 'flex';
+         onClienteCreadoCallback = callback;
+         if (form) form.reset();
+         modal.style.display = 'flex';
     } else {
          console.error("Modal #modal-nuevo-cliente no encontrado.");
     }
 }
 
+
+// ✨ ========================================================================
+// ✨ 6. TEMPORIZADOR DE INACTIVIDAD
+// ✨ ========================================================================
+const TIMEOUT_INACTIVIDAD = 15 * 60 * 1000; // 15 minutos
+let temporizadorInactividad;
+
+function reiniciarTemporizador() {
+    clearTimeout(temporizadorInactividad);
+    
+    temporizadorInactividad = setTimeout(() => {
+        // Usamos las funciones importadas 'getCurrentUser' y 'logout'
+        const user = getCurrentUser();
+        if (user && !window.location.hash.includes('login')) {
+            console.log("Inactividad detectada. Deslogueando...");
+            mostrarNotificacion("Sesión cerrada por inactividad.", "warning");
+            logout(); // Llama a tu función de logout existente
+        }
+    }, TIMEOUT_INACTIVIDAD);
+}
+
+// Eventos que cuentan como "actividad"
+window.addEventListener('mousemove', reiniciarTemporizador);
+window.addEventListener('keydown', reiniciarTemporizador);
+window.addEventListener('scroll', reiniciarTemporizador);
+window.addEventListener('click', reiniciarTemporizador);
+window.addEventListener('touchstart', reiniciarTemporizador);
+// ==========================================================================
+// ✨ FIN DE TEMPORIZADOR
+// ==========================================================================
+
+
 document.addEventListener('DOMContentLoaded', () => {
-    // ... (código sin cambios) ...
     console.log("DOM Cargado. Configurando listeners iniciales...");
+
+    // ✨ 7. INICIA EL TEMPORIZADOR POR PRIMERA VEZ
+    reiniciarTemporizador();
 
     document.body.addEventListener('change', (e) => {
         if (e.target.id === 'selector-negocio') {
@@ -441,7 +551,10 @@ document.addEventListener('DOMContentLoaded', () => {
                  console.log("Negocio activo actualizado a:", nuevoNegocioId);
                  const currentPage = window.location.hash.substring(1).split('?')[0] || 'home';
                  console.log(`Recargando módulo actual: ${currentPage}`);
-                 loadContent(null, `static/${currentPage}.html`);
+                 // Añadimos el query string si existe
+                 const queryString = window.location.hash.split('?')[1];
+                 const pageUrl = `static/${currentPage}.html${queryString ? '?' + queryString : ''}`;
+                 loadContent(null, pageUrl);
             } else if (!nuevoNegocioId) {
                  console.warn("Se seleccionó 'No asignados' o valor inválido.");
                  const contentArea = document.getElementById('content-area');
@@ -464,10 +577,11 @@ document.addEventListener('DOMContentLoaded', () => {
              console.log("URL base o #home detectada, cargando home desde popstate.");
              loadContent(null, 'static/home.html', null, true);
         } else if (currentHashPageName && currentHashPageName !== 'login'){
-            console.log(`Hash ${currentHashPageName} sin estado detectado, cargando página.`);
-            // Pasar la URL completa reconstruida desde el hash actual
-            const fullUrlFromHash = `static/${window.location.hash.substring(1).replace('?', '.html?')}`;
-            loadContent(null, fullUrlFromHash, null, true);
+             console.log(`Hash ${currentHashPageName} sin estado detectado, cargando página.`);
+             // Reconstruimos la URL completa desde el hash actual
+             const fullHash = window.location.hash.substring(1);
+             const pageUrl = `static/${fullHash.split('?')[0]}.html${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
+             loadContent(null, pageUrl, null, true);
         } else {
              console.log("Popstate sin estado relevante o ya en login.");
         }
@@ -482,9 +596,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const hamburgerBtn = document.getElementById('hamburger-btn');
     const navContainer = document.querySelector('.nav-container');
     if (hamburgerBtn && navContainer) {
-        hamburgerBtn.addEventListener('click', () => {
-            navContainer.classList.toggle('is-active');
-        });
+         hamburgerBtn.addEventListener('click', () => {
+             navContainer.classList.toggle('is-active');
+         });
     } else {
          console.warn("Botón hamburguesa o contenedor de navegación no encontrados.");
     }
@@ -493,10 +607,11 @@ document.addEventListener('DOMContentLoaded', () => {
     actualizarUIAutenticacion();
 
 
-    // Registro Service Worker (PWA)
+    // ✨ 8. REGISTRO DEL SERVICE WORKER (Con versionado)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
+        // Añadimos 'v' para forzar la actualización del SW
+        navigator.serviceWorker.register(`/service-worker.js${v}`) 
           .then((registration) => {
             console.log('¡Service Worker registrado con éxito! Alcance:', registration.scope);
           })
@@ -505,7 +620,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
       });
     } else {
-        console.warn("Service Workers no soportados en este navegador.");
+         console.warn("Service Workers no soportados en este navegador.");
     }
 
 });
