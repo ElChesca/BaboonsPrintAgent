@@ -37,6 +37,16 @@ window.editarCategoria = editarCategoria;
 window.borrarCategoria = borrarCategoria;
 window.mostrarDetallesCaja = mostrarDetallesCaja;
 window.abrirModalNuevoCliente = abrirModalNuevoCliente;
+export function toggleMenu() {
+    console.log("¡Clic en Menú Hamburguesa Detectado!"); 
+    const navContainer = document.querySelector('.nav-container');
+    if (navContainer) {
+        navContainer.classList.toggle('is-active');
+    } else {
+        console.error("No se encontró '.nav-container' al hacer toggle.");
+    }
+}
+window.toggleMenu = toggleMenu; // ✨ ¡LA EXPONEMOS!
 
 let onClienteCreadoCallback = null;
 
