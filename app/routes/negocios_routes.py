@@ -1,118 +1,63 @@
 # app/routes/negocios_routes.py
-from flask import Blueprint, request, jsonify, g
-from app.database import get_db
+from flask import Blueprint, request, jsonify
 from app.auth_decorator import token_required
+from app.db_utils import execute_query
 
 bp = Blueprint('negocios', __name__)
 
-@bp.route('/negocios', methods=['GET'])
+@bp.route('/api/negocios', methods=['GET'])
 @token_required
 def get_negocios(current_user):
-    if not current_user or 'rol' not in current_user or 'id' not in current_user:
-        return jsonify({'error': 'Error interno de autenticación'}), 500
+    # Obtiene solo los negocios a los que el usuario tiene acceso
+    query = """
+        SELECT n.id, n.nombre
+        FROM negocios n
+        JOIN usuarios_negocios un ON n.id = un.negocio_id
+        WHERE un.usuario_id = ?
+    """
+    negocios = execute_query(query, (current_user['id'],), fetchall=True)
+    return jsonify([dict(row) for row in negocios])
 
-    db = get_db()
-    try:
-        # ✨ --- CAMBIO CLAVE --- ✨
-        if current_user['rol'] == 'superadmin':
-            # SuperAdmin ve TODOS los negocios
-            db.execute("SELECT id, nombre, direccion FROM negocios ORDER BY nombre")
-        elif current_user['rol'] == 'admin':
-             # Admin (y Operador) ven SOLO los asignados
-             db.execute(
-                """
-                SELECT n.id, n.nombre, n.direccion
-                FROM negocios n
-                JOIN usuarios_negocios un ON n.id = un.negocio_id
-                WHERE un.usuario_id = %s
-                ORDER BY n.nombre
-                """,
-                (current_user['id'],)
-            )
-        else: # Operador (o rol desconocido)
-             db.execute(
-                """
-                SELECT n.id, n.nombre, n.direccion
-                FROM negocios n
-                JOIN usuarios_negocios un ON n.id = un.negocio_id
-                WHERE un.usuario_id = %s
-                ORDER BY n.nombre
-                """,
-                (current_user['id'],)
-            )
-
-        negocios = db.fetchall()
-        return jsonify([dict(row) for row in negocios])
-
-    except Exception as e:
-        print(f"!!! DATABASE ERROR in get_negocios: {e}")
-        g.db_conn.rollback()
-        return jsonify({'error': f'Error al obtener negocios: {str(e)}'}), 500
-
-@bp.route('/negocios', methods=['POST'])
+@bp.route('/api/negocios', methods=['POST'])
 @token_required
 def add_negocio(current_user):
-    # 1. Verificación de rol (sin cambios)
-    if current_user['rol'] != 'superadmin':
-        return jsonify({'message': 'Acción no permitida'}), 403
+    if current_user['rol'] != 'admin':
+        return jsonify({'message': 'No tienes permiso para crear negocios'}), 403
     
     data = request.get_json()
-    if not data or 'nombre' not in data:
-        return jsonify({'error': 'El campo "nombre" es obligatorio'}), 400
-    
-    # ✨ Obtenemos el ID del usuario que está creando el negocio
-    creador_id = current_user['id']
-    
-    db = get_db()
-    try:
-        # --- INICIO DE LA TRANSACCIÓN ---
-        
-        # 2. Insertar el nuevo negocio (como antes)
-        db.execute(
-            'INSERT INTO negocios (nombre, direccion) VALUES (%s, %s) RETURNING id', 
-            (data['nombre'], data.get('direccion', ''))
-        )
-        nuevo_id = db.fetchone()['id']
-        
-        # 3. ✨ ¡NUEVO! Asignar este negocio recién creado al usuario que lo creó
-        db.execute(
-            'INSERT INTO usuarios_negocios (usuario_id, negocio_id) VALUES (%s, %s)',
-            (creador_id, nuevo_id)
-        )
-        
-        # 4. Confirmar la transacción (ambas inserciones)
-        g.db_conn.commit()
-        # --- FIN DE LA TRANSACCIÓN ---
-        
-        return jsonify({'id': nuevo_id, 'nombre': data['nombre'], 'direccion': data.get('direccion', '')}), 201
-    
-    except Exception as e:
-        # Si algo falla (cualquiera de las dos inserciones), revertimos todo
-        g.db_conn.rollback()
-        print(f"!!! DATABASE ERROR in add_negocio: {e}") # Mejor log de error
-        return jsonify({'error': f'Error al crear y asignar negocio: {str(e)}'}), 500
+    nombre = data.get('nombre')
+    descripcion = data.get('descripcion')
 
-@bp.route('/negocios/<int:id>', methods=['GET'])
+    if not nombre:
+        return jsonify({'message': 'El nombre del negocio es requerido'}), 400
+
+    query = "INSERT INTO negocios (nombre, descripcion) VALUES (?, ?)"
+    execute_query(query, (nombre, descripcion), commit=True)
+    
+    return jsonify({'message': 'Negocio creado con éxito'}), 201
+
+@bp.route('/api/negocios/<int:id>', methods=['GET'])
 @token_required
 def obtener_negocio(current_user, id):
-    db = get_db()
-    db.execute('SELECT * FROM negocios WHERE id = %s', (id,))
-    negocio = db.fetchone()
-    if negocio is None:
-        return jsonify({'error': 'Negocio no encontrado'}), 404
+    negocio = execute_query("SELECT * FROM negocios WHERE id = ?", (id,), fetchone=True)
+    if not negocio:
+        return jsonify({'message': 'Negocio no encontrado'}), 404
     return jsonify(dict(negocio))
 
-@bp.route('/negocios/<int:id>', methods=['PUT'])
+@bp.route('/api/negocios/<int:id>', methods=['PUT'])
 @token_required
 def actualizar_negocio(current_user, id):
-    if current_user['rol'] != 'superadmin':
-        return jsonify({'message': 'Acción no permitida'}), 403
-    try:
-        datos = request.get_json()
-        db = get_db()
-        db.execute('UPDATE negocios SET nombre = %s, direccion = %s WHERE id = %s', (datos['nombre'], datos.get('direccion', ''), id))
-        g.db_conn.commit()
-        return jsonify({'message': 'Negocio actualizado con éxito'})
-    except Exception as e:
-        g.db_conn.rollback()
-        return jsonify({'error': str(e)}), 500
+    if current_user['rol'] != 'admin':
+        return jsonify({'message': 'No tienes permiso para editar negocios'}), 403
+
+    data = request.get_json()
+    nombre = data.get('nombre')
+    descripcion = data.get('descripcion')
+
+    if not nombre:
+        return jsonify({'message': 'El nombre no puede estar vacío'}), 400
+
+    query = "UPDATE negocios SET nombre = ?, descripcion = ? WHERE id = ?"
+    execute_query(query, (nombre, descripcion, id), commit=True)
+
+    return jsonify({'message': 'Negocio actualizado correctamente'})

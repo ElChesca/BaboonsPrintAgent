@@ -13,16 +13,19 @@ def get_db():
     Crea una conexión a la base de datos.
     Prioriza PostgreSQL si DATABASE_URL está configurada (producción).
     De lo contrario, usa SQLite local (desarrollo/testing).
+    También almacena el tipo de DB en g.db_type para consultas dinámicas.
     """
     if 'db' not in g:
         db_url = os.environ.get("DATABASE_URL")
 
         if db_url:
             # Conexión a PostgreSQL (Producción)
+            g.db_type = 'postgres'
             g.db_conn = psycopg2.connect(db_url)
             g.db = g.db_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         else:
             # Conexión a SQLite (Desarrollo/Local)
+            g.db_type = 'sqlite'
             g.db_conn = sqlite3.connect('inventario.db')
             # Permite acceder a las filas por nombre de columna
             g.db_conn.row_factory = sqlite3.Row
@@ -35,5 +38,5 @@ def close_db(e=None):
     if db_conn is not None:
         db_conn.close()
     
-    # El cursor de sqlite3 no necesita un close() explícito si la conexión se cierra.
     g.pop('db', None)
+    g.pop('db_type', None) # Limpiar también el tipo de DB

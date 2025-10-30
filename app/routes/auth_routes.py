@@ -16,9 +16,15 @@ def login():
     if not data or not data.get('email') or not data.get('password'):
         return jsonify({'message': 'Credenciales incompletas'}), 401
     
+    from flask import g
     db = get_db()
-    # Corregido: usar data['email'] para la consulta y '?' para sqlite3
-    db.execute('SELECT * FROM usuarios WHERE email = ?', (data['email'],))
+
+    # Determinar el marcador de posición correcto según el tipo de DB
+    placeholder = '%s' if g.db_type == 'postgres' else '?'
+
+    # Construir y ejecutar la consulta
+    query = f'SELECT * FROM usuarios WHERE email = {placeholder}'
+    db.execute(query, (data['email'],))
     user = db.fetchone()
 
     if not user or not bcrypt.check_password_hash(user['password'], data['password']):

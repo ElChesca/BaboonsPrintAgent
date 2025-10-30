@@ -29,13 +29,14 @@ CREATE TABLE IF NOT EXISTS productos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     negocio_id INTEGER NOT NULL,
     nombre TEXT NOT NULL,
+    sku TEXT,
     codigo_barras TEXT,
     stock REAL NOT NULL DEFAULT 0,
     precio_costo REAL,
     precio_venta REAL NOT NULL,
     unidad_medida TEXT DEFAULT 'unidades',
     FOREIGN KEY (negocio_id) REFERENCES negocios (id),
-    -- Corregido: El UNIQUE constraint ya estaba, pero me aseguro que esté bien.
+    UNIQUE(sku, negocio_id),
     UNIQUE(codigo_barras, negocio_id)
 );
 
