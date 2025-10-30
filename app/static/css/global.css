@@ -459,30 +459,3 @@ label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;
 .hidden { display: none !important; }
 .hide-element { display: none !important; } /* Clase específica para JS */
 .card { background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-
-/* --- 11. BOTÓN DE INSTALACIÓN PWA --- */
-#install-pwa-btn {
-    background-color: #5C8C6A; /* Verde Baboons */
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 5px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    white-space: nowrap;
-    margin-right: 15px; /* Espacio para separarlo */
-}
-
-#install-pwa-btn:hover {
-    background-color: #4a7055;
-}
-
-@media (max-width: 900px) {
-    #install-pwa-btn {
-        order: -1; /* Mueve el botón de instalar antes del logo en el orden flex */
-        margin-right: auto; /* Empuja el resto de elementos a la derecha */
-        padding: 6px 10px;
-        font-size: 0.9em;
-    }
-}

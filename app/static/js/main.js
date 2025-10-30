@@ -607,32 +607,3 @@ console.log("DOM Cargado. Configurando listeners iniciales...");
          console.warn("Service Workers no soportados en este navegador.");
     }
 
-// ✨ 9. LÓGICA PARA EL BOTÓN DE INSTALACIÓN DE PWA
-let deferredPrompt;
-const installButton = document.getElementById('install-pwa-btn');
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  // Prevenir que Chrome 67 y anteriores muestren el prompt automáticamente
-  e.preventDefault();
-  // Guardar el evento para que pueda ser disparado más tarde.
-  deferredPrompt = e;
-  // Mostrar nuestro botón de instalación personalizado
-  if (installButton) {
-    installButton.style.display = 'block';
-    console.log('`beforeinstallprompt` event was fired.');
-  }
-});
-
-if (installButton) {
-  installButton.addEventListener('click', async () => {
-    // Ocultar nuestro botón. El usuario ya ha interactuado con él.
-    installButton.style.display = 'none';
-    // Mostrar el prompt de instalación
-    deferredPrompt.prompt();
-    // Esperar a que el usuario responda al prompt
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User response to the install prompt: ${outcome}`);
-    // Ya no necesitamos el evento.
-    deferredPrompt = null;
-  });
-}
