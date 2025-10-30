@@ -12,19 +12,11 @@ bp = Blueprint('auth', __name__)
 @bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    # Corregido: buscar 'email' en lugar de 'nombre'
-    if not data or not data.get('email') or not data.get('password'):
+    if not data or not data.get('nombre') or not data.get('password'):
         return jsonify({'message': 'Credenciales incompletas'}), 401
     
-    from flask import g
     db = get_db()
-
-    # Determinar el marcador de posición correcto según el tipo de DB
-    placeholder = '%s' if g.db_type == 'postgres' else '?'
-
-    # Construir y ejecutar la consulta
-    query = f'SELECT * FROM usuarios WHERE email = {placeholder}'
-    db.execute(query, (data['email'],))
+    db.execute('SELECT * FROM usuarios WHERE email = %s', (data['nombre'],))
     user = db.fetchone()
 
     if not user or not bcrypt.check_password_hash(user['password'], data['password']):

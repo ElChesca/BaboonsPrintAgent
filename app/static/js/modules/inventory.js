@@ -169,14 +169,12 @@ async function guardarProducto(e) {
         document.getElementById('modal-producto').style.display = 'none';
         await fetchProductos();
     } catch (error) {
-        // Si el error es un 409 (Conflict), mostramos un mensaje específico.
         if (error.message.includes('409')) {
             mostrarNotificacion('Error: Ya existe un producto con este SKU en este negocio.', 'error');
         } else {
             mostrarNotificacion(error.message, 'error');
         }
     } finally {
-        // Reactivamos el botón sin importar el resultado
         botonGuardar.disabled = false;
         botonGuardar.textContent = 'Guardar';
     }
