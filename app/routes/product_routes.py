@@ -37,7 +37,18 @@ def get_producto_por_id(current_user, producto_id):
 @token_required
 def add_producto(current_user, negocio_id):
     data = request.get_json()
+    sku = data.get('sku')
     db = get_db()
+
+    # --- Validación de SKU único ---
+    if sku:
+        db.execute(
+            'SELECT id FROM productos WHERE sku = %s AND negocio_id = %s',
+            (sku, negocio_id)
+        )
+        if db.fetchone():
+            return jsonify({'error': f'El SKU "{sku}" ya existe en este negocio.'}), 409
+
     try:
         db.execute(
             """
@@ -47,7 +58,7 @@ def add_producto(current_user, negocio_id):
             """,
             (
                 negocio_id, data.get('nombre'), data.get('stock'), data.get('precio_venta'), data.get('precio_costo'),
-                data.get('unidad_medida'), data.get('categoria_id'), data.get('stock_minimo'), data.get('sku'),
+                data.get('unidad_medida'), data.get('categoria_id'), data.get('stock_minimo'), sku,
                 data.get('codigo_barras'), data.get('proveedor_id')
             )
         )
@@ -59,6 +70,9 @@ def add_producto(current_user, negocio_id):
         return jsonify(dict(producto_creado)), 201
     except Exception as e:
         g.db_conn.rollback()
+        # Verificar si el error es por la restricción UNIQUE de la base de datos
+        if 'UNIQUE constraint' in str(e) or 'duplicate key value' in str(e):
+            return jsonify({'error': 'Error de base de datos: Ya existe un producto con ese SKU o código de barras en este negocio.'}), 409
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/productos/<int:producto_id>', methods=['PUT'])

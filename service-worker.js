@@ -18,7 +18,7 @@ const CACHE_NAME = `baboons-cache-v${APP_VERSION}`;
 // ✨ pedirán tu index.html y tu main.js
 const urlsToCache = [
   '/',
-
+  `/index.html`, // Generalmente no se versiona el index.html
   `/static/css/global.css${v}`, // ¡Debe coincidir con tu index.html!
   `/static/js/main.js${v}`,
   `/static/js/api.js${v}`,

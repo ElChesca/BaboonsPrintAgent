@@ -12,11 +12,13 @@ bp = Blueprint('auth', __name__)
 @bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    if not data or not data.get('nombre') or not data.get('password'):
+    # Corregido: buscar 'email' en lugar de 'nombre'
+    if not data or not data.get('email') or not data.get('password'):
         return jsonify({'message': 'Credenciales incompletas'}), 401
     
     db = get_db()
-    db.execute('SELECT * FROM usuarios WHERE email = %s', (data['nombre'],))
+    # Corregido: usar data['email'] para la consulta y '?' para sqlite3
+    db.execute('SELECT * FROM usuarios WHERE email = ?', (data['email'],))
     user = db.fetchone()
 
     if not user or not bcrypt.check_password_hash(user['password'], data['password']):
