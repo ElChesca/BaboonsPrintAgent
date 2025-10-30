@@ -16,14 +16,24 @@ def get_usuarios(current_user):
     if current_user['rol'] != 'admin':
         return jsonify({'message': 'Acceso no autorizado'}), 403
 
+    from flask import g
+
+    # La función de agregación de cadenas varía entre SQLite y PostgreSQL
+    if g.db_type == 'postgres':
+        agg_func = "STRING_AGG(n.nombre, ', ')"
+    else:
+        agg_func = "GROUP_CONCAT(n.nombre)"
+
     # Obtener todos los usuarios con sus negocios asociados
-    query = """
-        SELECT u.id, u.nombre, u.email, u.rol, GROUP_CONCAT(n.nombre) as negocios
+    query = f"""
+        SELECT u.id, u.nombre, u.email, u.rol, {agg_func} as negocios
         FROM usuarios u
         LEFT JOIN usuarios_negocios un ON u.id = un.usuario_id
         LEFT JOIN negocios n ON un.negocio_id = n.id
-        GROUP BY u.id
+        GROUP BY u.id, u.nombre, u.email, u.rol
     """
+    # Nota: PostgreSQL requiere que todas las columnas no agregadas estén en el GROUP BY
+
     users = execute_query(query, fetchall=True)
     return jsonify([dict(row) for row in users])
 
