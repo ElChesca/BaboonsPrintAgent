@@ -3,7 +3,7 @@
 // ✨ ========================================================================
 // ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
 // ✨ ========================================================================
-const APP_VERSION = "1.0.3";
+const APP_VERSION = "1.0.4";
 const v = `?v=${APP_VERSION}`;
 // ==========================================================================
 
@@ -511,8 +511,8 @@ window.addEventListener('touchstart', reiniciarTemporizador);
 // ==========================================================================
 
 
-document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM Cargado. Configurando listeners iniciales...");
+
+console.log("DOM Cargado. Configurando listeners iniciales...");
 
     // ✨ 7. INICIA EL TEMPORIZADOR POR PRIMERA VEZ
     reiniciarTemporizador();
@@ -597,4 +597,3 @@ document.addEventListener('DOMContentLoaded', () => {
          console.warn("Service Workers no soportados en este navegador.");
     }
 
-});
