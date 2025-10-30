@@ -1,44 +1,63 @@
 # app/routes/category_routes.py
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request, g
+from app.database import get_db
 from app.auth_decorator import token_required
-from app.db_utils import execute_query
 
 bp = Blueprint('categories', __name__)
 
-@bp.route('/api/negocios/<int:negocio_id>/categorias', methods=['GET'])
+@bp.route('/negocios/<int:negocio_id>/categorias', methods=['GET'])
 @token_required
 def get_categorias(current_user, negocio_id):
-    query = "SELECT * FROM productos_categoria WHERE negocio_id = ? ORDER BY nombre"
-    categorias = execute_query(query, (negocio_id,), fetchall=True)
-    return jsonify([dict(c) for c in categorias])
+    db = get_db()
+    db.execute('SELECT * FROM productos_categoria WHERE negocio_id = %s ORDER BY nombre', (negocio_id,))
+    categorias = db.fetchall()
+    return jsonify([dict(row) for row in categorias])
 
-@bp.route('/api/negocios/<int:negocio_id>/categorias', methods=['POST'])
+@bp.route('/negocios/<int:negocio_id>/categorias', methods=['POST'])
 @token_required
 def create_categoria(current_user, negocio_id):
+    if current_user['rol'] != 'admin':
+        return jsonify({'message': 'Acción no permitida'}), 403
+
     data = request.get_json()
-    nombre = data.get('nombre')
-    if not nombre:
-        return jsonify({'message': 'El nombre es requerido'}), 400
-
-    query = "INSERT INTO productos_categoria (negocio_id, nombre) VALUES (?, ?)"
-    execute_query(query, (negocio_id, nombre), commit=True)
+    if not data or not data.get('nombre'):
+        return jsonify({'error': 'El nombre es obligatorio'}), 400
     
-    return jsonify({'message': 'Categoría creada con éxito'}), 201
+    db = get_db()
+    try:
+        db.execute(
+            'INSERT INTO productos_categoria (nombre, negocio_id) VALUES (%s, %s) RETURNING id',
+            (data['nombre'], negocio_id)
+        )
+        nuevo_id = db.fetchone()['id']
+        g.db_conn.commit()
+        return jsonify({'id': nuevo_id, 'nombre': data['nombre']}), 201
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': 'Esa categoría ya existe o ocurrió un error'}), 409
 
-@bp.route('/api/categorias/<int:id>', methods=['PUT'])
+@bp.route('/categorias/<int:id>', methods=['PUT'])
 @token_required
 def update_categoria(current_user, id):
+    if current_user['rol'] != 'admin':
+        return jsonify({'message': 'Acción no permitida'}), 403
+
     data = request.get_json()
-    nombre = data.get('nombre')
-    if not nombre:
-        return jsonify({'message': 'El nombre no puede estar vacío'}), 400
+    if not data or not data.get('nombre'):
+        return jsonify({'error': 'El nombre es obligatorio'}), 400
 
-    query = "UPDATE productos_categoria SET nombre = ? WHERE id = ?"
-    execute_query(query, (nombre, id), commit=True)
-    return jsonify({'message': 'Categoría actualizada'})
+    db = get_db()
+    db.execute('UPDATE productos_categoria SET nombre = %s WHERE id = %s', (data['nombre'], id))
+    g.db_conn.commit()
+    return jsonify({'message': 'Categoría actualizada con éxito'})
 
-@bp.route('/api/categorias/<int:id>', methods=['DELETE'])
+@bp.route('/categorias/<int:id>', methods=['DELETE'])
 @token_required
 def delete_categoria(current_user, id):
-    execute_query("DELETE FROM productos_categoria WHERE id = ?", (id,), commit=True)
-    return jsonify({'message': 'Categoría eliminada'})
+    if current_user['rol'] != 'admin':
+        return jsonify({'message': 'Acción no permitida'}), 403
+
+    db = get_db()
+    db.execute('DELETE FROM productos_categoria WHERE id = %s', (id,))
+    g.db_conn.commit()
+    return jsonify({'message': 'Categoría eliminada con éxito'})

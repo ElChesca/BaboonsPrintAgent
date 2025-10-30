@@ -1,61 +1,117 @@
 # app/routes/clientes_routes.py
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request, g
+from app.database import get_db
 from app.auth_decorator import token_required
-from app.db_utils import execute_query
 
 bp = Blueprint('clientes', __name__)
 
-@bp.route('/api/negocios/<int:negocio_id>/clientes', methods=['GET'])
+@bp.route('/negocios/<int:negocio_id>/clientes', methods=['GET'])
 @token_required
 def get_clientes(current_user, negocio_id):
-    query = "SELECT * FROM clientes WHERE negocio_id = ?"
-    clientes = execute_query(query, (negocio_id,), fetchall=True)
-    return jsonify([dict(c) for c in clientes])
+    db = get_db()
+    # ✨ UNIMOS las tablas para traer el nombre de la lista de precios ✨
+    db.execute(
+        """
+        SELECT c.*, lp.nombre AS lista_de_precio_nombre
+        FROM clientes c
+        LEFT JOIN listas_de_precios lp ON c.lista_de_precio_id = lp.id
+        WHERE c.negocio_id = %s ORDER BY c.nombre
+        """,
+        (negocio_id,)
+    )
+    clientes = db.fetchall()
+    return jsonify([dict(row) for row in clientes])
 
 
-@bp.route('/api/negocios/<int:negocio_id>/clientes', methods=['POST'])
+@bp.route('/negocios/<int:negocio_id>/clientes', methods=['POST'])
 @token_required
 def create_cliente(current_user, negocio_id):
     data = request.get_json()
-    nombre = data.get('nombre')
-
-    if not nombre:
-        return jsonify({'message': 'El nombre es requerido'}), 400
-
-    fields = ['nombre', 'email', 'telefono', 'direccion', 'cuit']
-    values = [negocio_id] + [data.get(f) for f in fields]
-
-    query = f"""
-        INSERT INTO clientes (negocio_id, {', '.join(fields)})
-        VALUES (?, ?, ?, ?, ?, ?)
-    """
-    execute_query(query, tuple(values), commit=True)
+    if not data or not data.get('nombre'):
+        return jsonify({'error': 'El nombre es obligatorio'}), 400
     
-    return jsonify({'message': 'Cliente creado con éxito'}), 201
+    lista_id = data.get('lista_de_precio_id') # Usar el nombre correcto de la columna
+    # Obtén el ID directamente de los datos JSON que envía el frontend
+    db = get_db()
+    try:
+        # ✨ CORRECCIÓN: Se incluyen todos los nuevos campos en la sentencia INSERT.
+        db.execute(
+            """
+            INSERT INTO clientes (negocio_id, nombre, dni, telefono, email, direccion,
+                                  tipo_cliente, tipo_documento, condicion_venta, posicion_iva,
+                                  lista_precios, credito_maximo, ciudad, provincia, ref_interna,lista_de_precio_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (negocio_id, data.get('nombre'), data.get('dni'), data.get('telefono'), data.get('email'), data.get('direccion'),
+             data.get('tipo_cliente', 'Individuo'), data.get('tipo_documento', 'DNI'), data.get('condicion_venta', 'Contado'),
+             data.get('posicion_iva', 'Consumidor Final'), data.get('lista_precios'), data.get('credito_maximo', 0),
+             data.get('ciudad'), data.get('provincia'), data.get('ref_interna'), lista_id)
+        )
+        nuevo_id = db.fetchone()['id']
+        g.db_conn.commit()
+        # Devolvemos el objeto completo con su nuevo ID.
+        return jsonify({'id': nuevo_id, **data}), 201
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
 
-@bp.route('/api/clientes/<int:cliente_id>', methods=['PUT'])
+@bp.route('/clientes/<int:cliente_id>', methods=['PUT'])
 @token_required
 def update_cliente(current_user, cliente_id):
     data = request.get_json()
-    fields = [key for key in data.keys() if key != 'id']
-    values = [data[key] for key in fields] + [cliente_id]
-    
-    set_clause = ', '.join([f"{field} = ?" for field in fields])
-    query = f"UPDATE clientes SET {set_clause} WHERE id = ?"
-    
-    execute_query(query, tuple(values), commit=True)
-    return jsonify({'message': 'Cliente actualizado'})
+    if not data:
+        return jsonify({'error': 'No se recibieron datos para actualizar'}), 400
 
+    # ✨ MEJORA: Construcción dinámica de la consulta UPDATE.
+    # Esto permite actualizar solo los campos que se envían y es mucho más seguro y flexible.
+    
+    # Lista de campos permitidos para actualizar
+    allowed_fields = ['nombre', 'dni', 'telefono', 'email', 'direccion',
+                      'tipo_cliente', 'tipo_documento', 'condicion_venta', 'posicion_iva',
+                      'lista_precios', 'credito_maximo', 'ciudad', 'provincia', 'ref_interna','lista_de_precio_id']
+    
+    # Construimos la parte SET de la consulta
+    set_parts = []
+    values = []
+    for field in allowed_fields:
+        if field in data:
+            set_parts.append(f"{field} = %s")
+            values.append(data[field])
 
-@bp.route('/api/clientes/<int:cliente_id>', methods=['DELETE'])
+    if not set_parts:
+        return jsonify({'error': 'Ningún campo válido para actualizar'}), 400
+
+    # Añadimos el ID del cliente al final de la lista de valores
+    values.append(cliente_id)
+
+    query = f"UPDATE clientes SET {', '.join(set_parts)} WHERE id = %s"
+
+    db = get_db()
+    try:
+        db.execute(query, tuple(values))
+        g.db_conn.commit()
+        return jsonify({'message': 'Cliente actualizado con éxito'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/clientes/<int:cliente_id>', methods=['DELETE'])
 @token_required
 def delete_cliente(current_user, cliente_id):
-    execute_query("DELETE FROM clientes WHERE id = ?", (cliente_id,), commit=True)
-    return jsonify({'message': 'Cliente eliminado'})
+    db = get_db()
+    # Aquí podrías añadir una lógica para verificar si el cliente tiene saldo en cta. cte. antes de borrar.
+    db.execute('DELETE FROM clientes WHERE id = %s', (cliente_id,))
+    g.db_conn.commit()
+    return jsonify({'message': 'Cliente eliminado con éxito'})
 
-@bp.route('/api/clientes/<int:cliente_id>/cuenta_corriente', methods=['GET'])
+@bp.route('/clientes/<int:cliente_id>/cuenta_corriente', methods=['GET'])
 @token_required
 def get_cuenta_corriente(current_user, cliente_id):
-    query = "SELECT * FROM ventas WHERE cliente_id = ? ORDER BY fecha DESC"
-    movimientos = execute_query(query, (cliente_id,), fetchall=True)
-    return jsonify([dict(m) for m in movimientos])
+    db = get_db()
+    db.execute(
+        "SELECT * FROM clientes_cuenta_corriente WHERE cliente_id = %s ORDER BY fecha ASC",
+        (cliente_id,)
+    )
+    movimientos = db.fetchall()
+    return jsonify([dict(row) for row in movimientos])
