@@ -21,7 +21,7 @@ def get_configuraciones(current_user, negocio_id):
 @token_required
 def save_configuraciones(current_user, negocio_id):
     """Guarda un conjunto de configuraciones. Crea o actualiza según exista la clave."""
-    if current_user['rol'] != 'admin':
+    if current_user['rol'] not in ['admin', 'superadmin']:
         return jsonify({'message': 'Acción no permitida'}), 403
         
     data = request.get_json()

@@ -16,7 +16,7 @@ def get_categorias(current_user, negocio_id):
 @bp.route('/negocios/<int:negocio_id>/categorias', methods=['POST'])
 @token_required
 def create_categoria(current_user, negocio_id):
-    if current_user['rol'] != 'admin':
+    if current_user['rol'] not in ['admin', 'superadmin']:
         return jsonify({'message': 'Acción no permitida'}), 403
 
     data = request.get_json()
@@ -39,7 +39,7 @@ def create_categoria(current_user, negocio_id):
 @bp.route('/categorias/<int:id>', methods=['PUT'])
 @token_required
 def update_categoria(current_user, id):
-    if current_user['rol'] != 'admin':
+    if current_user['rol'] not in ['admin', 'superadmin']:
         return jsonify({'message': 'Acción no permitida'}), 403
 
     data = request.get_json()
@@ -54,7 +54,7 @@ def update_categoria(current_user, id):
 @bp.route('/categorias/<int:id>', methods=['DELETE'])
 @token_required
 def delete_categoria(current_user, id):
-    if current_user['rol'] != 'admin':
+    if current_user['rol'] not in ['admin', 'superadmin']:
         return jsonify({'message': 'Acción no permitida'}), 403
 
     db = get_db()

@@ -75,8 +75,8 @@ def add_producto(current_user, negocio_id):
 @bp.route('/productos/<int:producto_id>', methods=['PUT'])
 @token_required
 def update_producto(current_user, producto_id):
-    if current_user['rol'] != 'admin':
-        return jsonify({'message': 'Solo un Admin puede modificar'}), 403
+    if current_user['rol'] not in ['admin', 'superadmin']:
+        return jsonify({'message': 'Solo Admin o Superadmin pueden modificar'}), 403
 
     update_data = request.get_json()
     campos_validos = [
@@ -101,7 +101,7 @@ def update_producto(current_user, producto_id):
 @bp.route('/productos/<int:producto_id>', methods=['DELETE'])
 @token_required
 def delete_producto(current_user, producto_id):
-    if current_user['rol'] != 'admin':
+    if current_user['rol'] not in ['admin', 'superadmin']:
         return jsonify({'message': 'Acción no permitida'}), 403
 
     db = get_db()
@@ -273,11 +273,12 @@ def get_producto_por_codigo(current_user, negocio_id):
         query = """
             SELECT id, nombre, stock, precio_venta, sku, codigo_barras
             FROM productos
-            WHERE negocio_id = %s AND (TRIM(LOWER(codigo_barras)) = LOWER(%s) OR TRIM(LOWER(sku)) = LOWER(%s))
+            WHERE negocio_id = %s AND (TRIM(LOWER(codigo_barras)) LIKE %s OR TRIM(LOWER(sku)) LIKE %s)
             LIMIT 1
             """
-        # Usamos el código normalizado en los parámetros de la consulta
-        params = (negocio_id, codigo.strip(), codigo.strip())
+        # Normalizamos el código y lo envolvemos con '%' para la búsqueda de 'contiene'
+        codigo_normalizado = f"%{codigo.strip().lower()}%"
+        params = (negocio_id, codigo_normalizado, codigo_normalizado)
         print(f"Executing query: {query} with params: {params}") # LOG 4
 
         db.execute(query, params)
