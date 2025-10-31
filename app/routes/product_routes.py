@@ -273,10 +273,11 @@ def get_producto_por_codigo(current_user, negocio_id):
         query = """
             SELECT id, nombre, stock, precio_venta, sku, codigo_barras
             FROM productos
-            WHERE negocio_id = %s AND (codigo_barras = %s OR sku = %s)
+            WHERE negocio_id = %s AND (TRIM(LOWER(codigo_barras)) = LOWER(%s) OR TRIM(LOWER(sku)) = LOWER(%s))
             LIMIT 1
             """
-        params = (negocio_id, codigo, codigo)
+        # Usamos el código normalizado en los parámetros de la consulta
+        params = (negocio_id, codigo.strip(), codigo.strip())
         print(f"Executing query: {query} with params: {params}") # LOG 4
 
         db.execute(query, params)

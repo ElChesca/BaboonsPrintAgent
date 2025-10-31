@@ -110,7 +110,7 @@ async function iniciarEscaneo() {
 
     const config = {
         fps: 10,
-        qrbox: { width: 250, height: 150 },
+        qrbox: { width: 350, height: 100 }, // Más ancha y menos alta
         facingMode: "environment"
     };
 
@@ -136,7 +136,8 @@ async function iniciarEscaneo() {
  */
 async function onScanSuccess(decodedText, decodedResult) {
     const elScanStatus = document.getElementById('scan-status-verificador');
-    elScanStatus.textContent = "Buscando producto...";
+    // Feedback inmediato de lectura
+    elScanStatus.textContent = `Código leído: ${decodedText}. Buscando...`;
     
     // Pausamos el scanner para evitar múltiples lecturas del mismo código
     if (isScannerActive) html5QrCode.pause();
@@ -148,8 +149,14 @@ async function onScanSuccess(decodedText, decodedResult) {
         renderizarLista();
         elScanStatus.textContent = `✅ "${producto.descripcion}" agregado.`;
     } catch (error) {
+        // Usamos el texto decodificado en el mensaje de error para más claridad
+        if (error.message.toLowerCase().includes('producto no encontrado')) {
+            elScanStatus.textContent = `❌ Producto no encontrado para el código ${decodedText}.`;
+        } else {
+            elScanStatus.textContent = `❌ Error: ${error.message}`;
+        }
+        // La notificación emergente sigue siendo útil para errores inesperados
         mostrarNotificacion(error.message, 'error');
-        elScanStatus.textContent = `❌ Error: ${error.message}`;
     }
 
     // Después de un momento, reanudamos el scanner
@@ -159,7 +166,7 @@ async function onScanSuccess(decodedText, decodedResult) {
             const currentStatus = document.getElementById('scan-status-verificador');
             if (currentStatus) currentStatus.textContent = "Apuntá la cámara al código de barras...";
         }
-    }, 2000); // 2 segundos de pausa
+    }, 2500); // Aumentamos un poco la pausa para dar tiempo a leer el mensaje
 }
 
 /**
