@@ -89,6 +89,13 @@ export function inicializarLogicaReporteCaja() {
     btnExportarPDF = document.getElementById('btn-exportar-caja-pdf');
     tablaBody = document.querySelector('#tabla-reporte-caja tbody');
 
+    // Verificación de existencia de elementos para evitar errores fatales.
+    if (!filtroUsuario || !btnFiltrar || !btnExportarPDF || !tablaBody) {
+        console.error('Faltan elementos esenciales en la página de reporte de caja.');
+        mostrarNotificacion('Error al inicializar la página.', 'error');
+        return; // Detiene la ejecución para prevenir el crash.
+    }
+
     poblarFiltroUsuarios();
     cargarReporte(); // Carga inicial sin filtros
 
