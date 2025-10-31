@@ -33,7 +33,8 @@ function renderProductos() {
 
     const productosFiltrados = productosCache.filter(p => 
         (p.nombre && p.nombre.toLowerCase().includes(filtro)) ||
-        (p.sku && p.sku.toLowerCase().includes(filtro))
+        (p.sku && p.sku.toLowerCase().includes(filtro)) ||
+        (p.codigo_barras && p.codigo_barras.toLowerCase().includes(filtro))
     );
     
     listaProductos.innerHTML = '';

@@ -136,37 +136,37 @@ async function iniciarEscaneo() {
  */
 async function onScanSuccess(decodedText, decodedResult) {
     const elScanStatus = document.getElementById('scan-status-verificador');
-    // Feedback inmediato de lectura
     elScanStatus.textContent = `Código leído: ${decodedText}. Buscando...`;
-    
-    // Pausamos el scanner para evitar múltiples lecturas del mismo código
-    if (isScannerActive) html5QrCode.pause();
+
+    // Usamos el estado interno de la librería para pausar de forma segura
+    if (html5QrCode && html5QrCode.getState() === 2) { // 2 === Html5QrcodeScannerState.SCANNING
+        html5QrCode.pause();
+    }
 
     try {
         const producto = await fetchData(`/api/negocios/${appState.negocioActivoId}/mobile/check-producto/${decodedText}`);
-        itemsEscaneados.push(producto);
+        itemsEscaneados.unshift(producto); // Añadimos al principio para que se vea primero
         actualizarListasDePrecio(producto.precios);
         renderizarLista();
         elScanStatus.textContent = `✅ "${producto.descripcion}" agregado.`;
     } catch (error) {
-        // Usamos el texto decodificado en el mensaje de error para más claridad
-        if (error.message.toLowerCase().includes('producto no encontrado')) {
+        const mensajeError = error.message || "Error desconocido";
+        if (mensajeError.toLowerCase().includes('producto no encontrado')) {
             elScanStatus.textContent = `❌ Producto no encontrado para el código ${decodedText}.`;
         } else {
-            elScanStatus.textContent = `❌ Error: ${error.message}`;
+            elScanStatus.textContent = `❌ Error: ${mensajeError}`;
         }
-        // La notificación emergente sigue siendo útil para errores inesperados
-        mostrarNotificacion(error.message, 'error');
+        mostrarNotificacion(mensajeError, 'error');
     }
 
-    // Después de un momento, reanudamos el scanner
+    // Reanudamos después de una pausa para dar tiempo a leer el mensaje
     setTimeout(() => {
-        if (isScannerActive) {
+        if (html5QrCode && html5QrCode.getState() === 3) { // 3 === Html5QrcodeScannerState.PAUSED
             html5QrCode.resume();
             const currentStatus = document.getElementById('scan-status-verificador');
             if (currentStatus) currentStatus.textContent = "Apuntá la cámara al código de barras...";
         }
-    }, 2500); // Aumentamos un poco la pausa para dar tiempo a leer el mensaje
+    }, 2500);
 }
 
 /**
