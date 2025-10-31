@@ -1,17 +1,34 @@
-<style>
-    /* Puedes reutilizar los mismos estilos de tabla y modal que ya tienes en tu CSS principal */
-    .stock-bajo { /* Reutilizamos esta clase para resaltar diferencias de caja */
-        color: #dc3545;
-        font-weight: bold;
-    }
-</style>
+<link rel="stylesheet" href="/static/css/reportes.css">
 
 <div class="card">
     <h2>Historial de Cierres de Caja</h2>
     <p>Aquí puedes ver un registro de todas las sesiones de caja que han sido cerradas.</p>
+
+    <!-- Controles de Filtro -->
+    <div class="filtros-container">
+        <div class="form-group">
+            <label for="filtro-fecha-desde-caja">Desde:</label>
+            <input type="date" id="filtro-fecha-desde-caja">
+        </div>
+        <div class="form-group">
+            <label for="filtro-fecha-hasta-caja">Hasta:</label>
+            <input type="date" id="filtro-fecha-hasta-caja">
+        </div>
+        <div class="form-group">
+            <label for="filtro-usuario-caja">Usuario:</label>
+            <select id="filtro-usuario-caja">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="form-actions">
+            <button id="btn-filtrar-caja" class="btn-primary">Filtrar</button>
+            <button id="btn-exportar-caja-pdf" class="btn-secondary">Exportar a PDF</button>
+        </div>
+    </div>
     
+    <!-- Tabla de Reportes -->
     <div class="table-container">
-        <table id="tabla-reportes-caja">
+        <table id="tabla-reporte-caja" class="tabla-bonita">
             <thead>
                 <tr>
                     <th>Fecha Apertura</th>
@@ -33,11 +50,15 @@
     </div>
 </div>
 
+<!-- Modal para Detalles -->
 <div id="modal-detalles-caja" class="modal">
     <div class="modal-content">
-        <span class="close-button">&times;</span>
-        <h2>Detalles del Cierre de Caja</h2>
+        <div class="modal-header">
+            <h2>Detalles del Cierre de Caja</h2>
+            <span class="close-button" onclick="document.getElementById('modal-detalles-caja').style.display='none'">&times;</span>
+        </div>
         <div id="contenido-detalles-caja">
-            </div>
+            <!-- El contenido se cargará aquí dinámicamente -->
+        </div>
     </div>
 </div>
