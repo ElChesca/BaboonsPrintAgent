@@ -1,25 +1,34 @@
 <div class="card">
     <h2>🔍 Verificador de Precios</h2>
 
-    <div id="reader-verificador"></div>
-    <p id="scan-status-verificador">Apuntá la cámara al código de barras...</p>
-
-    <div class="botones-verificador">
+    <!-- Controles del Scanner -->
+    <div class="botones-verificador" style="margin-bottom: 15px;">
+        <button id="btn-iniciar-scanner" class="btn btn-primary">Iniciar Escáner</button>
+        <button id="btn-detener-scanner" class="btn btn-secondary">Detener Escáner</button>
         <button id="btn-limpiar-verificador" class="btn btn-danger">Limpiar Lecturas</button>
     </div>
 
+    <!-- Visor del Scanner (oculto por defecto) -->
+    <div id="reader-verificador" style="width: 100%; max-width: 500px; margin: auto; border-radius: 8px; overflow: hidden;"></div>
+    <p id="scan-status-verificador" style="text-align: center; margin-top: 10px;">Presione 'Iniciar Escáner' para usar la cámara.</p>
+
+    <hr style="margin: 20px 0;">
+
+    <!-- Controles de Totalización -->
     <div class="total-controls">
-        <label for="lista-precio-total-verificador">Usar para Total:</label>
+        <label for="lista-precio-total-verificador">Calcular Total usando:</label>
         <select id="lista-precio-total-verificador">
             <option value="">(Elija lista)</option>
         </select>
     </div>
 
-    <div id="lista-items-verificador">
+    <!-- Lista de Items Escaneados -->
+    <div id="lista-items-verificador" style="margin-top: 15px;">
         <!-- Los ítems escaneados se agregarán aquí -->
     </div>
 
-    <div class="total-container">
+    <!-- Contenedor del Total -->
+    <div class="total-container" style="margin-top: 20px;">
         <h2>Total: <span id="total-monto-verificador">$ 0.00</span></h2>
     </div>
 </div>
