@@ -138,8 +138,8 @@ def get_reporte_caja(current_user, negocio_id):
         date_filter_desde = " AND DATE(cs.fecha_apertura) >= %s"
         date_filter_hasta = " AND DATE(cs.fecha_apertura) <= %s"
     else: # PostgreSQL
-        date_filter_desde = " AND cs.fecha_apertura::date >= %s"
-        date_filter_hasta = " AND cs.fecha_apertura::date <= %s"
+        date_filter_desde = " AND CAST(cs.fecha_apertura AS DATE) >= %s"
+        date_filter_hasta = " AND CAST(cs.fecha_apertura AS DATE) <= %s"
 
     if fecha_desde:
         query += date_filter_desde
