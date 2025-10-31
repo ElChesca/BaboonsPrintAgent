@@ -126,11 +126,30 @@ def cerrar_caja(current_user, negocio_id):
 @token_required
 def get_reporte_caja(current_user, negocio_id):
     db = get_db()
-    # ... (lógica de filtros)
+
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+
     params = [negocio_id]
-    query = "SELECT cs.id, cs.fecha_apertura, ..., u.nombre as usuario_nombre FROM caja_sesiones cs JOIN usuarios u ON cs.usuario_id = u.id WHERE cs.negocio_id = %s AND cs.fecha_cierre IS NOT NULL"
-    # ... (añadir filtros al query y params)
+    query = "SELECT cs.*, u.nombre as usuario_nombre FROM caja_sesiones cs JOIN usuarios u ON cs.usuario_id = u.id WHERE cs.negocio_id = %s AND cs.fecha_cierre IS NOT NULL"
+
+    # Adaptar la función de fecha según la base de datos
+    if g.db_type == 'sqlite':
+        date_filter_desde = " AND DATE(cs.fecha_apertura) >= %s"
+        date_filter_hasta = " AND DATE(cs.fecha_apertura) <= %s"
+    else: # PostgreSQL
+        date_filter_desde = " AND cs.fecha_apertura::date >= %s"
+        date_filter_hasta = " AND cs.fecha_apertura::date <= %s"
+
+    if fecha_desde:
+        query += date_filter_desde
+        params.append(fecha_desde)
+    if fecha_hasta:
+        query += date_filter_hasta
+        params.append(fecha_hasta)
+
     query += " ORDER BY cs.fecha_apertura DESC"
+
     db.execute(query, tuple(params))
     sesiones = db.fetchall()
     return jsonify([dict(row) for row in sesiones])
@@ -181,11 +200,19 @@ def get_historial_ajustes(current_user, negocio_id):
     """
     params = [negocio_id]
 
+    # Adaptar la función de fecha según la base de datos
+    if g.db_type == 'sqlite':
+        date_filter_desde = " AND DATE(ca.fecha) >= %s"
+        date_filter_hasta = " AND DATE(ca.fecha) <= %s"
+    else: # PostgreSQL
+        date_filter_desde = " AND ca.fecha::date >= %s"
+        date_filter_hasta = " AND ca.fecha::date <= %s"
+
     if fecha_desde:
-        query += " AND DATE(ca.fecha) >= %s"
+        query += date_filter_desde
         params.append(fecha_desde)
     if fecha_hasta:
-        query += " AND DATE(ca.fecha) <= %s"
+        query += date_filter_hasta
         params.append(fecha_hasta)
 
     query += " ORDER BY ca.fecha DESC"

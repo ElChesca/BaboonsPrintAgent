@@ -53,13 +53,13 @@ def add_producto(current_user, negocio_id):
         db.execute(
             """
             INSERT INTO productos (negocio_id, nombre, stock, precio_venta, precio_costo, unidad_medida,
-                                   categoria_id, stock_minimo, sku, codigo_barras, proveedor_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                                   categoria_id, stock_minimo, sku, codigo_barras, proveedor_id, alias)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """,
             (
                 negocio_id, data.get('nombre'), data.get('stock'), data.get('precio_venta'), data.get('precio_costo'),
                 data.get('unidad_medida'), data.get('categoria_id'), data.get('stock_minimo'), sku,
-                data.get('codigo_barras'), data.get('proveedor_id')
+                data.get('codigo_barras'), data.get('proveedor_id'), data.get('alias')
             )
         )
         nuevo_id = db.fetchone()['id']
@@ -81,7 +81,7 @@ def update_producto(current_user, producto_id):
     update_data = request.get_json()
     campos_validos = [
         'nombre', 'stock', 'precio_venta', 'precio_costo', 'unidad_medida',
-        'categoria_id', 'stock_minimo', 'sku', 'codigo_barras', 'proveedor_id'
+        'categoria_id', 'stock_minimo', 'sku', 'codigo_barras', 'proveedor_id', 'alias'
     ]
     fields = [f"{key} = %s" for key in update_data.keys() if key in campos_validos]
     values = [value for key, value in update_data.items() if key in campos_validos]
@@ -157,7 +157,7 @@ def buscar_productos_con_precio(current_user, negocio_id):
     # Buscamos productos que coincidan con el término de búsqueda
     db.execute(
         """
-        SELECT id, nombre, precio_venta, stock
+        SELECT id, nombre, alias, precio_venta, stock
         FROM productos
         WHERE negocio_id = %s AND (
             nombre ILIKE %s OR
