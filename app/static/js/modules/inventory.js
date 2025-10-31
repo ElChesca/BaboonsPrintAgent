@@ -40,8 +40,9 @@ function renderProductos() {
     listaProductos.innerHTML = '';
     productosFiltrados.forEach(p => {
         const stockClass = (p.stock > 0 && p.stock <= p.stock_minimo) ? 'stock-bajo' : '';
+        const aliasHtml = p.alias ? `<small class="text-muted d-block">${p.alias}</small>` : '';
         let rowHTML = `
-            <td>${p.nombre}</td>
+            <td>${p.nombre}${aliasHtml}</td>
             <td>${p.sku || '-'}</td>
             <td>${p.categoria_nombre || 'Sin categoría'}</td>
             <td class="${stockClass}">${p.stock} ${p.unidad_medida || 'un'}</td>
@@ -124,6 +125,7 @@ function abrirModal(producto = null) {
         titulo.textContent = 'Editar Producto';
         document.getElementById('producto-id').value = producto.id;
         document.getElementById('producto-nombre').value = producto.nombre;
+        document.getElementById('producto-alias').value = producto.alias || '';
         document.getElementById('producto-sku').value = producto.sku || '';
         document.getElementById('producto-categoria').value = producto.categoria_id || '';
         document.getElementById('producto-proveedor').value = producto.proveedor_id || '';
@@ -149,6 +151,7 @@ async function guardarProducto(e) {
     const id = document.getElementById('producto-id').value;
     const data = {
         nombre: document.getElementById('producto-nombre').value,
+        alias: document.getElementById('producto-alias').value || null,
         sku: document.getElementById('producto-sku').value || null,
         categoria_id: document.getElementById('producto-categoria').value || null,
         proveedor_id: document.getElementById('producto-proveedor').value || null,

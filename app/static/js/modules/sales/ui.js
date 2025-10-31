@@ -13,9 +13,12 @@ export function renderSaleItemsTable(items, total) {
         // Calculamos el descuento total para esta línea de producto
         const descuentoTotalItem = (item.precio_original - item.precio_unitario) * item.cantidad;
 
+        // Usamos el alias si existe, si no, el nombre
+        const nombreDisplay = item.alias || item.nombre;
+
         tbody.innerHTML += `
             <tr data-index="${index}">
-                <td>${item.nombre} <small style="color: grey; display: block;">SKU: ${item.sku}</small></td> 
+                <td>${nombreDisplay} <small style="color: grey; display: block;">SKU: ${item.sku}</small></td>
                 <td>${item.cantidad}</td>
                 <td>${formatCurrency(item.precio_unitario)}</td>
                 <td>${descuentoTotalItem > 0 ? formatCurrency(descuentoTotalItem) : '-'}</td>
@@ -56,9 +59,10 @@ export function renderSearchResults(resultados, callback) {
         const itemDiv = document.createElement('div');
         itemDiv.className = 'search-item';
         
-        // Usamos el precio_venta que ya viene calculado
+        // Mostramos el alias si existe, si no, el nombre
+        const nombreDisplay = producto.alias || producto.nombre;
         itemDiv.innerHTML = `
-            <span>${producto.nombre}</span> 
+            <span>${nombreDisplay}</span>
             <span class="stock">Stock: ${producto.stock} | ${formatCurrency(producto.precio_venta)}</span>
         `;
         
