@@ -88,5 +88,113 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
         traceback.print_exc()
         return jsonify({'error': f'Error al generar cuenta corriente: {str(e)}'}), 500
 
-# (Asegúrate de que tus otras rutas de reportes estén aquí también)
+@bp.route('/negocios/<int:negocio_id>/reportes/ganancias', methods=['GET'])
+@token_required
+def get_reporte_ganancias(current_user, negocio_id):
+    db = get_db()
+    fecha_desde_str = request.args.get('fecha_desde')
+    fecha_hasta_str = request.args.get('fecha_hasta')
+
+    # Base de la consulta
+    query = """
+        SELECT
+            p.nombre as producto_nombre,
+            SUM(vi.cantidad) as cantidad_vendida,
+            SUM(vi.precio_unitario * vi.cantidad) as total_ventas,
+            SUM(p.costo * vi.cantidad) as total_costo,
+            SUM(vi.precio_unitario * vi.cantidad) - SUM(p.costo * vi.cantidad) as ganancia_neta
+        FROM
+            ventas v
+        JOIN
+            venta_items vi ON v.id = vi.venta_id
+        JOIN
+            productos p ON vi.producto_id = p.id
+        WHERE
+            v.negocio_id = %s
+    """
+    params = [negocio_id]
+
+    # Añadir filtros de fecha si se proporcionan
+    if fecha_desde_str:
+        query += " AND v.fecha >= %s"
+        params.append(fecha_desde_str)
+    if fecha_hasta_str:
+        # Para que la fecha 'hasta' sea inclusiva, añadimos un día y comparamos con '<'
+        # o simplemente comparamos la fecha directamente si la columna es de tipo DATE
+        fecha_hasta = datetime.datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date() + datetime.timedelta(days=1)
+        query += " AND v.fecha < %s"
+        params.append(fecha_hasta.strftime('%Y-%m-%d'))
+
+    query += """
+        GROUP BY
+            p.nombre
+        ORDER BY
+            ganancia_neta DESC
+    """
+
+    try:
+        db.execute(query, tuple(params))
+        reporte = db.fetchall()
+        # Convertir a una lista de diccionarios para la respuesta JSON
+        return jsonify([dict(row) for row in reporte])
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/reportes/ventas_diarias', methods=['GET'])
+@token_required
+def get_reporte_ventas_diarias(current_user, negocio_id):
+    db = get_db()
+    fecha_desde_str = request.args.get('fecha_desde')
+    fecha_hasta_str = request.args.get('fecha_hasta')
+
+    # Determinar el tipo de base de datos para la función de fecha
+    if g.db_type == 'sqlite':
+        date_function = "DATE(v.fecha)"
+    else: # Asumimos PostgreSQL
+        date_function = "CAST(v.fecha AS DATE)"
+
+    query = f"""
+        SELECT
+            {date_function} as dia,
+            COUNT(v.id) as cantidad_ventas,
+            SUM(v.total) as total_vendido
+        FROM
+            ventas v
+        WHERE
+            v.negocio_id = %s
+    """
+    params = [negocio_id]
+
+    if fecha_desde_str:
+        query += " AND v.fecha >= %s"
+        params.append(fecha_desde_str)
+    if fecha_hasta_str:
+        fecha_hasta = datetime.datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date() + datetime.timedelta(days=1)
+        query += " AND v.fecha < %s"
+        params.append(fecha_hasta.strftime('%Y-%m-%d'))
+
+    query += f"""
+        GROUP BY
+            {date_function}
+        ORDER BY
+            dia DESC
+    """
+
+    try:
+        db.execute(query, tuple(params))
+        reporte = db.fetchall()
+        # Convertir a una lista de diccionarios para la respuesta JSON
+        # Y asegurarse de que 'dia' sea un string en formato ISO
+        reporte_list = []
+        for row in reporte:
+            row_dict = dict(row)
+            if isinstance(row_dict['dia'], datetime.date):
+                row_dict['dia'] = row_dict['dia'].isoformat()
+            reporte_list.append(row_dict)
+
+        return jsonify(reporte_list)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
