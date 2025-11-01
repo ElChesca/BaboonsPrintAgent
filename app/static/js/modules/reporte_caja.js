@@ -26,7 +26,7 @@ async function cargarReporte() {
     
     try {
         const url = `/api/negocios/${appState.negocioActivoId}/reportes/caja?${params.toString()}`;
-        reporteCache = await fetchData(url);
+        reporteCache = await fetchData(url); // Ya usa fetchData, no necesita cambio.
         renderizarTabla();
     } catch (error) {
         mostrarNotificacion('Error al cargar el reporte: ' + error.message, 'error');
