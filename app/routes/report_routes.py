@@ -100,9 +100,9 @@ def get_reporte_ganancias(current_user, negocio_id):
         SELECT
             p.nombre as producto_nombre,
             SUM(vd.cantidad) as cantidad_vendida,
-            SUM(vd.precio_unitario_venta * vd.cantidad) as total_ventas,
+            SUM(vd.subtotal) as total_ventas,
             SUM(p.precio_costo * vd.cantidad) as total_costo,
-            SUM(vd.precio_unitario_venta * vd.cantidad) - SUM(p.precio_costo * vd.cantidad) as ganancia_neta
+            SUM(vd.subtotal) - SUM(p.precio_costo * vd.cantidad) as ganancia_neta
         FROM
             ventas v
         JOIN
@@ -150,13 +150,13 @@ def get_reporte_ventas_diarias(current_user, negocio_id):
 
     # Determinar el tipo de base de datos para la función de fecha
     if g.db_type == 'sqlite':
-        date_function = "DATE(v.fecha)"
+        date_select = "DATE(v.fecha)"
     else: # Asumimos PostgreSQL
-        date_function = "CAST(v.fecha AS DATE)"
+        date_select = "CAST(v.fecha AS DATE)"
 
     query = f"""
         SELECT
-            {date_function} as dia,
+            {date_select} as dia,
             COUNT(v.id) as cantidad_ventas,
             SUM(v.total) as total_vendido
         FROM
@@ -174,9 +174,9 @@ def get_reporte_ventas_diarias(current_user, negocio_id):
         query += " AND v.fecha < %s"
         params.append(fecha_hasta.strftime('%Y-%m-%d'))
 
-    query += f"""
+    query += """
         GROUP BY
-            {date_function}
+            dia
         ORDER BY
             dia DESC
     """
