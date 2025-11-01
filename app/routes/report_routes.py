@@ -150,13 +150,13 @@ def get_reporte_ventas_diarias(current_user, negocio_id):
 
     # Determinar el tipo de base de datos para la función de fecha
     if g.db_type == 'sqlite':
-        date_select = "DATE(v.fecha)"
+        date_select = "DATE(v.fecha) as dia"
     else: # Asumimos PostgreSQL
-        date_select = "CAST(v.fecha AS DATE)"
+        date_select = "CAST(v.fecha AS DATE) as dia"
 
     query = f"""
         SELECT
-            {date_select} as dia,
+            {date_select},
             COUNT(v.id) as cantidad_ventas,
             SUM(v.total) as total_vendido
         FROM
