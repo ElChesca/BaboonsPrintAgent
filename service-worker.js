@@ -5,7 +5,7 @@
 // ✨ ¡IMPORTANTE! Esta versión DEBE ser IDÉNTICA a la de tu main.js
 // ✨ Es el único paso "manual" que debes hacer.
 // ✨ ========================================================================
-const APP_VERSION = "1.0.6"; 
+const APP_VERSION = "1.0.7"; 
 // ==========================================================================
 
 const v = `?v=${APP_VERSION}`;
