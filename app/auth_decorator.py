@@ -43,6 +43,10 @@ def token_required(f):
             # Si no buscas en DB, usa los datos del token directamente (menos seguro si borras usuarios)
             current_user = data # Asume que el token contiene 'id', 'rol', etc.
 
+            # ✨ NUEVA VALIDACIÓN: Asegurarse de que el token decodificado no esté vacío
+            if not current_user or 'id' not in current_user:
+                return jsonify({'message': 'El contenido del token es inválido'}), 401
+
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'El token ha expirado'}), 401
         except jwt.InvalidTokenError:
