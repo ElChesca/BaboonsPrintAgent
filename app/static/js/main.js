@@ -3,7 +3,7 @@
 // ✨ ========================================================================
 // ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
 // ✨ ========================================================================
-const APP_VERSION = "1.0.7";
+const APP_VERSION = "1.0.8";
 const v = `?v=${APP_VERSION}`;
 // ==========================================================================
 
@@ -96,10 +96,7 @@ async function poblarSelectorNegocios() {
     });
 
     try {
-        // ✨ fetchData SÍ usa 'v' (pero esto lo maneja la función api.js)
-        // ✨ ¡PERO! la URL de la API no debería llevar el ?v=, 
-        // ✨ eso es para archivos estáticos, no para endpoints.
-        // ✨ Quitamos el ${v} de la llamada a la API.
+        
         const negocios = await fetchData(`/api/negocios`); 
         console.log("Negocios recibidos del API:", negocios);
 
@@ -379,6 +376,10 @@ async function inicializarModulo(page) {
                 const { inicializarPreciosEspecificos } = await import(`./modules/precios_especificos.js${v}`);
                 inicializarPreciosEspecificos();
                 break;
+            case 'gastos': 
+                const { inicializarGastos } = await import(`./modules/gastos.js${v}`);
+                inicializarGastos(); 
+                break;
             default:
                 console.warn(`No se encontró lógica de inicialización para el módulo: ${pageName}`);
         }
@@ -388,10 +389,6 @@ async function inicializarModulo(page) {
         mostrarNotificacion(`Error fatal al cargar la sección ${pageName}.`, 'error');
     }
 }
-// ==========================================================================
-// ✨ FIN DE CAMBIOS EN inicializarModulo
-// ==========================================================================
-
 
 export function loadContent(event, page, clickedLink, fromHistory = false) {
     console.log(`loadContent llamado para: ${page}, desde historial: ${fromHistory}`);
@@ -519,8 +516,6 @@ window.addEventListener('scroll', reiniciarTemporizador);
 window.addEventListener('click', reiniciarTemporizador);
 window.addEventListener('touchstart', reiniciarTemporizador);
 // ==========================================================================
-
-
 
 console.log("DOM Cargado. Configurando listeners iniciales...");
 

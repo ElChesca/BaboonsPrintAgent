@@ -1,0 +1,76 @@
+<link rel="stylesheet" href="/static/css/gastos.css">
+<h2>💸 Registro de Gastos Operativos</h2>
+
+<div class="card">
+    <h3 id="form-gasto-titulo">Registrar Nuevo Gasto</h3>
+    <form id="form-gasto">
+        <input type="hidden" id="gasto-id">
+        
+        <div class="form-grid-3-col"> <div class="form-group">
+                <label for="gasto-fecha">Fecha:</label>
+                <input type="datetime-local" id="gasto-fecha" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="gasto-categoria">Categoría:</label>
+                <select id="gasto-categoria" required>
+                    <option value="">Cargando categorías...</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="gasto-monto">Monto ($):</label>
+                <input type="number" id="gasto-monto" step="0.01" required>
+            </div>
+
+            <div class="form-group grid-col-span-3">
+                <label for="gasto-descripcion">Descripción (Opcional):</label>
+                <input type="text" id="gasto-descripcion">
+            </div>
+
+            <div class="form-group">
+                <label for="gasto-metodo-pago">Método de Pago:</label>
+                <select id="gasto-metodo-pago">
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="gasto-estado">Estado:</label>
+                <select id="gasto-estado">
+                    <option value="Pagado">Pagado</option>
+                    <option value="Pendiente">Pendiente</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Guardar Gasto</button>
+            <button type="button" id="btn-cancelar-edicion-gasto" class="btn-secondary" style="display: none;">Cancelar</button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Últimos Gastos Registrados</h3>
+    <div class="tabla-contenedor">
+        <table class="tabla-bonita" id="tabla-gastos">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Categoría</th>
+                    <th>Descripción</th>
+                    <th>Monto</th>
+                    <th>Método Pago</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+</div>

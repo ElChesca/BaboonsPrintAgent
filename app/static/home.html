@@ -33,7 +33,12 @@
         <div class="app-card" onclick="loadContent(event, 'static/payments.html', this)">
             <img src="/static/img/icons/payments.png" alt="Pagos Prov." class="app-icon">            
             <span class="app-name">Pago Proveed.</span> 
-        </div>        
+        </div> 
+        <div class="app-card" onclick="loadContent(event, 'static/gastos.html', this)">
+            <img src="/static/img/icons/gastos.png" alt="Gastos Operativos" class="app-icon">            
+            <span class="app-name">Gastos Operativos</span> 
+        </div> 
+
         <div class="app-card" onclick="loadContent(event, 'static/ingresos.html', this)">
             <img src="/static/img/icons/ingresos.png" alt="Ingresos" class="app-icon">            
             <span class="app-name">Ingresos de Stock</span> 
@@ -77,12 +82,14 @@
             <img src="/static/img/icons/precios_especificos.png" alt="Precios Especificos" class="app-icon">
             <span class="app-name">Precios Especificos</span>
         </div>
-
         <div class="app-card" onclick="loadContent(event, 'static/unidades_medida.html', this)">
             <img src="/static/img/icons/unidadesdemedida.png" alt="Unidades de Medida" class="app-icon">
             <span class="app-name">Unidades de Medida</span>
         </div>       
-        
+        <div class="app-card" onclick="loadContent(event, 'static/gastos_categorias.html', this)">
+            <img src="/static/img/icons/gastos_categorias.png" alt="Categoria de Gastos" class="app-icon">
+            <span class="app-name">Categorias de Gastos</span>
+        </div>         
         <!-- Tarjeta "Usuarios" - Debe ser admin-only -->
         <div class="app-card admin-only" onclick="loadContent(event, 'static/usuarios.html', this)">
             <img src="/static/img/icons/usuarios.png" alt="Usuarios" class="app-icon">

@@ -1,0 +1,46 @@
+<link rel="stylesheet" href="/static/css/gastos.css">
+<h2>💳 Gestión de Categorías de Gasto</h2>
+
+<div class="card">
+    <h3 id="form-categoria-titulo">Añadir Nueva Categoría</h3>
+    <form id="form-categoria-gasto">
+        <input type="hidden" id="categoria-gasto-id">
+        
+        <div class="form-grid">
+            <div class="form-group grid-col-span-2">
+                <label for="descripcion-categoria">Descripción:</label>
+                <input type="text" id="descripcion-categoria" required>
+            </div>
+            <div class="form-group grid-col-span-2">
+                <label for="estado-categoria">Estado:</label>
+                <select id="estado-categoria">
+                    <option value="Activa">Activa</option>
+                    <option value="Inactiva">Inactiva</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Guardar</button>
+            <button type="button" id="btn-cancelar-edicion-categoria" class="btn-secondary" style="display: none;">Cancelar</button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Lista de Categorías</h3>
+    <div class="tabla-contenedor">
+        <table class="tabla-bonita" id="tabla-categorias-gasto">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Descripción</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+</div>
