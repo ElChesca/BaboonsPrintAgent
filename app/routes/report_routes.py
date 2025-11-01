@@ -99,16 +99,16 @@ def get_reporte_ganancias(current_user, negocio_id):
     query = """
         SELECT
             p.nombre as producto_nombre,
-            SUM(vi.cantidad) as cantidad_vendida,
-            SUM(vi.precio_unitario * vi.cantidad) as total_ventas,
-            SUM(p.costo * vi.cantidad) as total_costo,
-            SUM(vi.precio_unitario * vi.cantidad) - SUM(p.costo * vi.cantidad) as ganancia_neta
+            SUM(vd.cantidad) as cantidad_vendida,
+            SUM(vd.precio_unitario_venta * vd.cantidad) as total_ventas,
+            SUM(p.precio_costo * vd.cantidad) as total_costo,
+            SUM(vd.precio_unitario_venta * vd.cantidad) - SUM(p.precio_costo * vd.cantidad) as ganancia_neta
         FROM
             ventas v
         JOIN
-            venta_items vi ON v.id = vi.venta_id
+            ventas_detalle vd ON v.id = vd.venta_id
         JOIN
-            productos p ON vi.producto_id = p.id
+            productos p ON vd.producto_id = p.id
         WHERE
             v.negocio_id = %s
     """
