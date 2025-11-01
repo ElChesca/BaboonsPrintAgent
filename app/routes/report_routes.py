@@ -166,13 +166,17 @@ def get_reporte_ventas_diarias(current_user, negocio_id):
     """
     params = [negocio_id]
 
+    if g.db_type == 'sqlite':
+        date_filter_col = "DATE(v.fecha)"
+    else: # Asumimos PostgreSQL
+        date_filter_col = "CAST(v.fecha AS DATE)"
+
     if fecha_desde_str:
-        query += " AND v.fecha >= %s"
+        query += f" AND {date_filter_col} >= %s"
         params.append(fecha_desde_str)
     if fecha_hasta_str:
-        fecha_hasta = datetime.datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date() + datetime.timedelta(days=1)
-        query += " AND v.fecha < %s"
-        params.append(fecha_hasta.strftime('%Y-%m-%d'))
+        query += f" AND {date_filter_col} <= %s"
+        params.append(fecha_hasta_str)
 
     query += """
         GROUP BY
