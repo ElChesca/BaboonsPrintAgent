@@ -135,11 +135,11 @@ def get_reporte_caja(current_user, negocio_id):
 
     # Adaptar la función de fecha según la base de datos
     if g.db_type == 'sqlite':
-        date_filter_desde = " AND DATE(cs.fecha) >= %s"
-        date_filter_hasta = " AND DATE(cs.fecha) <= %s"
+        date_filter_desde = " AND DATE(cs.fecha_apertura) >= %s"
+        date_filter_hasta = " AND DATE(cs.fecha_apertura) <= %s"
     else: # PostgreSQL
-        date_filter_desde = " AND CAST(cs.fecha AS DATE) >= %s"
-        date_filter_hasta = " AND CAST(cs.fecha AS DATE) <= %s"
+        date_filter_desde = " AND CAST(cs.fecha_apertura AS DATE) >= %s"
+        date_filter_hasta = " AND CAST(cs.fecha_apertura AS DATE) <= %s"
 
     if fecha_desde:
         query += date_filter_desde

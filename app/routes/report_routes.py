@@ -100,9 +100,9 @@ def get_reporte_ganancias(current_user, negocio_id):
         SELECT
             p.nombre as producto_nombre,
             SUM(vd.cantidad) as cantidad_vendida,
-            SUM(vd.precio_unitario_venta * vd.cantidad) as total_ventas,
+            SUM(vd.subtotal) as total_ventas,
             SUM(p.precio_costo * vd.cantidad) as total_costo,
-            SUM(vd.precio_unitario_venta * vd.cantidad) - SUM(p.precio_costo * vd.cantidad) as ganancia_neta
+            SUM(vd.subtotal) - SUM(p.precio_costo * vd.cantidad) as ganancia_neta
         FROM
             ventas v
         JOIN
