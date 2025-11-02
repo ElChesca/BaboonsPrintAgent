@@ -169,7 +169,6 @@ function handleTablaInput(event) {
 
     actualizarTotalAplicado(); // Recalcular siempre
 }
-
 /** Envía el formulario de pago al backend */
 async function submitFormularioPago(event) {
     event.preventDefault();
@@ -179,12 +178,32 @@ async function submitFormularioPago(event) {
     const metodoPago = selMetodoPago.value;
     const fechaPago = inputFechaPago.value; // Ya está en YYYY-MM-DD
 
-    // Validaciones
+    // Validaciones (las tuyas)
     if (!proveedorId) return mostrarNotificacion('Seleccione un proveedor.', 'warning');
     if (aplicacionesPago.length === 0) return mostrarNotificacion('Seleccione al menos una factura y aplique un monto.', 'warning');
     if (montoTotal <= 0) return mostrarNotificacion('El monto total del pago debe ser mayor a cero.', 'warning');
     if (!metodoPago) return mostrarNotificacion('Seleccione un método de pago.', 'warning');
-     if (!fechaPago) return mostrarNotificacion('Seleccione la fecha del pago.', 'warning');
+    if (!fechaPago) return mostrarNotificacion('Seleccione la fecha del pago.', 'warning');
+
+    // ==========================================================
+    // ✨ VALIDACIÓN DE CAJA ACTIVA (AÑADIDO) ✨
+    // ==========================================================
+    
+    // 🚫 1. Si el método es 'Efectivo' Y la caja NO está abierta
+    // (Asegúrate de importar 'appState' de 'main.js' al inicio de este archivo)
+    if (metodoPago.toLowerCase() === 'efectivo' && !appState.cajaSesionIdActiva) {
+        mostrarNotificacion('🚫 No se puede registrar un pago en "Efectivo" si la caja está cerrada. Por favor, abra la caja primero.', 'error');
+        return; // Detener la ejecución
+    }
+
+    // 2. Asignar el ID de la sesión de caja (si corresponde)
+    let idSesionCaja = null;
+    if (metodoPago.toLowerCase() === 'efectivo') {
+        idSesionCaja = appState.cajaSesionIdActiva;
+    }
+    // ==========================================================
+    // ✨ FIN DE LA VALIDACIÓN ✨
+    // ==========================================================
 
 
     const payload = {
@@ -193,7 +212,8 @@ async function submitFormularioPago(event) {
         metodo_pago: metodoPago,
         fecha: fechaPago,
         referencia: inputReferencia.value.trim() || null,
-        aplicaciones: aplicacionesPago
+        aplicaciones: aplicacionesPago,
+        caja_sesion_id: idSesionCaja // ✨ 3. (CAMPO AÑADIDO)
     };
 
     const submitButton = formPago.querySelector('button[type="submit"]');
@@ -209,13 +229,11 @@ async function submitFormularioPago(event) {
         });
         mostrarNotificacion(response.message || 'Pago registrado con éxito.', 'success');
         
-        // Resetear todo después de un pago exitoso
-        selProveedor.value = ''; // Deseleccionar proveedor
+        // (Tu lógica de reseteo)
+        selProveedor.value = ''; 
         facturasPendientesCache = [];
-        renderizarTablaFacturas(); // Limpia tabla y actualiza visibilidad
-        formPago.reset(); // Limpiar formulario de pago
-        // Actualizar el saldo del proveedor en el selector (opcional, requiere recargar proveedores)
-        // await poblarSelectorProveedores(); // Descomentar si quieres ver el saldo actualizado inmediatamente
+        renderizarTablaFacturas(); 
+        formPago.reset(); 
 
     } catch (error) {
         mostrarNotificacion(error.message || 'Error al registrar el pago.', 'error');
@@ -225,8 +243,6 @@ async function submitFormularioPago(event) {
         submitButton.textContent = 'Registrar Pago';
     }
 }
-
-
 // --- Inicialización del Módulo ---
 export function inicializarLogicaPagosProveedores() {
     console.log("Inicializando módulo Pagos a Proveedores...");

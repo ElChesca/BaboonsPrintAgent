@@ -5,13 +5,11 @@ from app.auth_decorator import token_required
 import datetime
 
 bp = Blueprint('caja', __name__)
-
 @bp.route('/negocios/<int:negocio_id>/caja/estado', methods=['GET'])
 @token_required
 def get_estado_caja(current_user, negocio_id):
     db = get_db()
     
-    # Validar permiso (usando la función que creamos)
     if not check_user_negocio_permission(current_user, negocio_id):
         return jsonify({'error': 'No tiene permisos sobre este negocio'}), 403
 
@@ -30,36 +28,40 @@ def get_estado_caja(current_user, negocio_id):
     sesion_abierta = db.fetchone()
 
     if sesion_abierta:
-        # --- ✨ CÁLCULO DE TOTALES EN VIVO (NUEVO) ---
         sesion_id = sesion_abierta['id']
         
-        # 1. Totales de Ventas por método de pago
+        # 1. Ventas por método de pago
         db.execute('SELECT metodo_pago, SUM(total) as total_por_metodo FROM ventas WHERE caja_sesion_id = %s GROUP BY metodo_pago', (sesion_id,))
         desglose_pagos_rows = db.fetchall()
         desglose_pagos = {row['metodo_pago']: float(row['total_por_metodo']) for row in desglose_pagos_rows}
 
         # 2. Total Gastos en Efectivo
         db.execute(
-            """
-            SELECT COALESCE(SUM(monto), 0) as total 
-            FROM gastos_operativos 
-            WHERE caja_sesion_id = %s AND metodo_pago = 'Efectivo' AND estado = 'Pagado'
-            """,
+            "SELECT COALESCE(SUM(monto), 0) as total FROM gastos_operativos WHERE caja_sesion_id = %s AND metodo_pago = 'Efectivo' AND estado = 'Pagado'",
             (sesion_id,)
         )
         total_gastos_efectivo = float(db.fetchone()['total'])
         
-        # 3. Totales Ajustes de Caja
+        # ==========================================================
+        # ✨ 3. (NUEVO) Total Pagos a Proveedores en Efectivo
+        # ==========================================================
+        db.execute(
+            "SELECT COALESCE(SUM(monto_total), 0) as total FROM pagos_proveedores WHERE caja_sesion_id = %s AND metodo_pago = 'Efectivo'",
+            (sesion_id,)
+        )
+        total_pagos_prov_efectivo = float(db.fetchone()['total'])
+
+        # 4. Totales Ajustes de Caja
         db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM caja_ajustes WHERE caja_sesion_id = %s AND tipo = 'Ingreso'", (sesion_id,))
         total_ingresos_ajuste = float(db.fetchone()['total'])
         db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM caja_ajustes WHERE caja_sesion_id = %s AND tipo = 'Egreso'", (sesion_id,))
         total_egresos_ajuste = float(db.fetchone()['total'])
 
-        # 4. Calcular Efectivo Actual Esperado
+        # 5. Calcular Efectivo Actual Esperado
         monto_inicial = float(sesion_abierta['monto_inicial'])
         ventas_efectivo = desglose_pagos.get('Efectivo', 0.0)
         
-        monto_efectivo_actual = (monto_inicial + ventas_efectivo + total_ingresos_ajuste) - (total_egresos_ajuste + total_gastos_efectivo)
+        monto_efectivo_actual = (monto_inicial + ventas_efectivo + total_ingresos_ajuste) - (total_egresos_ajuste + total_gastos_efectivo + total_pagos_prov_efectivo)
 
         totales = {
             'efectivo': monto_efectivo_actual,
@@ -67,18 +69,17 @@ def get_estado_caja(current_user, negocio_id):
             'tarjeta': desglose_pagos.get('Tarjeta', 0.0),
             'transferencia': desglose_pagos.get('Transferencia', 0.0),
             'total_gastos': total_gastos_efectivo,
-            'total_ajustes': total_ingresos_ajuste - total_egresos_ajuste
+            'total_pagos_proveedores': total_pagos_prov_efectivo # ✨ Se envía el nuevo dato
         }
-        # --- FIN CÁLCULO ---
         
         return jsonify({
             'estado': 'abierta',
             'sesion': dict(sesion_abierta),
-            'totales': totales # ✨ Enviamos los nuevos totales
+            'totales': totales # Enviamos los nuevos totales
         })
     else:
         return jsonify({'estado': 'cerrada'})
-
+    
 # ✨ Helper de Seguridad (de la respuesta anterior, necesario para que el código funcione)
 def check_user_negocio_permission(current_user, negocio_id):
     if not current_user or 'rol' not in current_user or 'id' not in current_user:
@@ -123,48 +124,39 @@ def cerrar_caja(current_user, negocio_id):
         return jsonify({'error': 'No hay ninguna caja abierta para cerrar'}), 404
 
     sesion_id = sesion_abierta['id']
-
     data = request.get_json()
     monto_final_contado = data.get('monto_final_contado')
     if monto_final_contado is None:
         return jsonify({'error': 'El monto final contado es obligatorio'}), 400
 
     try:
-        # --- OBTENEMOS TODOS LOS DATOS PARA EL CÁLCULO ---
-
-        # 1. Ventas de la sesión
+        # ... (1. Ventas y 2. Ajustes de Caja... igual que antes)
         db.execute('SELECT metodo_pago, SUM(total) as total_por_metodo FROM ventas WHERE caja_sesion_id = %s GROUP BY metodo_pago', (sesion_id,))
         desglose_pagos_rows = db.fetchall()
         desglose_pagos = {row['metodo_pago']: float(row['total_por_metodo']) for row in desglose_pagos_rows}
-        
-        # 2. Ajustes de Ingreso/Egreso de la sesión
         db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM caja_ajustes WHERE caja_sesion_id = %s AND tipo = 'Ingreso'", (sesion_id,))
         total_ingresos_ajuste = db.fetchone()['total']
-
         db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM caja_ajustes WHERE caja_sesion_id = %s AND tipo = 'Egreso'", (sesion_id,))
         total_egresos_ajuste = db.fetchone()['total']
 
-        # ✨ 3. (NUEVO) Gastos Operativos de la sesión pagados en Efectivo
-        db.execute(
-            """
-            SELECT COALESCE(SUM(monto), 0) as total 
-            FROM gastos_operativos 
-            WHERE caja_sesion_id = %s 
-              AND metodo_pago = 'Efectivo' 
-              AND estado = 'Pagado'
-            """,
-            (sesion_id,)
-        )
+        # 3. Gastos Operativos (Efectivo)
+        db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM gastos_operativos WHERE caja_sesion_id = %s AND metodo_pago = 'Efectivo' AND estado = 'Pagado'", (sesion_id,))
         total_gastos_efectivo = db.fetchone()['total']
+
+        # ==========================================================
+        # ✨ 4. (NUEVO) Pagos a Proveedores (Efectivo)
+        # ==========================================================
+        db.execute("SELECT COALESCE(SUM(monto_total), 0) as total FROM pagos_proveedores WHERE caja_sesion_id = %s AND metodo_pago = 'Efectivo'", (sesion_id,))
+        total_pagos_prov_efectivo = db.fetchone()['total']
 
 
         # --- REALIZAMOS LOS CÁLCULOS ---
         monto_inicial = float(sesion_abierta['monto_inicial'])
         total_efectivo_ventas = desglose_pagos.get('Efectivo', 0.0)
         
-        # ✨ 4. (NUEVA FÓRMULA) Se restan los gastos operativos y los egresos de ajuste
         total_ingresos_efectivo = monto_inicial + total_efectivo_ventas + float(total_ingresos_ajuste)
-        total_egresos_efectivo = float(total_egresos_ajuste) + float(total_gastos_efectivo)
+        # ✨ Se restan ambos egresos
+        total_egresos_efectivo = float(total_egresos_ajuste) + float(total_gastos_efectivo) + float(total_pagos_prov_efectivo)
         
         monto_final_esperado = total_ingresos_efectivo - total_egresos_efectivo
         diferencia = float(monto_final_contado) - monto_final_esperado
@@ -174,7 +166,6 @@ def cerrar_caja(current_user, negocio_id):
             "UPDATE caja_sesiones SET fecha_cierre = %s, monto_final_contado = %s, monto_final_esperado = %s, diferencia = %s WHERE id = %s",
             (datetime.datetime.now(), monto_final_contado, monto_final_esperado, diferencia, sesion_id)
         )
-        
         g.db_conn.commit()
 
         # --- PREPARAMOS LA RESPUESTA ---
@@ -183,19 +174,18 @@ def cerrar_caja(current_user, negocio_id):
             'desglose_pagos': desglose_pagos,
             'total_ingresos_ajuste': float(total_ingresos_ajuste),
             'total_egresos_ajuste': float(total_egresos_ajuste),
-            'total_gastos_efectivo': float(total_gastos_efectivo), # ✨ 5. (NUEVO) Se envía el dato al frontend
+            'total_gastos_efectivo': float(total_gastos_efectivo),
+            'total_pagos_prov_efectivo': float(total_pagos_prov_efectivo), # ✨ Se envía el dato
             'monto_final_esperado': monto_final_esperado,
             'monto_final_contado': float(monto_final_contado),
             'diferencia': diferencia
         }
 
-        return jsonify({
-            'message': 'Caja cerrada con éxito',
-            'resumen': resumen
-        })
+        return jsonify({'message': 'Caja cerrada con éxito', 'resumen': resumen})
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
+    
 
 @bp.route('/negocios/<int:negocio_id>/reportes/caja', methods=['GET'])
 @token_required

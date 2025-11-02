@@ -4,10 +4,7 @@ import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
 
 async function verificarEstadoCaja() {
-    const seccionAbrir = document.getElementById('seccion-abrir-caja');
-    const seccionCerrar = document.getElementById('seccion-cerrar-caja');
-    const infoSesionEl = document.getElementById('info-sesion-actual');
-
+    // ... (inicio de la función sin cambios)
     seccionAbrir.style.display = 'none';
     seccionCerrar.style.display = 'none';
     appState.cajaSesionIdActiva = null; 
@@ -25,12 +22,18 @@ async function verificarEstadoCaja() {
                 <p><strong>Monto inicial:</strong> $${data.sesion.monto_inicial.toFixed(2)}</p>
             `;
             
-            // ✨ 2. (NUEVO) Rellenar los totales en tiempo real
-            const totales = data.totales || {};
-            document.getElementById('resumen-efectivo').textContent = `$${(totales.efectivo || 0).toFixed(2)}`;
-            document.getElementById('resumen-mp').textContent = `$${(totales.mp || 0).toFixed(2)}`;
-            document.getElementById('resumen-tarjeta').textContent = `$${(totales.tarjeta || 0).toFixed(2)}`;
-            document.getElementById('resumen-transferencia').textContent = `$${(totales.transferencia || 0).toFixed(2)}`;
+            // ==========================================================
+            // ✨ 2. (ACTUALIZADO) Rellenar los totales en tiempo real
+            // ==========================================================
+            if (data.totales) {
+                const totales = data.totales;
+                document.getElementById('resumen-efectivo').textContent = `$${(totales.efectivo || 0).toFixed(2)}`;
+                document.getElementById('resumen-mp').textContent = `$${(totales.mp || 0).toFixed(2)}`;
+                document.getElementById('resumen-tarjeta').textContent = `$${(totales.tarjeta || 0).toFixed(2)}`;
+                document.getElementById('resumen-transferencia').textContent = `$${(totales.transferencia || 0).toFixed(2)}`;
+                document.getElementById('resumen-gastos').textContent = `$${(totales.total_gastos || 0).toFixed(2)}`;
+                document.getElementById('resumen-pagos-prov').textContent = `$${(totales.total_pagos_proveedores || 0).toFixed(2)}`;
+            }
             
             seccionCerrar.style.display = 'block';
             appState.cajaSesionIdActiva = data.sesion.id;
@@ -43,46 +46,47 @@ async function verificarEstadoCaja() {
     }
 }
 
-// ... (El resto del archivo 'inicializarLogicaCaja' y los formularios no cambian) ...
-// (El formulario de cierre ya muestra los gastos en el modal gracias a los cambios de la vez pasada)
 export function inicializarLogicaCaja() {
-    const formAbrir = document.getElementById('form-abrir-caja');
-    if (!formAbrir) return;
+    // ... (formAbrir, formCerrar, modalResumen, etc. sin cambios)
+    const formAbrir = document.getElementById('form-abrir-caja');
+    if (!formAbrir) return;
 
-    const formCerrar = document.getElementById('form-cerrar-caja');
-    const modalResumen = document.getElementById('modal-resumen-cierre');
-    const contenidoResumenEl = document.getElementById('contenido-resumen');
-    
-    verificarEstadoCaja();
+    const formCerrar = document.getElementById('form-cerrar-caja');
+    const modalResumen = document.getElementById('modal-resumen-cierre');
+    const contenidoResumenEl = document.getElementById('contenido-resumen');
+    
+    verificarEstadoCaja();
 
-    formAbrir.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const monto_inicial = document.getElementById('monto-inicial').value;
-        try {
-            await fetchData(`/api/negocios/${appState.negocioActivoId}/caja/apertura`, {
-                method: 'POST', body: JSON.stringify({ monto_inicial: parseFloat(monto_inicial) })
-            });
-            mostrarNotificacion('Caja abierta con éxito.', 'success');
-            formAbrir.reset();
-            verificarEstadoCaja();
-        } catch (error) {
-            mostrarNotificacion(error.message, 'error');
-        }
-    });
+    formAbrir.addEventListener('submit', async (e) => {
+        // ... (sin cambios)
+        e.preventDefault();
+        const monto_inicial = document.getElementById('monto-inicial').value;
+        try {
+            await fetchData(`/api/negocios/${appState.negocioActivoId}/caja/apertura`, {
+                method: 'POST', body: JSON.stringify({ monto_inicial: parseFloat(monto_inicial) })
+            });
+            mostrarNotificacion('Caja abierta con éxito.', 'success');
+            formAbrir.reset();
+            verificarEstadoCaja();
+        } catch (error) {
+            mostrarNotificacion(error.message, 'error');
+        }
+    });
 
-    formCerrar.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!confirm('¿Estás seguro de que quieres cerrar la caja? Esta acción no se puede deshacer.')) return;
-        
-        const monto_final_contado = document.getElementById('monto-final-contado').value;
-        try {
-            const response = await fetchData(`/api/negocios/${appState.negocioActivoId}/caja/cierre`, {
-                method: 'PUT', body: JSON.stringify({ monto_final_contado: parseFloat(monto_final_contado) })
-            });
+    // ==========================================================
+    // ✨ MODIFICACIÓN AQUÍ (Resumen de Cierre Modal)
+    // ==========================================================
+    formCerrar.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!confirm('¿Estás seguro de que quieres cerrar la caja? Esta acción no se puede deshacer.')) return;
+        
+        const monto_final_contado = document.getElementById('monto-final-contado').value;
+        try {
+            const response = await fetchData(`/api/negocios/${appState.negocioActivoId}/caja/cierre`, {
+                method: 'PUT', body: JSON.stringify({ monto_final_contado: parseFloat(monto_final_contado) })
+            });
 
-            // (Esta lógica ya incluye los gastos operativos en el modal,
-            // gracias a nuestra modificación anterior del backend)
-            const r = response.resumen;
+            const r = response.resumen;
             let otrosMetodosHtml = '<ul>';
             let totalEfectivoVentas = 0;
             
@@ -98,50 +102,49 @@ export function inicializarLogicaCaja() {
             }
             otrosMetodosHtml += '</ul>';
 
+            // Desglose de Entradas
             let detallesEntradasHtml = '<ul>';
             detallesEntradasHtml += `<li>Ventas (Efectivo): $${totalEfectivoVentas.toFixed(2)}</li>`;
             detallesEntradasHtml += `<li>Ajustes (Ingreso): $${(r.total_ingresos_ajuste || 0).toFixed(2)}</li>`;
             detallesEntradasHtml += '</ul>';
 
+            // ✨ (NUEVO) Desglose de Salidas
             let detallesSalidasHtml = '<ul>';
             detallesSalidasHtml += `<li>Ajustes (Egreso): $${(r.total_egresos_ajuste || 0).toFixed(2)}</li>`;
             detallesSalidasHtml += `<li>Gastos Operativos (Efectivo): $${(r.total_gastos_efectivo || 0).toFixed(2)}</li>`;
+            detallesSalidasHtml += `<li>Pagos a Proveedores (Efectivo): $${(r.total_pagos_prov_efectivo || 0).toFixed(2)}</li>`;
             detallesSalidasHtml += '</ul>';
             
-            contenidoResumenEl.innerHTML = `
-                <p><strong>Monto Inicial:</strong> $${r.monto_inicial.toFixed(2)}</p>
-                
+            contenidoResumenEl.innerHTML = `
+                <p><strong>Monto Inicial:</strong> $${r.monto_inicial.toFixed(2)}</p>
                 <p><strong>(+) Entradas en Efectivo:</strong></p>
                 ${detallesEntradasHtml}
-                
                 <p><strong>(-) Salidas en Efectivo:</strong></p>
                 ${detallesSalidasHtml}
                 <hr>
-                
-                <p><strong>Total Esperado en Caja (Efectivo):</strong> $${r.monto_final_esperado.toFixed(2)}</p>
-                <p><strong>Total Contado (Real):</strong> $${r.monto_final_contado.toFixed(2)}</p> <hr>
-                <p style="font-size: 1.2em; font-weight: bold;"><strong>Diferencia:</strong> $${r.diferencia.toFixed(2)}</p>
-                
+                <p><strong>Total Esperado en Caja (Efectivo):</strong> $${r.monto_final_esperado.toFixed(2)}</p>
+                <p><strong>Total Contado (Real):</strong> $${r.monto_final_contado.toFixed(2)}</p> <hr>
+                <p style="font-size: 1.2em; font-weight: bold;"><strong>Diferencia:</strong> $${r.diferencia.toFixed(2)}</p>
                 <hr style="margin-top: 20px;">
                 <p><strong>Ventas (Otros Métodos):</strong></p>
                 ${otrosMetodosHtml} 
-            `;
-            modalResumen.style.display = 'flex';
-            formCerrar.reset();
-            verificarEstadoCaja();
-        } catch (error) {
-            mostrarNotificacion(error.message, 'error');
-        }
-    });
+            `;
+            modalResumen.style.display = 'flex';
+            formCerrar.reset();
+            verificarEstadoCaja();
+        } catch (error) {
+            mostrarNotificacion(error.message, 'error');
+        }
+    });
 
-    // Lógica para cerrar el modal
-    const closeButton = modalResumen.querySelector('.close-button');
-    if(closeButton) {
-        closeButton.onclick = () => modalResumen.style.display = 'none';
-    }
-    window.onclick = (event) => {
-        if (event.target == modalResumen) {
-            modalResumen.style.display = 'none';
-        }
-    }
+    // ... (Lógica para cerrar el modal sin cambios) ...
+    const closeButton = modalResumen.querySelector('.close-button');
+    if(closeButton) {
+        closeButton.onclick = () => modalResumen.style.display = 'none';
+    }
+    window.onclick = (event) => {
+        if (event.target == modalResumen) {
+            modalResumen.style.display = 'none';
+        }
+    }
 }
