@@ -4,7 +4,20 @@ import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
 
 async function verificarEstadoCaja() {
-    // ... (inicio de la función sin cambios)
+    // ==========================================================
+    // ✨ 1. (NUEVO) GUARDIA DE SEGURIDAD
+    // ==========================================================
+    // Si no estamos en la página de caja, los elementos no existirán.
+    const seccionAbrir = document.getElementById('seccion-abrir-caja');
+    if (!seccionAbrir) {
+        // console.log("No estamos en la página de caja, verificarEstadoCaja se detiene.");
+        return; 
+    }
+
+    // De aquí en adelante, el código solo se ejecuta si estamos en la página de caja.
+    const seccionCerrar = document.getElementById('seccion-cerrar-caja');
+    const infoSesionEl = document.getElementById('info-sesion-actual');
+
     seccionAbrir.style.display = 'none';
     seccionCerrar.style.display = 'none';
     appState.cajaSesionIdActiva = null; 
@@ -15,24 +28,24 @@ async function verificarEstadoCaja() {
         if (data.estado === 'abierta') {
             const fechaApertura = new Date(data.sesion.fecha_apertura).toLocaleString('es-AR');
             
-            // 1. Rellenar info básica
             infoSesionEl.innerHTML = `
                 <p><strong>Caja abierta por:</strong> ${data.sesion.usuario_nombre || 'Usuario desconocido'}</p>
                 <p><strong>Fecha de apertura:</strong> ${fechaApertura}</p>
                 <p><strong>Monto inicial:</strong> $${data.sesion.monto_inicial.toFixed(2)}</p>
             `;
             
-            // ==========================================================
-            // ✨ 2. (ACTUALIZADO) Rellenar los totales en tiempo real
-            // ==========================================================
+            // 2. Rellenar los totales en tiempo real
             if (data.totales) {
                 const totales = data.totales;
-                document.getElementById('resumen-efectivo').textContent = `$${(totales.efectivo || 0).toFixed(2)}`;
-                document.getElementById('resumen-mp').textContent = `$${(totales.mp || 0).toFixed(2)}`;
-                document.getElementById('resumen-tarjeta').textContent = `$${(totales.tarjeta || 0).toFixed(2)}`;
-                document.getElementById('resumen-transferencia').textContent = `$${(totales.transferencia || 0).toFixed(2)}`;
-                document.getElementById('resumen-gastos').textContent = `$${(totales.total_gastos || 0).toFixed(2)}`;
-                document.getElementById('resumen-pagos-prov').textContent = `$${(totales.total_pagos_proveedores || 0).toFixed(2)}`;
+                // (Se asegura que los elementos existan antes de rellenar)
+                if(document.getElementById('resumen-efectivo')) {
+                    document.getElementById('resumen-efectivo').textContent = `$${(totales.efectivo || 0).toFixed(2)}`;
+                    document.getElementById('resumen-mp').textContent = `$${(totales.mp || 0).toFixed(2)}`;
+                    document.getElementById('resumen-tarjeta').textContent = `$${(totales.tarjeta || 0).toFixed(2)}`;
+                    document.getElementById('resumen-transferencia').textContent = `$${(totales.transferencia || 0).toFixed(2)}`;
+                    document.getElementById('resumen-gastos').textContent = `$${(totales.total_gastos || 0).toFixed(2)}`;
+                    document.getElementById('resumen-pagos-prov').textContent = `$${(totales.total_pagos_proveedores || 0).toFixed(2)}`;
+                }
             }
             
             seccionCerrar.style.display = 'block';
