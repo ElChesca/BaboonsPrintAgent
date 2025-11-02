@@ -38,13 +38,17 @@ async function verificarEstadoCaja() {
             if (data.totales) {
                 const totales = data.totales;
                 // (Se asegura que los elementos existan antes de rellenar)
-                if(document.getElementById('resumen-efectivo')) {
-                    document.getElementById('resumen-efectivo').textContent = `$${(totales.efectivo || 0).toFixed(2)}`;
+                   const elResumenEfectivo = document.getElementById('resumen-efectivo');
+                if (elResumenEfectivo) {
+                    elResumenEfectivo.textContent = `$${(totales.efectivo || 0).toFixed(2)}`;
                     document.getElementById('resumen-mp').textContent = `$${(totales.mp || 0).toFixed(2)}`;
                     document.getElementById('resumen-tarjeta').textContent = `$${(totales.tarjeta || 0).toFixed(2)}`;
                     document.getElementById('resumen-transferencia').textContent = `$${(totales.transferencia || 0).toFixed(2)}`;
                     document.getElementById('resumen-gastos').textContent = `$${(totales.total_gastos || 0).toFixed(2)}`;
                     document.getElementById('resumen-pagos-prov').textContent = `$${(totales.total_pagos_proveedores || 0).toFixed(2)}`;
+                } else {
+                    // Esto te avisará si el HTML sigue desactualizado
+                    console.warn("ADVERTENCIA: Faltan los <span> de resumen en caja.html.");
                 }
             }
             
