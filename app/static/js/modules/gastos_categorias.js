@@ -3,7 +3,7 @@ import { fetchData, sendData } from '../api.js';
 import { mostrarNotificacion } from './notifications.js';
 import { appState } from '../main.js'; // ✨ 1. Importamos el estado global
 
-// 2. Eliminamos la función getActiveNegocioId()
+let categoriasCache = [];
 
 function renderizarTablaCategorias() {
     const tbody = document.querySelector('#tabla-categorias-gasto tbody');
