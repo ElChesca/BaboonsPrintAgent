@@ -8,7 +8,109 @@ import traceback
 
 bp = Blueprint('reports', __name__)
 
-# (Otras rutas de reportes...)
+# ===============================================
+# ✨ FUNCIÓN HELPER DE SEGURIDAD 
+# ===============================================
+def check_user_negocio_permission(current_user, negocio_id):
+    """
+    Verifica si el usuario actual tiene permisos sobre el negocio_id.
+    """
+    if not current_user or 'rol' not in current_user or 'id' not in current_user:
+        return False
+    if current_user['rol'] == 'superadmin':
+        return True
+    db = get_db()
+    db.execute(
+        "SELECT 1 FROM usuarios_negocios WHERE usuario_id = %s AND negocio_id = %s",
+        (current_user['id'], negocio_id)
+    )
+    return db.fetchone() is not None
+
+# --- RUTA REPORTE DE CAJA ---
+@bp.route('/negocios/<int:negocio_id>/reportes/caja', methods=['GET'])
+@token_required
+def get_reporte_caja(current_user, negocio_id):
+    db = get_db()
+    
+    if not check_user_negocio_permission(current_user, negocio_id):
+        return jsonify({'error': 'No tiene permisos sobre este negocio'}), 403
+
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+    
+    # ✨ (NUEVO) Filtro de Usuario
+    usuario_id = request.args.get('usuario_id')
+
+    params = [negocio_id]
+    query = "SELECT cs.*, u.nombre as usuario_nombre FROM caja_sesiones cs JOIN usuarios u ON cs.usuario_id = u.id WHERE cs.negocio_id = %s AND cs.fecha_cierre IS NOT NULL"
+
+    # (Lógica de filtros de fecha...)
+    if g.db_type == 'sqlite':
+        date_filter_desde = " AND DATE(cs.fecha_apertura) >= %s"
+        date_filter_hasta = " AND DATE(cs.fecha_apertura) <= %s"
+    else: # PostgreSQL
+        date_filter_desde = " AND CAST(cs.fecha_apertura AS DATE) >= %s"
+        date_filter_hasta = " AND CAST(cs.fecha_apertura AS DATE) <= %s"
+
+    if fecha_desde:
+        query += date_filter_desde
+        params.append(fecha_desde)
+    if fecha_hasta:
+        query += date_filter_hasta
+        params.append(fecha_hasta)
+        
+    # ✨ (NUEVO) Aplicar filtro de usuario
+    if usuario_id:
+        query += " AND cs.usuario_id = %s"
+        params.append(usuario_id)
+
+    query += " ORDER BY cs.fecha_apertura DESC"
+
+    db.execute(query, tuple(params))
+    sesiones_rows = db.fetchall()
+    
+    # ✨ --- CORRECCIÓN DE ERROR 500 --- ✨
+    sesiones_list = []
+    for row in sesiones_rows:
+        row_dict = dict(row)
+        # 1. Convertir Decimales
+        for key in ['monto_inicial', 'monto_final_contado', 'monto_final_esperado', 'diferencia']:
+            if key in row_dict and isinstance(row_dict[key], Decimal):
+                row_dict[key] = float(row_dict[key])
+        # 2. Convertir Datetimes
+        for key in ['fecha_apertura', 'fecha_cierre']:
+            if key in row_dict and isinstance(row_dict[key], (datetime.datetime, datetime.date)):
+                row_dict[key] = row_dict[key].isoformat()
+        sesiones_list.append(row_dict)
+    
+    return jsonify(sesiones_list)
+
+# --- RUTA DETALLES CIERRE DE CAJA ---
+
+@bp.route('/reportes/caja/<int:sesion_id>/detalles', methods=['GET'])
+@token_required
+def get_detalles_cierre_caja(current_user, sesion_id):
+    db = get_db()
+    db.execute('SELECT negocio_id FROM caja_sesiones WHERE id = %s', (sesion_id,))
+    sesion = db.fetchone()
+    if not sesion:
+        return jsonify({'error': 'Sesión no encontrada'}), 404
+    
+    if not check_user_negocio_permission(current_user, sesion['negocio_id']):
+        return jsonify({'error': 'No tiene permisos sobre esta sesión'}), 403
+
+    db.execute('SELECT metodo_pago, SUM(total) as total_por_metodo FROM ventas WHERE caja_sesion_id = %s GROUP BY metodo_pago', (sesion_id,))
+    desglose_pagos_rows = db.fetchall()
+    
+    # ✨ Corrección Decimal/float
+    desglose_pagos = {}
+    for row in desglose_pagos_rows:
+        total = row['total_por_metodo']
+        if isinstance(total, Decimal):
+            total = float(total)
+        desglose_pagos[row['metodo_pago']] = total
+        
+    return jsonify(desglose_pagos)
 
 # --- RUTA CUENTA CORRIENTE PROVEEDOR ---
 @bp.route('/negocios/<int:negocio_id>/proveedores/<int:proveedor_id>/cuenta-corriente', methods=['GET'])
