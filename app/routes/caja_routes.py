@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request, g
 from app.database import get_db
 from app.auth_decorator import token_required
 import datetime
+from decimal import Decimal 
 
 bp = Blueprint('caja', __name__)
 @bp.route('/negocios/<int:negocio_id>/caja/estado', methods=['GET'])
@@ -216,8 +217,17 @@ def get_reporte_caja(current_user, negocio_id):
     query += " ORDER BY cs.fecha_apertura DESC"
 
     db.execute(query, tuple(params))
-    sesiones = db.fetchall()
-    return jsonify([dict(row) for row in sesiones])
+    sesiones_rows = db.fetchall()   
+
+    sesiones_list = []
+    for row in sesiones_rows:
+        row_dict = dict(row)
+        for key in ['monto_inicial', 'monto_final_contado', 'monto_final_esperado', 'diferencia']:
+            if key in row_dict and isinstance(row_dict[key], Decimal):
+                row_dict[key] = float(row_dict[key])
+        sesiones_list.append(row_dict)
+    
+    return jsonify(sesiones_list)
 
 @bp.route('/reportes/caja/<int:sesion_id>/detalles', methods=['GET'])
 @token_required
