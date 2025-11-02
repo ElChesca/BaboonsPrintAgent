@@ -5,6 +5,7 @@ from app.auth_decorator import token_required
 from decimal import Decimal
 import datetime
 import traceback
+import math
 
 bp = Blueprint('reports', __name__)
 
@@ -82,18 +83,32 @@ def get_reporte_caja(current_user, negocio_id):
     db.execute(query, tuple(params))
     sesiones_rows = db.fetchall()
     
-    # ✨ --- CORRECCIÓN DE ERROR 500 --- ✨
+    # ✨ --- CORRECCIÓN DE ERROR 500 (VERSIÓN ROBUSTA) --- ✨
     sesiones_list = []
     for row in sesiones_rows:
         row_dict = dict(row)
-        # 1. Convertir Decimales
+        
+        # 1. Convertir Decimales (AHORA CON CONTROL DE NaN/Inf)
         for key in ['monto_inicial', 'monto_final_contado', 'monto_final_esperado', 'diferencia']:
             if key in row_dict and isinstance(row_dict[key], Decimal):
-                row_dict[key] = float(row_dict[key])
-        # 2. Convertir Datetimes
+                
+                # --- ESTA ES LA CORRECCIÓN ---
+                if row_dict[key].is_nan() or row_dict[key].is_infinite():
+                    row_dict[key] = None # Convertir a 'null' en JSON
+                else:
+                    row_dict[key] = float(row_dict[key])
+                # --- FIN DE LA CORRECCIÓN ---
+
+            # Bonus: Controlar floats que ya sean NaN/Inf (si g.db_type es sqlite, por ej.)
+            elif key in row_dict and isinstance(row_dict[key], float):
+                if math.isnan(row_dict[key]) or math.isinf(row_dict[key]):
+                    row_dict[key] = None # Convertir a 'null' en JSON
+
+        # 2. Convertir Datetimes (sin cambios, esto estaba bien)
         for key in ['fecha_apertura', 'fecha_cierre']:
             if key in row_dict and isinstance(row_dict[key], (datetime.datetime, datetime.date)):
                 row_dict[key] = row_dict[key].isoformat()
+        
         sesiones_list.append(row_dict)
     
     return jsonify(sesiones_list)
