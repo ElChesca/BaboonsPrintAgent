@@ -35,28 +35,38 @@ async function cargarReporte() {
 
 function renderizarTabla() {
     tablaBody.innerHTML = '';
-    if (reporteCache.length === 0) {        
-        tablaBody.innerHTML = '<tr><td colspan="8">No se encontraron registros...</td></tr>';      
+    if (reporteCache.length === 0) {       
+        tablaBody.innerHTML = '<tr><td colspan="8">No se encontraron registros...</td></tr>';       
         return;
     }
+
     reporteCache.forEach(sesion => {
         const diferenciaClass = sesion.diferencia < 0 ? 'diferencia-negativa' : (sesion.diferencia > 0 ? 'diferencia-positiva' : '');
-        const fila = `
-            <tr>
-                <td>${new Date(sesion.fecha_apertura).toLocaleString('es-AR')}</td>
-                <td>${new Date(sesion.fecha_cierre).toLocaleString('es-AR')}</td>
-                <td>${sesion.usuario_nombre}</td>
-                <td>$${sesion.monto_inicial.toFixed(2)}</td>
-                <td>$${sesion.monto_final_esperado.toFixed(2)}</td>
-                <td>$${sesion.monto_final_contado.toFixed(2)}</td>
-                <td class="${diferenciaClass}">$${sesion.diferencia.toFixed(2)}</td>
-                
-                <td><button class="btn-secondary btn-small" onclick="mostrarDetallesCaja(${sesion.id})">Ver</button></td>
-            </tr>
+        
+        // 1. Crear el elemento <tr>
+        const fila = document.createElement('tr');
+        
+        // 2. Asignar el HTML interno
+        fila.innerHTML = `
+            <td>${new Date(sesion.fecha_apertura).toLocaleString('es-AR')}</td>
+            <td>${new Date(sesion.fecha_cierre).toLocaleString('es-AR')}</td>
+            <td>${sesion.usuario_nombre}</td>
+            <td>$${sesion.monto_inicial.toFixed(2)}</td>
+            <td>$${sesion.monto_final_esperado.toFixed(2)}</td>
+            <td>$${sesion.monto_final_contado.toFixed(2)}</td>
+            <td class="${diferenciaClass}">$${sesion.diferencia.toFixed(2)}</td>
+            
+            <td><button class="btn-secondary btn-small btn-ver-detalles" data-sesion-id="${sesion.id}">Ver</button></td>
         `;
-        tablaBody.innerHTML += fila;
+        
+        // 3. ✨ MEJORA: Buscar el botón y añadir el listener
+        fila.querySelector('.btn-ver-detalles').addEventListener('click', () => {
+            mostrarDetallesCaja(sesion.id);
+        });
+
+        // 4. Añadir la fila a la tabla
+        tablaBody.appendChild(fila);
     });
-  
 }
 
 function exportarAPDF() {

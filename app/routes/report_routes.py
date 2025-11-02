@@ -41,8 +41,21 @@ def get_reporte_caja(current_user, negocio_id):
     # ✨ (NUEVO) Filtro de Usuario
     usuario_id = request.args.get('usuario_id')
 
-    params = [negocio_id]
-    query = "SELECT cs.*, u.nombre as usuario_nombre FROM caja_sesiones cs JOIN usuarios u ON cs.usuario_id = u.id WHERE cs.negocio_id = %s AND cs.fecha_cierre IS NOT NULL"
+    params = [negocio_id]    
+    query = """
+        SELECT 
+            cs.id, 
+            cs.fecha_apertura, 
+            cs.fecha_cierre, 
+            cs.monto_inicial, 
+            cs.monto_final_esperado, 
+            cs.monto_final_contado, 
+            cs.diferencia,
+            u.nombre as usuario_nombre 
+        FROM caja_sesiones cs 
+        JOIN usuarios u ON cs.usuario_id = u.id 
+        WHERE cs.negocio_id = %s AND cs.fecha_cierre IS NOT NULL
+    """
 
     # (Lógica de filtros de fecha...)
     if g.db_type == 'sqlite':
