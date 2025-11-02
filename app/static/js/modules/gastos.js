@@ -163,6 +163,82 @@ async function guardarGasto(e) {
     }
 }
 
+function exportarGastosExcel() {
+    if (gastosCache.length === 0) {
+        mostrarNotificacion('No hay datos para exportar.', 'warning');
+        return;
+    }
+    
+    // 1. Preparar los datos (aplanar)
+    const datosParaExportar = gastosCache.map(g => ({
+        "Fecha": formatearFechaTabla(g.fecha),
+        "Categoría": g.categoria || '-',
+        "Descripción": g.descripcion || '-',
+        "Monto": g.monto,
+        "Método de Pago": g.metodo_pago || '-',
+        "Estado": g.estado
+    }));
+
+    // 2. Crear la hoja de cálculo
+    const ws = XLSX.utils.json_to_sheet(datosParaExportar);
+    
+    // (Opcional) Ajustar anchos de columna
+    ws['!cols'] = [
+        { wch: 20 }, // Fecha
+        { wch: 25 }, // Categoría
+        { wch: 40 }, // Descripción
+        { wch: 15 }, // Monto
+        { wch: 20 }, // Método de Pago
+        { wch: 15 }  // Estado
+    ];
+
+    // 3. Crear el libro y guardar
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Gastos");
+    XLSX.writeFile(wb, "Reporte_Gastos_Operativos.xlsx");
+}
+
+function exportarGastosPDF() {
+    if (gastosCache.length === 0) {
+        mostrarNotificacion('No hay datos para exportar.', 'warning');
+        return;
+    }
+    
+    // (Asegurarnos de que la librería jsPDF esté cargada)
+    if (typeof jspdf === 'undefined' || typeof jspdf.jsPDF === 'undefined') {
+        mostrarNotificacion('Error: La librería jsPDF no se cargó correctamente.', 'error');
+        return;
+    }
+    const { jsPDF } = jspdf; // Extraer el constructor
+
+    // 1. Preparar los datos
+    const head = [["Fecha", "Categoría", "Descripción", "Monto", "Método Pago", "Estado"]];
+    const body = gastosCache.map(g => [
+        formatearFechaTabla(g.fecha),
+        g.categoria || '-',
+        g.descripcion || '-',
+        `$${g.monto.toFixed(2)}`,
+        g.metodo_pago || '-',
+        g.estado
+    ]);
+
+    // 2. Crear el documento PDF
+    const doc = new jsPDF();
+    doc.text("Reporte de Gastos Operativos", 14, 15);
+    
+    // 3. Usar autoTable para dibujar la tabla
+    doc.autoTable({
+        startY: 20,
+        head: head,
+        body: body,
+        theme: 'striped',
+        headStyles: { fillColor: [41, 128, 185] } // Un color azul
+    });
+
+    // 4. Guardar el archivo
+    doc.save("Reporte_Gastos_Operativos.pdf");
+}
+
 export function inicializarGastos() {
     const form = document.getElementById('form-gasto');
     const btnCancelar = document.getElementById('btn-cancelar-edicion-gasto');
@@ -171,6 +247,11 @@ export function inicializarGastos() {
 
     form.addEventListener('submit', guardarGasto);
     btnCancelar.addEventListener('click', resetFormularioGastos);
+     // ✨ 1. (NUEVO) Listeners para los botones de exportación
+    const btnExcel = document.getElementById('btn-exportar-gastos-excel');
+    const btnPdf = document.getElementById('btn-exportar-gastos-pdf');    
+    if(btnExcel) btnExcel.addEventListener('click', exportarGastosExcel);
+    if(btnPdf) btnPdf.addEventListener('click', exportarGastosPDF);
 
     cargarCategoriasParaDropdown();
     cargarGastos();

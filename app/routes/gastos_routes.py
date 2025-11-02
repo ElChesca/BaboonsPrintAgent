@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify, g
 from app.database import get_db
 from app.auth_decorator import token_required
 import datetime
+from decimal import Decimal
 
 bp = Blueprint('gastos', __name__)
 
@@ -177,10 +178,16 @@ def get_gastos(current_user, negocio_id):
             """, 
             (negocio_id,)
         )
-        gastos = [dict(row) for row in db.fetchall()]
-        for gasto in gastos:
-            gasto['monto'] = float(gasto['monto'])
-        return jsonify(gastos)
+        gastos_rows = [dict(row) for row in db.fetchall()]
+        gastos_list = []
+        for row in gastos_rows:
+            row_dict = dict(row)
+            if isinstance(row_dict['monto'],Decimal):
+                row_dict['monto'] = float(row_dict['monto'])
+            gastos_list.append(row_dict)
+        
+        return jsonify(gastos_list)
+    
     except Exception as e:
         print(f"!!! DATABASE ERROR in get_gastos: {e}")
         return jsonify({'error': str(e)}), 500
