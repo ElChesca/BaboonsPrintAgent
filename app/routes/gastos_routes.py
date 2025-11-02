@@ -36,29 +36,6 @@ def check_user_negocio_permission(current_user, negocio_id):
 # RUTAS PARA CATEGORÍAS DE GASTO
 # ===============================================
 
-@bp.route('/negocios/<int:negocio_id>/categorias_gasto', methods=['GET'])
-@token_required
-def get_categorias_gasto(current_user, negocio_id):
-    """
-    Obtiene la lista de categorías para el módulo de gestión.
-    """
-    # ✨ --- VALIDACIÓN DE PERMISO --- ✨
-    if not check_user_negocio_permission(current_user, negocio_id):
-        return jsonify({'error': 'No tiene permisos sobre este negocio'}), 403
-    # --- FIN VALIDACIÓN ---
-
-    db = get_db()
-    try:
-        db.execute(
-            "SELECT id, descripcion, estado FROM categorias_gasto WHERE negocio_id = %s ORDER BY descripcion", 
-            (negocio_id,)
-        )
-        categorias = [dict(row) for row in db.fetchall()]
-        return jsonify(categorias)
-    except Exception as e:
-        print(f"!!! DATABASE ERROR in get_categorias_gasto: {e}")
-        return jsonify({'error': str(e)}), 500
-
 @bp.route('/negocios/<int:negocio_id>/categorias_gasto/activas', methods=['GET'])
 @token_required
 def get_categorias_gasto_activas(current_user, negocio_id):
@@ -82,46 +59,64 @@ def get_categorias_gasto_activas(current_user, negocio_id):
         print(f"!!! DATABASE ERROR in get_categorias_gasto_activas: {e}")
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/negocios/<int:negocio_id>/categorias_gasto', methods=['POST'])
+@bp.route('/negocios/<int:negocio_id>/categorias_gasto', methods=['GET', 'POST'])
 @token_required
-def add_categoria_gasto(current_user, negocio_id):
+def handle_categorias_gasto(current_user, negocio_id):
     """
-    Añade una nueva categoría de gasto para el negocio_id de la URL.
+    Maneja la obtención (GET) y creación (POST) de categorías de gasto.
     """
     # ✨ --- VALIDACIÓN DE PERMISO --- ✨
     if not check_user_negocio_permission(current_user, negocio_id):
         return jsonify({'error': 'No tiene permisos sobre este negocio'}), 403
     # --- FIN VALIDACIÓN ---
 
-    data = request.get_json()
-    if not data or 'descripcion' not in data:
-        return jsonify({'error': 'Campo "descripcion" es obligatorio'}), 400
-
-    usuario_creacion_id = current_user['id']
-    
-    db = get_db()
-    try:
-        db.execute(
-            """
-            INSERT INTO categorias_gasto (negocio_id, usuario_creacion_id, descripcion, estado, fecha_creacion)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING id
-            """,
-            (
-                negocio_id, 
-                usuario_creacion_id,
-                data['descripcion'],
-                data.get('estado', 'Activa'),
-                datetime.datetime.now()
+    # --- Lógica para GET ---
+    if request.method == 'GET':
+        db = get_db()
+        try:
+            db.execute(
+                "SELECT id, descripcion, estado FROM categorias_gasto WHERE negocio_id = %s ORDER BY descripcion", 
+                (negocio_id,)
             )
-        )
-        nuevo_id = db.fetchone()['id']
-        g.db_conn.commit()
-        return jsonify({'id': nuevo_id, 'message': 'Categoría creada con éxito'}), 201
-    except Exception as e:
-        g.db_conn.rollback()
-        print(f"!!! DATABASE ERROR in add_categoria_gasto: {e}")
-        return jsonify({'error': str(e)}), 500
+            categorias = [dict(row) for row in db.fetchall()]
+            return jsonify(categorias)
+        except Exception as e:
+            print(f"!!! DATABASE ERROR in get_categorias_gasto: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    # --- Lógica para POST ---
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data or 'descripcion' not in data:
+            return jsonify({'error': 'Campo "descripcion" es obligatorio'}), 400
+
+        usuario_creacion_id = current_user['id']
+        
+        db = get_db()
+        try:
+            db.execute(
+                """
+                INSERT INTO categorias_gasto (negocio_id, usuario_creacion_id, descripcion, estado, fecha_creacion)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    negocio_id, 
+                    usuario_creacion_id,
+                    data['descripcion'],
+                    data.get('estado', 'Activa'),
+                    datetime.datetime.now()
+                )
+            )
+            nuevo_id = db.fetchone()['id']
+            g.db_conn.commit()
+            return jsonify({'id': nuevo_id, 'message': 'Categoría creada con éxito'}), 201
+        except Exception as e:
+            g.db_conn.rollback()
+            print(f"!!! DATABASE ERROR in add_categoria_gasto: {e}")
+            return jsonify({'error': str(e)}), 500
+
+# --- ✨ (FIN DEL CAMBIO) --- ✨
 
 @bp.route('/negocios/<int:negocio_id>/categorias_gasto/<int:id>', methods=['PUT'])
 @token_required
