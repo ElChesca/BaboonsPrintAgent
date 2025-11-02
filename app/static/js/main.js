@@ -354,8 +354,7 @@ async function inicializarModulo(page) {
             case 'historial_pagos_proveedores': 
                 const { inicializarLogicaHistorialPagosProveedores } = await import(`./modules/historial_pagos_proveedores.js${v}`);
                 inicializarLogicaHistorialPagosProveedores(); 
-                break;
-            
+                break;            
             case 'configuracion':
                 const { inicializarConfiguracion } = await import(`./modules/configuracion.js${v}`);
                 inicializarConfiguracion();
@@ -376,10 +375,15 @@ async function inicializarModulo(page) {
                 const { inicializarPreciosEspecificos } = await import(`./modules/precios_especificos.js${v}`);
                 inicializarPreciosEspecificos();
                 break;
-            case 'gastos': 
+            case 'gastos':
                 const { inicializarGastos } = await import(`./modules/gastos.js${v}`);
                 inicializarGastos(); 
                 break;
+            case 'gastos_categorias':
+                const { inicializarCategoriasGasto } = await import(`./modules/gastos_categorias.js${v}`);
+                inicializarCategoriasGasto();
+                break;
+
             default:
                 console.warn(`No se encontró lógica de inicialización para el módulo: ${pageName}`);
         }
