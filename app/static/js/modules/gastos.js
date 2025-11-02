@@ -1,10 +1,9 @@
 // static/js/modules/gastos.js
 import { fetchData, sendData } from '../api.js';
 import { mostrarNotificacion } from './notifications.js';
-import { appState } from '../main.js'; // ✨ 1. Importamos el estado global
+import { appState } from '../main.js'; // Importamos el estado global
 
 let gastosCache = [];
-// 2. Eliminamos la función getActiveNegocioId()
 
 // (Las funciones de formateo de fecha no cambian)
 function formatearFechaInput(isoDate) {
@@ -44,11 +43,9 @@ function renderizarTablaGastos() {
 }
 
 async function cargarGastos() {
-    // ✨ 3. Usamos appState directamente
     if (!appState.negocioActivoId) return;
     
     try {
-        // ✨ 4. Usamos la nueva ruta anidada
         gastosCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/gastos`);
         renderizarTablaGastos();
     } catch (error) {
@@ -61,7 +58,6 @@ async function cargarCategoriasParaDropdown() {
     if (!select || !appState.negocioActivoId) return;
 
     try {
-        // ✨ 5. Usamos la nueva ruta anidada
         const categorias = await fetchData(`/api/negocios/${appState.negocioActivoId}/categorias_gasto/activas`);
         select.innerHTML = '<option value="">Seleccione una categoría...</option>';
         categorias.forEach(cat => {
@@ -103,7 +99,6 @@ window.anularGasto = async (id) => {
     }
 
     try {
-        // ✨ 6. Usamos la nueva ruta anidada
         const response = await sendData(`/api/negocios/${appState.negocioActivoId}/gastos/anular/${id}`, {}, 'PUT');
         mostrarNotificacion(response.message || 'Gasto anulado con éxito.', 'success');
         await cargarGastos();
@@ -112,24 +107,46 @@ window.anularGasto = async (id) => {
     }
 }
 
+// ==========================================================
+// ✨ MODIFICACIÓN AQUÍ ✨
+// ==========================================================
 async function guardarGasto(e) {
     e.preventDefault();
     const id = document.getElementById('gasto-id').value;
+    const metodoPago = document.getElementById('gasto-metodo-pago').value;
+    const monto = parseFloat(document.getElementById('gasto-monto').value);
+
+    // 🚫 1. (NUEVA VALIDACIÓN)
+    // Si el método es 'Efectivo' Y la caja NO está abierta (no hay ID de sesión)
+    if (metodoPago.toLowerCase() === 'efectivo' && !appState.cajaSesionIdActiva) {
+        mostrarNotificacion('🚫 No se puede registrar un gasto en "Efectivo" si la caja está cerrada. Por favor, abra la caja primero.', 'error');
+        return; // Detener la ejecución
+    }
+    
+    // 🚫 2. (NUEVA VALIDACIÓN) Asegurarse de que el monto sea positivo
+    if (monto <= 0) {
+        mostrarNotificacion('El monto del gasto debe ser mayor a cero.', 'error');
+        return;
+    }
+
+    // 3. Lógica de asignación de sesión (como antes)
+    let idSesionCaja = null;
+    if (metodoPago.toLowerCase() === 'efectivo') {
+        idSesionCaja = appState.cajaSesionIdActiva;
+    }
 
     const data = {
-        // ✨ 7. Ya no enviamos negocio_id en el body
         categoria_gasto_id: document.getElementById('gasto-categoria').value,
         fecha: document.getElementById('gasto-fecha').value,
-        monto: parseFloat(document.getElementById('gasto-monto').value),
+        monto: monto,
         descripcion: document.getElementById('gasto-descripcion').value,
-        metodo_pago: document.getElementById('gasto-metodo-pago').value,
+        metodo_pago: metodoPago,
         estado: document.getElementById('gasto-estado').value,
         proveedor_id: null, 
-        caja_sesion_id: null
+        caja_sesion_id: idSesionCaja // Se asigna el ID de la sesión (o null)
     };
 
     const esEdicion = !!id;
-    // ✨ 8. Las URLs ahora se construyen con appState.negocioActivoId
     const url = esEdicion 
         ? `/api/negocios/${appState.negocioActivoId}/gastos/${id}`
         : `/api/negocios/${appState.negocioActivoId}/gastos`;

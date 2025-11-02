@@ -63,7 +63,6 @@ def cerrar_caja(current_user, negocio_id):
     if not sesion_abierta:
         return jsonify({'error': 'No hay ninguna caja abierta para cerrar'}), 404
 
-    # ✨ CORRECCIÓN 1: Definimos la variable 'sesion_id' a partir de la sesión que ya encontramos.
     sesion_id = sesion_abierta['id']
 
     data = request.get_json()
@@ -86,12 +85,29 @@ def cerrar_caja(current_user, negocio_id):
         db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM caja_ajustes WHERE caja_sesion_id = %s AND tipo = 'Egreso'", (sesion_id,))
         total_egresos_ajuste = db.fetchone()['total']
 
+        # ✨ 3. (NUEVO) Gastos Operativos de la sesión pagados en Efectivo
+        db.execute(
+            """
+            SELECT COALESCE(SUM(monto), 0) as total 
+            FROM gastos_operativos 
+            WHERE caja_sesion_id = %s 
+              AND metodo_pago = 'Efectivo' 
+              AND estado = 'Pagado'
+            """,
+            (sesion_id,)
+        )
+        total_gastos_efectivo = db.fetchone()['total']
+
+
         # --- REALIZAMOS LOS CÁLCULOS ---
         monto_inicial = float(sesion_abierta['monto_inicial'])
-        # ✨ CORRECCIÓN 2: Usamos la variable correcta 'total_efectivo' que ya habías definido.
-        total_efectivo = desglose_pagos.get('Efectivo', 0.0)
+        total_efectivo_ventas = desglose_pagos.get('Efectivo', 0.0)
         
-        monto_final_esperado = (monto_inicial + total_efectivo + total_ingresos_ajuste) - total_egresos_ajuste
+        # ✨ 4. (NUEVA FÓRMULA) Se restan los gastos operativos y los egresos de ajuste
+        total_ingresos_efectivo = monto_inicial + total_efectivo_ventas + float(total_ingresos_ajuste)
+        total_egresos_efectivo = float(total_egresos_ajuste) + float(total_gastos_efectivo)
+        
+        monto_final_esperado = total_ingresos_efectivo - total_egresos_efectivo
         diferencia = float(monto_final_contado) - monto_final_esperado
 
         # --- ACTUALIZAMOS LA BASE DE DATOS ---
@@ -106,14 +122,14 @@ def cerrar_caja(current_user, negocio_id):
         resumen = {
             'monto_inicial': monto_inicial,
             'desglose_pagos': desglose_pagos,
-            'total_ingresos_ajuste': total_ingresos_ajuste,
-            'total_egresos_ajuste': total_egresos_ajuste,
+            'total_ingresos_ajuste': float(total_ingresos_ajuste),
+            'total_egresos_ajuste': float(total_egresos_ajuste),
+            'total_gastos_efectivo': float(total_gastos_efectivo), # ✨ 5. (NUEVO) Se envía el dato al frontend
             'monto_final_esperado': monto_final_esperado,
             'monto_final_contado': float(monto_final_contado),
             'diferencia': diferencia
         }
 
-        # ✨ CORRECCIÓN 3: La sintaxis para devolver el JSON del resumen es con ':'
         return jsonify({
             'message': 'Caja cerrada con éxito',
             'resumen': resumen
