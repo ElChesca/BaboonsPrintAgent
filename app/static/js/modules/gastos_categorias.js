@@ -25,17 +25,24 @@ function renderizarTablaCategorias() {
 }
 
 async function cargarCategorias() {
-    // ✨ 3. Usamos appState directamente
     if (!appState.negocioActivoId) {
         mostrarNotificacion('No hay un negocio seleccionado.', 'error');
         return;
     }
     
     try {
-        // ✨ 4. Usamos la nueva ruta anidada
-        categoriasCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/categorias_gasto`);
+        // --- ESTA ES LA RUTA QUE FALLABA ---
+        // (La que ahora maneja tu 'handle_categorias_gasto' con GET)
+        const url = `/api/negocios/${appState.negocioActivoId}/categorias_gasto`;
+        console.log("Cargando categorías desde:", url); // <-- Añade este log
+
+        categoriasCache = await fetchData(url);
+        
+        console.log("Categorías recibidas:", categoriasCache); // <-- Añade este log
+
         renderizarTablaCategorias();
     } catch (error) {
+        console.error("Error en cargarCategorias:", error); // <-- Añade este log
         mostrarNotificacion('No se pudieron cargar las categorías.', 'error');
     }
 }
