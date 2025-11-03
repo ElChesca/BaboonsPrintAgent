@@ -11,16 +11,19 @@ bp = Blueprint('categories', __name__)
 def get_categorias(current_user, negocio_id):
     db = get_db()
     
-    # ✨ --- CONSULTA RECURSIVA CORREGIDA --- ✨
+    # ✨ --- CONSULTA RECURSIVA (CORREGIDA Y SEGURA) --- ✨
+    # Esta consulta previene bucles infinitos y asegura
+    # que solo se traigan datos del negocio_id solicitado.
     query = """
     WITH RECURSIVE categorias_recursivas AS (
-        -- 1. Selecciona los padres (los que no tienen padre Y son de este negocio)
+        -- 1. Base Case: Categorías raíz (padre es NULL) para ESTE negocio
         SELECT
             id,
             nombre,
             negocio_id,
             categoria_padre_id,
             0 AS nivel,
+            ARRAY[id] AS path_ids, -- Usado para detectar bucles
             nombre AS ruta_categoria,
             (REPEAT('    ', 0) || nombre) AS nombre_indentado
         FROM
@@ -30,26 +33,29 @@ def get_categorias(current_user, negocio_id):
 
         UNION ALL
 
-        -- 2. Une recursivamente los hijos
+        -- 2. Recursive Step: Hijos de las categorías ya encontradas
         SELECT
             hijo.id,
             hijo.nombre,
             hijo.negocio_id,
             hijo.categoria_padre_id,
             padre.nivel + 1,
+            padre.path_ids || hijo.id, -- Añadimos el ID al path
             (padre.ruta_categoria || ' > ' || hijo.nombre) AS ruta_categoria,
             (REPEAT('    ', padre.nivel + 1) || hijo.nombre) AS nombre_indentado
         FROM
             productos_categoria hijo
         INNER JOIN
             categorias_recursivas padre ON hijo.categoria_padre_id = padre.id
-        -- ✨ EL ERROR ESTABA AQUÍ ✨
-        -- No necesitamos un segundo filtro de negocio_id,
-        -- porque si el 'padre' ya es del negocio, el 'hijo' también lo será
-        -- (asumiendo que la app siempre guarda el negocio_id correcto al crear hijos)
-        -- El filtro anterior (WHERE hijo.negocio_id = %s) era redundante y causaba el fallo.
+        WHERE
+            -- ✨ CORRECCIÓN CLAVE (RE-INTRODUCIDA):
+            -- 1. Aseguramos que el hijo también pertenezca al negocio
+            hijo.negocio_id = %s
+            -- 2. Prevención de bucle infinito:
+            --    Evita que un hijo se una si ya está en el 'path'
+            AND NOT (hijo.id = ANY(padre.path_ids))
     )
-    -- 3. Selecciona todo, ordenado por la ruta
+    -- 3. Select final
     SELECT
         id,
         nombre,
@@ -63,12 +69,18 @@ def get_categorias(current_user, negocio_id):
         ruta_categoria;
     """
     
-    # ✨ Solo pasamos el negocio_id UNA VEZ, porque solo hay un %s
-    db.execute(query, (negocio_id,)) 
+    try:
+        # ✨ Pasamos el negocio_id DOS VECES, uno para cada %s
+        db.execute(query, (negocio_id, negocio_id)) 
+        categorias = db.fetchall()
+        return jsonify([dict(row) for row in categorias])
+    except Exception as e:
+        # Si la consulta falla, ahora sabremos por qué
+        g.db_conn.rollback()
+        print(f"Error en la consulta recursiva de categorías: {e}")
+        return jsonify({'error': f'Error de base de datos al cargar categorías: {str(e)}'}), 500
     
-    categorias = db.fetchall()
-    return jsonify([dict(row) for row in categorias])
-
+    
 @bp.route('/negocios/<int:negocio_id>/categorias', methods=['POST'])
 @token_required
 def create_categoria(current_user, negocio_id):
