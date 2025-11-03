@@ -23,7 +23,6 @@ import { abrirModalEditarProducto, borrarProducto, changeProductPage } from './m
 import { borrarProveedor } from './modules/proveedores.js';
 import { abrirModalEditarUsuario } from './modules/users.js';
 import { mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js';
-import { abrirModalEditarProducto, borrarProducto } from './modules/inventory.js';
 import { mostrarDetallesCaja } from './modules/reporte_caja.js';
 
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES (Sin cambios) ---
