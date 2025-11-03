@@ -195,13 +195,16 @@ async function guardarProducto(e) {
     }
 }
 
-
 // --- ✨ NUEVA LÓGICA PARA EL MODAL DE IMPORTACIÓN ---
 async function importarProductos(e) {
     e.preventDefault();
     const boton = document.getElementById('btn-submit-importar');
     const feedback = document.getElementById('importar-feedback');
     const fileInput = document.getElementById('archivo-importar');
+// ✨ Referencias al nuevo loader y texto
+    const feedbackContainer = document.getElementById('importar-feedback');
+    const loader = document.getElementById('importar-loader');
+    const feedbackTexto = document.getElementById('importar-feedback-texto');
     const file = fileInput.files[0];
 
     if (!file) {
@@ -211,9 +214,11 @@ async function importarProductos(e) {
 
     boton.disabled = true;
     boton.textContent = 'Importando...';
-    feedback.innerHTML = '<p>Procesando archivo, esto puede tardar...</p>';
-    feedback.className = 'importar-feedback info';
-
+// ✨ Mostrar loader y texto
+    feedbackContainer.className = 'importar-feedback info';
+    loader.style.display = 'block';
+    feedbackTexto.innerHTML = '<p>Procesando archivo, esto puede tardar...</p>';
+    
     const formData = new FormData();
     formData.append('archivo_productos', file);
 
@@ -267,6 +272,7 @@ async function importarProductos(e) {
         feedback.className = 'importar-feedback error';
         mostrarNotificacion(error.message, 'error');
     } finally {
+        loader.style.display = 'none';
         boton.disabled = false;
         boton.textContent = 'Subir e Importar';
         fileInput.value = ''; // Limpiar el input de archivo
@@ -274,7 +280,7 @@ async function importarProductos(e) {
 }
 
 
-// --- Funciones Globales para onclick (SIN CAMBIOS) ---
+
 
 export async function abrirModalEditarProducto(productoId) {
     try {
