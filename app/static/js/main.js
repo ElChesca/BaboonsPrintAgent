@@ -16,7 +16,7 @@ import { showGlobalLoader, hideGlobalLoader } from '/static/js/uiHelpers.js';
 import { fetchData, sendData } from './api.js';
 import { getCurrentUser, logout } from './modules/auth.js';
 import { mostrarNotificacion } from './modules/notifications.js';
-import { abrirModalEditarProducto, borrarProducto, changeProductPage } from './modules/inventory.js';
+
 
 // --- ✨ 3. FUNCIONES GLOBALES (para onclick) ---
 // ✨ ¡CORREGIDO! Estos también deben ser strings fijos.
@@ -28,9 +28,6 @@ import { mostrarDetallesCaja } from './modules/reporte_caja.js';
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES (Sin cambios) ---
 window.loadContent = loadContent; // Esencial
 window.borrarProveedor = borrarProveedor;
-window.borrarProducto = borrarProducto;
-window.abrirModalEditarProducto = abrirModalEditarProducto;
-window.changeProductPage = changeProductPage;
 window.abrirModalEditarUsuario = abrirModalEditarUsuario;
 window.mostrarDetalleIngreso = mostrarDetalleIngreso;
 window.mostrarDetallesCaja = mostrarDetallesCaja;
@@ -250,7 +247,16 @@ async function inicializarModulo(page) {
     try {
         switch(pageName) {
             case 'inventario': 
-                const { inicializarLogicaInventario } = await import(`./modules/inventory.js${v}`);
+                // 1. Importamos todo lo necesario del módulo
+                const { 
+                    inicializarLogicaInventario, 
+                    abrirModalEditarProducto, 
+                    borrarProducto, 
+                    changeProductPage 
+                } = await import(`./modules/inventory.js${v}`);                
+                window.abrirModalEditarProducto = abrirModalEditarProducto;
+                window.borrarProducto = borrarProducto;
+                window.changeProductPage = changeProductPage;                
                 inicializarLogicaInventario(); 
                 break;
             case 'login': 
