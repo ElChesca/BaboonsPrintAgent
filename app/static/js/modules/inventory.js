@@ -78,38 +78,50 @@ async function fetchProductos() {
 }
 
 async function poblarSelectoresDelModal() {
-    try {
-        const [categorias, proveedores, unidades] = await Promise.all([
-            fetchData(`/api/negocios/${appState.negocioActivoId}/categorias`),
-            fetchData(`/api/negocios/${appState.negocioActivoId}/proveedores`),
-            fetchData(`/api/negocios/${appState.negocioActivoId}/unidades_medida`)
-        ]);
+    try {
+        // 1. Hacemos los fetches igual que antes
+        const [categorias, proveedores, unidades] = await Promise.all([
+            fetchData(`/api/negocios/${appState.negocioActivoId}/categorias`),
+            fetchData(`/api/negocios/${appState.negocioActivoId}/proveedores`),
+            fetchData(`/api/negocios/${appState.negocioActivoId}/unidades_medida`)
+        ]);
 
-        const selectores = {
-            'producto-categoria': categorias,
-            'producto-proveedor': proveedores
-        };
+        // 2. ✨ CAMBIO PRINCIPAL AQUÍ ✨
+        // Adaptamos el renderizado del <select> de categorías
+        const selectCat = document.getElementById('producto-categoria');
+        if (selectCat) {
+            selectCat.innerHTML = `<option value="">Seleccionar...</option>`;
+            
+            // Usamos los nuevos campos 'nombre_indentado' y 'ruta_categoria'
+            // que nos envía el API que modificamos.
+            categorias.forEach(cat => {
+                selectCat.innerHTML += `
+                    <option value="${cat.id}" title="${cat.ruta_categoria}">
+                        ${cat.nombre_indentado}
+                    </option>`;
+            });
+        }
 
-        for (const [id, data] of Object.entries(selectores)) {
-            const select = document.getElementById(id);
-            if (select) {
-                select.innerHTML = `<option value="">Seleccionar...</option>`;
-                data.forEach(item => {
-                    select.innerHTML += `<option value="${item.id}">${item.nombre}</option>`;
-                });
-            }
-        }
-        
-        const selectUnidad = document.getElementById('producto-unidad-medida');
-        if(selectUnidad) {
-            selectUnidad.innerHTML = '';
-            unidades.forEach(um => {
-                selectUnidad.innerHTML += `<option value="${um.abreviatura}">${um.nombre} (${um.abreviatura})</option>`;
-            });
-        }
-    } catch (error) {
-        mostrarNotificacion("Error al cargar datos para el formulario.", 'error');
-    }
+        // 3. El <select> de proveedores no cambia
+        const selectProv = document.getElementById('producto-proveedor');
+        if (selectProv) {
+            selectProv.innerHTML = `<option value="">Seleccionar...</option>`;
+            proveedores.forEach(item => {
+                selectProv.innerHTML += `<option value="${item.id}">${item.nombre}</option>`;
+            });
+        }
+        
+        // 4. El <select> de unidades de medida no cambia
+        const selectUnidad = document.getElementById('producto-unidad-medida');
+        if(selectUnidad) {
+            selectUnidad.innerHTML = '';
+            unidades.forEach(um => {
+                selectUnidad.innerHTML += `<option value="${um.abreviatura}">${um.nombre} (${um.abreviatura})</option>`;
+            });
+        }
+    } catch (error) {
+        mostrarNotificacion("Error al cargar datos para el formulario.", 'error');
+    }
 }
 
 
