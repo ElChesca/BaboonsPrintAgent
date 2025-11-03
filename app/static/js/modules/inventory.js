@@ -220,13 +220,22 @@ async function importarProductos(e) {
     const url = `/api/negocios/${appState.negocioActivoId}/productos/importar`;
 
     try {
-        // Usamos fetch directamente porque 'sendData' puede estar configurado
-        // para JSON y no para FormData.
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: getAuthHeaders(), // Solo token de Auth, SIN 'Content-Type'
-            body: formData
-        });
+        // ✨ --- CORRECCIÓN CLAVE --- ✨
+        // 1. Obtenemos todas las cabeceras (incluyendo 'Authorization')
+        const headers = getAuthHeaders();
+        
+        // 2. ELIMINAMOS 'Content-Type'. Esto es crucial.
+        //    El navegador ahora pondrá 'multipart/form-data'
+        //    con el 'boundary' (límite) correcto por sí solo.
+        delete headers['Content-Type'];
+        delete headers['content-type']; // Por si acaso está en minúsculas
+
+        // 3. Hacemos el fetch con las cabeceras corregidas
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers, // <-- Usamos las cabeceras ya limpias
+            body: formData
+        });
 
         const data = await response.json();
 
