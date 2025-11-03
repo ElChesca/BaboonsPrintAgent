@@ -11,27 +11,26 @@ bp = Blueprint('categories', __name__)
 def get_categorias(current_user, negocio_id):
     db = get_db()
     
-    # ✨ --- NUEVA CONSULTA RECURSIVA  - CTE utilizando el concepto de: ista de Adyacencia" (o modelo de Árbol)--- ✨
-    # Esta consulta construye el árbol de categorías
+    # ✨ --- CONSULTA RECURSIVA CORREGIDA --- ✨
     query = """
     WITH RECURSIVE categorias_recursivas AS (
-        -- 1. Selecciona los padres (los que no tienen padre)
+        -- 1. Selecciona los padres (los que no tienen padre Y son de este negocio)
         SELECT
             id,
             nombre,
             negocio_id,
             categoria_padre_id,
-            0 AS nivel, -- Nivel 0
+            0 AS nivel,
             nombre AS ruta_categoria,
             (REPEAT('    ', 0) || nombre) AS nombre_indentado
         FROM
             productos_categoria
         WHERE
-            categoria_padre_id IS NULL AND negocio_id = %s
+            categoria_padre_id IS NULL AND negocio_id = %s  -- Filtro 1: Padres del negocio
 
         UNION ALL
 
-        -- 2. Une recursivamente los hijos con los padres
+        -- 2. Une recursivamente los hijos
         SELECT
             hijo.id,
             hijo.nombre,
@@ -44,10 +43,13 @@ def get_categorias(current_user, negocio_id):
             productos_categoria hijo
         INNER JOIN
             categorias_recursivas padre ON hijo.categoria_padre_id = padre.id
-        WHERE
-            hijo.negocio_id = %s -- Aseguramos que los hijos también sean del negocio
+        -- ✨ EL ERROR ESTABA AQUÍ ✨
+        -- No necesitamos un segundo filtro de negocio_id,
+        -- porque si el 'padre' ya es del negocio, el 'hijo' también lo será
+        -- (asumiendo que la app siempre guarda el negocio_id correcto al crear hijos)
+        -- El filtro anterior (WHERE hijo.negocio_id = %s) era redundante y causaba el fallo.
     )
-    -- 3. Selecciona todo, ordenado por la ruta para que aparezca como un árbol
+    -- 3. Selecciona todo, ordenado por la ruta
     SELECT
         id,
         nombre,
@@ -61,7 +63,9 @@ def get_categorias(current_user, negocio_id):
         ruta_categoria;
     """
     
-    db.execute(query, (negocio_id, negocio_id))
+    # ✨ Solo pasamos el negocio_id UNA VEZ, porque solo hay un %s
+    db.execute(query, (negocio_id,)) 
+    
     categorias = db.fetchall()
     return jsonify([dict(row) for row in categorias])
 
