@@ -35,6 +35,10 @@
     margin-top: 20px;
 }
 
+#tabla-categorias tbody td:first-child {
+    white-space: pre-wrap;
+    font-family: monospace; /* Opcional: Esto alinea mejor los espacios */
+}
 
 /* --- ✨ MEDIA QUERIES PARA RESPONSIVE ✨ --- */
 
