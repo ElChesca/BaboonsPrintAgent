@@ -23,7 +23,6 @@ import { borrarProveedor } from './modules/proveedores.js';
 import { abrirModalEditarUsuario } from './modules/users.js';
 import { mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js';
 import { abrirModalEditarProducto, borrarProducto } from './modules/inventory.js';
-import { editarCategoria, borrarCategoria } from './modules/categorias.js';
 import { mostrarDetallesCaja } from './modules/reporte_caja.js';
 
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES (Sin cambios) ---
@@ -33,8 +32,6 @@ window.borrarProducto = borrarProducto;
 window.abrirModalEditarProducto = abrirModalEditarProducto;
 window.abrirModalEditarUsuario = abrirModalEditarUsuario;
 window.mostrarDetalleIngreso = mostrarDetalleIngreso;
-window.editarCategoria = editarCategoria;
-window.borrarCategoria = borrarCategoria;
 window.mostrarDetallesCaja = mostrarDetallesCaja;
 window.abrirModalNuevoCliente = abrirModalNuevoCliente;
 export function toggleMenu() {
@@ -266,11 +263,7 @@ async function inicializarModulo(page) {
             case 'usuarios': 
                 const { inicializarLogicaUsuarios } = await import(`./modules/users.js${v}`);
                 inicializarLogicaUsuarios(); 
-                break;
-            case 'categorias': 
-                const { inicializarLogicaCategorias } = await import(`./modules/categorias.js${v}`);
-                inicializarLogicaCategorias(); 
-                break;
+                break;            
             case 'dashboard': 
                 const { inicializarLogicaDashboard } = await import(`./modules/dashboard.js${v}`);
                 inicializarLogicaDashboard(); 
@@ -382,6 +375,14 @@ async function inicializarModulo(page) {
             case 'gastos_categorias':
                 const { inicializarCategoriasGasto } = await import(`./modules/gastos_categorias.js${v}`);
                 inicializarCategoriasGasto();
+                break;
+            case 'categorias':
+                const { inicializarLogicaCategorias, editarCategoria, borrarCategoria } = await import(`./modules/categorias.js${v}`);
+                // 2. ✨ AHORA las exponemos al 'window' (AQUÍ ESTÁ LA MAGIA)
+                window.editarCategoria = editarCategoria;
+                window.borrarCategoria = borrarCategoria;
+                // 3. Finalmente, inicializamos la lógica
+                inicializarLogicaCategorias();
                 break;
 
             default:

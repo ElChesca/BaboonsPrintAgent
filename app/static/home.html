@@ -67,6 +67,10 @@
             <img src="/static/img/icons/configuracion.png" alt="Configuracion y Reglas de Negocio" class="app-icon">
              <span class="app-name">Conf. y Reglas</span>
         </div>
+         <div class="app-card" onclick="loadContent(event, 'static/Categorias.html', this)">
+            <img src="/static/img/icons/categorias.png" alt="Categorias de Productos" class="app-icon">
+            <span class="app-name">Categorias Prod.</span>
+        </div>
         
         <div class="app-card" onclick="loadContent(event, 'static/historial_inventario.html', this)">
              <img src="/static/img/icons/historial_inventario.png" alt="Historial Inventario" class="app-icon">
@@ -99,13 +103,9 @@
         <!-- Tarjeta "Negocios" - SOLO para superadmin -->
         <div class="app-card superadmin-only" onclick="loadContent(event, 'static/negocios.html', this)">
             <img src="/static/img/icons/negocios.png" alt="Negocios" class="app-icon">
-            <span class="app-name">Negocios ABM's</span>
-        </div>
-        
-        <div class="app-card" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">
-            <img src="/static/img/icons/reportes.png" alt="Reporte Ganancias" class="app-icon">
-            <span class="app-name">Reporte Ganancias</span>
-        </div>
+            <span class="app-name">Negocios</span>
+        </div>        
+       
 
     </div> 
 </div>
