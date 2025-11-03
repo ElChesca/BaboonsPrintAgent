@@ -1,86 +1,87 @@
 <link rel="stylesheet" href="/static/css/inventario.css">
 
 <div class="card">
-    <div class="inventario-header">
-        <h2>Listado de Productos</h2>
-        <button id="btn-abrir-modal-producto" class="btn-primary">➕ Añadir Producto</button>
-    </div>
-    
-    <div class="form-group" style="margin-top: 15px;">
-        <input type="text" id="buscador-productos" placeholder="Buscar por nombre, SKU o código de barras...">
-    </div>
+    <div class="inventario-header">
+        <h2>Listado de Productos</h2>
+        <div class="botones-header">
+                        <button id="btn-abrir-modal-importar" class="btn-secondary">📤 Importar</button>
+            <button id="btn-abrir-modal-producto" class="btn-primary">➕ Añadir Producto</button>
+        </div>
+    </div>
+    
+    <div class="form-group" style="margin-top: 15px;">
+        <input type="text" id="buscador-productos" placeholder="Buscar por nombre, SKU o código de barras...">
+    </div>
 
-    <div class="tabla-contenedor">
-        <table id="tabla-productos" class="tabla-bonita">
-            <thead>
-                <tr>
-                    </tr>
-            </thead>
-            <tbody>
-                </tbody>
-        </table>
-    </div>
+    <div class="tabla-contenedor">
+        <table id="tabla-productos" class="tabla-bonita">
+            <thead>
+                <tr>
+                    </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
 </div>
 
 <div id="modal-producto" class="modal">
-    <div class="modal-content large"> <div class="modal-header">
-            <h3 id="modal-producto-titulo">Añadir Nuevo Producto</h3>
-            <span id="close-modal-producto" class="close-button">&times;</span>
-        </div>
-        
-        <form id="form-producto">
-            <input type="hidden" id="producto-id">
-            
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="producto-nombre">Nombre del Producto:</label>
-                    <input type="text" id="producto-nombre" required>
-                </div>
-                <div class="form-group">
-                    <label for="producto-alias">Alias (para POS):</label>
-                    <input type="text" id="producto-alias" placeholder="Nombre corto o alternativo">
-                </div>
-                <div class="form-group">
-                    <label for="producto-sku">SKU (Cód. Interno):</label>
-                    <input type="text" id="producto-sku">
-                </div>
-                <div class="form-group">
-                    <label for="producto-categoria">Categoría:</label>
-                    <select id="producto-categoria"></select>
-                </div>
-                <div class="form-group">
-                    <label for="producto-proveedor">Proveedor:</label>
-                    <select id="producto-proveedor"></select>
-                </div>
-                <div class="form-group">
-                    <label for="producto-stock">Stock:</label>
-                    <input type="number" id="producto-stock" step="any" value="0">
-                </div>
-                <div class="form-group">
-                    <label for="producto-stock-minimo">Stock Mínimo:</label>
-                    <input type="number" id="producto-stock-minimo" step="1" value="0">
-                </div>
-                 <div class="form-group">
-                    <label for="producto-unidad-medida">Unidad de Medida:</label>
-                    <select id="producto-unidad-medida"></select>
-                </div>
-                <div class="form-group">
-                    <label for="producto-codigo-barras">Código de Barras:</label>
-                    <input type="text" id="producto-codigo-barras">
-                </div>
-                <div class="form-group admin-only">
-                    <label for="producto-precio-costo">Precio de Costo:</label>
-                    <input type="number" id="producto-precio-costo" step="0.01">
-                </div>
-                <div class="form-group">
-                    <label for="producto-precio-venta">Precio de Venta:</label>
-                    <input type="number" id="producto-precio-venta" step="0.01" required>
-                </div>
-            </div>
-            
-            <div class="form-actions">
-                <button type="submit" class="btn-primary">Guardar</button>
-            </div>
-        </form>
-    </div>
+    <div class="modal-content large"> <div class="modal-header">
+            <h3 id="modal-producto-titulo">Añadir Nuevo Producto</h3>
+            <span id="close-modal-producto" class="close-button">&times;</span>
+        </div>
+        
+        <form id="form-producto">
+            <input type="hidden" id="producto-id">
+            
+            <div class="form-grid">
+                                <div class="form-group">
+                    <label for="producto-nombre">Nombre del Producto:</label>
+                    <input type="text" id="producto-nombre" required>
+                </div>
+                                <div class="form-group">
+                    <label for="producto-precio-venta">Precio de Venta:</label>
+                    <input type="number" id="producto-precio-venta" step="0.01" required>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="modal-importar-producto" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Importar Productos</h3>
+            <span id="close-modal-importar" class="close-button">&times;</span>
+        </div>
+        
+        <form id="form-importar-producto">
+            <div class="form-group">
+                <label for="archivo-importar">Seleccionar archivo (.csv):</label>
+                <input type="file" id="archivo-importar" accept=".csv" required>
+            </div>
+            
+            <blockquote class="instrucciones-importar">
+                <strong>Instrucciones:</strong>
+                <ul>
+                    <li>El archivo debe ser formato **CSV** delimitado por punto y coma (`;`).</li>
+                    <li>Columnas **requeridas**: <code>Nombre</code>, <code>SKU</code>, <code>Precio_Venta</code>.</li>
+                    <li>Columnas **opcionales**: <code>Stock</code>, <code>Precio_Costo</code>, <code>Stock_Minimo</code>, <code>Categoria</code>, <code>Proveedor</code>, <code>Codigo_Barras</code>, <code>Alias</code>, <code>Unidad_Medida</code>.</li>
+                    <li>Los nombres de <code>Categoría</code> y <code>Proveedor</code> deben existir previamente en el sistema.</li>
+                    <li>Si un <code>SKU</code> ya existe, el producto se **actualizará**. Si no, se **creará**.</li>
+                </ul>
+                <a href="/static/templates/plantilla_productos.csv" download>Descargar Plantilla</a>
+            </blockquote>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn-primary" id="btn-submit-importar">Subir e Importar</button>
+            </div>
+        </form>
+        
+        <div id="importar-feedback" class="importar-feedback"></div>
+    </div>
 </div>
