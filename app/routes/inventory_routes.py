@@ -60,6 +60,7 @@ def ajustar_stock(current_user):
 
 
 # --- ✨ NUEVA RUTA DE IMPORTACIÓN ---
+# app/routes/inventory_routes.py
 @bp.route('/negocios/<int:negocio_id>/productos/importar', methods=['POST'])
 @token_required
 def importar_productos(current_user, negocio_id):
@@ -80,19 +81,27 @@ def importar_productos(current_user, negocio_id):
     actualizados = 0
     errores = []
     
-    # Usamos io.TextIOWrapper para leer el archivo como texto
-    # 'utf-8-sig' maneja el BOM (Byte Order Mark) que Excel suele añadir
+    # ✨ --- NUEVA FUNCIÓN INTERNA PARA LIMPIAR NÚMEROS --- ✨
+    def parse_numero(valor_str):
+        if not valor_str:
+            return 0.0 # Valor por defecto si la celda está vacía
+        
+        # 1. Quitar espacios, símbolo de moneda ($) y separador de miles (.)
+        limpio = str(valor_str).strip().replace('$', '').replace('.', '').strip()
+        # 2. Reemplazar la coma decimal (,) por un punto (.)
+        limpio = limpio.replace(',', '.')
+        
+        try:
+            return float(limpio)
+        except ValueError:
+            # Si falla, lanza un error claro que será capturado abajo
+            raise ValueError(f"formato de número no válido: '{valor_str}'")
+    # ✨ --- FIN DE LA FUNCIÓN INTERNA --- ✨
+
     try:
         stream = io.TextIOWrapper(file.stream, encoding='utf-8-sig')
-        # Usamos DictReader para leer las filas como diccionarios
-        csv_reader = csv.DictReader(stream, delimiter=';') # Asumimos ';' como delimitador
+        csv_reader = csv.DictReader(stream, delimiter=';') 
         
-        # Normalizar nombres de cabecera (minúsculas, sin espacios/acentos)
-        cabeceras_esperadas = [
-            'sku', 'nombre', 'precio_venta', 'stock', 
-            'precio_costo', 'stock_minimo', 'categoria', 'proveedor', 
-            'codigo_barras', 'alias', 'unidad_medida'
-        ]
         csv_reader.fieldnames = [
             f.strip().lower().replace(' ', '_').replace('ó', 'o').replace('í', 'i') 
             for f in csv_reader.fieldnames
@@ -108,31 +117,41 @@ def importar_productos(current_user, negocio_id):
                 # --- 1. Limpieza y validación de datos ---
                 sku = fila.get('sku') or None
                 nombre = fila.get('nombre')
-                precio_venta = float(fila.get('precio_venta', 0).replace(',', '.'))
                 
-                if not nombre or precio_venta is None:
-                    errores.append(f"Fila {fila_num}: Faltan 'nombre' o 'precio_venta'. Se omite.")
-                    continue
+                # ✨ USAMOS LA NUEVA FUNCIÓN DE PARSEO ✨
+                precio_venta = parse_numero(fila.get('precio_venta'))
+                stock = parse_numero(fila.get('stock', '0'))
                 
-                # Datos opcionales con valores por defecto
-                stock = float(fila.get('stock', 0) or 0)
-                precio_costo = float(fila.get('precio_costo', 0) or 0) or None
-                stock_minimo = float(fila.get('stock_minimo', 0) or 0)
+                # Manejo de precio_costo (puede ser NULL)
+                precio_costo_str = fila.get('precio_costo')
+                precio_costo = parse_numero(precio_costo_str) if precio_costo_str else None
+                
+                stock_minimo = parse_numero(fila.get('stock_minimo', '0'))
+                
+                # --- El resto de los campos de texto ---
                 codigo_barras = fila.get('codigo_barras') or None
                 alias = fila.get('alias') or None
                 unidad_medida = fila.get('unidad_medida') or 'un'
 
-                # --- 2. Resolución de IDs (Categoría y Proveedor) ---
+                if not nombre:
+                    raise ValueError("Falta la columna 'nombre'")
+                if precio_venta <= 0:
+                    raise ValueError("El 'precio_venta' debe ser mayor a 0")
+                
+                # --- 2. Resolución de IDs (Sin cambios) ---
                 categoria_id = None
                 nombre_cat = fila.get('categoria')
                 if nombre_cat:
-                    db.execute("SELECT id FROM categorias WHERE nombre = %s AND negocio_id = %s", (nombre_cat, negocio_id))
+                    db.execute("SELECT id FROM productos_categoria WHERE nombre = %s AND negocio_id = %s", (nombre_cat, negocio_id))
                     cat = db.fetchone()
                     if cat:
                         categoria_id = cat['id']
                     else:
                         errores.append(f"Fila {fila_num} (SKU: {sku}): No se encontró la categoría '{nombre_cat}'. Se asigna 'Sin categoría'.")
-
+                
+                # ... (resto de la lógica de proveedor, upsert, etc.) ...
+                # ... (el resto de tu función sigue igual desde aquí) ...
+                
                 proveedor_id = None
                 nombre_prov = fila.get('proveedor')
                 if nombre_prov:
@@ -143,15 +162,13 @@ def importar_productos(current_user, negocio_id):
                     else:
                         errores.append(f"Fila {fila_num} (SKU: {sku}): No se encontró el proveedor '{nombre_prov}'. Se asigna 'Sin proveedor'.")
 
-                # --- 3. Lógica "UPSERT" (Crear o Actualizar) ---
-                # Buscamos por SKU (si existe) o por Nombre (si SKU es nulo)
+                # --- 3. Lógica "UPSERT" ---
                 producto_existente = None
                 if sku:
                     db.execute("SELECT id, stock FROM productos WHERE sku = %s AND negocio_id = %s", (sku, negocio_id))
                     producto_existente = db.fetchone()
                 
                 if not producto_existente and not sku:
-                    # Si no hay SKU, buscamos por nombre exacto para evitar duplicados
                     db.execute("SELECT id, stock FROM productos WHERE nombre = %s AND negocio_id = %s", (nombre, negocio_id))
                     producto_existente = db.fetchone()
 
@@ -171,7 +188,6 @@ def importar_productos(current_user, negocio_id):
                          proveedor_id, codigo_barras, alias, unidad_medida, producto_id)
                     )
                     
-                    # Loguear el ajuste de stock si cambió
                     diferencia = stock - cantidad_anterior
                     if diferencia != 0:
                         db.execute(
@@ -199,10 +215,10 @@ def importar_productos(current_user, negocio_id):
                     creados += 1
 
             except Exception as e_fila:
-                # Captura error por fila (ej. 'abc' en un campo de número)
+                # ✨ AHORA ESTE ERROR SERÁ MUCHO MÁS CLARO ✨
+                # Ej: "Fila 2: Error de datos (formato de número no válido: '1.234,50')"
                 errores.append(f"Fila {fila_num} (SKU: {fila.get('sku')}): Error de datos ({str(e_fila)}). Se omite.")
 
-        # Si todo salió bien, confirma la transacción
         g.db_conn.commit()
         
         return jsonify({
@@ -213,8 +229,5 @@ def importar_productos(current_user, negocio_id):
         }), 200
 
     except Exception as e:
-        # Si hay un error grande (ej. cabeceras mal), revierte todo
         g.db_conn.rollback()
         return jsonify({'error': f'Error crítico durante el procesamiento: {str(e)}'}), 500
-    
-    
