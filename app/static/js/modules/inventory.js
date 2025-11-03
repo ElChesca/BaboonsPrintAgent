@@ -18,6 +18,9 @@ export function changeProductPage(newPage) {
     renderProductos();
 }
 
+// static/js/modules/inventory.js
+// ✨ REEMPLAZAR ESTA FUNCIÓN COMPLETA ✨
+
 function renderProductos() {
     const user = getCurrentUser();
     const isAdmin = user && user.rol === 'admin';
@@ -40,14 +43,21 @@ function renderProductos() {
         return;
     }
 
-    // 2. Filtrar productos (Sin cambios)
-    const productosFiltrados = productosCache.filter(p => 
-        (p.nombre && p.nombre.toLowerCase().includes(filtro)) ||
-        (p.sku && p.sku.toLowerCase().includes(filtro)) ||
-        (p.codigo_barras && p.codigo_barras.toLowerCase().includes(filtro))
-    );
+    // ✨ --- 2. FILTRO CORREGIDO --- ✨
+    // Usamos String() para convertir 'null' o 'undefined' a texto
+    // de forma segura antes de llamar a .toLowerCase()
+    const productosFiltrados = productosCache.filter(p => {
+        const nombre = String(p.nombre || '').toLowerCase();
+        const sku = String(p.sku || '').toLowerCase();
+        const codigoBarras = String(p.codigo_barras || '').toLowerCase();
+        
+        return nombre.includes(filtro) || 
+               sku.includes(filtro) || 
+               codigoBarras.includes(filtro);
+    });
+    // ✨ --- FIN DE LA CORRECCIÓN --- ✨
     
-    // ✨ 3. RENDERIZAR RESUMEN (NUEVO) ✨
+    // 3. Renderizar resumen (Sin cambios)
     const summaryEl = document.getElementById('productos-summary');
     if (summaryEl) {
         let summaryText = `<strong>${productosFiltrados.length}</strong> productos encontrados`;
@@ -57,10 +67,10 @@ function renderProductos() {
         summaryEl.innerHTML = summaryText;
     }
 
-    // ✨ 4. CALCULAR PAGINACIÓN (NUEVO) ✨
+    // 4. Calcular paginación (Sin cambios)
     const totalPages = Math.ceil(productosFiltrados.length / itemsPerPage);
     if (currentPage > totalPages && totalPages > 0) {
-        currentPage = totalPages; // Si estamos en una página que ya no existe, ir a la última
+        currentPage = totalPages; 
     } else if (totalPages === 0) {
         currentPage = 1;
     }
@@ -69,12 +79,13 @@ function renderProductos() {
     const endIndex = startIndex + itemsPerPage;
     const productosPaginados = productosFiltrados.slice(startIndex, endIndex);
 
-    // 5. Renderizar filas de la tabla (Ahora usa 'productosPaginados')
+    // 5. Renderizar filas de la tabla (Sin cambios)
     listaProductos.innerHTML = '';
     productosPaginados.forEach(p => {
-        // ... (el código de 'rowHTML' es el mismo que tenías) ...
         const stockClass = (p.stock > 0 && p.stock <= p.stock_minimo) ? 'stock-bajo' : '';
+        // Esta línea ya era segura, pero la revisamos por si acaso
         const aliasHtml = p.alias ? `<small class="text-muted d-block">${p.alias}</small>` : '';
+        
         let rowHTML = `
             <td>${p.nombre}${aliasHtml}</td>
             <td>${p.sku || '-'}</td>
@@ -96,10 +107,10 @@ function renderProductos() {
         listaProductos.innerHTML = `<tr><td colspan="${colspan}">No se encontraron productos.</td></tr>`;
     }
 
-    // ✨ 6. RENDERIZAR BOTONES DE PAGINACIÓN (NUEVO) ✨
+    // 6. Renderizar botones de paginación (Sin cambios)
     const paginationEl = document.getElementById('productos-pagination');
     if (paginationEl) {
-        paginationEl.innerHTML = ''; // Limpiar botones anteriores
+        paginationEl.innerHTML = '';
         if (totalPages > 1) {
             const btnPrev = document.createElement('button');
             btnPrev.innerHTML = '&laquo; Anterior';
@@ -121,20 +132,6 @@ function renderProductos() {
             paginationEl.appendChild(pageInfo);
             paginationEl.appendChild(btnNext);
         }
-    }
-}
-async function fetchProductos() {
-    if (!appState.negocioActivoId) {
-        productosCache = [];
-        renderProductos();
-        return;
-    }
-    try {
-        productosCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/productos`);
-        currentPage = 1; // ✨ Resetear a la página 1 cada vez que se carga
-        renderProductos();
-    } catch (error) {
-        mostrarNotificacion('No se pudieron cargar los productos.', 'error');
     }
 }
 
