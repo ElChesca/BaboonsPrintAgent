@@ -94,8 +94,8 @@ def create_user(current_user):
 
     email = data.get('email')
     nombre = data.get('nombre', email) # Default nombre a email si no se provee
-    rol = data.get('rol', 'operador')
-    hashed_password = generate_password_hash(data['password']) # Asumo que tenés una función para hashear
+    rol = data.get('rol', 'operador')    
+    hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
     negocios_ids_nuevos = data.get('negocios_ids', [])
 
     db = get_db()
