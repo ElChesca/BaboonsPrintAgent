@@ -16,6 +16,7 @@ import { showGlobalLoader, hideGlobalLoader } from '/static/js/uiHelpers.js';
 import { fetchData, sendData } from './api.js';
 import { getCurrentUser, logout } from './modules/auth.js';
 import { mostrarNotificacion } from './modules/notifications.js';
+import { abrirModalEditarProducto, borrarProducto, changeProductPage } from './modules/inventory.js';
 
 // --- ✨ 3. FUNCIONES GLOBALES (para onclick) ---
 // ✨ ¡CORREGIDO! Estos también deben ser strings fijos.
@@ -30,6 +31,7 @@ window.loadContent = loadContent; // Esencial
 window.borrarProveedor = borrarProveedor;
 window.borrarProducto = borrarProducto;
 window.abrirModalEditarProducto = abrirModalEditarProducto;
+window.changeProductPage = changeProductPage;
 window.abrirModalEditarUsuario = abrirModalEditarUsuario;
 window.mostrarDetalleIngreso = mostrarDetalleIngreso;
 window.mostrarDetallesCaja = mostrarDetallesCaja;

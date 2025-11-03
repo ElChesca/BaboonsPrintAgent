@@ -5,76 +5,137 @@ import { appState } from '../main.js';
 import { fetchData, sendData } from '../api.js'; // Usamos sendData para guardar
 import { mostrarNotificacion } from './notifications.js';
 
-let productosCache = [];
 
-// --- Funciones de Renderizado y Carga de Datos (SIN CAMBIOS) ---
+//let productosCache = [];
+// ✨ --- NUEVAS VARIABLES DE PAGINACIÓN --- ✨
+let currentPage = 1;
+const itemsPerPage = 20; // Puedes cambiar este número (ej. 10, 20, 50)
 
-function renderProductos() {
-    const user = getCurrentUser();
-    const isAdmin = user && user.rol === 'admin';
-    const listaProductos = document.querySelector('#tabla-productos tbody');
-    const headerRow = document.querySelector('#tabla-productos thead tr');
-    const filtro = document.getElementById('buscador-productos')?.value.toLowerCase() || '';
 
-    if (!listaProductos || !headerRow) return;
-
-    headerRow.innerHTML = `<th>Nombre</th><th>SKU</th><th>Categoría</th><th>Stock</th><th>Precio Venta</th>`;
-    if (isAdmin) {
-        headerRow.innerHTML += `<th>Costo</th>`;
-    }
-    headerRow.innerHTML += `<th>Acciones</th>`;
-    
-    const colspan = isAdmin ? 7 : 6;
-
-    if (!appState.negocioActivoId) {
-        listaProductos.innerHTML = `<tr><td colspan="${colspan}">Seleccione un negocio para ver su inventario.</td></tr>`;
-        return;
-    }
-
-    const productosFiltrados = productosCache.filter(p => 
-        (p.nombre && p.nombre.toLowerCase().includes(filtro)) ||
-        (p.sku && p.sku.toLowerCase().includes(filtro)) ||
-        (p.codigo_barras && p.codigo_barras.toLowerCase().includes(filtro))
-    );
-    
-    listaProductos.innerHTML = '';
-    productosFiltrados.forEach(p => {
-        const stockClass = (p.stock > 0 && p.stock <= p.stock_minimo) ? 'stock-bajo' : '';
-        const aliasHtml = p.alias ? `<small class="text-muted d-block">${p.alias}</small>` : '';
-        let rowHTML = `
-            <td>${p.nombre}${aliasHtml}</td>
-            <td>${p.sku || '-'}</td>
-            <td>${p.categoria_nombre || 'Sin categoría'}</td>
-            <td class="${stockClass}">${p.stock} ${p.unidad_medida || 'un'}</td>
-            <td>${(p.precio_venta || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>
-        `;
-        if (isAdmin) {
-            rowHTML += `<td>${(p.precio_costo || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>`;
-        }
-        rowHTML += `<td class="acciones">
-            <button class="btn-secondary btn-sm" onclick="window.abrirModalEditarProducto(${p.id})">Editar</button>
-            <button class="btn-danger btn-sm" onclick="window.borrarProducto(${p.id})">Borrar</button>
-        </td>`;
-        listaProductos.innerHTML += `<tr>${rowHTML}</tr>`;
-    });
-
-    if (productosFiltrados.length === 0) {
-        listaProductos.innerHTML = `<tr><td colspan="${colspan}">No se encontraron productos.</td></tr>`;
-    }
+export function changeProductPage(newPage) {
+    if (newPage < 1) return;
+    currentPage = newPage;
+    renderProductos();
 }
 
+function renderProductos() {
+    const user = getCurrentUser();
+    const isAdmin = user && user.rol === 'admin';
+    const listaProductos = document.querySelector('#tabla-productos tbody');
+    const headerRow = document.querySelector('#tabla-productos thead tr');
+    const filtro = document.getElementById('buscador-productos')?.value.toLowerCase() || '';
+
+    if (!listaProductos || !headerRow) return;
+
+    // 1. Renderizar cabecera (Sin cambios)
+    headerRow.innerHTML = `<th>Nombre</th><th>SKU</th><th>Categoría</th><th>Stock</th><th>Precio Venta</th>`;
+    if (isAdmin) {
+        headerRow.innerHTML += `<th>Costo</th>`;
+    }
+    headerRow.innerHTML += `<th>Acciones</th>`;
+    const colspan = isAdmin ? 7 : 6;
+
+    if (!appState.negocioActivoId) {
+        listaProductos.innerHTML = `<tr><td colspan="${colspan}">Seleccione un negocio para ver su inventario.</td></tr>`;
+        return;
+    }
+
+    // 2. Filtrar productos (Sin cambios)
+    const productosFiltrados = productosCache.filter(p => 
+        (p.nombre && p.nombre.toLowerCase().includes(filtro)) ||
+        (p.sku && p.sku.toLowerCase().includes(filtro)) ||
+        (p.codigo_barras && p.codigo_barras.toLowerCase().includes(filtro))
+    );
+    
+    // ✨ 3. RENDERIZAR RESUMEN (NUEVO) ✨
+    const summaryEl = document.getElementById('productos-summary');
+    if (summaryEl) {
+        let summaryText = `<strong>${productosFiltrados.length}</strong> productos encontrados`;
+        if (filtro) {
+            summaryText += ` (de <strong>${productosCache.length}</strong> productos totales)`;
+        }
+        summaryEl.innerHTML = summaryText;
+    }
+
+    // ✨ 4. CALCULAR PAGINACIÓN (NUEVO) ✨
+    const totalPages = Math.ceil(productosFiltrados.length / itemsPerPage);
+    if (currentPage > totalPages && totalPages > 0) {
+        currentPage = totalPages; // Si estamos en una página que ya no existe, ir a la última
+    } else if (totalPages === 0) {
+        currentPage = 1;
+    }
+    
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const productosPaginados = productosFiltrados.slice(startIndex, endIndex);
+
+    // 5. Renderizar filas de la tabla (Ahora usa 'productosPaginados')
+    listaProductos.innerHTML = '';
+    productosPaginados.forEach(p => {
+        // ... (el código de 'rowHTML' es el mismo que tenías) ...
+        const stockClass = (p.stock > 0 && p.stock <= p.stock_minimo) ? 'stock-bajo' : '';
+        const aliasHtml = p.alias ? `<small class="text-muted d-block">${p.alias}</small>` : '';
+        let rowHTML = `
+            <td>${p.nombre}${aliasHtml}</td>
+            <td>${p.sku || '-'}</td>
+            <td>${p.categoria_nombre || 'Sin categoría'}</td>
+            <td class="${stockClass}">${p.stock} ${p.unidad_medida || 'un'}</td>
+            <td>${(p.precio_venta || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>
+        `;
+        if (isAdmin) {
+            rowHTML += `<td>${(p.precio_costo || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>`;
+        }
+        rowHTML += `<td class="acciones">
+            <button class="btn-secondary btn-sm" onclick="window.abrirModalEditarProducto(${p.id})">Editar</button>
+            <button class="btn-danger btn-sm" onclick="window.borrarProducto(${p.id})">Borrar</button>
+        </td>`;
+        listaProductos.innerHTML += `<tr>${rowHTML}</tr>`;
+    });
+
+    if (productosPaginados.length === 0) {
+        listaProductos.innerHTML = `<tr><td colspan="${colspan}">No se encontraron productos.</td></tr>`;
+    }
+
+    // ✨ 6. RENDERIZAR BOTONES DE PAGINACIÓN (NUEVO) ✨
+    const paginationEl = document.getElementById('productos-pagination');
+    if (paginationEl) {
+        paginationEl.innerHTML = ''; // Limpiar botones anteriores
+        if (totalPages > 1) {
+            const btnPrev = document.createElement('button');
+            btnPrev.innerHTML = '&laquo; Anterior';
+            btnPrev.className = 'btn-secondary';
+            if (currentPage === 1) btnPrev.disabled = true;
+            btnPrev.onclick = () => changeProductPage(currentPage - 1);
+            
+            const pageInfo = document.createElement('span');
+            pageInfo.className = 'page-info';
+            pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
+            
+            const btnNext = document.createElement('button');
+            btnNext.innerHTML = 'Siguiente &raquo;';
+            btnNext.className = 'btn-secondary';
+            if (currentPage === totalPages) btnNext.disabled = true;
+            btnNext.onclick = () => changeProductPage(currentPage + 1);
+            
+            paginationEl.appendChild(btnPrev);
+            paginationEl.appendChild(pageInfo);
+            paginationEl.appendChild(btnNext);
+        }
+    }
+}
 async function fetchProductos() {
-    if (!appState.negocioActivoId) {
-        productosCache = [];
-        renderProductos();
-        return;
-    }
-    try {
-        productosCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/productos`);
-        renderProductos();
-    } catch (error) {
-        mostrarNotificacion('No se pudieron cargar los productos.', 'error');
-    }
+    if (!appState.negocioActivoId) {
+        productosCache = [];
+        renderProductos();
+        return;
+    }
+    try {
+        productosCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/productos`);
+        currentPage = 1; // ✨ Resetear a la página 1 cada vez que se carga
+        renderProductos();
+    } catch (error) {
+        mostrarNotificacion('No se pudieron cargar los productos.', 'error');
+    }
 }
 
 async function poblarSelectoresDelModal() {
@@ -328,7 +389,11 @@ export async function inicializarLogicaInventario() {
         if (e.target == modal) modal.style.display = 'none';
     });
     formProducto.addEventListener('submit', guardarProducto);
-    buscador.addEventListener('keyup', renderProductos);
+
+    buscador.addEventListener('keyup', () => {
+        currentPage = 1;
+        renderProductos();
+    });
 
     // --- ✨ LÓGICA CORREGIDA PARA EL MODAL DE IMPORTACIÓN ---
     const modalImportar = document.getElementById('modal-importar-producto');

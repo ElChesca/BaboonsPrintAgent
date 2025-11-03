@@ -42,3 +42,38 @@
   background-color: #f9f9f9;
   font-size: 0.9em;
 }
+/* Estilos para el resumen de productos */
+.productos-summary {
+    font-size: 0.9em;
+    color: #555;
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+}
+
+/* Contenedor de la paginación */
+.pagination-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    margin-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.pagination-controls .page-info {
+    font-size: 0.9em;
+    color: #333;
+}
+
+.pagination-controls button {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.pagination-controls button:disabled {
+    background-color: #f4f4f4;
+    color: #aaa;
+    cursor: not-allowed;
+}
