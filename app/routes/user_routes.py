@@ -95,7 +95,7 @@ def create_user(current_user):
     email = data.get('email')
     nombre = data.get('nombre', email) # Default nombre a email si no se provee
     rol = data.get('rol', 'operador')
-    password_hash = generate_password_hash(data['password']) # Asumo que tenés una función para hashear
+    hashed_password = generate_password_hash(data['password']) # Asumo que tenés una función para hashear
     negocios_ids_nuevos = data.get('negocios_ids', [])
 
     db = get_db()
@@ -121,8 +121,8 @@ def create_user(current_user):
 
         # Insertamos el nuevo usuario
         db.execute(
-            "INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (%s, %s, %s, %s) RETURNING id",
-            (nombre, email, password_hash, rol)
+            "INSERT INTO usuarios (nombre, email, password, rol) VALUES (%s, %s, %s, %s) RETURNING id",
+            (nombre, email, hashed_password, rol)
         )
         nuevo_usuario_id = db.fetchone()['id']
 
