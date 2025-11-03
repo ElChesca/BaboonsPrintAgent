@@ -33,3 +33,12 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+#importar-feedback .lista-errores {
+  max-height: 200px;  /* Altura máxima de la lista */
+  overflow-y: auto;   /* ¡Añade el scroll vertical! */
+  border: 1px solid #ddd;
+  padding: 10px;
+  background-color: #f9f9f9;
+  font-size: 0.9em;
+}

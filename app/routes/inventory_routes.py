@@ -58,9 +58,9 @@ def ajustar_stock(current_user):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-
-# --- ✨ NUEVA RUTA DE IMPORTACIÓN ---
 # app/routes/inventory_routes.py
+# ✨ REEMPLAZAR ESTA FUNCIÓN COMPLETA ✨
+
 @bp.route('/negocios/<int:negocio_id>/productos/importar', methods=['POST'])
 @token_required
 def importar_productos(current_user, negocio_id):
@@ -81,10 +81,9 @@ def importar_productos(current_user, negocio_id):
     actualizados = 0
     errores = []
     
-    # ✨ --- NUEVA FUNCIÓN INTERNA PARA LIMPIAR NÚMEROS --- ✨
     def parse_numero(valor_str):
         if not valor_str:
-            return 0.0 # Valor por defecto si la celda está vacía
+            return 0.0
         
         # 1. Quitar espacios, símbolo de moneda ($) y separador de miles (.)
         limpio = str(valor_str).strip().replace('$', '').replace('.', '').strip()
@@ -94,9 +93,7 @@ def importar_productos(current_user, negocio_id):
         try:
             return float(limpio)
         except ValueError:
-            # Si falla, lanza un error claro que será capturado abajo
             raise ValueError(f"formato de número no válido: '{valor_str}'")
-    # ✨ --- FIN DE LA FUNCIÓN INTERNA --- ✨
 
     try:
         stream = io.TextIOWrapper(file.stream, encoding='utf-8-sig')
@@ -113,32 +110,34 @@ def importar_productos(current_user, negocio_id):
         fila_num = 1
         for fila in csv_reader:
             fila_num += 1
+            
+            # ✨ --- INICIA EL CAMBIO --- ✨
+            # Creamos un "punto de guardado" para esta fila
             try:
+                db.execute('SAVEPOINT fila_savepoint')
+                
                 # --- 1. Limpieza y validación de datos ---
                 sku = fila.get('sku') or None
                 nombre = fila.get('nombre')
                 
-                # ✨ USAMOS LA NUEVA FUNCIÓN DE PARSEO ✨
                 precio_venta = parse_numero(fila.get('precio_venta'))
                 stock = parse_numero(fila.get('stock', '0'))
                 
-                # Manejo de precio_costo (puede ser NULL)
                 precio_costo_str = fila.get('precio_costo')
                 precio_costo = parse_numero(precio_costo_str) if precio_costo_str else None
                 
                 stock_minimo = parse_numero(fila.get('stock_minimo', '0'))
                 
-                # --- El resto de los campos de texto ---
                 codigo_barras = fila.get('codigo_barras') or None
                 alias = fila.get('alias') or None
                 unidad_medida = fila.get('unidad_medida') or 'un'
 
                 if not nombre:
                     raise ValueError("Falta la columna 'nombre'")
-                if precio_venta <= 0:
-                    raise ValueError("El 'precio_venta' debe ser mayor a 0")
+                if precio_venta <= 0 and (not sku or (sku and not db.fetchone())): # Permite precio 0 solo si actualiza
+                     raise ValueError("El 'precio_venta' debe ser mayor a 0 para productos nuevos")
                 
-                # --- 2. Resolución de IDs (Sin cambios) ---
+                # --- 2. Resolución de IDs ---
                 categoria_id = None
                 nombre_cat = fila.get('categoria')
                 if nombre_cat:
@@ -148,9 +147,6 @@ def importar_productos(current_user, negocio_id):
                         categoria_id = cat['id']
                     else:
                         errores.append(f"Fila {fila_num} (SKU: {sku}): No se encontró la categoría '{nombre_cat}'. Se asigna 'Sin categoría'.")
-                
-                # ... (resto de la lógica de proveedor, upsert, etc.) ...
-                # ... (el resto de tu función sigue igual desde aquí) ...
                 
                 proveedor_id = None
                 nombre_prov = fila.get('proveedor')
@@ -213,12 +209,17 @@ def importar_productos(current_user, negocio_id):
                          categoria_id, proveedor_id, codigo_barras, alias, unidad_medida)
                     )
                     creados += 1
+                
+                # Si todo salió bien en esta fila, liberamos el savepoint
+                db.execute('RELEASE SAVEPOINT fila_savepoint')
 
             except Exception as e_fila:
-                # ✨ AHORA ESTE ERROR SERÁ MUCHO MÁS CLARO ✨
-                # Ej: "Fila 2: Error de datos (formato de número no válido: '1.234,50')"
+                # ✨ Si algo falla, revertimos SOLO esta fila
+                db.execute('ROLLBACK TO SAVEPOINT fila_savepoint')
                 errores.append(f"Fila {fila_num} (SKU: {fila.get('sku')}): Error de datos ({str(e_fila)}). Se omite.")
+            # ✨ --- FIN DEL CAMBIO --- ✨
 
+        # Si todo el bucle termina, confirmamos todos los cambios exitosos
         g.db_conn.commit()
         
         return jsonify({
@@ -229,5 +230,6 @@ def importar_productos(current_user, negocio_id):
         }), 200
 
     except Exception as e:
+        # Error crítico (ej. cabeceras mal)
         g.db_conn.rollback()
         return jsonify({'error': f'Error crítico durante el procesamiento: {str(e)}'}), 500
