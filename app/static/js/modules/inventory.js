@@ -308,51 +308,60 @@ export async function borrarProducto(productoId) {
     }
 };
 
+// static/js/modules/inventory.js
+// ✨ REEMPLAZAR ESTA FUNCIÓN COMPLETA ✨
 
-// --- Función de Inicialización (ACTUALIZADA) ---
 export async function inicializarLogicaInventario() {
-    const formProducto = document.getElementById('form-producto');
-    const buscador = document.getElementById('buscador-productos');
-    const btnAbrirModal = document.getElementById('btn-abrir-modal-producto');
-    const modal = document.getElementById('modal-producto');
-    const closeModalBtn = document.getElementById('close-modal-producto');
-    
-    if (!formProducto) return;
+    const formProducto = document.getElementById('form-producto');
+    const buscador = document.getElementById('buscador-productos');
+    const btnAbrirModal = document.getElementById('btn-abrir-modal-producto');
+    const modal = document.getElementById('modal-producto');
+    const closeModalBtn = document.getElementById('close-modal-producto');
+    
+    // Si no encuentra el formulario principal, no hace nada
+    if (!formProducto) return;
 
-    btnAbrirModal.addEventListener('click', () => abrirModal());
-    closeModalBtn.addEventListener('click', () => modal.style.display = 'none');
-    window.addEventListener('click', (e) => {
-        if (e.target == modal) modal.style.display = 'none';
-    });
+    // Lógica del modal de producto (sin cambios)
+    btnAbrirModal.addEventListener('click', () => abrirModal());
+    closeModalBtn.addEventListener('click', () => modal.style.display = 'none');
+    window.addEventListener('click', (e) => {
+        if (e.target == modal) modal.style.display = 'none';
+    });
+    formProducto.addEventListener('submit', guardarProducto);
+    buscador.addEventListener('keyup', renderProductos);
 
-    formProducto.addEventListener('submit', guardarProducto);
-    buscador.addEventListener('keyup', renderProductos);
+    // --- ✨ LÓGICA CORREGIDA PARA EL MODAL DE IMPORTACIÓN ---
+    const modalImportar = document.getElementById('modal-importar-producto');
+    const btnAbrirImportar = document.getElementById('btn-abrir-modal-importar');
+    const btnCerrarImportar = document.getElementById('close-modal-importar');
+    const formImportar = document.getElementById('form-importar-producto');
 
-    // --- ✨ NUEVOS LISTENERS PARA EL MODAL DE IMPORTACIÓN ---
-    const modalImportar = document.getElementById('modal-importar-producto');
-    const btnAbrirImportar = document.getElementById('btn-abrir-modal-importar');
-    const btnCerrarImportar = document.getElementById('close-modal-importar');
-    const formImportar = document.getElementById('form-importar-producto');
-    const feedbackImportar = document.getElementById('importar-feedback');
+    if (modalImportar) {
+        btnAbrirImportar.addEventListener('click', () => {
+            // ✨ --- ESTA ES LA CORRECCIÓN --- ✨
+            // Ya no borramos el HTML. Solo reseteamos los elementos.
+            const feedbackContainer = document.getElementById('importar-feedback');
+            const loader = document.getElementById('importar-loader');
+            const feedbackTexto = document.getElementById('importar-feedback-texto');
 
-    if (modalImportar) {
-        btnAbrirImportar.addEventListener('click', () => {
-            // Reseteamos el feedback al abrir
-            feedbackImportar.innerHTML = '';
-            feedbackImportar.className = 'importar-feedback';
-            formImportar.reset();
-            modalImportar.style.display = 'flex';
-        });
-        btnCerrarImportar.addEventListener('click', () => modalImportar.style.display = 'none');
-        formImportar.addEventListener('submit', importarProductos);
-        
-        // Cerrar modal al hacer clic fuera
-        window.addEventListener('click', (e) => {
-            if (e.target == modalImportar) modalImportar.style.display = 'none';
-        });
-    }
-    // --- FIN DE NUEVOS LISTENERS ---
+            if (feedbackContainer) feedbackContainer.className = 'importar-feedback';
+            if (loader) loader.style.display = 'none'; // Ocultamos el spinner
+            if (feedbackTexto) feedbackTexto.innerHTML = ''; // Limpiamos el texto
+            
+            formImportar.reset();
+            modalImportar.style.display = 'flex';
+        });
+        
+        btnCerrarImportar.addEventListener('click', () => modalImportar.style.display = 'none');
+        formImportar.addEventListener('submit', importarProductos);
+        
+        window.addEventListener('click', (e) => {
+            if (e.target == modalImportar) modalImportar.style.display = 'none';
+        });
+    }
+    // --- FIN DE LA CORRECCIÓN ---
 
-    await poblarSelectoresDelModal();
-    fetchProductos();
+    // Carga inicial (sin cambios)
+    await poblarSelectoresDelModal();
+    fetchProductos();
 }
