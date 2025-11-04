@@ -464,25 +464,28 @@ label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;
 
 /*
  * LÓGICA DE VISIBILIDAD DE APPS
- * Oculta todos los elementos de menú específicos por defecto.
-*/
-.nav-retail,
-.nav-consorcio {
-    display: none !important; /* Usamos !important para sobreescribir estilos 'block' */
+/* ✨ REGLAS MÁS ESPECÍFICAS (CORREGIDAS) ✨ */
+#main-nav .nav-retail,
+#main-nav .nav-consorcio {
+    display: none !important;
 }
+
 /*
  * Muestra el menú de la app que esté activa en el <body>
+ * 'display: block' es para los dropdowns (divs).
 */
-body.app-retail .nav-retail {
+body.app-retail #main-nav .nav-retail {
+    display: block !important;
+}
+body.app-consorcio #main-nav .nav-consorcio {
     display: block !important;
 }
 
-body.app-consorcio .nav-consorcio {
-    display: block !important;
-}
-
-/* (Ajuste para enlaces 'a' que son flex o inline-block) */
-body.app-retail a.nav-retail,
-body.app-consorcio a.nav-consorcio {
+/*
+ * 'display: revert' es para los enlaces (<a>).
+ * Permite que los enlaces vuelvan a su estado natural (flex, inline-block, etc.)
+*/
+body.app-retail #main-nav a.nav-retail,
+body.app-consorcio #main-nav a.nav-consorcio {
      display: revert !important; 
 }

@@ -230,13 +230,24 @@ export async function actualizarUIAutenticacion() {
                 return;
             }
 
-          const defaultHomePage = appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail';
-            const pageToLoad = requestedPage && requestedPage !== 'login' ? requestedPage : defaultHomePage;
-            
+           const defaultHomePage = appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail';
+            let pageToLoad = requestedPage && requestedPage !== 'login' ? requestedPage : defaultHomePage;
+
+            // SI LA PÁGINA SOLICITADA ES EL 'home' VIEJO O VACÍO, forzar al home por defecto
+            if (pageToLoad === 'home' || pageToLoad === '') {
+                pageToLoad = defaultHomePage;
+            }
+            console.log(`Página a cargar (después de validación de home): ${pageToLoad}`);
+
             const fullHash = window.location.hash.substring(1);
-            const defaultHomeHtml = `${defaultHomePage}.html`;            
+            const defaultHomeHtml = `${defaultHomePage}.html`;    
+
             const pageUrlToLoad = `static/${fullHash.split('?')[0] ? fullHash.split('?')[0] + '.html' : defaultHomeHtml}${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;            
             console.log(`URL completa a cargar: ${pageUrlToLoad}`);
+            // SI cambiamos el home (ej. de #home a #home_consorcio), actualizamos el hash
+            if (pageToLoad === defaultHomePage && requestedPage !== defaultHomePage) {
+                window.location.hash = pageToLoad;
+            }
             await loadContent(null, pageUrlToLoad);
 
         } else {
