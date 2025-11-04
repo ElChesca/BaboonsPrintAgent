@@ -53,6 +53,30 @@ export const appState = {
     userRol: null,
     filtroProveedorId: null
 };
+const APP_RUTAS = {
+    'retail': [
+        'home_retail', 'ventas', 'historial_ventas', 'historial_presupuestos',
+        'reportes', 'reporte_caja', 'reporte_ganancias', 'historial_inventario',
+        'inventario', 'clientes', 'dashboard', 'caja', 'factura', 'verificador',
+        'historial_ingresos', 'ingresos', 'historial_ajustes', 'ajuste_caja',
+        'presupuestos', 'inventario_movil', 'proveedores', 'payments', 
+        'historial_pagos_proveedores', 'listas_precios', 'precios_especificos',
+        'gastos', 'gastos_categorias', 'categorias', 'unidades_medida'
+    ],
+    'consorcio': [
+        'home_consorcio', 
+        'reclamos', 
+        'expensas', 
+        'unidades',
+        'noticias'
+        // (Iremos añadiendo las nuevas páginas aquí)
+    ],
+    'comun': [
+        'configuracion',
+        'usuarios',
+        'negocios' // (Solo superadmin, pero la ruta es común)
+    ]
+};
 // ✨ --- NUEVA FUNCIÓN --- ✨
 // Actualiza la UI (clases del body) según el tipo de app del negocio activo
 function actualizarUIporTipoApp() {
