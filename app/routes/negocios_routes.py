@@ -1,4 +1,6 @@
 # app/routes/negocios_routes.py
+# ✨ ARCHIVO ACTUALIZADO ✨
+
 from flask import Blueprint, request, jsonify, g
 from app.database import get_db
 from app.auth_decorator import token_required
@@ -13,33 +15,32 @@ def get_negocios(current_user):
 
     db = get_db()
     try:
-        # ✨ --- CAMBIO CLAVE --- ✨
+        # ✨ CAMBIO: Se añade n.tipo_app a todas las consultas
         if current_user['rol'] == 'superadmin':
-            # SuperAdmin ve TODOS los negocios
-            db.execute("SELECT id, nombre, direccion FROM negocios ORDER BY nombre")
+            db.execute("SELECT id, nombre, direccion, tipo_app FROM negocios ORDER BY nombre")
+        
         elif current_user['rol'] == 'admin':
-             # Admin (y Operador) ven SOLO los asignados
              db.execute(
-                """
-                SELECT n.id, n.nombre, n.direccion
-                FROM negocios n
-                JOIN usuarios_negocios un ON n.id = un.negocio_id
-                WHERE un.usuario_id = %s
-                ORDER BY n.nombre
-                """,
-                (current_user['id'],)
-            )
-        else: # Operador (o rol desconocido)
+                 """
+                 SELECT n.id, n.nombre, n.direccion, n.tipo_app
+                 FROM negocios n
+                 JOIN usuarios_negocios un ON n.id = un.negocio_id
+                 WHERE un.usuario_id = %s
+                 ORDER BY n.nombre
+                 """,
+                 (current_user['id'],)
+             )
+        else: # Operador
              db.execute(
-                """
-                SELECT n.id, n.nombre, n.direccion
-                FROM negocios n
-                JOIN usuarios_negocios un ON n.id = un.negocio_id
-                WHERE un.usuario_id = %s
-                ORDER BY n.nombre
-                """,
-                (current_user['id'],)
-            )
+                 """
+                 SELECT n.id, n.nombre, n.direccion, n.tipo_app
+                 FROM negocios n
+                 JOIN usuarios_negocios un ON n.id = un.negocio_id
+                 WHERE un.usuario_id = %s
+                 ORDER BY n.nombre
+                 """,
+                 (current_user['id'],)
+             )
 
         negocios = db.fetchall()
         return jsonify([dict(row) for row in negocios])
@@ -52,7 +53,6 @@ def get_negocios(current_user):
 @bp.route('/negocios', methods=['POST'])
 @token_required
 def add_negocio(current_user):
-    # 1. Verificación de rol (sin cambios)
     if current_user['rol'] != 'superadmin':
         return jsonify({'message': 'Acción no permitida'}), 403
     
@@ -60,42 +60,47 @@ def add_negocio(current_user):
     if not data or 'nombre' not in data:
         return jsonify({'error': 'El campo "nombre" es obligatorio'}), 400
 
-    # ✨ Obtenemos el ID del usuario que está creando el negocio
     creador_id = current_user['id']
+    
+    # ✨ CAMBIO: Obtenemos el tipo_app, con 'retail' como default
+    nombre = data['nombre']
+    direccion = data.get('direccion', '')
+    tipo_app = data.get('tipo_app', 'retail') # Default a 'retail'
     
     db = get_db()
     try:
-        # --- INICIO DE LA TRANSACCIÓN ---
-
-        # 2. Insertar el nuevo negocio (como antes)
+        # ✨ CAMBIO: Insertamos el tipo_app
         db.execute(
-            'INSERT INTO negocios (nombre, direccion) VALUES (%s, %s) RETURNING id',
-            (data['nombre'], data.get('direccion', ''))
+            'INSERT INTO negocios (nombre, direccion, tipo_app) VALUES (%s, %s, %s) RETURNING id',
+            (nombre, direccion, tipo_app)
         )
         nuevo_id = db.fetchone()['id']
 
-        # 3. ✨ ¡NUEVO! Asignar este negocio recién creado al usuario que lo creó
         db.execute(
             'INSERT INTO usuarios_negocios (usuario_id, negocio_id) VALUES (%s, %s)',
             (creador_id, nuevo_id)
         )
 
-        # 4. Confirmar la transacción (ambas inserciones)
         g.db_conn.commit()
-        # --- FIN DE LA TRANSACCIÓN ---
 
-        return jsonify({'id': nuevo_id, 'nombre': data['nombre'], 'direccion': data.get('direccion', '')}), 201
+        # ✨ CAMBIO: Devolvemos el tipo_app
+        return jsonify({
+            'id': nuevo_id, 
+            'nombre': nombre, 
+            'direccion': direccion,
+            'tipo_app': tipo_app
+        }), 201
 
     except Exception as e:
-        # Si algo falla (cualquiera de las dos inserciones), revertimos todo
         g.db_conn.rollback()
-        print(f"!!! DATABASE ERROR in add_negocio: {e}") # Mejor log de error
+        print(f"!!! DATABASE ERROR in add_negocio: {e}")
         return jsonify({'error': f'Error al crear y asignar negocio: {str(e)}'}), 500
 
 @bp.route('/negocios/<int:id>', methods=['GET'])
 @token_required
 def obtener_negocio(current_user, id):
     db = get_db()
+    # SELECT * ya incluirá la nueva columna 'tipo_app'
     db.execute('SELECT * FROM negocios WHERE id = %s', (id,))
     negocio = db.fetchone()
     if negocio is None:
@@ -109,8 +114,17 @@ def actualizar_negocio(current_user, id):
         return jsonify({'message': 'Acción no permitida'}), 403
     try:
         datos = request.get_json()
+        
+        # ✨ CAMBIO: Permitimos actualizar el tipo_app
+        nombre = datos['nombre']
+        direccion = datos.get('direccion', '')
+        tipo_app = datos.get('tipo_app', 'retail') # Default a 'retail'
+
         db = get_db()
-        db.execute('UPDATE negocios SET nombre = %s, direccion = %s WHERE id = %s', (datos['nombre'], datos.get('direccion', ''), id))
+        db.execute(
+            'UPDATE negocios SET nombre = %s, direccion = %s, tipo_app = %s WHERE id = %s', 
+            (nombre, direccion, tipo_app, id)
+        )
         g.db_conn.commit()
         return jsonify({'message': 'Negocio actualizado con éxito'})
     except Exception as e:

@@ -461,3 +461,28 @@ label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;
 .hidden { display: none !important; }
 .hide-element { display: none !important; } /* Clase específica para JS */
 .card { background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+
+/*
+ * LÓGICA DE VISIBILIDAD DE APPS
+ * Oculta todos los elementos de menú específicos por defecto.
+*/
+.nav-retail,
+.nav-consorcio {
+    display: none !important; /* Usamos !important para sobreescribir estilos 'block' */
+}
+/*
+ * Muestra el menú de la app que esté activa en el <body>
+*/
+body.app-retail .nav-retail {
+    display: block !important;
+}
+
+body.app-consorcio .nav-consorcio {
+    display: block !important;
+}
+
+/* (Ajuste para enlaces 'a' que son flex o inline-block) */
+body.app-retail a.nav-retail,
+body.app-consorcio a.nav-consorcio {
+     display: revert !important; 
+}
