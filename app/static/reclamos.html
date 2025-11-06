@@ -10,11 +10,30 @@
     </div>
 
     <div id="vista-tabla" class="vista-reclamos">
-        <div class="form-group" ...>
-            <select id="filtro-reclamo-estado">...</select>
+        
+        <div class="form-group" style="margin-top: 15px; max-width: 300px;">
+            <label for="filtro-reclamo-estado">Filtrar por estado:</label>
+            <select id="filtro-reclamo-estado">
+                <option value="Todos">Todos</option>
+            </select>
         </div>
-        <div class="tabla-contenedor" ...>
-            <table id="tabla-reclamos" class="tabla-bonita">...</table>
+
+        <div class="tabla-contenedor" style="margin-top: 10px;">
+            <table id="tabla-reclamos" class="tabla-bonita">
+                <thead>
+                    <tr>
+                        <th>Estado</th>
+                        <th>Actualizado</th>
+                        <th>Unidad</th>
+                        <th>Título</th>
+                        <th>Creado por</th>
+                        <th>Asignado a</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
         </div>
     </div>
 
@@ -23,25 +42,23 @@
             
             <div class="kanban-column" id="columna-abierto">
                 <h3>Abierto</h3>
-                <div class="kanban-cards-container" id="cards-abierto">
-                    </div>
+                <div class="kanban-cards-container" id="cards-abierto"></div>
             </div>
             
             <div class="kanban-column" id="columna-en-proceso">
                 <h3>En Proceso</h3>
-                <div class="kanban-cards-container" id="cards-en-proceso">
-                    </div>
+                <div class="kanban-cards-container" id="cards-en-proceso"></div>
             </div>
 
             <div class="kanban-column" id="columna-cerrado">
                 <h3>Cerrado</h3>
-                <div class="kanban-cards-container" id="cards-cerrado">
-                    </div>
+                <div class="kanban-cards-container" id="cards-cerrado"></div>
             </div>
             
         </div>
     </div>
 </div>
+
 <div id="modal-reclamo" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -77,9 +94,6 @@
                     <div class="form-group">
                         <label for="reclamo-estado">Estado:</label>
                         <select id="reclamo-estado">
-                            <option value="Abierto">Abierto</option>
-                            <option value="En Proceso">En Proceso</option>
-                            <option value="Cerrado">Cerrado</option>
                         </select>
                     </div>
 

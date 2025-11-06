@@ -161,7 +161,23 @@ def delete_unidad(current_user, unidad_id):
 # =======================================================
 # 4. --- ✨ NUEVAS RUTAS PARA RECLAMOS ✨ ---
 # =======================================================
-
+@bp.route('/consorcio/<int:negocio_id>/reclamos/estados', methods=['GET'])
+@token_required
+def get_reclamos_estados(current_user, negocio_id):
+    # No se necesita validación de rol, todos pueden ver los estados
+    db = get_db()
+    try:
+        db.execute(
+            "SELECT nombre FROM consorcio_reclamos_estados WHERE negocio_id = %s ORDER BY orden, nombre",
+            (negocio_id,)
+        )
+        estados = db.fetchall()
+        # Devolvemos una lista simple de strings, ej: ["Abierto", "En Proceso", "Cerrado"]
+        return jsonify([row['nombre'] for row in estados])
+    except Exception as e:
+        print(f"Error en get_reclamos_estados: {e}")
+        return jsonify({'error': str(e)}), 500
+    
 # [GET] Obtener "mis" unidades (para inquilinos)
 @bp.route('/consorcio/<int:negocio_id>/mis-unidades', methods=['GET'])
 @token_required
