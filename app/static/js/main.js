@@ -459,6 +459,22 @@ async function inicializarModulo(page) {
                 inicializarLogicaUnidades();
                 break;
 
+            case 'reclamos':
+                // 1. Importamos las funciones necesarias
+                const { 
+                    inicializarLogicaReclamos,
+                    abrirModalReclamo,
+                    borrarReclamo
+                } = await import(`./modules/reclamos.js${v}`);
+                
+                // 2. Exponemos las funciones 'onclick' al window
+                window.abrirModalReclamo = abrirModalReclamo;
+                window.borrarReclamo = borrarReclamo;
+                
+                // 3. Ejecutamos el inicializador
+                inicializarLogicaReclamos();
+                break;
+
             default:
                 console.warn(`No se encontró lógica de inicialización para el módulo: ${pageName}`);
         }

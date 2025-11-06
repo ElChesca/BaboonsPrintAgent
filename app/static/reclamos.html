@@ -1,0 +1,91 @@
+<div class.card">
+    <div class="inventario-header">
+        <h2>Gestión de Reclamos</h2>
+        <button id="btn-abrir-modal-reclamo" class="btn-primary">➕ Nuevo Reclamo</button>
+    </div>
+    
+    <div class="form-group" style="margin-top: 15px; max-width: 300px;">
+        <label for="filtro-reclamo-estado">Filtrar por estado:</label>
+        <select id="filtro-reclamo-estado">
+            <option value="Abierto">Abiertos</option>
+            <option value="En Proceso">En Proceso</option>
+            <option value="Cerrado">Cerrados</option>
+            <option value="Todos">Todos</option>
+        </select>
+    </div>
+
+    <div class="tabla-contenedor" style="margin-top: 10px;">
+        <table id="tabla-reclamos" class="tabla-bonita">
+            <thead>
+                <tr>
+                    <th>Estado</th>
+                    <th>Actualizado</th>
+                    <th>Unidad</th>
+                    <th>Título</th>
+                    <th>Creado por</th>
+                    <th>Asignado a</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modal-reclamo" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-reclamo-titulo">Nuevo Reclamo</h3>
+            <span id="close-modal-reclamo" class="close-button">&times;</span>
+        </div>
+        
+        <form id="form-reclamo">
+            <input type="hidden" id="reclamo-id">
+            
+            <div class="form-group">
+                <label for="reclamo-unidad">¿Para qué Unidad es el reclamo?</label>
+                <select id="reclamo-unidad" required>
+                    <option value="">-- Seleccione una unidad --</option>
+                    </select>
+            </div>
+
+            <div class="form-group">
+                <label for="reclamo-titulo">Título (Ej: "Luz de pasillo quemada"):</label>
+                <input type="text" id="reclamo-titulo" required>
+            </div>
+
+            <div class="form-group">
+                <label for="reclamo-descripcion">Descripción (opcional):</label>
+                <textarea id="reclamo-descripcion" rows="4"></textarea>
+            </div>
+            
+            <div class="admin-only">
+                <hr style="margin: 20px 0;">
+                <h4>Panel de Administración</h4>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="reclamo-estado">Estado:</label>
+                        <select id="reclamo-estado">
+                            <option value="Abierto">Abierto</option>
+                            <option value="En Proceso">En Proceso</option>
+                            <option value="Cerrado">Cerrado</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reclamo-asignado">Asignar a:</label>
+                        <select id="reclamo-asignado">
+                            <option value="">-- Sin Asignar --</option>
+                            </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Guardar Reclamo</button>
+            </div>
+        </form>
+    </div>
+</div>
