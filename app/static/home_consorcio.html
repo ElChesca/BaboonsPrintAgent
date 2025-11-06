@@ -1,4 +1,48 @@
-<div class="card">
-    <h2>Bienvenido al Portal del Consorcio - ZAC</h2>
-    <p>Aquí verás los reclamos abiertos, expensas pendientes y comunicados.</p>
+<div class="app-dashboard">
+    <h2 class="dashboard-title">Mis Aplicaciones (Consorcio)</h2>
+    <div class="app-grid">
+        
+        <div class="app-card" onclick="loadContent(event, 'static/unidades.html', this)">
+            <img src="/static/img/icons/negocios.png" alt="Unidades" class="app-icon">
+            <span class="app-name">Gestión de Unidades</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/reclamos.html', this)">
+            <img src="/static/img/icons/historial_inventario.png" alt="Reclamos" class="app-icon">
+            <span class="app-name">Gestión de Reclamos</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/expensas.html', this)">
+            <img src="/static/img/icons/payments.png" alt="Expensas" class="app-icon">
+            <span class="app-name">Gestión de Expensas</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/noticias.html', this)">
+            <img src="/static/img/icons/dashboard.png" alt="Comunicados" class="app-icon">
+            <span class="app-name">Comunicados</span>
+        </div>
+
+    </div>
+</div>
+
+<div class="app-dashboard" style="padding-top: 15px;"> 
+    <h2 class="dashboard-title">Configuración</h2>
+    
+    <div class="app-grid admin-only"> 
+        
+        <div class="app-card" onclick="loadContent(event, 'static/configuracion.html', this)">
+            <img src="/static/img/icons/configuracion.png" alt="Configuracion" class="app-icon">
+             <span class="app-name">Conf. y Reglas</span>
+        </div>
+        
+        <div class="app-card admin-only" onclick="loadContent(event, 'static/usuarios.html', this)">
+            <img src="/static/img/icons/usuarios.png" alt="Usuarios" class="app-icon">
+            <span class="app-name">Usuarios</span>
+        </div>
+        
+        <div class="app-card superadmin-only" onclick="loadContent(event, 'static/negocios.html', this)">
+            <img src="/static/img/icons/negocios.png" alt="Negocios" class="app-icon">
+            <span class="app-name">Negocios</span>
+        </div>
+    </div> 
 </div>

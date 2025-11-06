@@ -445,6 +445,20 @@ async function inicializarModulo(page) {
                 inicializarLogicaCategorias();
                 break;
 
+            case 'unidades':
+                // 1. Importamos las funciones necesarias
+                const { 
+                    inicializarLogicaUnidades, 
+                    abrirModalUnidad, 
+                    borrarUnidad 
+                } = await import(`./modules/unidades.js${v}`);                
+                // 2. Exponemos las funciones 'onclick' al window
+                window.abrirModalUnidad = abrirModalUnidad;
+                window.borrarUnidad = borrarUnidad;                
+                // 3. Ejecutamos el inicializador
+                inicializarLogicaUnidades();
+                break;
+
             default:
                 console.warn(`No se encontró lógica de inicialización para el módulo: ${pageName}`);
         }
