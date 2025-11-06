@@ -458,6 +458,23 @@ async function inicializarModulo(page) {
             case 'expensas':
                 console.log("Inicializando módulo EXPENSAS");
                 break;
+            case 'expensas':
+                // 1. Importamos las funciones necesarias
+                const { 
+                    inicializarLogicaExpensas,
+                    verDetallePeriodo,
+                    volverALista,
+                    emitirPeriodo,
+                    abrirModalPago
+                } = await import(`./modules/expensas.js${v}`);                
+                // 2. Exponemos las funciones 'onclick' al window
+                window.verDetallePeriodo = verDetallePeriodo;
+                window.volverALista = volverALista;
+                window.emitirPeriodo = emitirPeriodo;
+                window.abrirModalPago = abrirModalPago;                
+                // 3. Ejecutamos el inicializador
+                inicializarLogicaExpensas();
+                break;
 
             default:
                 console.warn(`No se encontró lógica de inicialización para el módulo: ${pageName}`);

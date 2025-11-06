@@ -1,0 +1,52 @@
+/* static/css/expensas.css */
+
+/* Estilos para la vista de detalles (para ocultarla/mostrarla) */
+#detalle-periodo-view {
+    display: none; /* Oculta por defecto */
+}
+
+/* Estilos para los estados de pago */
+.estado-pendiente {
+    background-color: #fceceb;
+    color: #b33930;
+    border: 1px solid #f7c3bf;
+    padding: 3px 8px;
+    border-radius: 15px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+.estado-pago-parcial {
+    background-color: #fef7e6;
+    color: #b98900;
+    border: 1px solid #fbe5a1;
+    padding: 3px 8px;
+    border-radius: 15px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+.estado-pagado {
+    background-color: #e6f4ea;
+    color: #2e7d32;
+    border: 1px solid #b7e1c1;
+    padding: 3px 8px;
+    border-radius: 15px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+/* Estilos para los estados del período */
+.estado-borrador {
+    background-color: #f4f4f4;
+    color: #555;
+    padding: 3px 8px;
+    border-radius: 15px;
+    font-size: 0.9em;
+}
+.estado-emitido {
+    background-color: #e6f7ff;
+    color: #0056b3;
+    padding: 3px 8px;
+    border-radius: 15px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
