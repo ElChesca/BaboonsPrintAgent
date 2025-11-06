@@ -14,24 +14,33 @@ let misUnidadesCache = [];  // Para el <select> de "Unidad"
 let modal, form, tituloModal, idInput, filtroEstado;
 let selectsPopulating = false;
 
-// --- Funciones de Renderizado ---
+
 // Renderiza el tablero Kanban
 function renderizarKanban() {
     // 1. Limpiar todas las columnas
     const colAbierto = document.getElementById('cards-abierto');
     const colProceso = document.getElementById('cards-en-proceso');
     const colCerrado = document.getElementById('cards-cerrado');
+    if (!colAbierto || !colProceso || !colCerrado) return; // Chequeo de seguridad
+    
     colAbierto.innerHTML = '';
     colProceso.innerHTML = '';
     colCerrado.innerHTML = '';
 
-    // 2. Iterar sobre el caché de reclamos
-    reclamosCache.forEach(r => {
-        // 3. Crear la tarjeta (card)
+    // ✨ 2. OBTENER EL FILTRO (ESTA ES LA LÍNEA NUEVA) ✨
+    // Lee el valor del <select> que está en el HTML
+    const filtro = filtroEstado.value; 
+    const reclamosFiltrados = (filtro === 'Todos')
+        ? reclamosCache
+        : reclamosCache.filter(r => r.estado === filtro);
+
+    // 3. Iterar sobre el caché FILTRADO
+    reclamosFiltrados.forEach(r => {
+        // 4. Crear la tarjeta (card)
         const card = document.createElement('div');
         card.className = 'kanban-card';
         card.draggable = true;
-        card.dataset.reclamoId = r.id; // Guardamos el ID en la tarjeta
+        card.dataset.reclamoId = r.id; 
         
         card.innerHTML = `
             <h4>${r.titulo}</h4>
@@ -39,21 +48,18 @@ function renderizarKanban() {
             <small>Creado por: ${r.creador_nombre}</small>
         `;
         
-        // Añadir evento de clic para ABRIR EL MODAL (reutilizamos la función)
         card.addEventListener('click', () => abrirModalReclamo(r.id));
         
-        // Añadir evento para iniciar el arrastre
+        // ... (eventos dragstart y dragend sin cambios) ...
         card.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', r.id);
-            // (Opcional: efecto visual)
             e.target.style.opacity = '0.5';
         });
-        
         card.addEventListener('dragend', (e) => {
-            e.target.style.opacity = '1'; // Restaurar opacidad
+            e.target.style.opacity = '1';
         });
 
-        // 4. Poner la tarjeta en la columna correcta
+        // 5. Poner la tarjeta en la columna correcta
         if (r.estado === 'Abierto') {
             colAbierto.appendChild(card);
         } else if (r.estado === 'En Proceso') {
@@ -63,6 +69,7 @@ function renderizarKanban() {
         }
     });
 }
+
 function renderizarTabla() {
     const tbody = document.querySelector('#tabla-reclamos tbody');
     if (!tbody) return;
