@@ -15,7 +15,54 @@ let modal, form, tituloModal, idInput, filtroEstado;
 let selectsPopulating = false;
 
 // --- Funciones de Renderizado ---
+// Renderiza el tablero Kanban
+function renderizarKanban() {
+    // 1. Limpiar todas las columnas
+    const colAbierto = document.getElementById('cards-abierto');
+    const colProceso = document.getElementById('cards-en-proceso');
+    const colCerrado = document.getElementById('cards-cerrado');
+    colAbierto.innerHTML = '';
+    colProceso.innerHTML = '';
+    colCerrado.innerHTML = '';
 
+    // 2. Iterar sobre el caché de reclamos
+    reclamosCache.forEach(r => {
+        // 3. Crear la tarjeta (card)
+        const card = document.createElement('div');
+        card.className = 'kanban-card';
+        card.draggable = true;
+        card.dataset.reclamoId = r.id; // Guardamos el ID en la tarjeta
+        
+        card.innerHTML = `
+            <h4>${r.titulo}</h4>
+            <p><strong>Unidad:</strong> ${r.nombre_unidad}</p>
+            <small>Creado por: ${r.creador_nombre}</small>
+        `;
+        
+        // Añadir evento de clic para ABRIR EL MODAL (reutilizamos la función)
+        card.addEventListener('click', () => abrirModalReclamo(r.id));
+        
+        // Añadir evento para iniciar el arrastre
+        card.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', r.id);
+            // (Opcional: efecto visual)
+            e.target.style.opacity = '0.5';
+        });
+        
+        card.addEventListener('dragend', (e) => {
+            e.target.style.opacity = '1'; // Restaurar opacidad
+        });
+
+        // 4. Poner la tarjeta en la columna correcta
+        if (r.estado === 'Abierto') {
+            colAbierto.appendChild(card);
+        } else if (r.estado === 'En Proceso') {
+            colProceso.appendChild(card);
+        } else if (r.estado === 'Cerrado') {
+            colCerrado.appendChild(card);
+        }
+    });
+}
 function renderizarTabla() {
     const tbody = document.querySelector('#tabla-reclamos tbody');
     if (!tbody) return;
@@ -101,6 +148,7 @@ async function cargarReclamos() {
         const url = `/api/consorcio/${appState.negocioActivoId}/reclamos`;
         reclamosCache = await fetchData(url);
         renderizarTabla(); // Renderiza la tabla con los filtros aplicados
+        renderizarKanban(); // Renderiza el tablero Kanban
     } catch (error) {
         mostrarNotificacion(error.message, 'error');
         const tbody = document.querySelector('#tabla-reclamos tbody');
@@ -235,4 +283,90 @@ export function inicializarLogicaReclamos() {
     window.addEventListener('click', (e) => {
         if (e.target == modal) modal.style.display = 'none';
     });
+
+    // ✨ --- LÓGICA DE DRAG & DROP (NUEVA) --- ✨
+   const columnas = document.querySelectorAll('.kanban-cards-container');
+    if (columnas.length > 0) {
+        columnas.forEach(columna => {
+            // Evento 1: Cuando una tarjeta pasa por encima
+            columna.addEventListener('dragover', (e) => {
+                e.preventDefault(); // ¡Obligatorio para permitir el 'drop'!
+                columna.classList.add('drag-over');
+            });
+
+            // Evento 2: Cuando una tarjeta sale de encima
+            columna.addEventListener('dragleave', () => {
+                columna.classList.remove('drag-over');
+            });
+
+            // Evento 3: ¡Cuando sueltan la tarjeta!
+            columna.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                columna.classList.remove('drag-over');
+
+                // 1. Obtener los datos
+                const reclamoId = e.dataTransfer.getData('text/plain');
+                const columnaId = columna.id; // ej: "cards-en-proceso"
+                
+                let nuevoEstado = '';
+                if (columnaId === 'cards-abierto') nuevoEstado = 'Abierto';
+                if (columnaId === 'cards-en-proceso') nuevoEstado = 'En Proceso';
+                if (columnaId === 'cards-cerrado') nuevoEstado = 'Cerrado';
+
+                // 2. Verificar si el estado es el mismo
+                const reclamo = reclamosCache.find(r => r.id == reclamoId);
+                if (reclamo.estado === nuevoEstado) return;
+
+                // 3. Llamar a la API (¡Solo si eres admin!)
+                if (!esAdmin()) {
+                    mostrarNotificacion('Solo los administradores pueden cambiar el estado.', 'warning');
+                    return;
+                }
+
+                try {
+                    mostrarNotificacion('Actualizando estado...', 'info');
+                    await sendData(`/api/consorcio/reclamos/${reclamoId}`, { 
+                        estado: nuevoEstado,
+                        // (Pasamos los datos existentes para no pisarlos)
+                        titulo: reclamo.titulo, 
+                        descripcion: reclamo.descripcion,
+                        usuario_asignado_id: reclamo.usuario_asignado_id
+                    }, 'PUT');
+
+                    // 4. Recargar los datos
+                    await cargarReclamos();
+                    mostrarNotificacion('Estado actualizado.', 'success');
+                } catch (error) {
+                    mostrarNotificacion(error.message, 'error');
+                }
+            });
+        });
+    } else {
+        console.warn('Contenedores Kanban no encontrados. Se omite la lógica de Drag & Drop.');
+    }
+
+    // ✨ --- LÓGICA DEL TOGGLE DE VISTAS (VERSIÓN BLINDADA) --- ✨
+    const btnTabla = document.getElementById('btn-vista-tabla');
+    const btnKanban = document.getElementById('btn-vista-kanban');
+    const vistaTabla = document.getElementById('vista-tabla');
+    const vistaKanban = document.getElementById('vista-kanban');
+
+    // Chequeamos que todos los elementos existan antes de añadir listeners
+    if (btnTabla && btnKanban && vistaTabla && vistaKanban) {
+        btnTabla.addEventListener('click', () => {
+            vistaTabla.style.display = 'block';
+            vistaKanban.style.display = 'none';
+            btnTabla.classList.add('active');
+            btnKanban.classList.remove('active');
+        });
+
+        btnKanban.addEventListener('click', () => {
+            vistaTabla.style.display = 'none';
+            vistaKanban.style.display = 'block';
+            btnTabla.classList.remove('active');
+            btnKanban.classList.add('active');
+        });
+    } else {
+        console.warn('Botones de cambio de vista no encontrados. Se omite la lógica del Toggle.');
+    }
 }
