@@ -284,31 +284,56 @@ export function inicializarLogicaExpensas() {
     formPeriodo = document.getElementById('form-periodo');
     modalPago = document.getElementById('modal-registrar-pago');
     formPago = document.getElementById('form-registrar-pago');
-
-    if (!vistaPrincipal || !modalPeriodo || !modalPago) {
-        console.error('No se encontraron los elementos del DOM para Expensas.');
+    
+    const expensasTitulo = document.getElementById('expensas-titulo');
+    
+    // Validamos solo la vista principal
+    if (!vistaPrincipal) {
+        console.error('No se encontró #lista-principal-view. Abortando inicialización de Expensas.');
         return;
     }
 
     // --- LÓGICA DE ROLES ---
     if (esAdmin()) {
-        document.getElementById('expensas-titulo').textContent = 'Gestión de Períodos de Expensas';
+        if (expensasTitulo) expensasTitulo.textContent = 'Gestión de Períodos de Expensas';
         cargarPeriodosAdmin();
         
-        // Listeners de Admin
-        document.getElementById('btn-abrir-modal-periodo').addEventListener('click', () => modalPeriodo.style.display = 'flex');
-        document.getElementById('close-modal-periodo').addEventListener('click', () => modalPeriodo.style.display = 'none');
-        formPeriodo.addEventListener('submit', guardarPeriodo);
+        // --- Listeners de Admin (BLINDADOS) ---
+        const btnAbrir = document.getElementById('btn-abrir-modal-periodo');
+        if (btnAbrir) {
+            btnAbrir.addEventListener('click', () => {
+                if (modalPeriodo) modalPeriodo.style.display = 'flex';
+            });
+        }
+        
+        const btnCerrarPeriodo = document.getElementById('close-modal-periodo');
+        if (btnCerrarPeriodo) {
+            btnCerrarPeriodo.addEventListener('click', () => {
+                if (modalPeriodo) modalPeriodo.style.display = 'none';
+            });
+        }
+        
+        if (formPeriodo) {
+            formPeriodo.addEventListener('submit', guardarPeriodo);
+        }
 
-        document.getElementById('close-modal-pago').addEventListener('click', () => modalPago.style.display = 'none');
-        formPago.addEventListener('submit', registrarPago);
+        const btnCerrarPago = document.getElementById('close-modal-pago');
+        if (btnCerrarPago) {
+            btnCerrarPago.addEventListener('click', () => {
+                if (modalPago) modalPago.style.display = 'none';
+            });
+        }
+
+        if (formPago) {
+            formPago.addEventListener('submit', registrarPago);
+        }
 
     } else {
-        document.getElementById('expensas-titulo').textContent = 'Mis Expensas';
+        if (expensasTitulo) expensasTitulo.textContent = 'Mis Expensas';
         cargarMisExpensas();
     }
     
-    // Listeners generales
+    // Listeners generales (para cerrar modales al hacer clic fuera)
     window.addEventListener('click', (e) => {
         if (e.target == modalPeriodo) modalPeriodo.style.display = 'none';
         if (e.target == modalPago) modalPago.style.display = 'none';
