@@ -563,7 +563,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
             if (contentArea) {
                 contentArea.innerHTML = html;
                 console.log(`HTML cargado para ${pageToFetch}. Llamando a inicializarModulo...`);
-              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
                     // El código para marcar el link 'active' no cambia
                     document.querySelectorAll('#main-nav a, #main-nav .dropbtn').forEach(link => link.classList.remove('active'));
                     const linkSelectorOnClick = `#main-nav a[onclick*="'${pagePath}'"]`;
