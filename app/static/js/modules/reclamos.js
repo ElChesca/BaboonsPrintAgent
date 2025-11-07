@@ -343,6 +343,8 @@ export async function borrarReclamo(id) {
 // --- Función de Inicialización (Actualizada) ---
 export async function inicializarLogicaReclamos() {
     
+    await new Promise(resolve => setTimeout(resolve, 0));
+
     modal = document.getElementById('modal-reclamo');
     form = document.getElementById('form-reclamo');
     tituloModal = document.getElementById('modal-reclamo-titulo');
