@@ -15,9 +15,17 @@ let vistaPrincipal, vistaDetalle;
 
 function parseSQLDate(dateString) {
     if (!dateString) return new Date(); // Fallback
-    const [year, month, day] = dateString.split('-');
-    // Usamos new Date(year, monthIndex, day)
-    return new Date(year, month - 1, day);
+    
+    // Si la fecha es "YYYY-MM-DD"
+    if (dateString.length === 10) { 
+        // La convertimos a "YYYY-MM-DDT00:00:00"
+        // Esto le dice a JavaScript: "Interpreta esta fecha en la zona horaria local"
+        // y evita que la convierta a UTC (lo que a veces la atrasa un día).
+        return new Date(dateString + 'T00:00:00');
+    }
+    
+    // Si ya es un timestamp completo, solo lo parsea
+    return new Date(dateString); 
 }
 
 // --- VISTAS DEL INQUILINO (USUARIO OPERADOR) ---

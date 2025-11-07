@@ -462,13 +462,15 @@ async function inicializarModulo(page) {
                     verDetallePeriodo,
                     volverALista,
                     emitirPeriodo,
-                    abrirModalPago
+                    abrirModalPago,
+                    anularExpensa
                 } = await import(`./modules/expensas.js${v}`);                
                 // 2. Exponemos las funciones 'onclick' al window
                 window.verDetallePeriodo = verDetallePeriodo;
                 window.volverALista = volverALista;
                 window.emitirPeriodo = emitirPeriodo;
-                window.abrirModalPago = abrirModalPago;                
+                window.abrirModalPago = abrirModalPago;  
+                window.anularExpensa = anularExpensa;              
                 // 3. Ejecutamos el inicializador
                 inicializarLogicaExpensas();
                 break;
