@@ -4,7 +4,7 @@
 // ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
 // ✨ ¡DEBE SER IDÉNTICA a la de tu main.js!
 // ✨ ========================================================================
-const APP_VERSION = "1.1.0"; // ✨ ¡ACTUALIZADO!
+const APP_VERSION = "1.1.1"; // ✨ ¡ACTUALIZADO!
 // ==========================================================================
 
 const v = `?v=${APP_VERSION}`;

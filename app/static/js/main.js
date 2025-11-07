@@ -2,7 +2,7 @@
 // ✨ ARCHIVO COMPLETO Y CORREGIDO (Versión 1.1.0) ✨
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.1.1";
 const v = `?v=${APP_VERSION}`;
 
 // --- 2. IMPORTACIONES ESTÁTICAS ---
