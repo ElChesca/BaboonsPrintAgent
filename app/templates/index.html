@@ -8,8 +8,7 @@
     <meta name="theme-color" content="#222222">
     <link rel="manifest" href="/manifest.json">
     
-    <script src="/static/js/main.js?v=1.0.9" type="module"></script>
-
+    <script src="/static/js/main.js?v=1.1.1" type="module"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>
@@ -22,7 +21,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="/static/css/global.css?v=2.6">
+    <link rel="stylesheet" href="/static/css/global.css?v=2.8">
+    <link rel="stylesheet" href="/static/css/app_types.css?v=1.1.0"> 
     
 </head>
 
@@ -40,41 +40,28 @@
         
         <div class="nav-container">
             <nav id="main-nav">
-                <a href="#" onclick="loadContent(event, 'static/home_retail.html', this)" class="active elemento-rol">🏠 Home</a>
-                <a href="#" onclick="loadContent(event, 'static/ventas.html', this)" class="elemento-rol">💰 Vender</a>
-                <a href="#" onclick="loadContent(event, 'static/historial_ventas.html', this)" class="elemento-rol">📈 Facturar</a>
-                <a href="#" onclick="loadContent(event, 'static/historial_presupuestos.html', this)" class="elemento-rol">🧾 Presup. Realizados</a>
+            
+                <a href="#home_retail" onclick="loadContent(event, 'static/home_retail.html', this)" class="active elemento-rol nav-retail">🏠 Home</a>
+                <a href="#ventas" onclick="loadContent(event, 'static/ventas.html', this)" class="elemento-rol nav-retail">💰 Vender</a>
+                <a href="#historial_ventas" onclick="loadContent(event, 'static/historial_ventas.html', this)" class="elemento-rol nav-retail">📈 Facturar</a>
+                <a href="#historial_presupuestos" onclick="loadContent(event, 'static/historial_presupuestos.html', this)" class="elemento-rol nav-retail">🧾 Presup. Realizados</a>
+                
+                <a href="#inventario" onclick="loadContent(event, 'static/inventario.html', this)" class="elemento-rol nav-retail">📦 Inventario</a>
 
-             <!--    <div class="dropdown">
-                    <a href="#" class="dropbtn">Más Opciones ▾</a>
-                    <div class="dropdown-content">
-                        <a href="#" onclick="loadContent(event, 'static/historial_presupuestos.html', this)">🧾 Historial Presupuestos</a>
-                    </div>
-                </div> -->
-             
                 <div class="dropdown admin-only nav-retail">
                     <a href="#" class="dropbtn">📊 Reportes ▾</a>
                     <div class="dropdown-content">
-                        <a href="#" onclick="loadContent(event, 'static/reportes.html', this)">Ventas Diarias</a> 
-                        <a href="#" onclick="loadContent(event, 'static/reporte_caja.html', this)">Reporte de Caja</a>
-                        <a href="#" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">Reporte de Ganancias</a>
-                        <a href="#" onclick="loadContent(event, 'static/historial_inventario.html', this)">Historial Inventario</a>
+                        <a href="#reportes" onclick="loadContent(event, 'static/reportes.html', this)">Ventas Diarias</a> 
+                        <a href="#reporte_caja" onclick="loadContent(event, 'static/reporte_caja.html', this)">Reporte de Caja</a>
+                        <a href="#reporte_ganancias" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">Reporte de Ganancias</a>
+                        <a href="#historial_inventario" onclick="loadContent(event, 'static/historial_inventario.html', this)">Historial Inventario</a>
                     </div>
-
-                <a href="#" onclick="loadContent(event, 'static/home_consorcio.html', this)" class="elemento-rol nav-consorcio">🏠 Inicio Consorcio</a>
-                <a href="#" onclick="loadContent(event, 'static/reclamos.html', this)" class="elemento-rol nav-consorcio">🔔 Reclamos</a>
-                <a href="#" onclick="loadContent(event, 'static/expensas.html', this)" class="elemento-rol nav-consorcio">🧾 Expensas</a>
-                <a href="#" onclick="loadContent(event, 'static/unidades.html', this)" class="elemento-rol nav-consorcio">🏢 Unidades</a>
-
-
-              <!--   </div>
-                   <div class="dropdown admin-only">
-                    <a href="#" class="dropbtn">⚙️ Configuración ▾</a>
-                    <div class="dropdown-content">                        
-                        <a href="#" class="admin-only elemento-rol" onclick="loadContent(event, 'static/configuracion.html', this)">Configuracion</a>
-                    </div>
-               -->
                 </div> 
+
+                <a href="#home_consorcio" onclick="loadContent(event, 'static/home_consorcio.html', this)" class="elemento-rol nav-consorcio">🏠 Inicio Consorcio</a>
+                <a href="#reclamos" onclick="loadContent(event, 'static/reclamos.html', this)" class="elemento-rol nav-consorcio">🔔 Reclamos</a>
+                <a href="#expensas" onclick="loadContent(event, 'static/expensas.html', this)" class="elemento-rol nav-consorcio">🧾 Expensas</a>
+                <a href="#unidades" onclick="loadContent(event, 'static/unidades.html', this)" class="elemento-rol nav-consorcio admin-only">🏢 Unidades</a>
                 
                 <a href="#" id="auth-link"></a> 
             </nav>
@@ -91,4 +78,5 @@
     <main id="content-area">
     </main>
 
-    <script type
+</body>
+</html>
