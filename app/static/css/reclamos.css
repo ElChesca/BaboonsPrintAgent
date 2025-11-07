@@ -53,3 +53,84 @@
     background-color: #dcedff;
     border: 2px dashed #3498db;
 }
+
+/* static/css/reclamos.css */
+/* (Este archivo debe contener también los estilos del Kanban y los estados) */
+
+/* --- Estilos de Estado --- */
+.estado-abierto { background-color: #fceceb; color: #b33930; border: 1px solid #f7c3bf; padding: 3px 8px; border-radius: 15px; font-weight: bold; font-size: 0.9em; }
+.estado-en-proceso { background-color: #fef7e6; color: #b98900; border: 1px solid #fbe5a1; padding: 3px 8px; border-radius: 15px; font-weight: bold; font-size: 0.9em; }
+.estado-cerrado { background-color: #e6f4ea; color: #2e7d32; border: 1px solid #b7e1c1; padding: 3px 8px; border-radius: 15px; font-weight: bold; font-size: 0.9em; }
+/* (Añade más estilos para 'tercerizado', etc. si los creas) */
+
+/* --- Estilos del Kanban --- */
+.vista-reclamos { margin-top: 20px; }
+.kanban-board { display: flex; justify-content: space-between; gap: 15px; width: 100%; }
+.kanban-column { flex: 1; background-color: #f4f4f4; border-radius: 8px; padding: 10px; }
+.kanban-column h3 { text-align: center; margin-top: 0; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #ddd; }
+.kanban-cards-container { min-height: 400px; padding: 5px; background-color: #e9e9e9; border-radius: 4px; }
+.kanban-card { background-color: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 10px 15px; margin-bottom: 10px; cursor: grab; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.kanban-card h4 { margin: 0 0 5px 0; font-size: 1.1em; }
+.kanban-card p { font-size: 0.9em; color: #555; margin: 0; }
+.kanban-cards-container.drag-over { background-color: #dcedff; border: 2px dashed #3498db; }
+
+
+/* --- ✨ NUEVO: Estilos del Modal de 2 Columnas y Chat --- */
+.modal-dos-columnas {
+    display: flex;
+    gap: 20px;
+}
+.columna-formulario {
+    flex: 2; /* El formulario ocupa 2/3 */
+}
+.columna-comentarios {
+    flex: 1; /* El chat ocupa 1/3 */
+    border-left: 1px solid #eee;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+}
+.columna-comentarios h4 {
+    margin-top: 0;
+}
+
+.comentarios-historial {
+    flex-grow: 1; /* Ocupa todo el espacio disponible */
+    background-color: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 10px;
+    overflow-y: auto; /* Scroll si hay muchos mensajes */
+    max-height: 300px; /* Límite de altura */
+    margin-bottom: 15px;
+}
+.comentario-item {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+.comentario-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+.comentario-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+.comentario-header strong {
+    font-size: 1em;
+}
+.comentario-header .comentario-fecha {
+    font-size: 0.8em;
+    color: #777;
+}
+/* Distinguir visualmente al admin */
+.comentario-header strong.admin {
+    color: #0056b3;
+}
+.comentario-cuerpo {
+    font-size: 0.95em;
+    word-wrap: break-word;
+}
