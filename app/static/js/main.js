@@ -563,7 +563,8 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
             if (contentArea) {
                 contentArea.innerHTML = html;
                 console.log(`HTML cargado para ${pageToFetch}. Llamando a inicializarModulo...`);
-                requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                    // El código para marcar el link 'active' no cambia
                     document.querySelectorAll('#main-nav a, #main-nav .dropbtn').forEach(link => link.classList.remove('active'));
                     const linkSelectorOnClick = `#main-nav a[onclick*="'${pagePath}'"]`;
                     const linkSelectorHref = `#main-nav a[href$="${targetHash}"]`;
@@ -576,11 +577,15 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
                     } else {
                          console.warn(`No se encontró link activo para ${pageName} usando selectores: ${linkSelectorOnClick}, ${linkSelectorHref}`);
                     }
-
-                    inicializarModulo(page).catch(err => {
-                         console.error(`Error durante inicializarModulo para ${page}:`, err);
-                         mostrarNotificacion(`Error al inicializar la sección ${pageName}.`, 'error');
-                    });
+                    // ✨ --- ¡AQUÍ ESTÁ LA CORRECCIÓN! --- ✨
+                    // Damos un "tick" (0ms) al navegador DESPUÉS del frame
+                    // para asegurar que el HTML esté 100% "dibujado" en el DOM.
+                    setTimeout(() => {
+                        inicializarModulo(page).catch(err => {
+                             console.error(`Error durante inicializarModulo para ${page}:`, err);
+                             mostrarNotificacion(`Error al inicializar la sección ${pageName}.`, 'error');
+                        });
+                    }, 0); // Un retraso de 0ms es suficiente.
                 });
             } else {
                 console.error("Error crítico: No se encontró #content-area.");

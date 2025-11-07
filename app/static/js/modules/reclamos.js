@@ -305,10 +305,7 @@ export async function borrarReclamo(id) {
 
 // --- Función de Inicialización (Actualizada) ---
 export async function inicializarLogicaReclamos() {
-    // Esperamos un "tick" (0 milisegundos) para que el navegador
-    // termine de "dibujar" el HTML inyectado por main.js
-    await new Promise(resolve => setTimeout(resolve, 0));
-
+    
     modal = document.getElementById('modal-reclamo');
     form = document.getElementById('form-reclamo');
     tituloModal = document.getElementById('modal-reclamo-titulo');
