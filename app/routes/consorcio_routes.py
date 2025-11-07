@@ -116,7 +116,7 @@ def delete_unidad(current_user, unidad_id):
 
 
 # ============================================
-# --- 2. RUTAS DE RECLAMOS (Sin cambios) ---
+# --- 2. RUTAS DE RECLAMOS 
 # ============================================
 @bp.route('/consorcio/<int:negocio_id>/reclamos/estados', methods=['GET'])
 @token_required
@@ -249,6 +249,66 @@ def delete_reclamo(current_user, reclamo_id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
+# [POST] Añadir un comentario a un reclamo
+@bp.route('/consorcio/reclamos/<int:reclamo_id>/comentarios', methods=['POST'])
+@token_required
+def add_reclamo_comentario(current_user, reclamo_id):
+    data = request.get_json()
+    comentario_texto = data.get('comentario')
+    if not comentario_texto:
+        return jsonify({'error': 'El comentario no puede estar vacío'}), 400
+
+    db = get_db()
+    
+    # --- Verificación de Seguridad (similar a GET) ---
+    db.execute(
+        """
+        SELECT r.negocio_id, r.estado, u.inquilino_id, u.propietario_id
+        FROM consorcio_reclamos r
+        JOIN consorcio_unidades u ON r.unidad_id = u.id
+        WHERE r.id = %s
+        """,
+        (reclamo_id,)
+    )
+    reclamo_info = db.fetchone()
+    if not reclamo_info:
+        return jsonify({'error': 'Reclamo no encontrado'}), 404
+
+    es_admin = current_user['rol'] in ('admin', 'superadmin')
+    es_miembro = current_user['id'] in (reclamo_info['inquilino_id'], reclamo_info['propietario_id'])
+    
+    if not es_admin and not es_miembro:
+        return jsonify({'error': 'No tiene permiso para comentar en este reclamo'}), 403
+        
+    try:
+        # 1. Insertar el comentario
+        db.execute(
+            """
+            INSERT INTO consorcio_reclamos_comentarios (reclamo_id, usuario_id, comentario)
+            VALUES (%s, %s, %s)
+            """,
+            (reclamo_id, current_user['id'], comentario_texto)
+        )
+        
+        # 2. (Opcional pero recomendado) Si un inquilino comenta, re-abrir el reclamo
+        if not es_admin and reclamo_info['estado'] == 'Cerrado':
+            db.execute(
+                "UPDATE consorcio_reclamos SET estado = 'Abierto', fecha_actualizacion = %s WHERE id = %s",
+                (datetime.datetime.now(datetime.timezone.utc), reclamo_id)
+            )
+        else:
+            # 3. Actualizar el timestamp del reclamo para que suba en la lista
+            db.execute(
+                "UPDATE consorcio_reclamos SET fecha_actualizacion = %s WHERE id = %s",
+                (datetime.datetime.now(datetime.timezone.utc), reclamo_id)
+            )
+            
+        g.db_conn.commit()
+        return jsonify({'message': 'Comentario añadido con éxito'}), 201
+    except Exception as e:
+        g.db_conn.rollback()
+        print(f"Error en add_reclamo_comentario: {e}")
+        return jsonify({'error': str(e)}), 500
 # ============================================
 # --- 3. ✨ NUEVAS RUTAS PARA EXPENSAS ✨ ---
 # ============================================
@@ -590,63 +650,4 @@ def get_reclamo_comentarios(current_user, reclamo_id):
         return jsonify({'error': str(e)}), 500
     
 
-    # [POST] Añadir un comentario a un reclamo
-@bp.route('/consorcio/reclamos/<int:reclamo_id>/comentarios', methods=['POST'])
-@token_required
-def add_reclamo_comentario(current_user, reclamo_id):
-    data = request.get_json()
-    comentario_texto = data.get('comentario')
-    if not comentario_texto:
-        return jsonify({'error': 'El comentario no puede estar vacío'}), 400
-
-    db = get_db()
     
-    # --- Verificación de Seguridad (similar a GET) ---
-    db.execute(
-        """
-        SELECT r.negocio_id, r.estado, u.inquilino_id, u.propietario_id
-        FROM consorcio_reclamos r
-        JOIN consorcio_unidades u ON r.unidad_id = u.id
-        WHERE r.id = %s
-        """,
-        (reclamo_id,)
-    )
-    reclamo_info = db.fetchone()
-    if not reclamo_info:
-        return jsonify({'error': 'Reclamo no encontrado'}), 404
-
-    es_admin = current_user['rol'] in ('admin', 'superadmin')
-    es_miembro = current_user['id'] in (reclamo_info['inquilino_id'], reclamo_info['propietario_id'])
-    
-    if not es_admin and not es_miembro:
-        return jsonify({'error': 'No tiene permiso para comentar en este reclamo'}), 403
-        
-    try:
-        # 1. Insertar el comentario
-        db.execute(
-            """
-            INSERT INTO consorcio_reclamos_comentarios (reclamo_id, usuario_id, comentario)
-            VALUES (%s, %s, %s)
-            """,
-            (reclamo_id, current_user['id'], comentario_texto)
-        )
-        
-        # 2. (Opcional pero recomendado) Si un inquilino comenta, re-abrir el reclamo
-        if not es_admin and reclamo_info['estado'] == 'Cerrado':
-            db.execute(
-                "UPDATE consorcio_reclamos SET estado = 'Abierto', fecha_actualizacion = %s WHERE id = %s",
-                (datetime.datetime.now(datetime.timezone.utc), reclamo_id)
-            )
-        else:
-            # 3. Actualizar el timestamp del reclamo para que suba en la lista
-            db.execute(
-                "UPDATE consorcio_reclamos SET fecha_actualizacion = %s WHERE id = %s",
-                (datetime.datetime.now(datetime.timezone.utc), reclamo_id)
-            )
-            
-        g.db_conn.commit()
-        return jsonify({'message': 'Comentario añadido con éxito'}), 201
-    except Exception as e:
-        g.db_conn.rollback()
-        print(f"Error en add_reclamo_comentario: {e}")
-        return jsonify({'error': str(e)}), 500
