@@ -454,10 +454,7 @@ async function inicializarModulo(page) {
                 window.abrirModalReclamo = abrirModalReclamo;
                 window.borrarReclamo = borrarReclamo;
                 inicializarLogicaReclamos();
-                break;
-            case 'expensas':
-                console.log("Inicializando módulo EXPENSAS");
-                break;
+                break;          
             case 'expensas':
                 // 1. Importamos las funciones necesarias
                 const { 
