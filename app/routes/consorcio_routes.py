@@ -148,11 +148,30 @@ def get_reclamos(current_user, negocio_id):
     negocio = db.fetchone()
     if not negocio or negocio['tipo_app'] != 'consorcio':
          return jsonify({'error': 'Ruta no válida para este tipo de negocio'}), 400
-    query_base = "SELECT r.id, r.titulo, r.estado, r.fecha_creacion, r.fecha_actualizacion, u.nombre_unidad, c.nombre AS creador_nombre, a.nombre AS asignado_nombre FROM consorcio_reclamos r JOIN consorcio_unidades u ON r.unidad_id = u.id JOIN usuarios c ON r.usuario_creador_id = c.id LEFT JOIN usuarios a ON r.usuario_asignado_id = a.id WHERE r.negocio_id = %s"
+   # ✨ CAMBIO: Añadimos un LEFT JOIN y un COUNT para los comentarios
+    query_base = """
+        SELECT 
+            r.id, r.titulo, r.estado, r.fecha_creacion, r.fecha_actualizacion,
+            u.nombre_unidad,
+            creador.nombre AS creador_nombre,
+            asignado.nombre AS asignado_nombre,
+            COUNT(c.id) AS comentarios_count -- <-- NUEVA COLUMNA
+        FROM consorcio_reclamos r
+        JOIN consorcio_unidades u ON r.unidad_id = u.id
+        JOIN usuarios creador ON r.usuario_creador_id = creador.id
+        LEFT JOIN usuarios asignado ON r.usuario_asignado_id = asignado.id
+        LEFT JOIN consorcio_reclamos_comentarios c ON r.id = c.reclamo_id -- <-- NUEVO JOIN
+        WHERE r.negocio_id = %s
+    """
     params = [negocio_id]
+
     if current_user['rol'] not in ('admin', 'superadmin'):
         query_base += " AND (u.inquilino_id = %s OR u.propietario_id = %s)"
         params.extend([current_user['id'], current_user['id']])
+    query_base += """
+        GROUP BY r.id, u.nombre_unidad, creador.nombre, asignado.nombre
+        ORDER BY r.fecha_actualizacion DESC
+    """    
     query_base += " ORDER BY r.fecha_actualizacion DESC"
     db.execute(query_base, tuple(params))
     return jsonify([dict(row) for row in db.fetchall()])

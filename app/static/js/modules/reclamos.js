@@ -18,41 +18,78 @@ let formComentario; // Para el nuevo formulario de chat
 
 // --- Funciones de Renderizado ---
 function renderizarTabla() {
-    // ... (código sin cambios)
     const tbody = document.querySelector('#tabla-reclamos tbody');
     if (!tbody) return;
+    
     const filtro = filtroEstado.value;
-    const reclamosFiltrados = (filtro === 'Todos') ? reclamosCache : reclamosCache.filter(r => r.estado === filtro);
+    const reclamosFiltrados = (filtro === 'Todos')
+        ? reclamosCache
+        : reclamosCache.filter(r => r.estado === filtro);
+
     tbody.innerHTML = '';
     if (reclamosFiltrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7">No se encontraron reclamos.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8">No se encontraron reclamos.</td></tr>`; // Colspan ahora es 8
         return;
     }
+
     reclamosFiltrados.forEach(r => {
         const fechaAct = new Date(r.fecha_actualizacion).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        
         const acciones = esAdmin()
             ? `<button class="btn-secondary btn-sm" onclick="window.abrirModalReclamo(${r.id})">Ver/Editar</button> <button class="btn-danger btn-sm" onclick="window.borrarReclamo(${r.id})">Borrar</button>`
             : `<button class="btn-secondary btn-sm" onclick="window.abrirModalReclamo(${r.id})">Ver</button>`;
-        tbody.innerHTML += `<tr><td><span class="estado-${r.estado.toLowerCase().replace(' ', '-')}">${r.estado}</span></td><td>${fechaAct}</td><td><strong>${r.nombre_unidad}</strong></td><td>${r.titulo}</td><td>${r.creador_nombre}</td><td>${r.asignado_nombre || '-'}</td><td class="acciones">${acciones}</td></tr>`;
+        
+        // ✨ NUEVO: Lógica del globo de comentarios
+        const globoComentarios = (r.comentarios_count > 0)
+            ? `<span class="comentario-badge">${r.comentarios_count}</span>`
+            : '';
+            
+        tbody.innerHTML += `
+            <tr>
+                <td><span class="estado-${r.estado.toLowerCase().replace(' ', '-')}">${r.estado}</span></td>
+                <td>${fechaAct}</td>
+                <td><strong>${r.nombre_unidad}</strong></td>
+                <td>${r.titulo}</td>
+                <td>${globoComentarios}</td> <td>${r.creador_nombre}</td>
+                <td>${r.asignado_nombre || '-'}</td>
+                <td class="acciones">${acciones}</td>
+            </tr>
+        `;
     });
 }
-
 function renderizarKanban() {
-    // ... (código sin cambios)
     const colAbierto = document.getElementById('cards-abierto');
     const colProceso = document.getElementById('cards-en-proceso');
     const colCerrado = document.getElementById('cards-cerrado');
     if (!colAbierto || !colProceso || !colCerrado) return;
+    
     colAbierto.innerHTML = ''; colProceso.innerHTML = ''; colCerrado.innerHTML = '';
+
     const filtro = filtroEstado.value; 
-    const reclamosFiltrados = (filtro === 'Todos') ? reclamosCache : reclamosCache.filter(r => r.estado === filtro);
+    const reclamosFiltrados = (filtro === 'Todos')
+        ? reclamosCache
+        : reclamosCache.filter(r => r.estado === filtro);
+
     reclamosFiltrados.forEach(r => {
         const card = document.createElement('div');
         card.className = 'kanban-card'; card.draggable = true; card.dataset.reclamoId = r.id; 
-        card.innerHTML = `<h4>${r.titulo}</h4><p><strong>Unidad:</strong> ${r.nombre_unidad}</p><small>Creado por: ${r.creador_nombre}</small>`;
+        
+        // ✨ NUEVO: Lógica del globo de comentarios
+        const globoComentarios = (r.comentarios_count > 0)
+            ? `<span class="comentario-badge">${r.comentarios_count}</span>`
+            : '';
+
+        // ✨ AÑADIDO: Globo al HTML de la tarjeta
+        card.innerHTML = `
+            <h4>${r.titulo} ${globoComentarios}</h4> 
+            <p><strong>Unidad:</strong> ${r.nombre_unidad}</p>
+            <small>Creado por: ${r.creador_nombre}</small>
+        `;
+        
         card.addEventListener('click', () => abrirModalReclamo(r.id));
         card.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', r.id); e.target.style.opacity = '0.5'; });
         card.addEventListener('dragend', (e) => { e.target.style.opacity = '1'; });
+
         if (r.estado === 'Abierto') colAbierto.appendChild(card);
         else if (r.estado === 'En Proceso') colProceso.appendChild(card);
         else colCerrado.appendChild(card);

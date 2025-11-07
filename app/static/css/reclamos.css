@@ -134,3 +134,14 @@
     font-size: 0.95em;
     word-wrap: break-word;
 }
+/* Estilo para el globo de contador de comentarios */
+.comentario-badge {
+    background-color: #0056b3;
+    color: white;
+    font-size: 0.8em;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: 8px;
+    vertical-align: middle;
+}
