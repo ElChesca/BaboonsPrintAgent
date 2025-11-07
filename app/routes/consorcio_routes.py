@@ -9,23 +9,36 @@ import datetime
 bp = Blueprint('consorcio', __name__)
 
 # --- FUNCIÓN HELPER DE SEGURIDAD (Admin) ---
-def check_consorcio_permission(negocio_id, current_user):
-    # ... (código sin cambios)
+def check_consorcio_permission(negocio_id, current_user, require_superadmin=False):
     db = get_db()
-    if current_user['rol'] not in ('admin', 'superadmin'):
+    
+    # 1. Chequeo de rol
+    role_check_failed = False
+    if require_superadmin and current_user['rol'] != 'superadmin':
+        role_check_failed = True
+    elif not require_superadmin and current_user['rol'] not in ('admin', 'superadmin'):
+        role_check_failed = True
+        
+    if role_check_failed:
         return {'error': 'Acción no permitida por rol'}, 403
-    if current_user['rol'] == 'admin':
+
+    # 2. Chequeo de asignación (si no es superadmin)
+    if current_user['rol'] != 'superadmin':
         db.execute("SELECT 1 FROM usuarios_negocios WHERE usuario_id = %s AND negocio_id = %s",
                    (current_user['id'], negocio_id))
         if not db.fetchone():
             return {'error': 'Usuario no asignado a este negocio'}, 403
+    
+    # 3. Chequeo de TIPO de App
     db.execute("SELECT tipo_app FROM negocios WHERE id = %s", (negocio_id,))
     negocio = db.fetchone()
+    
     if not negocio:
         return {'error': 'Negocio no encontrado'}, 404
     if negocio['tipo_app'] != 'consorcio':
         return {'error': 'Esta acción solo es válida para negocios de tipo "Consorcio"'}, 400
-    return None, None
+        
+    return None, None # Sin error
 
 # ============================================
 # --- 1. RUTAS DE UNIDADES (Sin cambios) ---
@@ -170,8 +183,7 @@ def create_reclamo(current_user, negocio_id):
 
 @bp.route('/consorcio/reclamos/<int:reclamo_id>', methods=['PUT'])
 @token_required
-def update_reclamo(current_user, reclamo_id):
-    # ... (código sin cambios)
+def update_reclamo(current_user, reclamo_id):    
     data = request.get_json()
     db = get_db()
     db.execute("SELECT negocio_id FROM consorcio_reclamos WHERE id = %s", (reclamo_id,))
@@ -339,7 +351,8 @@ def get_expensa_periodo_detalles(current_user, periodo_id):
             eu.*, 
             u.nombre_unidad,
             u.inquilino_id,
-            u.propietario_id
+            u.propietario_id,
+            u.coeficiente 
         FROM consorcio_expensas_unidades eu
         JOIN consorcio_unidades u ON eu.unidad_id = u.id
         WHERE eu.periodo_id = %s
@@ -455,3 +468,46 @@ def get_mis_expensas(current_user, negocio_id):
     )
     expensas = db.fetchall()
     return jsonify([dict(row) for row in expensas])
+
+
+@bp.route('/consorcio/expensas-unidades/<int:expensa_unidad_id>/anular', methods=['PUT'])
+@token_required
+def anular_expensa_unidad(current_user, expensa_unidad_id):
+    db = get_db()
+    
+    # 1. Validar permisos de Superadmin
+    db.execute(
+        "SELECT p.negocio_id FROM consorcio_expensas_unidades eu JOIN consorcio_expensas_periodos p ON eu.periodo_id = p.id WHERE eu.id = %s",
+        (expensa_unidad_id,)
+    )
+    expensa = db.fetchone()
+    if not expensa:
+        return jsonify({'error': 'Registro de expensa no encontrado'}), 404
+    
+    # Usamos la función helper con 'require_superadmin=True'
+    error, status = check_consorcio_permission(expensa['negocio_id'], current_user, require_superadmin=True)
+    if error:
+        return jsonify(error), status
+        
+    # 2. Si tiene permiso, anular (setear a 0)
+    try:
+        db.execute(
+            """
+            UPDATE consorcio_expensas_unidades SET
+                monto_ordinario = 0,
+                monto_extraordinario = 0,
+                monto_total = 0,
+                saldo_pendiente = 0,
+                estado_pago = 'Anulado',
+                notas_pago = %s
+            WHERE id = %s
+            """,
+            (f"Anulado por Superadmin {current_user['nombre']} el {datetime.date.today()}", expensa_unidad_id)
+        )
+        g.db_conn.commit()
+        return jsonify({'message': 'Expensa anulada con éxito'}), 200
+        
+    except Exception as e:
+        g.db_conn.rollback()
+        print(f"Error en anular_expensa_unidad: {e}")
+        return jsonify({'error': str(e)}), 500
