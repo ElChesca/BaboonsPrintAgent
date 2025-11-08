@@ -88,25 +88,60 @@ async function renderizarComentarios(reclamoId) {
 async function poblarSelectoresModal() {
     if (selectsPopulating) return;
     selectsPopulating = true;
+    
     try {
-        const urlUsuarios = '/api/usuarios';
-        const urlUnidades = esAdmin()
-            ? `/api/consorcio/${appState.negocioActivoId}/unidades`
-            : `/api/consorcio/${appState.negocioActivoId}/mis-unidades`;
-        const [usuarios, unidades] = await Promise.all([fetchData(urlUsuarios), fetchData(urlUnidades)]);
-        usuariosAdminCache = usuarios.filter(u => u.rol === 'admin' || u.rol === 'superadmin');
-        misUnidadesCache = unidades;
+        // Arrays para guardar los resultados
+        let usuarios = [];
+        let unidades = [];
+
+        // Creamos las promesas
+        const promesas = [];
+
+        // ✨ LÓGICA DE ROLES MEJORADA ✨
+        if (esAdmin()) {
+            // 1. Si es Admin, necesita la lista de TODOS los usuarios (para asignar)
+            promesas.push(fetchData('/api/usuarios'));
+            // 2. Y la lista de TODAS las unidades (para crear reclamos en nombre de otros)
+            promesas.push(fetchData(`/api/consorcio/${appState.negocioActivoId}/unidades`));
+
+            // Ejecutamos ambas promesas
+            const [usuariosData, unidadesData] = await Promise.all(promesas);
+            usuarios = usuariosData;
+            unidades = unidadesData;
+
+            // Llenamos el <select> de "Asignar A" (solo admins)
+            usuariosAdminCache = usuarios.filter(u => u.rol === 'admin' || u.rol === 'superadmin');
+            const selectAsignado = document.getElementById('reclamo-asignado');
+            if (selectAsignado) { // Verificamos que exista
+                selectAsignado.innerHTML = '<option value="">-- Sin Asignar --</option>';
+                usuariosAdminCache.forEach(u => {
+                    selectAsignado.innerHTML += `<option value="${u.id}">${u.nombre}</option>`;
+                });
+            }
+
+        } else {
+            // 1. Si es Inquilino, SOLO necesita la lista de "Mis Unidades"
+            promesas.push(fetchData(`/api/consorcio/${appState.negocioActivoId}/mis-unidades`));
+            
+            // Ejecutamos la única promesa
+            const [unidadesData] = await Promise.all(promesas);
+            unidades = unidadesData;
+        }
+
+        // --- Lógica Común ---
+        // Ambos roles necesitan llenar el <select> de Unidades
+        misUnidadesCache = unidades; // Guardamos en caché
         const selectUnidad = document.getElementById('reclamo-unidad');
-        if (selectUnidad) {
+        if (selectUnidad) { // Verificamos que exista
             selectUnidad.innerHTML = '<option value="">-- Seleccione una unidad --</option>';
-            unidades.forEach(u => { selectUnidad.innerHTML += `<option value="${u.id}">${u.nombre_unidad}</option>`; });
+            unidades.forEach(u => {
+                selectUnidad.innerHTML += `<option value="${u.id}">${u.nombre_unidad}</option>`;
+            });
         }
-        const selectAsignado = document.getElementById('reclamo-asignado');
-        if (selectAsignado) {
-            selectAsignado.innerHTML = '<option value="">-- Sin Asignar --</option>';
-            usuariosAdminCache.forEach(u => { selectAsignado.innerHTML += `<option value="${u.id}">${u.nombre}</option>`; });
-        }
+
     } catch (error) {
+        // Si algo falla (ej. el 403 que veías), se notifica
+        console.error("Error en poblarSelectoresModal:", error);
         mostrarNotificacion('No se pudo cargar la lista de usuarios/unidades.', 'error');
     } finally {
         selectsPopulating = false;
