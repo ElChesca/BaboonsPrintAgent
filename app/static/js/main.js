@@ -437,10 +437,14 @@ async function inicializarModulo(page) {
                 await poblarSelectorNegocios();
                 break;
             
-            case 'home_consorcio':
-                console.log("Módulo Home (Consorcio) detectado.");
-                await poblarSelectorNegocios();
-                break;
+           case 'home_consorcio':
+                // 1. Importamos la lógica del nuevo portal
+                const { inicializarLogicaHomeConsorcio } = await import(`./modules/home_consorcio.js${v}`);              
+                // 2. Ejecutamos el inicializador
+                inicializarLogicaHomeConsorcio();                
+                // (Ya no necesitamos poblarSelectorNegocios aquí,
+                //  porque la lógica de inicialización lo hará)
+                break;            
             
             // ✨ CASOS DE CONSORCIO (NUEVOS)
             case 'unidades':

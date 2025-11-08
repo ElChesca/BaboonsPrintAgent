@@ -1,4 +1,4 @@
-<div class="app-dashboard">
+<div class="app-dashboard admin-only">
     <h2 class="dashboard-title">Mis Aplicaciones (Consorcio)</h2>
     <div class="app-grid">
         
@@ -21,28 +21,69 @@
             <img src="/static/img/icons/dashboard.png" alt="Comunicados" class="app-icon">
             <span class="app-name">Comunicados</span>
         </div>
-
     </div>
-</div>
 
-<div class="app-dashboard" style="padding-top: 15px;"> 
-    <h2 class="dashboard-title">Configuración</h2>
-    
-    <div class="app-grid admin-only"> 
-        
+    <h2 class="dashboard-title" style="padding-top: 15px;">Configuración</h2>
+    <div class="app-grid"> 
         <div class="app-card" onclick="loadContent(event, 'static/configuracion.html', this)">
             <img src="/static/img/icons/configuracion.png" alt="Configuracion" class="app-icon">
              <span class="app-name">Conf. y Reglas</span>
         </div>
-        
-        <div class="app-card admin-only" onclick="loadContent(event, 'static/usuarios.html', this)">
+        <div class="app-card" onclick="loadContent(event, 'static/usuarios.html', this)">
             <img src="/static/img/icons/usuarios.png" alt="Usuarios" class="app-icon">
             <span class="app-name">Usuarios</span>
         </div>
-        
         <div class="app-card superadmin-only" onclick="loadContent(event, 'static/negocios.html', this)">
             <img src="/static/img/icons/negocios.png" alt="Negocios" class="app-icon">
             <span class="app-name">Negocios</span>
         </div>
     </div> 
 </div>
+
+<div class="inquilino-portal operador-only">
+    <h2 class="dashboard-title">Portal de Inquilino</h2>
+    
+    <div class="main-grid">
+        
+        <div class="card">
+            <h3>Mis Expensas</h3>
+            <div class="tabla-contenedor">
+                <table class="tabla-bonita">
+                    <thead>
+                        <tr>
+                            <th>Período</th>
+                            <th>Unidad</th>
+                            <th>Vencimiento</th>
+                            <th>Total</th>
+                            <th>Saldo</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="portal-tabla-expensas">
+                        <tr><td colspan="6">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Mis Reclamos</h3>
+            <div class="tabla-contenedor">
+                <table class="tabla-bonita">
+                    <thead>
+                        <tr>
+                            <th>Estado</th>
+                            <th>Actualizado</th>
+                            <th>Unidad</th>
+                            <th>Título</th>
+                            <th>Msg</th>
+                        </tr>
+                    </thead>
+                    <tbody id="portal-tabla-reclamos">
+                        <tr><td colspan="5">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div> </div>

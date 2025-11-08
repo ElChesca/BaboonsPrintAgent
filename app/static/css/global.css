@@ -489,3 +489,24 @@ body.app-retail #main-nav a.nav-retail,
 body.app-consorcio #main-nav a.nav-consorcio {
      display: revert !important; 
 }
+
+*/
+.operador-only {
+    display: none !important;
+}
+
+/*
+ * Muestra los elementos 'operador-only' si el body
+ * tiene la clase 'rol-operador'.
+*/
+body.rol-operador .operador-only {
+    display: block !important;
+}
+
+/*
+ * (Opcional) Asegúrate de que el 'admin-only'
+ * se oculte si el rol es 'operador'.
+*/
+body.rol-operador .admin-only {
+    display: none !important;
+}
