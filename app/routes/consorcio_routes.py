@@ -7,9 +7,7 @@ from app.auth_decorator import token_required
 import datetime
 
 bp = Blueprint('consorcio', __name__)
-
-# --- FUNCIÓN HELPER DE SEGURIDAD (Admin) ---
-def check_consorcio_permission(negocio_id, current_user, require_superadmin=False):
+def check_permission(negocio_id, current_user, require_superadmin=False, app_type=None):
     db = get_db()
     
     # 1. Chequeo de rol
@@ -18,7 +16,6 @@ def check_consorcio_permission(negocio_id, current_user, require_superadmin=Fals
         role_check_failed = True
     elif not require_superadmin and current_user['rol'] not in ('admin', 'superadmin'):
         role_check_failed = True
-        
     if role_check_failed:
         return {'error': 'Acción no permitida por rol'}, 403
 
@@ -29,26 +26,25 @@ def check_consorcio_permission(negocio_id, current_user, require_superadmin=Fals
         if not db.fetchone():
             return {'error': 'Usuario no asignado a este negocio'}, 403
     
-    # 3. Chequeo de TIPO de App
-    db.execute("SELECT tipo_app FROM negocios WHERE id = %s", (negocio_id,))
-    negocio = db.fetchone()
-    
-    if not negocio:
-        return {'error': 'Negocio no encontrado'}, 404
-    if negocio['tipo_app'] != 'consorcio':
-        return {'error': 'Esta acción solo es válida para negocios de tipo "Consorcio"'}, 400
-        
+    # 3. Chequeo de TIPO de App (Opcional)
+    if app_type:
+        db.execute("SELECT tipo_app FROM negocios WHERE id = %s", (negocio_id,))
+        negocio = db.fetchone()
+        if not negocio:
+            return {'error': 'Negocio no encontrado'}, 404
+        if negocio['tipo_app'] != app_type:
+            return {'error': f'Esta acción solo es válida para negocios de tipo "{app_type}"'}, 400
+            
     return None, None # Sin error
-
 # ============================================
 # --- 1. RUTAS DE UNIDADES (Sin cambios) ---
 # ============================================
 @bp.route('/consorcio/<int:negocio_id>/unidades', methods=['GET'])
 @token_required
 def get_unidades(current_user, negocio_id):
-    # ... (código sin cambios)
-    error, status = check_consorcio_permission(negocio_id, current_user)
+    error, status = check_permission(negocio_id, current_user, app_type='consorcio')
     if error: return jsonify(error), status
+    # ... (resto de la lógica de la función sin cambios) ...
     db = get_db()
     db.execute("SELECT u.*, i.nombre AS inquilino_nombre, p.nombre AS propietario_nombre FROM consorcio_unidades u LEFT JOIN usuarios i ON u.inquilino_id = i.id LEFT JOIN usuarios p ON u.propietario_id = p.id WHERE u.negocio_id = %s ORDER BY u.nombre_unidad", (negocio_id,))
     return jsonify([dict(row) for row in db.fetchall()])
@@ -56,65 +52,59 @@ def get_unidades(current_user, negocio_id):
 @bp.route('/consorcio/<int:negocio_id>/unidades', methods=['POST'])
 @token_required
 def create_unidad(current_user, negocio_id):
-    # ... (código sin cambios)
-    error, status = check_consorcio_permission(negocio_id, current_user)
+    error, status = check_permission(negocio_id, current_user, app_type='consorcio')
     if error: return jsonify(error), status
+    # ... (resto de la lógica de la función sin cambios) ...
     data = request.get_json()
-    if not data or not data.get('nombre_unidad'):
-        return jsonify({'error': 'El campo "nombre_unidad" es obligatorio'}), 400
+    if not data or not data.get('nombre_unidad'): return jsonify({'error': 'El campo "nombre_unidad" es obligatorio'}), 400
     db = get_db()
     try:
         db.execute("INSERT INTO consorcio_unidades (negocio_id, nombre_unidad, piso, metros_cuadrados, coeficiente, inquilino_id, propietario_id, descripcion) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
                    (negocio_id, data['nombre_unidad'], data.get('piso'), data.get('metros_cuadrados'), data.get('coeficiente'), data.get('inquilino_id') or None, data.get('propietario_id') or None, data.get('descripcion')))
-        nuevo_id = db.fetchone()['id']
         g.db_conn.commit()
-        return jsonify({'message': 'Unidad creada con éxito', 'id': nuevo_id}), 201
+        return jsonify({'message': 'Unidad creada'}), 201
     except Exception as e:
-        g.db_conn.rollback()
-        if 'unique constraint' in str(e): return jsonify({'error': 'Ya existe una unidad con ese nombre en este consorcio'}), 409
+        g.db_conn.rollback();
+        if 'unique constraint' in str(e): return jsonify({'error': 'Ya existe una unidad con ese nombre'}), 409
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/consorcio/unidades/<int:unidad_id>', methods=['PUT'])
 @token_required
 def update_unidad(current_user, unidad_id):
-    # ... (código sin cambios)
-    data = request.get_json()
-    db = get_db()
-    db.execute("SELECT negocio_id FROM consorcio_unidades WHERE id = %s", (unidad_id,))
-    unidad = db.fetchone()
+    db = get_db(); db.execute("SELECT negocio_id FROM consorcio_unidades WHERE id = %s", (unidad_id,))
+    unidad = db.fetchone();
     if not unidad: return jsonify({'error': 'Unidad no encontrada'}), 404
-    error, status = check_consorcio_permission(unidad['negocio_id'], current_user)
+    error, status = check_permission(unidad['negocio_id'], current_user, app_type='consorcio')
     if error: return jsonify(error), status
+    # ... (resto de la lógica de la función sin cambios) ...
+    data = request.get_json()
     try:
         db.execute("UPDATE consorcio_unidades SET nombre_unidad = %s, piso = %s, metros_cuadrados = %s, coeficiente = %s, inquilino_id = %s, propietario_id = %s, descripcion = %s WHERE id = %s",
                    (data['nombre_unidad'], data.get('piso'), data.get('metros_cuadrados'), data.get('coeficiente'), data.get('inquilino_id') or None, data.get('propietario_id') or None, data.get('descripcion'), unidad_id))
         g.db_conn.commit()
-        return jsonify({'message': 'Unidad actualizada con éxito'}), 200
+        return jsonify({'message': 'Unidad actualizada'}), 200
     except Exception as e:
-        g.db_conn.rollback()
-        if 'unique constraint' in str(e): return jsonify({'error': 'Ya existe otra unidad con ese nombre en este consorcio'}), 409
+        g.db_conn.rollback();
+        if 'unique constraint' in str(e): return jsonify({'error': 'Ya existe otra unidad con ese nombre'}), 409
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/consorcio/unidades/<int:unidad_id>', methods=['DELETE'])
 @token_required
 def delete_unidad(current_user, unidad_id):
-    # ... (código sin cambios)
-    db = get_db()
-    db.execute("SELECT negocio_id FROM consorcio_unidades WHERE id = %s", (unidad_id,))
-    unidad = db.fetchone()
+    db = get_db(); db.execute("SELECT negocio_id FROM consorcio_unidades WHERE id = %s", (unidad_id,))
+    unidad = db.fetchone();
     if not unidad: return jsonify({'error': 'Unidad no encontrada'}), 404
-    error, status = check_consorcio_permission(unidad['negocio_id'], current_user)
+    error, status = check_permission(unidad['negocio_id'], current_user, app_type='consorcio')
     if error: return jsonify(error), status
+    # ... (resto de la lógica de la función sin cambios) ...
     try:
         db.execute("DELETE FROM consorcio_unidades WHERE id = %s", (unidad_id,))
         g.db_conn.commit()
-        return jsonify({'message': 'Unidad eliminada con éxito'}), 200
+        return jsonify({'message': 'Unidad eliminada'}), 200
     except Exception as e:
-        g.db_conn.rollback()
-        if 'foreign key constraint' in str(e): return jsonify({'error': 'No se puede eliminar la unidad, tiene datos asociados.'}), 400
+        g.db_conn.rollback();
+        if 'foreign key constraint' in str(e): return jsonify({'error': 'No se puede eliminar, tiene datos asociados.'}), 400
         return jsonify({'error': str(e)}), 500
-
-
 # ============================================
 # --- 2. RUTAS DE RECLAMOS 
 # ============================================
@@ -220,8 +210,9 @@ def update_reclamo(current_user, reclamo_id):
     db.execute("SELECT negocio_id FROM consorcio_reclamos WHERE id = %s", (reclamo_id,))
     reclamo = db.fetchone()
     if not reclamo: return jsonify({'error': 'Reclamo no encontrado'}), 404
-    error, status = check_consorcio_permission(reclamo['negocio_id'], current_user)
+    error, status = check_permission(reclamo['negocio_id'], current_user, app_type='consorcio')
     if error: return jsonify(error), status
+
     try:
         db.execute("UPDATE consorcio_reclamos SET titulo = %s, descripcion = %s, estado = %s, usuario_asignado_id = %s, fecha_actualizacion = %s WHERE id = %s",
                    (data.get('titulo'), data.get('descripcion'), data.get('estado', 'Abierto'), data.get('usuario_asignado_id') or None, datetime.datetime.now(datetime.timezone.utc), reclamo_id))
@@ -239,8 +230,9 @@ def delete_reclamo(current_user, reclamo_id):
     db.execute("SELECT negocio_id FROM consorcio_reclamos WHERE id = %s", (reclamo_id,))
     reclamo = db.fetchone()
     if not reclamo: return jsonify({'error': 'Reclamo no encontrado'}), 404
-    error, status = check_consorcio_permission(reclamo['negocio_id'], current_user)
+    error, status = check_permission(reclamo['negocio_id'], current_user, app_type='consorcio')
     if error: return jsonify(error), status
+    
     try:
         db.execute("DELETE FROM consorcio_reclamos WHERE id = %s", (reclamo_id,))
         g.db_conn.commit()
@@ -318,9 +310,8 @@ def add_reclamo_comentario(current_user, reclamo_id):
 @token_required
 def create_expensa_periodo(current_user, negocio_id):
     # Solo Admins pueden crear períodos
-    error, status = check_consorcio_permission(negocio_id, current_user)
-    if error:
-        return jsonify(error), status
+    error, status = check_permission(negocio_id, current_user, app_type='consorcio')
+    if error: return jsonify(error), status
         
     data = request.get_json()
     # 'periodo' debe venir como 'YYYY-MM-DD' (usar el día 1)
@@ -366,9 +357,8 @@ def emitir_expensa_periodo(current_user, periodo_id):
     if not periodo:
         return jsonify({'error': 'Período no encontrado'}), 404
         
-    error, status = check_consorcio_permission(periodo['negocio_id'], current_user)
-    if error:
-        return jsonify(error), status
+    error, status = check_permission(periodo['negocio_id'], current_user, app_type='consorcio')
+    if error: return jsonify(error), status
         
     # 2. Validar estado
     if periodo['estado'] != 'Borrador':
@@ -485,9 +475,8 @@ def registrar_pago_expensa(current_user, expensa_unidad_id):
     if not expensa:
         return jsonify({'error': 'Registro de expensa no encontrado'}), 404
         
-    error, status = check_consorcio_permission(expensa['negocio_id'], current_user)
-    if error:
-        return jsonify(error), status
+    error, status = check_permission(expensa['negocio_id'], current_user, app_type='consorcio')
+    if error: return jsonify(error), status
         
     # 2. Calcular nuevo saldo
     try:
@@ -576,9 +565,8 @@ def anular_expensa_unidad(current_user, expensa_unidad_id):
         return jsonify({'error': 'Registro de expensa no encontrado'}), 404
     
     # Usamos la función helper con 'require_superadmin=True'
-    error, status = check_consorcio_permission(expensa['negocio_id'], current_user, require_superadmin=True)
-    if error:
-        return jsonify(error), status
+    error, status = check_permission(expensa['negocio_id'], current_user, require_superadmin=True, app_type='consorcio')
+    if error: return jsonify(error), status
         
     # 2. Si tiene permiso, anular (setear a 0)
     try:
@@ -650,4 +638,142 @@ def get_reclamo_comentarios(current_user, reclamo_id):
         return jsonify({'error': str(e)}), 500
     
 
+    # =======================================================
+# 4. --- ✨ NUEVAS RUTAS PARA NOTICIAS/COMUNICADOS ✨ ---
+# =======================================================
+
+# [GET] Obtener todos los comunicados (para todos)
+@bp.route('/consorcio/<int:negocio_id>/noticias', methods=['GET'])
+@token_required
+def get_noticias(current_user, negocio_id):
+    # No se requiere ser admin, solo pertenecer al negocio
+    db = get_db()
     
+    # 1. Validar que el usuario pertenece al negocio
+    if current_user['rol'] != 'superadmin':
+        db.execute("SELECT 1 FROM usuarios_negocios WHERE usuario_id = %s AND negocio_id = %s",
+                   (current_user['id'], negocio_id))
+        if not db.fetchone():
+            return jsonify({'error': 'No autorizado'}), 403
+            
+    # 2. Obtener noticias
+    db.execute(
+        """
+        SELECT n.*, u.nombre as creador_nombre
+        FROM consorcio_noticias n
+        JOIN usuarios u ON n.usuario_creador_id = u.id
+        WHERE n.negocio_id = %s
+        ORDER BY n.es_fijado DESC, n.fecha_creacion DESC
+        """,
+        (negocio_id,)
+    )
+    noticias = db.fetchall()
+    return jsonify([dict(row) for row in noticias])
+
+# [POST] Crear un nuevo comunicado (Solo Admin)
+@bp.route('/consorcio/<int:negocio_id>/noticias', methods=['POST'])
+@token_required
+def create_noticia(current_user, negocio_id):
+    # Solo Admins pueden crear
+    error, status = check_permission(negocio_id, current_user, app_type='consorcio')
+    if error:
+        return jsonify(error), status
+        
+    data = request.get_json()
+    if not data or not data.get('titulo') or not data.get('cuerpo'):
+        return jsonify({'error': 'Título y Cuerpo son obligatorios'}), 400
+        
+    db = get_db()
+    try:
+        db.execute(
+            """
+            INSERT INTO consorcio_noticias
+            (negocio_id, usuario_creador_id, titulo, cuerpo, es_fijado)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (
+                negocio_id,
+                current_user['id'],
+                data['titulo'],
+                data['cuerpo'],
+                data.get('es_fijado', False)
+            )
+        )
+        nuevo_id = db.fetchone()['id']
+        g.db_conn.commit()
+        return jsonify({'message': 'Comunicado publicado', 'id': nuevo_id}), 201
+    except Exception as e:
+        g.db_conn.rollback()
+        print(f"Error en create_noticia: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# [PUT] Actualizar un comunicado (Solo Admin)
+@bp.route('/consorcio/noticias/<int:noticia_id>', methods=['PUT'])
+@token_required
+def update_noticia(current_user, noticia_id):
+    data = request.get_json()
+    if not data or not data.get('titulo') or not data.get('cuerpo'):
+        return jsonify({'error': 'Título y Cuerpo son obligatorios'}), 400
+
+    db = get_db()
+    
+    # 1. Validar permisos
+    db.execute("SELECT negocio_id FROM consorcio_noticias WHERE id = %s", (noticia_id,))
+    noticia = db.fetchone()
+    if not noticia:
+        return jsonify({'error': 'Comunicado no encontrado'}), 404
+        
+    error, status = check_permission(noticia['negocio_id'], current_user, app_type='consorcio')
+    if error:
+        return jsonify(error), status
+        
+    # 2. Actualizar
+    try:
+        db.execute(
+            """
+            UPDATE consorcio_noticias SET
+                titulo = %s,
+                cuerpo = %s,
+                es_fijado = %s
+            WHERE id = %s
+            """,
+            (
+                data['titulo'],
+                data['cuerpo'],
+                data.get('es_fijado', False),
+                noticia_id
+            )
+        )
+        g.db_conn.commit()
+        return jsonify({'message': 'Comunicado actualizado'}), 200
+    except Exception as e:
+        g.db_conn.rollback()
+        print(f"Error en update_noticia: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# [DELETE] Borrar un comunicado (Solo Admin)
+@bp.route('/consorcio/noticias/<int:noticia_id>', methods=['DELETE'])
+@token_required
+def delete_noticia(current_user, noticia_id):
+    db = get_db()
+    
+    # 1. Validar permisos
+    db.execute("SELECT negocio_id FROM consorcio_noticias WHERE id = %s", (noticia_id,))
+    noticia = db.fetchone()
+    if not noticia:
+        return jsonify({'error': 'Comunicado no encontrado'}), 404
+        
+    error, status = check_permission(noticia['negocio_id'], current_user, app_type='consorcio')
+    if error:
+        return jsonify(error), status
+        
+    # 2. Borrar
+    try:
+        db.execute("DELETE FROM consorcio_noticias WHERE id = %s", (noticia_id,))
+        g.db_conn.commit()
+        return jsonify({'message': 'Comunicado eliminado'}), 200
+    except Exception as e:
+        g.db_conn.rollback()
+        print(f"Error en delete_noticia: {e}")
+        return jsonify({'error': str(e)}), 500

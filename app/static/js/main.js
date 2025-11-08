@@ -478,6 +478,20 @@ async function inicializarModulo(page) {
                 // 3. Ejecutamos el inicializador
                 inicializarLogicaExpensas();
                 break;
+            case 'noticias':                
+                const { 
+                    inicializarLogicaNoticias,
+                    abrirModalNoticia,
+                    borrarNoticia
+                } = await import(`./modules/noticias.js${v}`);
+                
+                // 2. Exponemos las funciones 'onclick' (solo para admin)
+                window.abrirModalNoticia = abrirModalNoticia;
+                window.borrarNoticia = borrarNoticia;
+                
+                // 3. Ejecutamos el inicializador
+                inicializarLogicaNoticias();
+                break;
 
             default:
                 console.warn(`No se encontró lógica de inicialización para el módulo: ${pageName}`);
