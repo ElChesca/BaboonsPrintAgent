@@ -295,8 +295,7 @@ export async function borrarReclamo(id) {
 // --- Función de Inicialización ---
 export async function inicializarLogicaReclamos() {
     
-    // ✨ ESTA VEZ, NO HAY 'await' AQUÍ.
-
+    // 1. Buscamos los elementos ESENCIALES primero
     modal = document.getElementById('modal-reclamo');
     form = document.getElementById('form-reclamo');
     tituloModal = document.getElementById('modal-reclamo-titulo');
@@ -304,19 +303,18 @@ export async function inicializarLogicaReclamos() {
     filtroEstado = document.getElementById('filtro-reclamo-estado');
     formComentario = document.getElementById('form-nuevo-comentario');
     
-    // ✨ VALIDACIÓN "BLINDADA" (LA MÁS IMPORTANTE)
-    // Si falta alguno de los elementos del HTML, el módulo no se inicializa.
+    // Si falta algo básico (como el modal o el filtro), no continuamos.
     if (!modal || !form || !filtroEstado || !formComentario) {
         console.error('No se encontraron los elementos del DOM para Reclamos. El HTML está incompleto.');
-        return; // Detiene la ejecución
+        return;
     }
 
-    // Si la validación pasa, continuamos
+    // 2. Cargamos los datos
     await poblarSelectorEstados();
     await cargarReclamos();
     poblarSelectoresModal();
     
-    // Listeners
+    // 3. Listeners BÁSICOS (para todos los roles)
     filtroEstado.addEventListener('change', () => {
         renderizarTabla();
         renderizarKanban();
@@ -330,78 +328,79 @@ export async function inicializarLogicaReclamos() {
         if (e.target == modal) modal.style.display = 'none';
     });
 
-    // --- LÓGICA DE DRAG & DROP ---
-    const columnas = document.querySelectorAll('.kanban-cards-container');
-    if (columnas.length > 0) {
-        columnas.forEach(columna => {
-            columna.addEventListener('dragover', (e) => {
-                e.preventDefault(); 
-                columna.classList.add('drag-over');
+    // ✨ --- 4. LÓGICA SÓLO PARA ADMINS --- ✨
+    // Envolvemos el Drag&Drop y el Toggle en una validación 'esAdmin()'
+    if (esAdmin()) {
+        
+        // --- Lógica de Drag & Drop ---
+        const columnas = document.querySelectorAll('.kanban-cards-container');
+        if (columnas.length > 0) {
+            columnas.forEach(columna => {
+                columna.addEventListener('dragover', (e) => {
+                    e.preventDefault(); 
+                    columna.classList.add('drag-over');
+                });
+                columna.addEventListener('dragleave', () => {
+                    columna.classList.remove('drag-over');
+                });
+                columna.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    columna.classList.remove('drag-over');
+                    const reclamoId = e.dataTransfer.getData('text/plain');
+                    const columnaId = columna.id;
+                    
+                    let nuevoEstado = '';
+                    if (columnaId.includes('abierto')) nuevoEstado = 'Abierto';
+                    if (columnaId.includes('en-proceso')) nuevoEstado = 'En Proceso';
+                    if (columnaId.includes('cerrado')) nuevoEstado = 'Cerrado';
+
+                    if (!nuevoEstado) return; 
+                    const reclamo = reclamosCache.find(r => r.id == reclamoId);
+                    if (reclamo.estado === nuevoEstado) return;
+
+                    // (Ya estamos dentro de 'esAdmin()', así que no hace falta chequear de nuevo)
+                    try {
+                        mostrarNotificacion('Actualizando estado...', 'info');
+                        await sendData(`/api/consorcio/reclamos/${reclamoId}`, { 
+                            estado: nuevoEstado,
+                            titulo: reclamo.titulo, 
+                            descripcion: reclamo.descripcion,
+                            usuario_asignado_id: reclamo.usuario_asignado_id
+                        }, 'PUT');
+
+                        await cargarReclamos();
+                        mostrarNotificacion('Estado actualizado.', 'success');
+                    } catch (error) {
+                        mostrarNotificacion(error.message, 'error');
+                    }
+                });
             });
-            columna.addEventListener('dragleave', () => {
-                columna.classList.remove('drag-over');
+        } else {
+            console.warn('Contenedores Kanban no encontrados.');
+        }
+
+        // --- Lógica del Toggle de Vistas ---
+        const btnTabla = document.getElementById('btn-vista-tabla');
+        const btnKanban = document.getElementById('btn-vista-kanban');
+        const vistaTabla = document.getElementById('vista-tabla');
+        const vistaKanban = document.getElementById('vista-kanban');
+
+        if (btnTabla && btnKanban && vistaTabla && vistaKanban) {
+            btnTabla.addEventListener('click', () => {
+                vistaTabla.style.display = 'block';
+                vistaKanban.style.display = 'none';
+                btnTabla.classList.add('active');
+                btnKanban.classList.remove('active');
             });
-            columna.addEventListener('drop', async (e) => {
-                e.preventDefault();
-                columna.classList.remove('drag-over');
-                const reclamoId = e.dataTransfer.getData('text/plain');
-                const columnaId = columna.id;
-                
-                let nuevoEstado = '';
-                if (columnaId.includes('abierto')) nuevoEstado = 'Abierto';
-                if (columnaId.includes('en-proceso')) nuevoEstado = 'En Proceso';
-                if (columnaId.includes('cerrado')) nuevoEstado = 'Cerrado';
-
-                if (!nuevoEstado) return; 
-                const reclamo = reclamosCache.find(r => r.id == reclamoId);
-                if (reclamo.estado === nuevoEstado) return;
-
-                if (!esAdmin()) {
-                    mostrarNotificacion('Solo los administradores pueden cambiar el estado.', 'warning');
-                    return;
-                }
-
-                try {
-                    mostrarNotificacion('Actualizando estado...', 'info');
-                    await sendData(`/api/consorcio/reclamos/${reclamoId}`, { 
-                        estado: nuevoEstado,
-                        titulo: reclamo.titulo, 
-                        descripcion: reclamo.descripcion,
-                        usuario_asignado_id: reclamo.usuario_asignado_id
-                    }, 'PUT');
-
-                    await cargarReclamos();
-                    mostrarNotificacion('Estado actualizado.', 'success');
-                } catch (error) {
-                    mostrarNotificacion(error.message, 'error');
-                }
+            btnKanban.addEventListener('click', () => {
+                vistaTabla.style.display = 'none';
+                vistaKanban.style.display = 'block';
+                btnTabla.classList.remove('active');
+                btnKanban.classList.add('active');
             });
-        });
-    } else {
-        // Esto puede pasar si el HTML no se dibujó a tiempo, pero no debería
-        console.warn('Contenedores Kanban no encontrados.');
-    }
-
-    // --- LÓGICA DEL TOGGLE DE VISTAS ---
-    const btnTabla = document.getElementById('btn-vista-tabla');
-    const btnKanban = document.getElementById('btn-vista-kanban');
-    const vistaTabla = document.getElementById('vista-tabla');
-    const vistaKanban = document.getElementById('vista-kanban');
-
-    if (btnTabla && btnKanban && vistaTabla && vistaKanban) {
-        btnTabla.addEventListener('click', () => {
-            vistaTabla.style.display = 'block';
-            vistaKanban.style.display = 'none';
-            btnTabla.classList.add('active');
-            btnKanban.classList.remove('active');
-        });
-        btnKanban.addEventListener('click', () => {
-            vistaTabla.style.display = 'none';
-            vistaKanban.style.display = 'block';
-            btnTabla.classList.remove('active');
-            btnKanban.classList.add('active');
-        });
-    } else {
-        console.warn('Botones de cambio de vista no encontrados.');
-    }
+        } else {
+            console.warn('Botones de cambio de vista no encontrados.');
+        }
+        
+    } // <-- Fin del 'if (esAdmin())'
 }
