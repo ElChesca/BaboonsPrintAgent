@@ -208,9 +208,8 @@ export async function actualizarUIAutenticacion() {
                 logout();
             });
             
-            await poblarSelectorNegocios(); // Setea ID y TIPO
-            
-            actualizarUIporTipoApp(); // Setea clases del <body>
+            await poblarSelectorNegocios(); // Setea appState.negocioActivoTipo
+            actualizarUIporTipoApp(); // Setea la clase del <body>
             
             console.log("Selectores de negocio poblados y UI de app actualizada.");
             
@@ -222,31 +221,48 @@ export async function actualizarUIAutenticacion() {
                 return;
             }
 
-            // ✨ LÓGICA DE HOME CORREGIDA (la que ya tenías)
+            // --- ✨ INICIO DE LA CORRECCIÓN ---
+            // 1. Definimos cuál es el "home" por defecto para este usuario
             const defaultHomePage = appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail';
-            let pageToLoad = requestedPage && requestedPage !== 'login' ? requestedPage : defaultHomePage;
+            
+            // 2. Decidimos qué página cargar
+            let pageToLoad = (requestedPage && requestedPage !== 'login') ? requestedPage : defaultHomePage;
 
-            // SI LA PÁGINA SOLICITADA ES EL 'home' VIEJO O VACÍO, forzar al home por defecto
+            // 3. Si la URL pide el 'home' viejo o está vacía, forzamos al "home" por defecto
             if (pageToLoad === 'home' || pageToLoad === '') {
                 pageToLoad = defaultHomePage;
             }
 
-            console.log(`Página a cargar (después de validación de home): ${pageToLoad}`);
+            // 4. ✨ VALIDACIÓN DE SEGURIDAD (CAPA 1) ✨
+            // ¡Validamos ANTES de llamar a loadContent!
+            const tipoAppActual = appState.negocioActivoTipo;
+            if (tipoAppActual && pageToLoad !== 'login') {
+                const rutasPermitidas = APP_RUTAS[tipoAppActual] || [];
+                const rutasComunes = APP_RUTAS['comun'] || [];
 
-            const fullHash = window.location.hash.substring(1);
-            const defaultHomeHtml = `${defaultHomePage}.html`;
-            
-            const pageUrlToLoad = `static/${pageToLoad}.html${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
-            
-            console.log(`URL completa a cargar (corregida): ${pageUrlToLoad}`);
-            
-            if (pageToLoad === defaultHomePage && requestedPage !== defaultHomePage) {
-                window.location.hash = pageToLoad;
+                // Si la página a cargar NO es válida para este tipo de app...
+                if (!rutasPermitidas.includes(pageToLoad) && !rutasComunes.includes(pageToLoad)) {
+                    console.warn(`Redirección (en Auth): Usuario '${tipoAppActual}' intentó cargar '${pageToLoad}'. Forzando a home por defecto.`);
+                    // ...la forzamos a ser la home por defecto ANTES de que ocurra el error.
+                    pageToLoad = defaultHomePage;
+                }
             }
             
-            await loadContent(null, pageUrlToLoad); // loadContent ahora validará la ruta
+            // 5. Actualizamos el HASH si es necesario (ej. /#home -> /#home_consorcio)
+            if (requestedPage !== pageToLoad) {
+                window.location.hash = pageToLoad;
+            }
+
+            // 6. Preparamos la URL final para cargar
+            const fullHash = window.location.hash.substring(1);
+            const pageUrlToLoad = `static/${pageToLoad}.html${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
+            
+            console.log(`URL completa a cargar (validada): ${pageUrlToLoad}`);
+            await loadContent(null, pageUrlToLoad);
+            // --- FIN DE LA CORRECCIÓN ---
 
         } else {
+            // ... (Lógica de 'else' para no logueado, sin cambios)
             console.log("Usuario NO válido o no encontrado. Preparando UI para login...");
             appState.userRol = null;
             appState.negocioActivoId = null;
@@ -269,7 +285,6 @@ export async function actualizarUIAutenticacion() {
         hideGlobalLoader();
     }
 }
-
 // ✨ --- INICIALIZADOR DE MÓDULOS MODIFICADO --- ✨
 async function inicializarModulo(page) {
     console.log(`inicializarModulo llamada con page = "${page}"`);
