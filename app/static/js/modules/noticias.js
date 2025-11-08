@@ -1,7 +1,7 @@
 // static/js/modules/noticias.js
-// ✨ ARCHIVO NUEVO ✨
+// ✨ ARCHIVO ACTUALIZADO (CON LÓGICA FormData) ✨
 
-import { appState, esAdmin } from '../main.js';
+import { appState, esAdmin, getAuthHeaders } from '../main.js'; // ✨ getAuthHeaders
 import { fetchData, sendData } from '../api.js';
 import { mostrarNotificacion } from './notifications.js';
 
@@ -11,8 +11,7 @@ let modal, form, tituloModal, idInput;
 function renderizarNoticias() {
     const listaDiv = document.getElementById('lista-noticias');
     if (!listaDiv) return;
-
-    listaDiv.innerHTML = ''; // Limpiar lista
+    listaDiv.innerHTML = ''; 
 
     if (noticiasCache.length === 0) {
         listaDiv.innerHTML = '<p>No hay comunicados para mostrar.</p>';
@@ -22,7 +21,6 @@ function renderizarNoticias() {
     noticiasCache.forEach(n => {
         const fecha = new Date(n.fecha_creacion).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
         
-        // Acciones solo para admin
         const accionesAdmin = esAdmin() ? `
             <div class="noticia-card-footer">
                 <button class="btn-secondary btn-sm" onclick="window.abrirModalNoticia(${n.id})">Editar</button>
@@ -30,23 +28,31 @@ function renderizarNoticias() {
             </div>
         ` : '';
 
-        // Icono de "Fijado"
         const iconoFijado = n.es_fijado ? '<span class="pin-icon">📌 FIJADO</span>' : '';
         const claseFijado = n.es_fijado ? 'fijado' : '';
+
+        // ✨ NUEVO: Mostrar el enlace al archivo adjunto
+        const bloqueAdjunto = n.archivo_url ? `
+            <div class="noticia-adjunto">
+                <strong>Adjunto:</strong> 
+                <a href="${n.archivo_url}" target="_blank" download="${n.archivo_nombre || 'descarga'}">
+                    ${n.archivo_nombre || 'Ver Archivo'}
+                </a>
+            </div>
+        ` : '';
 
         listaDiv.innerHTML += `
             <div class="noticia-card ${claseFijado}">
                 <div class="noticia-card-header">
                     <h3>${n.titulo}</h3>
                     <div class="noticia-card-meta">
-                        Publicado por <strong>${n.creador_nombre}</strong>
-                        <br>
-                        ${fecha}
-                        ${iconoFijado}
+                        Publicado por <strong>${n.creador_nombre}</strong><br>
+                        ${fecha} ${iconoFijado}
                     </div>
                 </div>
                 <div class="noticia-card-body">
                     <p>${n.cuerpo}</p>
+                    ${bloqueAdjunto} 
                 </div>
                 ${accionesAdmin}
             </div>
@@ -66,8 +72,10 @@ async function cargarNoticias() {
 
 export function abrirModalNoticia(id = null) {
     form.reset();
+    const infoArchivo = document.getElementById('archivo-actual-info');
+    infoArchivo.style.display = 'none'; // Ocultar por defecto
+    
     if (id) {
-        // Modo Edición
         const noticia = noticiasCache.find(n => n.id === id);
         if (!noticia) return;
         
@@ -76,38 +84,68 @@ export function abrirModalNoticia(id = null) {
         document.getElementById('noticia-titulo').value = noticia.titulo;
         document.getElementById('noticia-cuerpo').value = noticia.cuerpo;
         document.getElementById('noticia-fijado').checked = noticia.es_fijado;
+        
+        // ✨ NUEVO: Mostrar info del archivo actual
+        if (noticia.archivo_url) {
+            document.getElementById('archivo-actual-link').href = noticia.archivo_url;
+            document.getElementById('archivo-actual-link').textContent = noticia.archivo_nombre;
+            document.getElementById('noticia-eliminar-archivo').checked = false;
+            infoArchivo.style.display = 'block';
+        }
     } else {
-        // Modo Creación
         tituloModal.textContent = 'Nuevo Comunicado';
         idInput.value = '';
     }
     modal.style.display = 'flex';
 }
 
+// ✨ FUNCIÓN 'guardarNoticia' (TOTALMENTE REESCRITA)
 async function guardarNoticia(e) {
     e.preventDefault();
     const id = idInput.value;
     const esEdicion = !!id;
-    
-    const data = {
-        titulo: document.getElementById('noticia-titulo').value,
-        cuerpo: document.getElementById('noticia-cuerpo').value,
-        es_fijado: document.getElementById('noticia-fijado').checked
-    };
 
-    if (!data.titulo || !data.cuerpo) {
-        mostrarNotificacion('El título y el cuerpo son obligatorios.', 'warning');
-        return;
+    // 1. Crear FormData
+    const formData = new FormData();
+    formData.append('titulo', document.getElementById('noticia-titulo').value);
+    formData.append('cuerpo', document.getElementById('noticia-cuerpo').value);
+    formData.append('es_fijado', document.getElementById('noticia-fijado').checked);
+
+    // 2. Añadir el archivo si existe
+    const archivoInput = document.getElementById('noticia-archivo');
+    if (archivoInput.files[0]) {
+        formData.append('archivo', archivoInput.files[0]);
+    }
+    
+    // 3. Chequear si se quiere eliminar el archivo existente (en modo edición)
+    if (esEdicion) {
+        formData.append('eliminar_archivo', document.getElementById('noticia-eliminar-archivo').checked);
     }
 
+    // 4. Definir URL y Método
+    // (Usamos POST para ambas, ya que PUT con FormData es problemático)
     const url = esEdicion 
         ? `/api/consorcio/noticias/${id}` 
         : `/api/consorcio/${appState.negocioActivoId}/noticias`;
-    
-    const method = esEdicion ? 'PUT' : 'POST';
+    const method = 'POST';
 
+    // 5. Enviar con Fetch (no podemos usar sendData)
     try {
-        await sendData(url, data, method);
+        const headers = getAuthHeaders();
+        // Quitamos Content-Type para que el navegador lo ponga
+        delete headers['Content-Type']; 
+
+        const response = await fetch(url, {
+            method: method,
+            headers: headers,
+            body: formData
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || `Error ${response.status}`);
+        }
+
         mostrarNotificacion(`Comunicado ${esEdicion ? 'actualizado' : 'publicado'} con éxito.`, 'success');
         modal.style.display = 'none';
         await cargarNoticias(); // Recargar la lista
@@ -117,12 +155,11 @@ async function guardarNoticia(e) {
 }
 
 export async function borrarNoticia(id) {
-    if (!confirm('¿Estás seguro de que quieres eliminar este comunicado?')) return;
-    
+    if (!confirm('¿Estás seguro...')) return;
     try {
         await sendData(`/api/consorcio/noticias/${id}`, {}, 'DELETE');
         mostrarNotificacion('Comunicado eliminado.', 'success');
-        await cargarNoticias(); // Recargar la lista
+        await cargarNoticias();
     } catch (error) {
         mostrarNotificacion(error.message, 'error');
     }
@@ -130,7 +167,7 @@ export async function borrarNoticia(id) {
 
 // --- Función de Inicialización ---
 export async function inicializarLogicaNoticias() {
-    await new Promise(resolve => setTimeout(resolve, 0)); // Espera a que el DOM esté listo
+    await new Promise(resolve => setTimeout(resolve, 0)); 
     
     modal = document.getElementById('modal-noticia');
     form = document.getElementById('form-noticia');
@@ -142,10 +179,8 @@ export async function inicializarLogicaNoticias() {
         return;
     }
 
-    // Cargar datos
     cargarNoticias();
     
-    // Listeners (solo para admin)
     if (esAdmin()) {
         document.getElementById('btn-abrir-modal-noticia').addEventListener('click', () => abrirModalNoticia());
         document.getElementById('close-modal-noticia').addEventListener('click', () => modal.style.display = 'none');

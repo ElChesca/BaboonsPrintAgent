@@ -1,6 +1,8 @@
 # app/routes/consorcio_routes.py
 # ✨ ARCHIVO ACTUALIZADO (CON UNIDADES + RECLAMOS + EXPENSAS) ✨
-
+import os
+from flask import current_app
+from werkzeug.utils import secure_filename
 from flask import Blueprint, request, jsonify, g
 from app.database import get_db
 from app.auth_decorator import token_required
@@ -638,28 +640,26 @@ def get_reclamo_comentarios(current_user, reclamo_id):
         return jsonify({'error': str(e)}), 500
     
 
-    # =======================================================
+# =======================================================
 # 4. --- ✨ NUEVAS RUTAS PARA NOTICIAS/COMUNICADOS ✨ ---
 # =======================================================
-
-# [GET] Obtener todos los comunicados (para todos)
+# [GET] Obtener todos los comunicados (ACTUALIZADO)
 @bp.route('/consorcio/<int:negocio_id>/noticias', methods=['GET'])
 @token_required
 def get_noticias(current_user, negocio_id):
-    # No se requiere ser admin, solo pertenecer al negocio
     db = get_db()
-    
-    # 1. Validar que el usuario pertenece al negocio
     if current_user['rol'] != 'superadmin':
         db.execute("SELECT 1 FROM usuarios_negocios WHERE usuario_id = %s AND negocio_id = %s",
                    (current_user['id'], negocio_id))
         if not db.fetchone():
             return jsonify({'error': 'No autorizado'}), 403
             
-    # 2. Obtener noticias
+    # ✨ CAMBIO: Añadimos 'archivo_url' y 'archivo_nombre'
     db.execute(
         """
-        SELECT n.*, u.nombre as creador_nombre
+        SELECT n.id, n.titulo, n.cuerpo, n.es_fijado, n.fecha_creacion, 
+               n.archivo_url, n.archivo_nombre, 
+               u.nombre as creador_nombre
         FROM consorcio_noticias n
         JOIN usuarios u ON n.usuario_creador_id = u.id
         WHERE n.negocio_id = %s
@@ -670,26 +670,48 @@ def get_noticias(current_user, negocio_id):
     noticias = db.fetchall()
     return jsonify([dict(row) for row in noticias])
 
-# [POST] Crear un nuevo comunicado (Solo Admin)
+# [POST] Crear un nuevo comunicado (ACTUALIZADO para recibir FormData)
 @bp.route('/consorcio/<int:negocio_id>/noticias', methods=['POST'])
 @token_required
 def create_noticia(current_user, negocio_id):
-    # Solo Admins pueden crear
     error, status = check_permission(negocio_id, current_user, app_type='consorcio')
     if error:
         return jsonify(error), status
         
-    data = request.get_json()
+    # Ya no usamos get_json(), usamos request.form
+    data = request.form
     if not data or not data.get('titulo') or not data.get('cuerpo'):
         return jsonify({'error': 'Título y Cuerpo son obligatorios'}), 400
         
+    archivo_url_db = None
+    archivo_nombre_db = None
+
+    # --- Lógica de subida de archivo ---
+    if 'archivo' in request.files:
+        file = request.files['archivo']
+        if file.filename != '':
+            # 1. Crear nombre seguro y path
+            filename = secure_filename(file.filename)
+            # Guardamos en 'app/static/uploads/consorcio/NEGOCIO_ID/...'
+            upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'consorcio', str(negocio_id))
+            os.makedirs(upload_dir, exist_ok=True) # Crea la carpeta si no existe
+            file_path = os.path.join(upload_dir, filename)
+            
+            # 2. Guardar el archivo
+            file.save(file_path)
+            
+            # 3. Guardar la URL pública y el nombre
+            archivo_url_db = f"/static/uploads/consorcio/{negocio_id}/{filename}"
+            archivo_nombre_db = filename
+    # --- Fin lógica de subida ---
+            
     db = get_db()
     try:
         db.execute(
             """
             INSERT INTO consorcio_noticias
-            (negocio_id, usuario_creador_id, titulo, cuerpo, es_fijado)
-            VALUES (%s, %s, %s, %s, %s)
+            (negocio_id, usuario_creador_id, titulo, cuerpo, es_fijado, archivo_url, archivo_nombre)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
@@ -697,7 +719,9 @@ def create_noticia(current_user, negocio_id):
                 current_user['id'],
                 data['titulo'],
                 data['cuerpo'],
-                data.get('es_fijado', False)
+                data.get('es_fijado') == 'true', # Los booleanos de FormData llegan como string
+                archivo_url_db,
+                archivo_nombre_db
             )
         )
         nuevo_id = db.fetchone()['id']
@@ -708,18 +732,17 @@ def create_noticia(current_user, negocio_id):
         print(f"Error en create_noticia: {e}")
         return jsonify({'error': str(e)}), 500
 
-# [PUT] Actualizar un comunicado (Solo Admin)
-@bp.route('/consorcio/noticias/<int:noticia_id>', methods=['PUT'])
+# [PUT] Actualizar un comunicado (ACTUALIZADO para recibir FormData)
+# NOTA: PUT con FormData es complicado, usamos POST con un _method spoof
+@bp.route('/consorcio/noticias/<int:noticia_id>', methods=['POST']) # Cambiado a POST
 @token_required
 def update_noticia(current_user, noticia_id):
-    data = request.get_json()
+    data = request.form
     if not data or not data.get('titulo') or not data.get('cuerpo'):
         return jsonify({'error': 'Título y Cuerpo son obligatorios'}), 400
 
     db = get_db()
-    
-    # 1. Validar permisos
-    db.execute("SELECT negocio_id FROM consorcio_noticias WHERE id = %s", (noticia_id,))
+    db.execute("SELECT negocio_id, archivo_url, archivo_nombre FROM consorcio_noticias WHERE id = %s", (noticia_id,))
     noticia = db.fetchone()
     if not noticia:
         return jsonify({'error': 'Comunicado no encontrado'}), 404
@@ -728,20 +751,46 @@ def update_noticia(current_user, noticia_id):
     if error:
         return jsonify(error), status
         
-    # 2. Actualizar
+    # Valores por defecto (el archivo existente)
+    archivo_url_db = noticia['archivo_url']
+    archivo_nombre_db = noticia['archivo_nombre']
+
+    # --- Lógica de subida de archivo (reemplaza si se envía uno nuevo) ---
+    if 'archivo' in request.files:
+        file = request.files['archivo']
+        if file.filename != '':
+            # (Esta lógica es idéntica a la de 'create_noticia')
+            filename = secure_filename(file.filename)
+            upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'consorcio', str(noticia['negocio_id']))
+            os.makedirs(upload_dir, exist_ok=True)
+            file_path = os.path.join(upload_dir, filename)
+            file.save(file_path)
+            archivo_url_db = f"/static/uploads/consorcio/{noticia['negocio_id']}/{filename}"
+            archivo_nombre_db = filename
+            
+    # --- Lógica para eliminar archivo existente (si se marca) ---
+    if data.get('eliminar_archivo') == 'true' and 'archivo' not in request.files:
+        # (Aquí podríamos añadir lógica para borrar el archivo del disco)
+        archivo_url_db = None
+        archivo_nombre_db = None
+
     try:
         db.execute(
             """
             UPDATE consorcio_noticias SET
                 titulo = %s,
                 cuerpo = %s,
-                es_fijado = %s
+                es_fijado = %s,
+                archivo_url = %s,
+                archivo_nombre = %s
             WHERE id = %s
             """,
             (
                 data['titulo'],
                 data['cuerpo'],
-                data.get('es_fijado', False),
+                data.get('es_fijado') == 'true',
+                archivo_url_db,
+                archivo_nombre_db,
                 noticia_id
             )
         )
@@ -752,28 +801,19 @@ def update_noticia(current_user, noticia_id):
         print(f"Error en update_noticia: {e}")
         return jsonify({'error': str(e)}), 500
 
-# [DELETE] Borrar un comunicado (Solo Admin)
+# [DELETE] Borrar un comunicado (Sin cambios)
 @bp.route('/consorcio/noticias/<int:noticia_id>', methods=['DELETE'])
 @token_required
 def delete_noticia(current_user, noticia_id):
-    db = get_db()
-    
-    # 1. Validar permisos
-    db.execute("SELECT negocio_id FROM consorcio_noticias WHERE id = %s", (noticia_id,))
-    noticia = db.fetchone()
-    if not noticia:
-        return jsonify({'error': 'Comunicado no encontrado'}), 404
-        
+    # ... (código sin cambios)
+    db = get_db(); db.execute("SELECT negocio_id FROM consorcio_noticias WHERE id = %s", (noticia_id,))
+    noticia = db.fetchone();
+    if not noticia: return jsonify({'error': 'Comunicado no encontrado'}), 404
     error, status = check_permission(noticia['negocio_id'], current_user, app_type='consorcio')
-    if error:
-        return jsonify(error), status
-        
-    # 2. Borrar
+    if error: return jsonify(error), status
     try:
         db.execute("DELETE FROM consorcio_noticias WHERE id = %s", (noticia_id,))
         g.db_conn.commit()
         return jsonify({'message': 'Comunicado eliminado'}), 200
     except Exception as e:
-        g.db_conn.rollback()
-        print(f"Error en delete_noticia: {e}")
-        return jsonify({'error': str(e)}), 500
+        g.db_conn.rollback(); return jsonify({'error': str(e)}), 500
