@@ -175,13 +175,15 @@ async function poblarSelectorNegocios() {
 }
 
 // --- actualizarUIAutenticacion MODIFICADO ---
+// static/js/main.js
+// ✨ REEMPLAZAR ESTA FUNCIÓN COMPLETA ✨
+
 export async function actualizarUIAutenticacion() {
     showGlobalLoader();
     console.log("--- Iniciando actualizarUIAutenticacion ---");
     try {
         document.body.className = '';
         const user = getCurrentUser();
-        console.log("Usuario actual (desde token):", user);
         const mainNav = document.querySelector('#main-nav');
         const authLink = document.getElementById('auth-link');
         const businessSelectorBar = document.getElementById('business-selector-bar');
@@ -203,10 +205,7 @@ export async function actualizarUIAutenticacion() {
             const newAuthLink = authLink.cloneNode(true);
             newAuthLink.textContent = `Salir (${user.nombre})`;
             authLink.parentNode.replaceChild(newAuthLink, authLink);
-            newAuthLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                logout();
-            });
+            newAuthLink.addEventListener('click', (e) => { e.preventDefault(); logout(); });
             
             await poblarSelectorNegocios(); // Setea appState.negocioActivoTipo
             actualizarUIporTipoApp(); // Setea la clase del <body>
@@ -215,49 +214,37 @@ export async function actualizarUIAutenticacion() {
             
             const requestedPage = window.location.hash.substring(1).split('?')[0];
             const contentArea = document.getElementById('content-area');
+            if (!contentArea) { /* ... error ... */ }
 
-            if (!contentArea) {
-                console.error("Error crítico: No se encontró #content-area.");
-                return;
-            }
-
-            // --- ✨ INICIO DE LA CORRECCIÓN ---
-            // 1. Definimos cuál es el "home" por defecto para este usuario
+            // --- ✨ INICIO DE LA CORRECCIÓN (Lógica de Home) ---
             const defaultHomePage = appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail';
-            
-            // 2. Decidimos qué página cargar
             let pageToLoad = (requestedPage && requestedPage !== 'login') ? requestedPage : defaultHomePage;
-
-            // 3. Si la URL pide el 'home' viejo o está vacía, forzamos al "home" por defecto
             if (pageToLoad === 'home' || pageToLoad === '') {
                 pageToLoad = defaultHomePage;
             }
 
-            // 4. ✨ VALIDACIÓN DE SEGURIDAD (CAPA 1) ✨
-            // ¡Validamos ANTES de llamar a loadContent!
+            // ✨ VALIDACIÓN DE SEGURIDAD (CAPA 1) - ANTES de cargar
             const tipoAppActual = appState.negocioActivoTipo;
             if (tipoAppActual && pageToLoad !== 'login') {
                 const rutasPermitidas = APP_RUTAS[tipoAppActual] || [];
                 const rutasComunes = APP_RUTAS['comun'] || [];
 
-                // Si la página a cargar NO es válida para este tipo de app...
                 if (!rutasPermitidas.includes(pageToLoad) && !rutasComunes.includes(pageToLoad)) {
                     console.warn(`Redirección (en Auth): Usuario '${tipoAppActual}' intentó cargar '${pageToLoad}'. Forzando a home por defecto.`);
-                    // ...la forzamos a ser la home por defecto ANTES de que ocurra el error.
-                    pageToLoad = defaultHomePage;
+                    pageToLoad = defaultHomePage; // Forzamos al home correcto
                 }
             }
             
-            // 5. Actualizamos el HASH si es necesario (ej. /#home -> /#home_consorcio)
+            // Actualizamos el HASH si es necesario
             if (requestedPage !== pageToLoad) {
                 window.location.hash = pageToLoad;
             }
 
-            // 6. Preparamos la URL final para cargar
             const fullHash = window.location.hash.substring(1);
             const pageUrlToLoad = `static/${pageToLoad}.html${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
             
             console.log(`URL completa a cargar (validada): ${pageUrlToLoad}`);
+            // AHORA SÍ llamamos a loadContent, pero ya con la página VALIDADA
             await loadContent(null, pageUrlToLoad);
             // --- FIN DE LA CORRECCIÓN ---
 
@@ -269,7 +256,6 @@ export async function actualizarUIAutenticacion() {
             appState.negocioActivoTipo = null;
             localStorage.removeItem('negocioActivoId');
             header.style.display = 'none';
-
             if (!window.location.hash.includes('login')) {
                 await loadContent(null, 'static/login.html');
             } else {

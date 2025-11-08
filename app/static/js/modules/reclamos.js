@@ -293,9 +293,17 @@ export async function borrarReclamo(id) {
 }
 
 // --- Función de Inicialización ---
+// static/js/modules/reclamos.js
+// ✨ REEMPLAZAR ESTA FUNCIÓN ✨
+
 export async function inicializarLogicaReclamos() {
     
-    // 1. Buscamos los elementos ESENCIALES primero
+    // ✨ --- ¡VOLVEMOS A PONER EL PARCHE AQUÍ! --- ✨
+    // Esto fuerza al script a esperar que el navegador
+    // termine de "dibujar" el HTML de reclamos.html.
+    await new Promise(resolve => setTimeout(resolve, 0));
+    
+    // 1. Buscamos los elementos ESENCIALES
     modal = document.getElementById('modal-reclamo');
     form = document.getElementById('form-reclamo');
     tituloModal = document.getElementById('modal-reclamo-titulo');
@@ -303,16 +311,15 @@ export async function inicializarLogicaReclamos() {
     filtroEstado = document.getElementById('filtro-reclamo-estado');
     formComentario = document.getElementById('form-nuevo-comentario');
     
-    // Si falta algo básico (como el modal o el filtro), no continuamos.
     if (!modal || !form || !filtroEstado || !formComentario) {
         console.error('No se encontraron los elementos del DOM para Reclamos. El HTML está incompleto.');
-        return;
+        return; // Detiene la ejecución
     }
 
     // 2. Cargamos los datos
     await poblarSelectorEstados();
-    await cargarReclamos();
-    poblarSelectoresModal();
+    await cargarReclamos(); // Llama a renderizarTabla/Kanban
+    poblarSelectoresModal(); // Llama a /api/usuarios (si es admin) o /mis-unidades
     
     // 3. Listeners BÁSICOS (para todos los roles)
     filtroEstado.addEventListener('change', () => {
@@ -328,11 +335,32 @@ export async function inicializarLogicaReclamos() {
         if (e.target == modal) modal.style.display = 'none';
     });
 
-    // ✨ --- 4. LÓGICA SÓLO PARA ADMINS --- ✨
-    // Envolvemos el Drag&Drop y el Toggle en una validación 'esAdmin()'
+    // --- 4. LÓGICA DE VISTAS (PARA TODOS LOS ROLES) ---
+    // (Esta lógica ahora está fuera del 'if(esAdmin())')
+    const btnTabla = document.getElementById('btn-vista-tabla');
+    const btnKanban = document.getElementById('btn-vista-kanban');
+    const vistaTabla = document.getElementById('vista-tabla');
+    const vistaKanban = document.getElementById('vista-kanban');
+
+    if (btnTabla && btnKanban && vistaTabla && vistaKanban) {
+        btnTabla.addEventListener('click', () => {
+            vistaTabla.style.display = 'block';
+            vistaKanban.style.display = 'none';
+            btnTabla.classList.add('active');
+            btnKanban.classList.remove('active');
+        });
+        btnKanban.addEventListener('click', () => {
+            vistaTabla.style.display = 'none';
+            vistaKanban.style.display = 'block';
+            btnTabla.classList.remove('active');
+            btnKanban.classList.add('active');
+        });
+    } else {
+        console.warn('Botones de cambio de vista no encontrados.');
+    }
+
+    // --- 5. LÓGICA SÓLO PARA ADMINS (Drag & Drop) ---
     if (esAdmin()) {
-        
-        // --- Lógica de Drag & Drop ---
         const columnas = document.querySelectorAll('.kanban-cards-container');
         if (columnas.length > 0) {
             columnas.forEach(columna => {
@@ -358,7 +386,6 @@ export async function inicializarLogicaReclamos() {
                     const reclamo = reclamosCache.find(r => r.id == reclamoId);
                     if (reclamo.estado === nuevoEstado) return;
 
-                    // (Ya estamos dentro de 'esAdmin()', así que no hace falta chequear de nuevo)
                     try {
                         mostrarNotificacion('Actualizando estado...', 'info');
                         await sendData(`/api/consorcio/reclamos/${reclamoId}`, { 
@@ -376,31 +403,7 @@ export async function inicializarLogicaReclamos() {
                 });
             });
         } else {
-            console.warn('Contenedores Kanban no encontrados.');
+            console.warn('Contenedores Kanban no encontrados (Admin).');
         }
-
-        // --- Lógica del Toggle de Vistas ---
-        const btnTabla = document.getElementById('btn-vista-tabla');
-        const btnKanban = document.getElementById('btn-vista-kanban');
-        const vistaTabla = document.getElementById('vista-tabla');
-        const vistaKanban = document.getElementById('vista-kanban');
-
-        if (btnTabla && btnKanban && vistaTabla && vistaKanban) {
-            btnTabla.addEventListener('click', () => {
-                vistaTabla.style.display = 'block';
-                vistaKanban.style.display = 'none';
-                btnTabla.classList.add('active');
-                btnKanban.classList.remove('active');
-            });
-            btnKanban.addEventListener('click', () => {
-                vistaTabla.style.display = 'none';
-                vistaKanban.style.display = 'block';
-                btnTabla.classList.remove('active');
-                btnKanban.classList.add('active');
-            });
-        } else {
-            console.warn('Botones de cambio de vista no encontrados.');
-        }
-        
     } // <-- Fin del 'if (esAdmin())'
 }

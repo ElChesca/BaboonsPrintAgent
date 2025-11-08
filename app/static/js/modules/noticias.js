@@ -1,9 +1,11 @@
 // static/js/modules/noticias.js
 // ✨ ARCHIVO ACTUALIZADO (CON LÓGICA FormData) ✨
 
-import { appState, esAdmin, getAuthHeaders } from '../main.js'; // ✨ getAuthHeaders
+import { appState, esAdmin } from '../main.js';
 import { fetchData, sendData } from '../api.js';
 import { mostrarNotificacion } from './notifications.js';
+import { getAuthHeaders } from './auth.js'; // <-- ✨ LÍNEA AÑADIDA (la correcta)
+// ...
 
 let noticiasCache = [];
 let modal, form, tituloModal, idInput;
