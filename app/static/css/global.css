@@ -495,18 +495,25 @@ body.app-consorcio #main-nav a.nav-consorcio {
     display: none !important;
 }
 
-/*
- * Muestra los elementos 'operador-only' si el body
- * tiene la clase 'rol-operador'.
-*/
+/* 1. Ocultar todos los bloques de rol por defecto */
+.admin-only,
+.superadmin-only,
+.operador-only {
+    display: none !important;
+}
+
+/* 2. Mostrar bloques de 'operador' si el body es 'rol-operador' */
 body.rol-operador .operador-only {
     display: block !important;
 }
 
-/*
- * (Opcional) Asegúrate de que el 'admin-only'
- * se oculte si el rol es 'operador'.
-*/
-body.rol-operador .admin-only {
-    display: none !important;
+/* 3. Mostrar bloques 'admin' si el body es 'rol-admin' O 'rol-superadmin' */
+body.rol-admin .admin-only,
+body.rol-superadmin .admin-only {
+    display: block !important;
+}
+
+/* 4. Mostrar bloques 'superadmin' SOLO si el body es 'rol-superadmin' */
+body.rol-superadmin .superadmin-only {
+    display: block !important;
 }
