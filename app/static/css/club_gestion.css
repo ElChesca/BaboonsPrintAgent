@@ -1,0 +1,110 @@
+  /* Forzar estilos modernos si Bootstrap falla parcialmente */
+    .club-card {
+        background: #fff;
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        margin-bottom: 25px;
+        overflow: hidden;
+    }
+    .club-header {
+        background: #212529; /* Dark */
+        color: white;
+        padding: 15px 20px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .club-header-warning {
+        background: linear-gradient(45deg, #ffc107, #ffdb72);
+        color: #333;
+    }
+    .input-display {
+        font-size: 2rem !important;
+        font-weight: 800 !important;
+        text-align: center;
+        color: #0d6efd; /* Azul primario */
+        border: 2px solid #e9ecef;
+        background: #f8f9fa;
+        height: 70px;
+        border-radius: 10px;
+    }
+    .btn-action {
+        padding: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-radius: 8px;
+        transition: transform 0.2s;
+    }
+    .btn-action:hover {
+        transform: translateY(-2px);
+    }
+    /* Arreglo para la tabla */
+    .tabla-moderna {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .tabla-moderna th {
+        background: #f8f9fa;
+        padding: 15px;
+        font-weight: 600;
+        color: #6c757d;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .tabla-moderna td {
+        padding: 15px;
+        border-bottom: 1px solid #dee2e6;
+        vertical-align: middle;
+    }
+    /* 1. Forzamos que todas las tarjetas midan lo mismo de alto */
+    #premios-grilla .col {
+        display: flex; /* Permite que el hijo (card) llene la altura */
+    }
+
+    /* 2. Estilo de la tarjeta del premio */
+    .card-premio {
+        width: 100%;
+        border: none;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        transition: transform 0.2s;
+        display: flex;
+        flex-direction: column; /* Para empujar botones abajo */
+    }
+    
+    .card-premio:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+    }
+
+    /* 3. EL SECRETO: Contenedor de imagen fijo */
+    .img-premio-container {
+        width: 100%;
+        height: 200px; /* Altura fija para todas las fotos */
+        background-color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-bottom: 1px solid #f0f0f0;
+        padding: 10px;
+    }
+
+    /* 4. La imagen se ajusta sin deformarse */
+    .img-premio-container img {
+        max-height: 100%;
+        max-width: 100%;
+        object-fit: contain; /* Muestra toda la foto sin recortar */
+        /* Si prefieres que llene todo aunque recorte bordes, usa: object-fit: cover; */
+    }
+
+    .card-premio-body {
+        padding: 15px;
+        flex-grow: 1; /* Ocupa el espacio restante */
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }

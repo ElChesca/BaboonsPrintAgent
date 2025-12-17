@@ -66,10 +66,23 @@ def gestion_niveles(current_user):
 
 
 # --- HELPER: CALCULAR NIVEL ACTUAL ---
+# --- HELPER: CALCULAR NIVEL (BLINDADO) ---
 def calcular_nivel_cliente(db, negocio_id, puntos_actuales):
-    """Devuelve el nivel más alto alcanzado según los puntos."""
+    """
+    Devuelve el nivel. Si algo falla, devuelve nivel básico para no romper la app.
+    Maneja puntos None convirtiéndolos a 0.
+    """
+    nivel_default = {'nombre': 'Miembro', 'color': '#6c757d', 'icono': 'fa-user'}
+    
     try:
-        # Buscamos el nivel más alto que cumpla puntos_minimos <= puntos_actuales
+        # Validación defensiva: Si puntos es None, es 0.
+        if puntos_actuales is None:
+            puntos_actuales = 0
+            
+        # Nos aseguramos que sean enteros
+        puntos_actuales = int(puntos_actuales)
+        
+        # Buscamos el nivel más alto que cumpla el requisito
         db.execute("""
             SELECT nombre, color, icono, puntos_minimos 
             FROM niveles_club 
@@ -79,13 +92,103 @@ def calcular_nivel_cliente(db, negocio_id, puntos_actuales):
         """, (negocio_id, puntos_actuales))
         
         nivel = db.fetchone()
-        if nivel: return dict(nivel)
         
-        # Fallback si no hay niveles configurados
-        return {'nombre': 'Miembro', 'color': '#6c757d', 'icono': 'fa-user', 'puntos_minimos': 0}
-    except:
-        return {'nombre': 'Miembro', 'color': '#6c757d', 'icono': 'fa-user', 'puntos_minimos': 0}
+        if nivel:
+            # Convertimos a dict estándar para evitar problemas de tipos de cursor
+            return {
+                'nombre': nivel['nombre'],
+                'color': nivel['color'],
+                'icono': nivel['icono']
+            }
+            
+        return nivel_default
+
+    except Exception as e:
+        print(f"⚠️ Error calculando nivel (no crítico): {e}")
+        return nivel_default # Si falla, devuelve básico, PERO NO CRASHEA
+        
+# =========================================================
+# 🛠️ CORRECCIÓN DE TABLAS: "usuarios_club" -> "clientes"
+# =========================================================
+
+# --- APP CLIENTE: PERFIL ---
+@bp.route('/perfil', methods=['GET'])
+@token_required
+def obtener_mi_perfil_club(current_user):
+    db = get_db()
+    try:
+        # CORREGIDO: Usamos la tabla 'clientes'
+        db.execute("""
+            SELECT u.nombre, u.email, u.dni, u.puntos_acumulados, u.token_qr, u.negocio_id 
+            FROM clientes u 
+            WHERE u.id = %s
+        """, (current_user['id'],))
+        usuario = db.fetchone()
+        
+        if not usuario:
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+
+        # Calculamos nivel (con tu función helper existente)
+        # Usamos 'or 0' para evitar error si puntos es None
+        nivel_data = calcular_nivel_cliente(db, usuario['negocio_id'], usuario['puntos_acumulados'] or 0)
+
+        return jsonify({
+            'nombre': usuario['nombre'],
+            'email': usuario['email'],
+            'puntos_acumulados': usuario['puntos_acumulados'] or 0,
+            'token_qr': usuario['token_qr'],
+            'nivel': nivel_data
+        }), 200
+
+    except Exception as e:
+        print(f"🔥 Error perfil: {e}")
+        return jsonify({'error': 'Error al cargar perfil'}), 500
+
+
+# --- TERMINAL: INFO CLIENTE (SCAN QR) ---
+@bp.route('/admin/cliente-info/<token_qr>', methods=['GET'])
+@token_required
+def info_cliente_por_qr(current_user, token_qr):
+    # 1. Validación de Negocio ID
+    negocio_id = request.args.get('negocio_id')
+    # Si viene undefined o vacío, tratamos de sobrevivir o fallamos ordenadamente
+    if not negocio_id or negocio_id == 'undefined':
+        return jsonify({'error': 'Falta ID de negocio'}), 400
+
+    db = get_db()
     
+    try:
+        # 2. Búsqueda de Usuario (QR o DNI) EN LA TABLA CORRECTA 'clientes'
+        usuario = None
+        
+        # Intento A: QR
+        db.execute("SELECT * FROM clientes WHERE token_qr = %s AND negocio_id = %s", (token_qr, negocio_id))
+        usuario = db.fetchone()
+
+        # Intento B: DNI (Fallback)
+        if not usuario:
+            db.execute("SELECT * FROM clientes WHERE dni = %s AND negocio_id = %s", (token_qr, negocio_id))
+            usuario = db.fetchone()
+
+        if usuario:
+            # 3. Cálculo de Nivel
+            puntos = usuario['puntos_acumulados'] or 0
+            nivel_data = calcular_nivel_cliente(db, negocio_id, puntos)
+            
+            return jsonify({
+                'encontrado': True,
+                'nombre': usuario['nombre'],
+                'dni': usuario['dni'],
+                'puntos': puntos,
+                'token_qr': usuario['token_qr'],
+                'nivel': nivel_data 
+            }), 200
+        else:
+            return jsonify({'encontrado': False}), 200
+
+    except Exception as e:
+        print(f"🔥 Error recuperando cliente: {e}")
+        return jsonify({'error': str(e)}), 500
 # =========================================================
 # 👮 ÁREA ADMINISTRATIVA (Mozo / Dueño / Cajero)
 # =========================================================
@@ -723,3 +826,97 @@ def info_negocio(id):
             'logo_url': row['logo_url'] if row['logo_url'] else ''
         }), 200
     return jsonify({'error': 'Negocio no encontrado'}), 404
+
+# --- 15 . >>>>>>  📊 ESTADÍSTICAS PARA EL DASHBOARD ---
+# En app/routes/club_puntos_routes.py
+@bp.route('/admin/stats', methods=['GET'])
+@token_required
+def obtener_estadisticas_club(current_user):
+    negocio_id = request.args.get('negocio_id')
+    print(f"\n📊 STATS PARA NEGOCIO ID: {negocio_id}")
+    
+    db = get_db()
+    
+    try:
+        # --- 1. SUMAR PUNTOS OTORGADOS (Intentamos ambas tablas con seguridad) ---
+        puntos_otorgados = 0
+        
+        # Intento A: historial_cargas
+        try:
+            db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM historial_cargas WHERE negocio_id = %s", (negocio_id,))
+            row = db.fetchone()
+            if row: puntos_otorgados += int(row['total'])
+        except Exception as e:
+            print(f"   (Info) No se pudo leer historial_cargas: {e}")
+            if hasattr(g, 'db_conn'): g.db_conn.rollback() # <--- ¡ESTO FALTABA! Limpia el error
+
+        # Intento B: historial_puntos
+        try:
+            db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM historial_puntos WHERE negocio_id = %s", (negocio_id,))
+            row = db.fetchone()
+            if row: puntos_otorgados += int(row['total'])
+        except Exception as e: 
+            print(f"   (Info) No se pudo leer historial_puntos: {e}")
+            if hasattr(g, 'db_conn'): g.db_conn.rollback() # <--- ¡ESTO FALTABA! Limpia el error
+
+        print(f"   -> Total Otorgados: {puntos_otorgados}")
+
+
+        # --- 2. PUNTOS CANJEADOS ---
+        # Si fallaron las anteriores, el rollback ya limpió el camino para esta
+        try:
+            db.execute("""
+                SELECT COALESCE(SUM(p.costo_puntos), 0) as total
+                FROM canjes c
+                JOIN premios p ON c.premio_id = p.id
+                WHERE c.negocio_id = %s
+            """, (negocio_id,))
+            row = db.fetchone()
+            puntos_canjeados = int(row['total']) if row else 0
+        except Exception as e:
+            print(f"   (Info) Error en canjes: {e}")
+            if hasattr(g, 'db_conn'): g.db_conn.rollback()
+            puntos_canjeados = 0
+            
+        print(f"   -> Total Canjeados: {puntos_canjeados}")
+
+
+        # --- 3. TOP 5 PREMIOS ---
+        try:
+            db.execute("""
+                SELECT p.nombre, COUNT(c.id) as cantidad
+                FROM canjes c
+                JOIN premios p ON c.premio_id = p.id
+                WHERE c.negocio_id = %s
+                GROUP BY p.nombre
+                ORDER BY cantidad DESC
+                LIMIT 5
+            """, (negocio_id,))
+            top_premios = db.fetchall()
+        except Exception as e:
+            print(f"   (Info) Error en Top 5: {e}")
+            if hasattr(g, 'db_conn'): g.db_conn.rollback()
+            top_premios = []
+
+        # Formateo (usando claves de diccionario)
+        top_labels = [row['nombre'] for row in top_premios]
+        top_data = [row['cantidad'] for row in top_premios]
+
+        return jsonify({
+            'balance': {
+                'otorgados': puntos_otorgados,
+                'canjeados': puntos_canjeados
+            },
+            'top_premios': {
+                'labels': top_labels,
+                'data': top_data
+            }
+        }), 200
+
+    except Exception as e:
+        # Rollback final por si acaso
+        if hasattr(g, 'db_conn'): g.db_conn.rollback()
+        print(f"🔥 ERROR FATAL EN STATS: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'balance': {'otorgados':0, 'canjeados':0}, 'top_premios': {'labels':[], 'data':[]}}), 200

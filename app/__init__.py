@@ -1,9 +1,11 @@
 import os
-from flask import Flask, render_template, send_from_directory, abort 
+from flask import Flask, render_template, send_from_directory, abort, request, render_template_string 
+
 
 from .routes import facturacion_routes
 from .extensions import bcrypt
-from .database import close_db
+from .database import close_db, get_db
+
 
 def create_app():
     # Nota: Si tu carpeta static está fuera, Flask a veces necesita saberlo, 
@@ -66,12 +68,46 @@ def create_app():
     @app.route('/app-club')
     def serve_club_app():
         try:
-            # 1. No subimos ningún nivel. Static está aquí mismo.
-            # Construimos la ruta: .../app/static/Club
-            club_dir = os.path.join(app.root_path, 'static', 'Club')
+            # 1. Obtener ID del negocio de la URL (?id=5)
+            negocio_id = request.args.get('id')
             
-            # 2. Servimos el archivo
-            return send_from_directory(club_dir, 'club_app.html')
+            # Datos por defecto (Si no hay ID o falla)
+            og_title = "Club de Puntos Baboons"
+            og_image = f"{request.url_root}static/img/logo_baboons.png" # Asegúrate de tener un logo default
+            
+            # 2. Si hay ID, buscamos los datos reales en la BD
+            if negocio_id:
+                db = get_db()
+                try:
+                    # Buscamos nombre y logo
+                    db.execute("SELECT nombre, logo_url FROM negocios WHERE id = %s", (negocio_id,))
+                    row = db.fetchone()
+                    
+                    if row:
+                        og_title = f"Club {row['nombre']}" # Ej: "Club La Kosleña"
+                        
+                        if row['logo_url']:
+                            # WhatsApp NECESITA URL ABSOLUTA (https://...)
+                            img_path = row['logo_url']
+                            if img_path.startswith('http'):
+                                og_image = img_path
+                            else:
+                                # Construimos la URL completa: Dominio + Ruta relativa
+                                # .rstrip('/') evita duplicar barras //
+                                og_image = request.url_root.rstrip('/') + (img_path if img_path.startswith('/') else '/' + img_path)
+                                
+                except Exception as e:
+                    print(f"Error buscando negocio para OG: {e}")
+
+            # 3. Leer el archivo HTML manualmente desde static/Club
+            club_dir = os.path.join(app.root_path, 'static', 'Club')
+            file_path = os.path.join(club_dir, 'club_app.html')
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # 4. Inyectar las variables usando Jinja (render_template_string)
+            return render_template_string(content, og_title=og_title, og_image=og_image)
             
         except Exception as e:
             app.logger.error(f"Error sirviendo app-club: {e}")

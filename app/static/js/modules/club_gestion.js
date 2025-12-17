@@ -5,6 +5,8 @@ import { appState } from '../main.js';
 let clienteActivo = null;
 let html5QrCode = null;
 let cargandoPuntos = false;
+let chartBalanceInstance = null;
+let chartTopInstance = null;
 
 // =========================================================
 // 🚀 INICIALIZACIÓN
@@ -19,8 +21,9 @@ export function inicializarLogicaGestionClub() {
     // Cargas iniciales
     cargarConfiguracion(negocioId);
     cargarPremios(negocioId);
-    cargarNiveles(); // <--- Faltaba cargar la grilla de niveles
+    cargarNiveles(); 
     actualizarHistorialActivo();
+    cargarDashboard(); //Estadisticas
 
     // Listener para formulario de Premios
     const formPremio = document.getElementById('form-premio');
@@ -31,6 +34,95 @@ export function inicializarLogicaGestionClub() {
     }
 }
 
+// --- 📊 LÓGICA DEL DASHBOARD ---
+
+async function cargarDashboard() {
+    console.log("🚀 Iniciando carga del Dashboard...");
+    const ctxBalance = document.getElementById('chartBalance');
+    const ctxTop = document.getElementById('chartTop');
+
+    if (!ctxBalance || !ctxTop) {
+        console.error("❌ No encuentro los <canvas> en el HTML. ¿Pegaste el código HTML del dashboard?");
+        return;
+    }
+
+    // Chequeamos si la librería cargó
+    if (typeof Chart === 'undefined') {
+        console.error("❌ La librería Chart.js no está cargada. Revisa el <head> de tu HTML.");
+        mostrarNotificacion("Error: Librería de gráficos no encontrada", "error");
+        return;
+    }
+
+    try {
+        const url = `/api/club/admin/stats?negocio_id=${appState.negocioActivoId}`;
+        console.log("📡 Pidiendo datos a:", url);
+        
+        const data = await fetchData(url);
+        
+        console.log("📦 DATOS RECIBIDOS DEL BACKEND:", data);
+
+        // Validamos que los datos no sean nulos y los forzamos a números
+        const otorgados = parseInt(data.balance.otorgados) || 0;
+        const canjeados = parseInt(data.balance.canjeados) || 0;
+
+        console.log(`🔢 Parseados: Otorgados=${otorgados}, Canjeados=${canjeados}`);
+
+        // --- GRÁFICO 1: DONA ---
+        if (chartBalanceInstance) chartBalanceInstance.destroy();
+        
+        chartBalanceInstance = new Chart(ctxBalance, {
+            type: 'doughnut',
+            data: {
+                labels: ['Puntos Entregados', 'Puntos Canjeados'],
+                datasets: [{
+                    data: [otorgados, canjeados],
+                    backgroundColor: ['#ffc107', '#198754'],
+                    borderWidth: 1,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' }
+                }
+            }
+        });
+
+        // --- GRÁFICO 2: BARRAS ---
+        // Validamos arrays
+        const labels = (data.top_premios && data.top_premios.labels) ? data.top_premios.labels : [];
+        const valores = (data.top_premios && data.top_premios.data) ? data.top_premios.data : [];
+
+        console.log("📊 Datos Top Premios:", labels, valores);
+
+        if (chartTopInstance) chartTopInstance.destroy();
+
+        chartTopInstance = new Chart(ctxTop, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Canjes',
+                    data: valores,
+                    backgroundColor: '#0d6efd',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: { legend: { display: false } },
+                scales: { x: { beginAtZero: true } }
+            }
+        });
+
+    } catch (error) {
+        console.error("🔥 Error FATAL en Dashboard:", error);
+    }
+}
 // =========================================================
 // 📷 ESCÁNER QR (ADMIN) - FIX ID "reader-admin"
 // =========================================================
