@@ -1,19 +1,25 @@
-<link rel="stylesheet" href="/static/css/negocios.css"> <h2>🏢 Gestión de Negocios</h2>
+<link rel="stylesheet" href="/static/css/negocios.css"> 
+<h2>🏢 Gestión de Negocios</h2>
 
 <div class="card">
     <h3 id="form-negocio-titulo">Añadir Nuevo Negocio</h3>
     <form id="form-negocio">
         <input type="hidden" id="negocio-id">
         <div class="form-grid">
-            <div class="form-group grid-col-span-2">
+            <div class="form-group">
                 <label for="nombre-negocio">Nombre del Negocio:</label>
                 <input type="text" id="nombre-negocio" required>
             </div>
-            <div class="form-group grid-col-span-2">
+            <div class="form-group">
                 <label for="direccion-negocio">Dirección:</label>
                 <input type="text" id="direccion-negocio">
             </div>
-        </div>
+            <div class="form-group grid-col-span-2">
+                <label for="logo-negocio">URL del Logo (Ruta estática):</label>
+                <input type="text" id="logo-negocio" placeholder="/static/img/logos/mi_logo.png">
+                <small style="color: #888;">Guarda la imagen en /static/img/logos/ y escribe la ruta aquí.</small>
+            </div>
+            </div>
         <div class="form-actions">
             <button type="submit" class="btn-primary">Guardar</button>
             <button type="button" id="btn-cancelar-edicion-negocio" class="btn-secondary" style="display: none;">Cancelar</button>
@@ -28,7 +34,7 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Nombre</th>
+                    <th>Logo</th> <th>Nombre</th>
                     <th>Dirección</th>
                     <th>Acciones</th>
                 </tr>

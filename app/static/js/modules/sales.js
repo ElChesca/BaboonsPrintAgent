@@ -25,10 +25,13 @@ async function cargarDatosIniciales() {
         }
         // ✨ Lógica para poblar el nuevo selector de listas de precios
         const selectorListas = document.getElementById('lista-precios-selector');
-        selectorListas.innerHTML = '<option value="">(Por Cliente)</option>'; // Opción por defecto
-        listasPrecios.forEach(lp => {
-            selectorListas.innerHTML += `<option value="${lp.id}">${lp.nombre}</option>`;
-        });
+        
+        if (selectorListas) { // <--- ESTE IF FALTABA
+            selectorListas.innerHTML = '<option value="">(Por Cliente)</option>'; 
+            listasPrecios.forEach(lp => {
+                selectorListas.innerHTML += `<option value="${lp.id}">${lp.nombre}</option>`;
+            });
+        }
 
         // Renderizamos la grilla de acceso rápido y le pasamos la lógica que debe ejecutar al hacer clic
         ui.renderPosGrid(topProductos, (productId) => {

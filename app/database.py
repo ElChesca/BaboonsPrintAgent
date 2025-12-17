@@ -3,9 +3,9 @@ import os
 import psycopg2
 import psycopg2.extras # Importante para obtener resultados como diccionarios
 from flask import g
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
-load_dotenv() # Carga las variables del archivo .env si existe (para desarrollo local)
+#load_dotenv() # Carga las variables del archivo .env si existe (para desarrollo local)
 
 def get_db():
     """

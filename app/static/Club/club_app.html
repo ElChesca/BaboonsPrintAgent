@@ -1,0 +1,565 @@
+<!-- app > static > Club > club_app.html -->
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Club Baboons</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root { --primary-color: #ff6b00; --bg-dark: #121212; --card-bg: #1e1e1e; }
+        body { background-color: var(--bg-dark); color: white; font-family: 'Segoe UI', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+        .app-container { max-width: 480px; margin: 0 auto; width: 100%; padding: 20px; flex-grow: 1; display: flex; flex-direction: column; }
+        .card-custom { background-color: var(--card-bg); border-radius: 15px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .btn-baboons { background-color: var(--primary-color); color: white; font-weight: bold; border-radius: 25px; padding: 12px; width: 100%; border: none; font-size: 1.1rem;}
+        .btn-baboons:active { transform: scale(0.98); }
+        .form-control, .form-select { background-color: #2c2c2c; border: 1px solid #444; color: white; }
+        .form-control:focus, .form-select:focus { background-color: #333; color: white; border-color: var(--primary-color); box-shadow: none; }
+        .hidden { display: none !important; }
+        .nav-pills .nav-link.active { background-color: var(--primary-color); }
+        .nav-pills .nav-link { color: #aaa; cursor: pointer; }
+        .points-circle { width: 160px; height: 160px; border-radius: 50%; border: 6px solid var(--primary-color); display: flex; flex-direction: column; justify-content: center; align-items: center; margin: 0 auto; background: #2a2a2a; box-shadow: 0 0 20px rgba(255, 107, 0, 0.2); position: relative; }
+        .points-number { font-size: 3.5rem; font-weight: bold; line-height: 1; color: white; }
+        .points-label { font-size: 0.9rem; text-transform: uppercase; color: #aaa; letter-spacing: 1px; }
+        .qr-container { background: white; padding: 15px; border-radius: 15px; display: inline-block; margin-top: 25px; }
+        #dashboard-brand-container img { transition: all 0.3s ease; }
+        
+        /* Estilos para Premios */
+        .premio-item { border-bottom: 1px solid #333; padding: 10px 0; display: flex; justify-content: space-between; align-items: center; }
+        .premio-item:last-child { border-bottom: none; }
+        .badge-puntos { background-color: var(--primary-color); color: white; padding: 5px 10px; border-radius: 12px; font-size: 0.8rem; }
+        .modal-content { background-color: #1e1e1e; color: white; border: 1px solid #333; }
+        .modal-header { border-bottom: 1px solid #333; }
+        .modal-footer { border-top: 1px solid #333; }
+        .refresh-btn { position: absolute; bottom: 10px; right: 10px; background: #333; border: none; color: white; border-radius: 50%; width: 30px; height: 30px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-view" class="app-container justify-content-center">
+        <div class="text-center mb-4">
+            <div id="brand-container">
+                <div class="spinner-border text-light" role="status"></div>
+            </div>
+            <p class="text-secondary mt-2" id="brand-slogan">Tu fidelidad tiene premio</p>
+        </div>
+
+        <ul class="nav nav-pills nav-fill mb-4 p-1 bg-dark rounded-pill" role="tablist">
+            <li class="nav-item"><a class="nav-link active rounded-pill" onclick="toggleAuth('login')">Ingresar</a></li>
+            <li class="nav-item"><a class="nav-link rounded-pill" onclick="toggleAuth('register')">Registrarme</a></li>
+        </ul>
+
+        <div class="card-custom p-4">
+            <form id="form-login" onsubmit="handleLogin(event)">
+                <div class="mb-3">
+                    <label class="small text-secondary mb-1">DNI</label>
+                    <input type="number" class="form-control form-control-lg" id="login-dni" required placeholder="Ingresa tu DNI">
+                </div>
+                <div class="mb-4">
+                    <label class="small text-secondary mb-1">Contraseña</label>
+                    <input type="password" class="form-control form-control-lg" id="login-pass" required placeholder="******">
+                </div>
+                <button type="submit" class="btn-baboons">INGRESAR</button>
+            </form>
+            
+            <form id="form-register" class="hidden" onsubmit="handleRegister(event)" autocomplete="off">
+                <input type="text" style="opacity: 0; position: absolute; pointer-events: none; width: 1px; height: 1px;">
+                <input type="password" style="opacity: 0; position: absolute; pointer-events: none; width: 1px; height: 1px;">
+
+                <div class="mb-3">
+                    <label class="small text-secondary">Nombre y Apellido</label>
+                    <input type="text" class="form-control" id="reg-nombre" name="registro_nombre" required autocomplete="off">
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-6 pe-1">
+                        <label class="small text-secondary">DNI</label>
+                        <input type="number" class="form-control" id="reg-dni" name="registro_dni" required autocomplete="off">
+                    </div>
+                    <div class="col-6 ps-1">
+                        <label class="small text-secondary">Email</label>
+                        <input type="email" class="form-control" id="reg-email" name="registro_email" autocomplete="off" spellcheck="false">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="small text-secondary">Fecha Nacimiento</label>
+                    <div class="d-flex gap-2">
+                        <select class="form-select" id="reg-dia" required></select>
+                        <select class="form-select" id="reg-mes" required></select>
+                        <select class="form-select" id="reg-anio" required></select>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-6 pe-1">
+                        <label class="small text-secondary">Género</label>
+                        <select class="form-select" id="reg-genero" required>
+                            <option value="M">Masc</option>
+                            <option value="F">Fem</option>
+                            <option value="X">Otro</option>
+                        </select>
+                    </div>
+                    <div class="col-6 ps-1">
+                        <label class="small text-secondary">Pass</label>
+                        <input type="password" class="form-control" id="reg-pass" name="registro_password" required autocomplete="new-password">
+                    </div>
+                </div>
+
+                <div class="form-check mb-4">
+                    <input class="form-check-input" type="checkbox" id="reg-terminos" required>
+                    <label class="form-check-label small text-secondary">Acepto Términos</label>
+                </div>
+                
+                <button type="submit" class="btn-baboons">CREAR CUENTA</button>
+            </form>
+            
+        </div>
+        <div id="error-msg" class="text-danger text-center mt-3 fw-bold small"></div>
+    </div>
+
+    <div id="dashboard-view" class="app-container hidden text-center">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div id="dashboard-brand-container" style="max-width: 80px;"></div> 
+            
+            <div class="text-end">
+                <small class="text-muted d-block">Hola, <span id="user-name" class="fw-bold text-white"></span></small>
+                <button onclick="logout()" class="btn btn-sm btn-outline-secondary mt-1" style="border-radius: 20px; font-size: 0.75rem;">Salir</button>
+            </div>
+        </div>
+
+        <div class="points-circle mb-4">
+            <span class="points-number" id="user-points">0</span>
+            <span class="points-label">Puntos</span>
+            <button class="refresh-btn shadow-sm" onclick="actualizarPuntosManual()"><i class="fa fa-sync-alt"></i></button>
+        </div>
+
+        <div class="qr-container shadow">
+            <img id="qr-image" src="" alt="QR" width="200" height="200" style="display:none;">
+            <div id="qr-placeholder" class="text-dark p-4">
+                <i class="fa fa-qrcode fa-3x text-muted"></i>
+                <p class="small mt-2 mb-0">Generando código...</p>
+            </div>
+        </div>
+        <p class="mt-3 text-muted small">Muestra este código al mozo para sumar puntos</p>
+        
+        <div class="row g-2 mt-auto">
+
+        <div class="col-6">
+            <button onclick="abrirModalPremios()" class="btn btn-light w-100 py-3 rounded-4 shadow-sm fw-bold text-primary">
+                <i class="fa fa-gift fa-2x mb-1"></i><br>
+                Premios
+            </button>
+        </div>
+        
+        <div class="col-6">
+            <button onclick="abrirModalHistorial()" class="btn btn-light w-100 py-3 rounded-4 shadow-sm fw-bold text-dark">
+                <i class="fa fa-list-alt fa-2x mb-1"></i><br>
+                Movimientos
+            </button>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalHistorial" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold">📅 Mis Movimientos</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <ul class="list-group list-group-flush" id="lista-movimientos">
+                        </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+  <!--       <div class="mt-auto">
+             <button onclick="abrirModalPremios()" class="btn btn-outline-light w-100 py-3 rounded-pill fw-bold">
+                <i class="fa fa-gift me-2"></i> VER CATÁLOGO DE PREMIOS
+             </button>
+        </div> -->
+    </div>
+
+    <div class="modal fade" id="modalPremios" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold">🎁 Canjeá tus Puntos</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="lista-premios-container">
+                        <div class="text-center text-muted py-3">Cargando premios...</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 justify-content-center">
+                    <small class="text-muted">El canje se realiza presencialmente en caja</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const API_URL = '/api';
+        let NEGOCIO_ID = null;
+        let modalPremiosBS = null;
+        let modalHistorialBS;
+
+        window.onload = async () => {
+            modalPremiosBS = new bootstrap.Modal(document.getElementById('modalPremios'));
+            await establecerNegocioActivo();
+            await cargarInfoNegocio();
+            const token = localStorage.getItem('club_token');
+            if(token) {
+                try {
+                    await validarSesion(token);
+                } catch(e) { console.error(e); }
+            }
+            modalHistorialBS = new bootstrap.Modal(document.getElementById('modalHistorial'));
+
+        };
+
+        async function abrirModalHistorial() {
+            modalHistorialBS.show();
+            const lista = document.getElementById('lista-movimientos');
+            lista.innerHTML = '<li class="list-group-item bg-transparent text-center text-muted">Cargando...</li>';
+            
+            try {
+                const token = localStorage.getItem('club_token');
+                const res = await fetch(`${API_URL}/club/mi-historial`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const datos = await res.json();
+                
+                lista.innerHTML = '';
+                if(datos.length === 0) {
+                    lista.innerHTML = '<li class="list-group-item bg-transparent text-center text-muted">Aún no tienes movimientos.</li>';
+                    return;
+                }
+
+                datos.forEach(m => {
+                    const esCarga = m.tipo === 'carga';
+                    const color = esCarga ? 'text-success' : 'text-danger';
+                    const signo = esCarga ? '+' : '-';
+                    const icon = esCarga ? 'fa-arrow-down' : 'fa-arrow-up';
+
+                    lista.innerHTML += `
+                        <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold text-white">${m.detalle}</div>
+                                <small class="text-muted">${m.fecha}</small>
+                            </div>
+                            <div class="fs-5 fw-bold ${color}">
+                                ${signo}${m.puntos}
+                            </div>
+                        </li>
+                    `;
+                });
+
+            } catch(e) {
+                lista.innerHTML = '<li class="list-group-item text-danger">Error al cargar</li>';
+            }
+        }
+        async function establecerNegocioActivo() {
+            const params = new URLSearchParams(window.location.search);
+            const idUrl = params.get('id');
+            if (idUrl) { NEGOCIO_ID = idUrl; } 
+            else {
+                try {
+                    const res = await fetch(`${API_URL}/club/default-negocio`);
+                    if(res.ok) { const data = await res.json(); NEGOCIO_ID = data.id; }
+                    else { NEGOCIO_ID = 1; } // Fallback
+                } catch (e) { NEGOCIO_ID = 1; }
+            }
+        }
+
+        async function cargarInfoNegocio() {
+            const container = document.getElementById('brand-container');
+            try {
+                const res = await fetch(`${API_URL}/club/info-negocio/${NEGOCIO_ID}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    let htmlContent = '';
+                    if (data.logo_url) {
+                        let rutaLogo = data.logo_url;
+                        if (!rutaLogo.startsWith('/') && !rutaLogo.startsWith('http')) rutaLogo = '/' + rutaLogo;
+                        htmlContent = `<img src="${rutaLogo}" alt="${data.nombre}" style="max-width: 180px; max-height: 100px; object-fit: contain;">`;
+                    } else {
+                        htmlContent = `<h1 class="fw-bold text-white display-5">${data.nombre}</h1>`;
+                    }
+                    container.innerHTML = htmlContent;
+                    document.title = `Club ${data.nombre}`;
+                }
+            } catch (err) {
+                container.innerHTML = `<h1 class="fw-bold text-white display-5">BABOONS</h1>`;
+            }
+        }
+
+        async function validarSesion(token) {
+             const res = await fetch(`${API_URL}/club/perfil`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if(res.ok) {
+                const data = await res.json();
+                showDashboard({ nombre: data.nombre, puntos: data.puntos_acumulados, token_qr: data.token_qr });
+            } else { 
+                localStorage.removeItem('club_token'); 
+                document.getElementById('auth-view').classList.remove('hidden');
+                document.getElementById('dashboard-view').classList.add('hidden');
+            }
+        }
+
+        // --- FUNCIONES CORE ---
+        function toggleAuth(mode) {
+             document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
+            document.getElementById('error-msg').innerText = '';
+            if(mode === 'login') {
+                document.querySelector('a[onclick="toggleAuth(\'login\')"]').classList.add('active');
+                document.getElementById('form-login').classList.remove('hidden');
+                document.getElementById('form-register').classList.add('hidden');
+            } else {
+                document.querySelector('a[onclick="toggleAuth(\'register\')"]').classList.add('active');
+                document.getElementById('form-login').classList.add('hidden');
+                document.getElementById('form-register').classList.remove('hidden');
+                initDateSelects();
+            }
+        }
+
+        function initDateSelects() {
+            const dia = document.getElementById('reg-dia'); const mes = document.getElementById('reg-mes'); const anio = document.getElementById('reg-anio');
+            if(dia.options.length > 1) return; 
+            dia.innerHTML = '<option value="" disabled selected>D</option>';
+            for(let i=1; i<=31; i++) dia.innerHTML += `<option value="${i}">${i}</option>`;
+            const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+            mes.innerHTML = '<option value="" disabled selected>M</option>';
+            meses.forEach((m, i) => mes.innerHTML += `<option value="${i+1}">${m}</option>`);
+            const currentYear = new Date().getFullYear();
+            anio.innerHTML = '<option value="" disabled selected>A</option>';
+            for(let i=currentYear-10; i>=1940; i--) anio.innerHTML += `<option value="${i}">${i}</option>`;
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const dni = document.getElementById('login-dni').value;
+            const password = document.getElementById('login-pass').value;
+            const btn = e.target.querySelector('button'); 
+            const originalText = btn.innerText;
+            
+            btn.innerText = 'Verificando...'; btn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_URL}/club/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ dni, password, negocio_id: NEGOCIO_ID })
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    localStorage.setItem('club_token', data.token);
+                    showDashboard(data.usuario);
+                } else { document.getElementById('error-msg').innerText = data.error || 'Credenciales incorrectas'; }
+            } catch (err) { document.getElementById('error-msg').innerText = 'Error de conexión'; }
+            finally { btn.innerText = originalText; btn.disabled = false; }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button'); 
+            const txt = btn.innerText; btn.innerText='Creando...'; btn.disabled=true;
+            
+            // Construcción robusta de fecha
+            const d = document.getElementById('reg-dia').value.padStart(2, '0');
+            const m = document.getElementById('reg-mes').value.padStart(2, '0');
+            const y = document.getElementById('reg-anio').value;
+            
+            // Si falta algún dato de fecha, mandamos null (o string vacío)
+            let fechaFinal = "";
+            if(d && m && y) {
+                fechaFinal = `${y}-${m}-${d}`;
+            }
+
+            const payload = {
+                nombre: document.getElementById('reg-nombre').value,
+                dni: document.getElementById('reg-dni').value,
+                email: document.getElementById('reg-email').value,
+                password: document.getElementById('reg-pass').value, // ID corregido
+                genero: document.getElementById('reg-genero').value,
+                fecha_nacimiento: fechaFinal,
+                acepta_terminos: document.getElementById('reg-terminos').checked,
+                negocio_id: NEGOCIO_ID
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/club/register`, { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify(payload) 
+                });
+                const data = await res.json();
+                
+                if(res.ok) { 
+                    alert('¡Cuenta creada con éxito!'); 
+                    // Resetear el form para limpiar los campos
+                    document.getElementById('form-register').reset();
+                    toggleAuth('login'); 
+                }
+                else { 
+                    // AHORA VERÁS EL ERROR REAL AQUÍ
+                    document.getElementById('error-msg').innerText = data.error; 
+                }
+            } catch (err) { 
+                document.getElementById('error-msg').innerText = 'Error de conexión con el servidor'; 
+            } finally { 
+                btn.innerText = txt; btn.disabled = false; 
+            }
+        }
+
+        function showDashboard(user) {
+            // 1. Mostrar la vista
+            document.getElementById('auth-view').classList.add('hidden');
+            document.getElementById('dashboard-view').classList.remove('hidden');
+            
+            
+            // 2. Llenar datos básicos
+            // Usamos ?. para evitar crash si nombre viene null
+            document.getElementById('user-name').innerText = user.nombre?.split(' ')[0] || 'Usuario';
+            document.getElementById('user-points').innerText = user.puntos || 0;
+            
+            // LOGO (Misma lógica que tenías)
+            const authLogo = document.getElementById('brand-container').innerHTML;
+            const dashBrand = document.getElementById('dashboard-brand-container');
+            if(dashBrand) dashBrand.innerHTML = authLogo;
+             
+            // NIVELESSSS !!! GAMIFICACION !!
+            const nivel = user.nivel || { nombre: 'Miembro', color: '#666', icono: 'fa-user' };
+            // 2. ACTUALIZAR UI DEL CÍRCULO
+            const circle = document.querySelector('.points-circle');
+            if (circle) {
+                // Cambiamos el color del borde al color del nivel
+                circle.style.borderColor = nivel.color;
+                circle.style.boxShadow = `0 0 25px ${nivel.color}40`; // Glow suave
+            }
+
+            // 3. ACTUALIZAR ETIQUETA DE NIVEL (Debajo de los puntos)
+            const label = document.querySelector('.points-label');
+            if (label) {
+                // Mostramos el Icono + Nombre del Nivel
+                label.innerHTML = `<i class="fa ${nivel.icono} me-1"></i> ${nivel.nombre}`;
+                label.style.color = nivel.color;
+                label.style.fontWeight = 'bold';
+                label.style.fontSize = '1.1rem';
+                label.style.marginTop = '5px';
+            }
+            // --- MAGIA DEL QR ---
+            const qrContainer = document.getElementById('qr-placeholder'); 
+            const qrImage = document.getElementById('qr-image');
+            
+            // Ocultar imagen vieja
+            if(qrImage) qrImage.style.display = 'none';
+
+            // Limpiar contenedor (Esto borra el texto "Generando código...")
+            if(qrContainer) {
+                qrContainer.innerHTML = ''; 
+                qrContainer.style.display = 'flex';
+                qrContainer.style.justifyContent = 'center';
+                qrContainer.style.padding = '10px';
+                qrContainer.style.background = 'white'; // Asegurar contraste
+                
+                console.log("Token QR recibido:", user.token_qr); // Debug en consola
+
+                if (user.token_qr) {
+                    try {
+                        // Generamos el QR
+                        new QRCode(qrContainer, {
+                            text: user.token_qr,
+                            width: 200,
+                            height: 200,
+                            colorDark : "#000000",
+                            colorLight : "#ffffff",
+                            correctLevel : QRCode.CorrectLevel.H
+                        });
+                    } catch (e) {
+                        console.error("Error librería QR:", e);
+                        qrContainer.innerHTML = '<p class="text-danger small">Error visualizando QR</p>';
+                    }
+                } else {
+                    qrContainer.innerHTML = `
+                        <div class="text-center">
+                            <i class="fa fa-exclamation-triangle fa-2x text-warning mb-2"></i>
+                            <p class="small text-muted">Falta Token QR.<br>Re-ingresá a la app.</p>
+                        </div>`;
+                }
+            }
+        }
+
+        async function actualizarPuntosManual() {
+            const token = localStorage.getItem('club_token');
+            if(!token) return;
+            const btn = document.querySelector('.refresh-btn i');
+            btn.classList.add('fa-spin');
+            
+            try {
+                const res = await fetch(`${API_URL}/club/perfil`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if(res.ok) {
+                    const data = await res.json();
+                    document.getElementById('user-points').innerText = data.puntos_acumulados;
+                }
+            } catch(e) {}
+            finally { setTimeout(() => btn.classList.remove('fa-spin'), 500); }
+        }
+
+        // --- LÓGICA DE PREMIOS ---
+        async function abrirModalPremios() {
+            modalPremiosBS.show();
+            const container = document.getElementById('lista-premios-container');
+            container.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>';
+
+            try {
+                // NOTA: Asegúrate de tener esta ruta en tu backend. Si no, usa '/api/negocios/${NEGOCIO_ID}/productos' y filtra.
+                const res = await fetch(`${API_URL}/club/premios?negocio_id=${NEGOCIO_ID}`);
+                
+                if (res.ok) {
+                    const premios = await res.json();
+                    if (premios.length === 0) {
+                        container.innerHTML = '<p class="text-center text-muted py-3">No hay premios disponibles por ahora.</p>';
+                        return;
+                    }
+
+                    let html = '';
+                    premios.forEach(p => {
+                        html += `
+                            <div class="premio-item">
+                                <div>
+                                    <div class="fw-bold text-white">${p.nombre}</div>
+                                    <small class="text-muted">${p.descripcion || 'Canjeable en mostrador'}</small>
+                                </div>
+                                <div class="badge-puntos">
+                                    💎 ${p.costo_puntos}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<p class="text-center text-danger">Error al cargar premios.</p>';
+                }
+            } catch (e) {
+                console.error(e);
+                // MODO DEMO (Si no tienes el endpoint listo, borra esto cuando lo tengas)
+                /*
+                container.innerHTML = `
+                    <div class="premio-item"><div><div class="fw-bold">Café Gratis</div><small class="text-muted">Cualquier variedad</small></div><div class="badge-puntos">💎 500</div></div>
+                    <div class="premio-item"><div><div class="fw-bold">Media Lunas (3)</div><small class="text-muted">Dulces o saladas</small></div><div class="badge-puntos">💎 800</div></div>
+                `; */
+                container.innerHTML = '<p class="text-center text-danger">No se pudo conectar con el servidor.</p>';
+            }
+        }
+
+        function logout() { localStorage.removeItem('club_token'); location.reload(); }
+    </script>
+</body>
+</html>

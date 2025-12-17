@@ -376,104 +376,13 @@ header {
 .search-item:hover { background-color: #f0f0f0; }
 .search-item .stock { color: #6c757d; font-size: 0.85em; }
 
-/* Notificaciones (Toast) */
-#notification-container {
-    position: fixed; bottom: 20px; right: 20px; z-index: 9999;
-    display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
-}
-.toast-notification {
-    color: #fff; padding: 15px 20px; border-radius: 8px; min-width: 250px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0;
-    transform: translateX(100%); animation: slideIn 0.5s forwards;
-}
-.toast-notification.success { background-color: #5C8C6A; } /* Verde Baboons */
-.toast-notification.warning { background-color: #ffc107; color: #333; }
-.toast-notification.error { background-color: #dc3545; }
-.toast-notification.info { background-color: #777; } /* Gris Info */
-@keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
-@keyframes slideOut { to { opacity: 0; transform: translateX(100%); } }
-
-/* Input con Botón (+) */
-.input-with-button { display: flex; gap: 10px; align-items: center; }
-.input-with-button select, .input-with-button input { flex-grow: 1; margin-bottom: 0 !important; /* Quitar margen si está dentro */ }
-.btn-add-quick {
-    flex-shrink: 0; padding: 8px 12px !important; font-size: 1.2em !important; font-weight: bold !important;
-    background-color: #5C8C6A !important; color: white !important; /* Verde Baboons */
-}
-.btn-add-quick:hover { background-color: #4a7055 !important; }
-
-/* Tablas */
-.tabla-bonita {
-    width: 100%; border-collapse: collapse; margin-bottom: 20px;
-    background-color: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    border-radius: 8px; overflow: hidden; font-size: 0.9em; /* Ligeramente más pequeña */
-}
-.tabla-bonita thead { background-color: #4A4A4A; color: white; } /* Cabecera gris oscuro */
-.tabla-bonita th, .tabla-bonita td { padding: 10px 15px; text-align: left; border-bottom: 1px solid #ddd; }
-.tabla-bonita tbody tr:hover { background-color: #f5f5f5; }
-.tabla-bonita tbody tr:last-child td { border-bottom: none; }
-.tabla-contenedor { overflow-x: auto; }
-
-/* Botones */
-.btn {
-    padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;
-    font-size: 0.9em; transition: background-color 0.2s ease, transform 0.1s ease;
-    margin: 0 5px 5px 0; text-decoration: none; display: inline-block; text-align: center;
-    font-weight: 500;
-}
-.btn-primary { background-color: #555; color: white; }
-.btn-primary:hover { background-color: #333; transform: translateY(-1px); }
-.btn-secondary { background-color: #aaa; color: #333; }
-.btn-secondary:hover { background-color: #888; transform: translateY(-1px); }
-.btn-danger { background-color: #dc3545; color: white; }
-.btn-danger:hover { background-color: #c82333; transform: translateY(-1px); }
-.btn-info { background-color: #777; color: white; }
-.btn-info:hover { background-color: #555; transform: translateY(-1px); }
-.btn-success { background-color: #5C8C6A; color: white; }
-.btn-success:hover { background-color: #4a7055; transform: translateY(-1px); }
-.btn-sm { padding: 5px 10px; font-size: 0.85em; }
-
-/* Formularios */
-input[type="text"], input[type="number"], input[type="email"],
-input[type="password"], input[type="date"], select, textarea {
-    padding: 10px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95em;
-    box-sizing: border-box; margin-bottom: 15px; width: 100%;
-}
-select {
-    appearance: none; -webkit-appearance: none; -moz-appearance: none; /* Quitar apariencia nativa */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23555' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 10px center; background-size: 1em;
-    padding-right: 30px; background-color: #fff; /* Fondo blanco para tapar flecha nativa */
-}
-label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; color: #333; }
-.form-group { margin-bottom: 15px; }
-.form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-
-/* Badges de Estado */
-.status-badge {
-    padding: 3px 8px; border-radius: 12px; font-size: 0.8em;
-    font-weight: 500; color: white; display: inline-block;
-}
-.status-pendiente { background-color: #ffc107; color: #333; }
-.status-convertido { background-color: #5C8C6A; } /* Verde Baboons */
-
-/* --- 10. UTILIDADES --- */
-.hidden { display: none !important; }
-.hide-element { display: none !important; } /* Clase específica para JS */
-.card { background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-
-/*
- * LÓGICA DE VISIBILIDAD DE APPS
-/* ✨ REGLAS MÁS ESPECÍFICAS (CORREGIDAS) ✨ */
+/* Por defecto ocultamos los items de navegación específicos */
 #main-nav .nav-retail,
 #main-nav .nav-consorcio {
     display: none !important;
 }
 
-/*
- * Muestra el menú de la app que esté activa en el <body>
- * 'display: block' es para los dropdowns (divs).
-*/
+/* Muestra el menú de la app activa (display: block para dropdowns) */
 body.app-retail #main-nav .nav-retail {
     display: block !important;
 }
@@ -481,19 +390,13 @@ body.app-consorcio #main-nav .nav-consorcio {
     display: block !important;
 }
 
-/*
- * 'display: revert' es para los enlaces (<a>).
- * Permite que los enlaces vuelvan a su estado natural (flex, inline-block, etc.)
-*/
+/* Muestra los enlaces directos (revert para que usen su display original) */
 body.app-retail #main-nav a.nav-retail,
 body.app-consorcio #main-nav a.nav-consorcio {
      display: revert !important; 
 }
 
-*/
-.operador-only {
-    display: none !important;
-}
+/* --- LÓGICA DE ROLES (CORREGIDA) --- */
 
 /* 1. Ocultar todos los bloques de rol por defecto */
 .admin-only,
@@ -517,3 +420,6 @@ body.rol-superadmin .admin-only {
 body.rol-superadmin .superadmin-only {
     display: block !important;
 }
+
+
+/* FIN DEL ARCHIVO - Sin llaves extra */

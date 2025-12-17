@@ -1,2 +1,7 @@
-fly.toml
+.git
+__pycache__
+*.pyc
 .venv
+node_modules
+.env
+*.log

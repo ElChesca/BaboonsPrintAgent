@@ -6,6 +6,14 @@
             <img src="/static/img/icons/dashboard.png" alt="Dashboard" class="app-icon">
             <span class="app-name">Dashboard</span>
         </div>
+        <div class="app-card" onclick="loadContent(event, 'static/Club/club_puntos.html', this)">
+            <img src="/static/img/icons/club.png" alt="Club Puntos" class="app-icon" onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name">Club-Terminal de Carga</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/Club/club_gestion.html', this)">
+            <img src="/static/img/icons/premios.png" alt="Gestión Club" class="app-icon" onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name">Gestion Club</span>
+        </div>
         <div class="app-card" onclick="loadContent(event, 'static/ventas.html', this)">
             <img src="/static/img/icons/ventas.png" alt="Ventas" class="app-icon">
             <span class="app-name">Ventas</span>

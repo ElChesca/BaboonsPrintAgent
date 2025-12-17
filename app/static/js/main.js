@@ -1,9 +1,27 @@
 // app/static/js/main.js
-// ✨ ARCHIVO COMPLETO Y CORREGIDO (Versión 1.1.0) ✨
+// ✨ ARCHIVO COMPLETO (Versión 1.2.2 - CON RESTAURACIÓN DE SESIÓN) ✨
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-const APP_VERSION = "1.1.1";
+const APP_VERSION = "1.2.4"; // Actualizado para forzar recarga
 const v = `?v=${APP_VERSION}`;
+
+// --- AUTO-LIMPIEZA DE CACHÉ LOCAL ---
+window.chequearVersionApp = () => {
+    const versionGuardada = localStorage.getItem('app_version');
+    
+    // Si la versión del código es nueva
+    if (versionGuardada !== APP_VERSION) {
+        console.warn(`Nueva versión (${APP_VERSION}). Limpiando caché local crítica...`);
+        localStorage.setItem('app_version', APP_VERSION);
+        
+        // Forzamos recarga si ya había entrado antes
+        if (versionGuardada) {
+            window.location.reload(true);
+        }
+    }
+};
+
+chequearVersionApp();
 
 // --- 2. IMPORTACIONES ESTÁTICAS ---
 import { showGlobalLoader, hideGlobalLoader } from '/static/js/uiHelpers.js';
@@ -40,11 +58,11 @@ export function esAdmin() {
     return appState.userRol === 'admin' || appState.userRol === 'superadmin';
 }
 
-// --- appState MODIFICADO ---
+// --- appState ---
 export const appState = {
     negocioActivoId: null,
     negocioActivoTipo: null, // 'retail' o 'consorcio'
-    negociosCache: [],      // Guardamos la lista completa de negocios
+    negociosCache: [],      
     userRol: null,
     filtroProveedorId: null
 };
@@ -58,29 +76,22 @@ const APP_RUTAS = {
         'historial_ingresos', 'ingresos', 'historial_ajustes', 'ajuste_caja',
         'presupuestos', 'inventario_movil', 'proveedores', 'payments', 
         'historial_pagos_proveedores', 'listas_precios', 'precios_especificos',
-        'gastos', 'gastos_categorias', 'categorias', 'unidades_medida'
+        'gastos', 'gastos_categorias', 'categorias', 'unidades_medida','club_puntos',
+        'club_gestion','club_admin'
     ],
     'consorcio': [
-        'home_consorcio', 
-        'reclamos', 
-        'expensas', 
-        'unidades',
-        'noticias'
+        'home_consorcio', 'reclamos', 'expensas', 'unidades', 'noticias'
     ],
     'comun': [
-        'configuracion',
-        'usuarios',
-        'negocios'
+        'configuracion', 'usuarios', 'negocios'
     ]
 };
 
-// --- NUEVA FUNCIÓN ---
+// --- NUEVA FUNCIÓN UI ---
 function actualizarUIporTipoApp() {
     const tipoApp = appState.negocioActivoTipo || 'retail';
-    console.log(`Actualizando UI para tipo de app: ${tipoApp}`);
-    
+    // console.log(`Actualizando UI para tipo de app: ${tipoApp}`);
     document.body.classList.remove('app-retail', 'app-consorcio');
-    // Añade la clase rol (como antes) y la clase app
     document.body.classList.add(`rol-${appState.userRol}`, `app-${tipoApp}`);
 }
 
@@ -88,23 +99,23 @@ function loadPageCSS(pageName) {
     const existingStyle = document.getElementById('page-specific-style');
     if (existingStyle) existingStyle.remove();
     if (pageName) {
-        const cssFile = `${pageName}.css${v}`;
         const link = document.createElement('link');
         link.id = 'page-specific-style';
         link.rel = 'stylesheet';
         link.type = 'text/css';
-        link.href = `/static/css/${cssFile}`; 
+        link.href = `static/css/${pageName}.css?v=${APP_VERSION}`; // Corrección aquí
+
         document.head.appendChild(link);
         link.onerror = () => {
-             console.warn(`Advertencia: No se encontró CSS opcional en ${link.href}`);
+             // console.warn(`Advertencia: No se encontró CSS opcional en ${link.href}`);
              link.remove();
         };
     }
 }
 
-// --- poblarSelectorNegocios MODIFICADO ---
+// --- poblarSelectorNegocios ---
 async function poblarSelectorNegocios() {
-    console.log("Iniciando poblarSelectorNegocios...");
+    // console.log("Iniciando poblarSelectorNegocios...");
     const mainSelector = document.getElementById('selector-negocio');
     const homeSelector = document.getElementById('home-selector-negocio');
     const selectors = [mainSelector, homeSelector].filter(s => s != null);
@@ -119,8 +130,7 @@ async function poblarSelectorNegocios() {
     try {
         const negocios = await fetchData(`/api/negocios`);
         appState.negociosCache = negocios; 
-        console.log("Negocios recibidos del API:", negocios);
-
+        
         let idSeleccionado = null;
         if (negocios && negocios.length > 0) {
             idSeleccionado = negocios[0].id;
@@ -134,8 +144,6 @@ async function poblarSelectorNegocios() {
         const negocioSeleccionado = negocios.find(n => String(n.id) === appState.negocioActivoId);
         appState.negocioActivoTipo = negocioSeleccionado ? negocioSeleccionado.tipo_app : 'retail';
         
-        console.log(`Negocio seleccionado: ${appState.negocioActivoId}, Tipo: ${appState.negocioActivoTipo}`);
-
         if (appState.negocioActivoId) {
             localStorage.setItem('negocioActivoId', appState.negocioActivoId);
         } else {
@@ -167,20 +175,12 @@ async function poblarSelectorNegocios() {
     } catch (error) {
         console.error("Error en poblarSelectorNegocios:", error);
         mostrarNotificacion("Error al cargar negocios.", "error");
-        selectors.forEach(selector => {
-            selector.innerHTML = '<option value="">Error</option>';
-            selector.disabled = true;
-        });
     }
 }
 
-// --- actualizarUIAutenticacion MODIFICADO ---
-// static/js/main.js
-// ✨ REEMPLAZAR ESTA FUNCIÓN COMPLETA ✨
-
+// --- actualizarUIAutenticacion ---
 export async function actualizarUIAutenticacion() {
     showGlobalLoader();
-    console.log("--- Iniciando actualizarUIAutenticacion ---");
     try {
         document.body.className = '';
         const user = getCurrentUser();
@@ -190,52 +190,46 @@ export async function actualizarUIAutenticacion() {
         const header = document.querySelector('header');
 
         if (!mainNav || !authLink || !businessSelectorBar || !header) {
-            console.error("Error crítico: Faltan elementos base de la UI.");
             return;
         }
 
         if (user && user.nombre && user.rol) {
-            console.log("Usuario válido. Actualizando UI...");
             appState.userRol = user.rol;
             
             header.style.display = 'flex';
             mainNav.style.display = 'flex';
             businessSelectorBar.style.display = 'flex';
-            authLink.textContent = `Salir (${user.nombre})`;
+            
             const newAuthLink = authLink.cloneNode(true);
             newAuthLink.textContent = `Salir (${user.nombre})`;
             authLink.parentNode.replaceChild(newAuthLink, authLink);
             newAuthLink.addEventListener('click', (e) => { e.preventDefault(); logout(); });
             
-            await poblarSelectorNegocios(); // Setea appState.negocioActivoTipo
-            actualizarUIporTipoApp(); // Setea la clase del <body>
-            
-            console.log("Selectores de negocio poblados y UI de app actualizada.");
+            await poblarSelectorNegocios(); 
+            actualizarUIporTipoApp(); 
             
             const requestedPage = window.location.hash.substring(1).split('?')[0];
-            const contentArea = document.getElementById('content-area');
-            if (!contentArea) { /* ... error ... */ }
-
-            // --- ✨ INICIO DE LA CORRECCIÓN (Lógica de Home) ---
+            
+            // Lógica de Home Dinámico
             const defaultHomePage = appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail';
             let pageToLoad = (requestedPage && requestedPage !== 'login') ? requestedPage : defaultHomePage;
+            
             if (pageToLoad === 'home' || pageToLoad === '') {
                 pageToLoad = defaultHomePage;
             }
-
-            // ✨ VALIDACIÓN DE SEGURIDAD (CAPA 1) - ANTES de cargar
+                
+            // VALIDACIÓN DE SEGURIDAD
             const tipoAppActual = appState.negocioActivoTipo;
             if (tipoAppActual && pageToLoad !== 'login') {
                 const rutasPermitidas = APP_RUTAS[tipoAppActual] || [];
                 const rutasComunes = APP_RUTAS['comun'] || [];
 
                 if (!rutasPermitidas.includes(pageToLoad) && !rutasComunes.includes(pageToLoad)) {
-                    console.warn(`Redirección (en Auth): Usuario '${tipoAppActual}' intentó cargar '${pageToLoad}'. Forzando a home por defecto.`);
-                    pageToLoad = defaultHomePage; // Forzamos al home correcto
+                    console.warn(`Redirección: Usuario '${tipoAppActual}' intentó cargar '${pageToLoad}'. Forzando home.`);
+                    pageToLoad = defaultHomePage;
                 }
             }
             
-            // Actualizamos el HASH si es necesario
             if (requestedPage !== pageToLoad) {
                 window.location.hash = pageToLoad;
             }
@@ -243,45 +237,43 @@ export async function actualizarUIAutenticacion() {
             const fullHash = window.location.hash.substring(1);
             const pageUrlToLoad = `static/${pageToLoad}.html${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
             
-            console.log(`URL completa a cargar (validada): ${pageUrlToLoad}`);
-            // AHORA SÍ llamamos a loadContent, pero ya con la página VALIDADA
             await loadContent(null, pageUrlToLoad);
-            // --- FIN DE LA CORRECCIÓN ---
 
         } else {
-            // ... (Lógica de 'else' para no logueado, sin cambios)
-            console.log("Usuario NO válido o no encontrado. Preparando UI para login...");
             appState.userRol = null;
             appState.negocioActivoId = null;
             appState.negocioActivoTipo = null;
-            localStorage.removeItem('negocioActivoId');
-            header.style.display = 'none';
-            if (!window.location.hash.includes('login')) {
-                await loadContent(null, 'static/login.html');
-            } else {
-                const pageUrl = `static/login.html${window.location.hash.split('?')[1] ? '?' + window.location.hash.split('?')[1] : ''}`;
-                await inicializarModulo(pageUrl);
+            
+            // 2. Ocultar Header inmediatamente
+            if (header) header.style.display = 'none';
+
+            // 3. LIMPIEZA VISUAL FORZADA (Esto arregla que se queden los iconos)
+            const contentArea = document.getElementById('content-area');
+            if (contentArea) {
+                contentArea.innerHTML = ''; // <--- BORRAMOS TODO EL HTML VIEJO AL INSTANTE
             }
+
+            // 4. Forzamos la carga del Login limpio
+            // Usamos un pequeño timeout para dar tiempo al navegador a procesar el cambio de hash
+            setTimeout(() => {
+                loadContent(null, 'static/login.html')
+                    .catch(err => console.error("Error cargando login:", err));
+            }, 50);    
         }
     } catch (error) {
-        console.error("Fallo DENTRO del bloque try de actualizarUIAutenticacion:", error);
+        console.error("Fallo Auth UI:", error);
         logout();
     } finally {
-        console.log("--- Fin actualizarUIAutenticacion (finally) ---");
         hideGlobalLoader();
     }
 }
-// ✨ --- INICIALIZADOR DE MÓDULOS MODIFICADO --- ✨
+
+// --- INICIALIZADOR DE MÓDULOS ---
 async function inicializarModulo(page) {
-    console.log(`inicializarModulo llamada con page = "${page}"`);
-    if (!page) {
-        console.warn("inicializarModulo llamado sin página.");
-        return;
-    }
+    if (!page) return;
 
     const pageName = page.split('/').pop().replace('.html', '').split('?')[0];
-    console.log(`Inicializando módulo: ${pageName}`);
-
+    
     if (window.currentChartInstance) {
         window.currentChartInstance.destroy();
         window.currentChartInstance = null;
@@ -290,25 +282,18 @@ async function inicializarModulo(page) {
     try {
         switch(pageName) {
             case 'inventario': 
-                const { 
-                    inicializarLogicaInventario, 
-                    abrirModalEditarProducto, 
-                    borrarProducto, 
-                    changeProductPage 
-                } = await import(`./modules/inventory.js${v}`);
+                const { inicializarLogicaInventario, abrirModalEditarProducto, borrarProducto, changeProductPage } = await import(`./modules/inventory.js${v}`);
                 window.abrirModalEditarProducto = abrirModalEditarProducto;
                 window.borrarProducto = borrarProducto;
                 window.changeProductPage = changeProductPage;
                 inicializarLogicaInventario(); 
                 break;
-            
             case 'categorias':
                 const { inicializarLogicaCategorias, editarCategoria, borrarCategoria } = await import(`./modules/categorias.js${v}`);
                 window.editarCategoria = editarCategoria;
                 window.borrarCategoria = borrarCategoria;
                 inicializarLogicaCategorias();
                 break;
-
             case 'login': 
                 const { inicializarLogicaLogin } = await import(`./modules/auth.js${v}`);
                 inicializarLogicaLogin(); 
@@ -429,25 +414,21 @@ async function inicializarModulo(page) {
                 const { inicializarCategoriasGasto } = await import(`./modules/gastos_categorias.js${v}`);
                 inicializarCategoriasGasto();
                 break;
-
-            // ✨ CORRECCIÓN: 'home' ELIMINADO
-            
-            // ✨ CASOS DE HOME ACTUALIZADOS
+            case 'club_puntos':
+                const { inicializarLogicaClubPuntos } = await import(`./modules/club_puntos.js${v}`);
+                inicializarLogicaClubPuntos();
+                break;
+            case 'club_gestion':        
+                const { inicializarLogicaGestionClub, abrirModalPremio, borrarPremio } = await import(`./modules/club_gestion.js${v}`);                                                    
+                inicializarLogicaGestionClub();
+                break;
             case 'home_retail':
-                console.log("Módulo Home (Retail) detectado.");
                 await poblarSelectorNegocios();
                 break;
-            
-           case 'home_consorcio':
-                // 1. Importamos la lógica del nuevo portal
+            case 'home_consorcio':
                 const { inicializarLogicaHomeConsorcio } = await import(`./modules/home_consorcio.js${v}`);              
-                // 2. Ejecutamos el inicializador
                 inicializarLogicaHomeConsorcio();                
-                // (Ya no necesitamos poblarSelectorNegocios aquí,
-                //  porque la lógica de inicialización lo hará)
                 break;            
-            
-            // ✨ CASOS DE CONSORCIO (NUEVOS)
             case 'unidades':
                 const { inicializarLogicaUnidades, abrirModalUnidad, borrarUnidad } = await import(`./modules/unidades.js${v}`);
                 window.abrirModalUnidad = abrirModalUnidad;
@@ -461,52 +442,32 @@ async function inicializarModulo(page) {
                 inicializarLogicaReclamos();
                 break;          
             case 'expensas':
-                // 1. Importamos las funciones necesarias
-                const { 
-                    inicializarLogicaExpensas,
-                    verDetallePeriodo,
-                    volverALista,
-                    emitirPeriodo,
-                    abrirModalPago,
-                    anularExpensa
-                } = await import(`./modules/expensas.js${v}`);                
-                // 2. Exponemos las funciones 'onclick' al window
+                const { inicializarLogicaExpensas, verDetallePeriodo, volverALista, emitirPeriodo, abrirModalPago, anularExpensa } = await import(`./modules/expensas.js${v}`);                
                 window.verDetallePeriodo = verDetallePeriodo;
                 window.volverALista = volverALista;
                 window.emitirPeriodo = emitirPeriodo;
                 window.abrirModalPago = abrirModalPago;  
                 window.anularExpensa = anularExpensa;              
-                // 3. Ejecutamos el inicializador
                 inicializarLogicaExpensas();
                 break;
             case 'noticias':                
-                const { 
-                    inicializarLogicaNoticias,
-                    abrirModalNoticia,
-                    borrarNoticia
-                } = await import(`./modules/noticias.js${v}`);
-                
-                // 2. Exponemos las funciones 'onclick' (solo para admin)
+                const { inicializarLogicaNoticias, abrirModalNoticia, borrarNoticia } = await import(`./modules/noticias.js${v}`);
                 window.abrirModalNoticia = abrirModalNoticia;
                 window.borrarNoticia = borrarNoticia;
-                
-                // 3. Ejecutamos el inicializador
                 inicializarLogicaNoticias();
                 break;
 
             default:
-                console.warn(`No se encontró lógica de inicialización para el módulo: ${pageName}`);
+                console.warn(`No se encontró lógica de inicialización para: ${pageName}`);
         }
-        console.log(`Módulo ${pageName} inicializado.`);
     } catch (error) {
-        console.error(`Error al cargar dinámicamente el módulo ${pageName}:`, error);
-        mostrarNotificacion(`Error fatal al cargar la sección ${pageName}.`, 'error');
+        console.error(`Error módulo ${pageName}:`, error);
+        mostrarNotificacion(`Error al cargar ${pageName}.`, 'error');
     }
 }
 
-// --- loadContent MODIFICADO (CON SEGURIDAD CAPA 1) ---
+// --- loadContent ---
 export function loadContent(event, page, clickedLink, fromHistory = false) {
-    console.log(`loadContent llamado para: ${page}, desde historial: ${fromHistory}`);
     if (event) event.preventDefault();
 
     const pageParts = page.split('?');
@@ -514,22 +475,29 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     const queryString = pageParts.length > 1 ? `?${pageParts[1]}` : '';
     const pageName = pagePath.split('/').pop().replace('.html', '');
     
-    // VALIDACIÓN (CAPA 1)
+    // --- 🛡️ RESUCITACIÓN (RED DE SEGURIDAD SECUNDARIA) ---
+    if (!appState.negocioActivoTipo) {
+        const tipoGuardado = localStorage.getItem('tipo_negocio_activo'); 
+        const idGuardado = localStorage.getItem('negocio_activo_id');
+        if (tipoGuardado && tipoGuardado !== 'null' && tipoGuardado !== 'undefined') {
+            appState.negocioActivoTipo = tipoGuardado;
+            appState.negocioActivoId = idGuardado;
+        }
+    }
+
     const tipoAppActual = appState.negocioActivoTipo;
     
+    // (DEBUG ALERT QUITADO PARA PRODUCCIÓN)
+
     if (tipoAppActual && pageName !== 'login') {
         const rutasPermitidas = APP_RUTAS[tipoAppActual] || [];
         const rutasComunes = APP_RUTAS['comun'] || [];
 
         if (!rutasPermitidas.includes(pageName) && !rutasComunes.includes(pageName)) {
-            console.warn(`ACCESO DENEGADO (Frontend): Usuario '${tipoAppActual}' intentó acceder a ruta '${pageName}'. Redirigiendo...`);
+            console.warn(`ACCESO DENEGADO: ${tipoAppActual} -> ${pageName}.`);
             mostrarNotificacion('Módulo no disponible para este tipo de negocio.', 'warning');
-            
             const homePage = (tipoAppActual === 'consorcio') ? 'home_consorcio' : 'home_retail';
-            
             window.location.replace(`#${homePage}`);
-            
-            // Forzamos la carga del home
             loadContent(null, `static/${homePage}.html`, null, true);
             return;
         }
@@ -537,13 +505,11 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
 
     const targetHash = `#${pageName}`;
     const fullTargetHash = targetHash + queryString;
-
     const baseUrl = window.location.origin + window.location.pathname;
     const targetUrlBase = baseUrl + targetHash;
     const currentUrlBase = baseUrl + window.location.hash.split('?')[0];
 
     if (!fromHistory && currentUrlBase === targetUrlBase) {
-        console.log(`Ya estamos en ${targetHash}, no se recarga HTML.`);
         if(window.location.hash !== fullTargetHash) {
              history.pushState({ page: page }, '', fullTargetHash);
         }
@@ -564,16 +530,16 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     const isLoginPage = pageName === 'login';
     if (header) header.style.display = isLoginPage ? 'none' : 'flex';
 
-    const pageToFetch = `${pagePath}${v}`;
+    const pageToFetch = `${pagePath}?v=${APP_VERSION}`;
 
-    fetch(pageToFetch)
+    return fetch(pageToFetch)
+
         .then(response => {
             if (!response.ok) {
-                // Si falla al cargar (ej. home_retail.html no existe)
                 if (pageName === 'home_retail' || pageName === 'home_consorcio') {
-                    throw new Error(`Error 404: El archivo ${pageName}.html no existe.`);
+                    throw new Error(`Error 404: Archivo ${pageName} no existe.`);
                 }
-                throw new Error(`Error ${response.status} al cargar ${pageToFetch}`);
+                throw new Error(`Error ${response.status}`);
             }
             return response.text();
         })
@@ -581,9 +547,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
             const contentArea = document.getElementById('content-area');
             if (contentArea) {
                 contentArea.innerHTML = html;
-                console.log(`HTML cargado para ${pageToFetch}. Llamando a inicializarModulo...`);
                 requestAnimationFrame(() => {
-                    // El código para marcar el link 'active' no cambia
                     document.querySelectorAll('#main-nav a, #main-nav .dropbtn').forEach(link => link.classList.remove('active'));
                     const linkSelectorOnClick = `#main-nav a[onclick*="'${pagePath}'"]`;
                     const linkSelectorHref = `#main-nav a[href$="${targetHash}"]`;
@@ -593,27 +557,18 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
                         linkToActivate.classList.add('active');
                          const parentDropdown = linkToActivate.closest('.dropdown');
                         if (parentDropdown) parentDropdown.querySelector('.dropbtn')?.classList.add('active');
-                    } else {
-                         console.warn(`No se encontró link activo para ${pageName} usando selectores: ${linkSelectorOnClick}, ${linkSelectorHref}`);
                     }
-                    // ✨ --- ¡AQUÍ ESTÁ LA CORRECCIÓN! --- ✨
-                    // Damos un "tick" (0ms) al navegador DESPUÉS del frame
-                    // para asegurar que el HTML esté 100% "dibujado" en el DOM.
                     setTimeout(() => {
                         inicializarModulo(page).catch(err => {
-                             console.error(`Error durante inicializarModulo para ${page}:`, err);
-                             mostrarNotificacion(`Error al inicializar la sección ${pageName}.`, 'error');
+                             console.error(`Error init modulo ${page}:`, err);
                         });
-                    }, 0); // Un retraso de 0ms es suficiente.
+                    }, 0);
                 });
-            } else {
-                console.error("Error crítico: No se encontró #content-area.");
             }
         })
         .catch(error => {
-            console.error("Error en loadContent fetch:", error);
-            mostrarNotificacion(`No se pudo cargar la página ${pageName}.`, 'error');
-            
+            console.error("Error loadContent:", error);
+            mostrarNotificacion(`Error al cargar ${pageName}.`, 'error');
             const defaultHomePage = appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail';
             window.location.hash = `#${defaultHomePage}`;
             loadPageCSS(null);
@@ -625,10 +580,9 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
      }
 }
 
-export function abrirModalNuevoCliente(callback) { /* ... (sin cambios) ... */ }
+export function abrirModalNuevoCliente(callback) { /* ... */ }
 
-// --- 6. TEMPORIZADOR DE INACTIVIDAD ---
-// ... (sin cambios)
+// --- TIMEOUT ---
 const TIMEOUT_INACTIVIDAD = 15 * 60 * 1000;
 let temporizadorInactividad;
 function reiniciarTemporizador() {
@@ -636,7 +590,6 @@ function reiniciarTemporizador() {
     temporizadorInactividad = setTimeout(() => {
         const user = getCurrentUser();
         if (user && !window.location.hash.includes('login')) {
-            console.log("Inactividad detectada. Deslogueando...");
             mostrarNotificacion("Sesión cerrada por inactividad.", "warning");
             logout(); 
         }
@@ -644,103 +597,78 @@ function reiniciarTemporizador() {
 }
 window.addEventListener('mousemove', reiniciarTemporizador);
 window.addEventListener('keydown', reiniciarTemporizador);
-window.addEventListener('scroll', reiniciarTemporizador);
 window.addEventListener('click', reiniciarTemporizador);
 window.addEventListener('touchstart', reiniciarTemporizador);
 
-// --- 7. LISTENERS GLOBALES ---
+// --- LISTENERS FINALES ---
 console.log("DOM Cargado. Configurando listeners iniciales...");
-
 reiniciarTemporizador();
 
-// ✨ LISTENER DE CAMBIO DE NEGOCIO (CORREGIDO)
 document.body.addEventListener('change', (e) => {
     if (e.target.id === 'selector-negocio') {
-        console.log("Cambio de negocio en selector principal.");
         const nuevoNegocioId = e.target.value;
-        
         if (nuevoNegocioId) {
             appState.negocioActivoId = nuevoNegocioId;
             localStorage.setItem('negocioActivoId', nuevoNegocioId);
-            
             const negocioSeleccionado = appState.negociosCache.find(n => String(n.id) === nuevoNegocioId);
             appState.negocioActivoTipo = negocioSeleccionado ? negocioSeleccionado.tipo_app : 'retail';
-            
-            console.log(`Negocio activo actualizado a: ${nuevoNegocioId}, Tipo: ${appState.negocioActivoTipo}`);
-            
-            actualizarUIporTipoApp(); // Actualiza menús
-            
-            // Carga el "home" de ESE tipo de negocio
+            actualizarUIporTipoApp();
             const homePage = appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail';
             loadContent(null, `static/${homePage}.html`);
-
-        } else if (!nuevoNegocioId) {
-            console.warn("Se seleccionó 'No asignados' o valor inválido.");
-            const contentArea = document.getElementById('content-area');
-            if(contentArea) contentArea.innerHTML = '<p style="text-align: center; margin-top: 50px;">Por favor, seleccione un negocio activo.</p>';
-            appState.negocioActivoId = null;
-            appState.negocioActivoTipo = null;
-            localStorage.removeItem('negocioActivoId');
-            actualizarUIporTipoApp();
         }
     }
 });
 
-// ✨ LISTENER DE 'POPSTATE' (CORREGIDO)
 window.addEventListener('popstate', (e) => {
-    console.log("Evento popstate detectado:", e.state);
     const currentHashPageName = window.location.hash.substring(1).split('?')[0];
     const pageFromState = e.state?.page;
-
-    // Lógica de home por defecto (basada en el tipo de app)
     const defaultHomePage = appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail';
     const defaultHomeHtml = `static/${defaultHomePage}.html`;
 
     if (pageFromState) {
-        console.log(`Cargando página desde historial: ${pageFromState}`);
         loadContent(null, pageFromState, null, true);
-    } else if (!window.location.hash || currentHashPageName === 'home' || currentHashPageName === 'home_retail' || currentHashPageName === 'home_consorcio') {
-        console.log("URL base o #home detectada, cargando home por defecto.");
-        loadContent(null, defaultHomeHtml, null, true); // <-- CORREGIDO
+    } else if (!window.location.hash || currentHashPageName === 'home') {
+        loadContent(null, defaultHomeHtml, null, true);
     } else if (currentHashPageName && currentHashPageName !== 'login'){
-        console.log(`Hash ${currentHashPageName} sin estado detectado, cargando página.`);
         const fullHash = window.location.hash.substring(1);
         const pageUrl = `static/${fullHash.split('?')[0]}.html${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
         loadContent(null, pageUrl, null, true);
-    } else {
-        console.log("Popstate sin estado relevante o ya en login.");
     }
 });
 
 window.addEventListener('authChange', () => {
-    console.log("Evento authChange detectado. Ejecutando actualizarUIAutenticacion...");
     actualizarUIAutenticacion();
 });
 
 const hamburgerBtn = document.getElementById('hamburger-btn');
-const navContainer = document.querySelector('.nav-container');
-if (hamburgerBtn && navContainer) {
+const navContainer2 = document.querySelector('.nav-container');
+if (hamburgerBtn && navContainer2) {
     hamburgerBtn.addEventListener('click', () => {
-        navContainer.classList.toggle('is-active');
+        navContainer2.classList.toggle('is-active');
     });
-} else {
-    console.warn("Botón hamburguesa o contenedor de navegación no encontrados.");
 }
+
+// --- 🛡️🛡️ RESTAURACIÓN DE SESIÓN GLOBAL (AQUÍ ES DONDE SUCEDE LA MAGIA) 🛡️🛡️ ---
+// Esta función se ejecuta YA, antes de que nada más pase.
+const restaurarSesionGlobal = () => {
+    const tipo = localStorage.getItem('tipo_negocio_activo');
+    const id = localStorage.getItem('negocio_activo_id');
+
+    if (tipo && tipo !== 'null' && tipo !== 'undefined') {
+        console.log(`♻️ [Global] Restaurando sesión al inicio: ${tipo}`);
+        appState.negocioActivoTipo = tipo;
+        appState.negocioActivoId = id;
+    }
+};
+restaurarSesionGlobal();
+// --------------------------------------------------------------------------------
 
 console.log("Llamando a actualizarUIAutenticacion por primera vez...");
 actualizarUIAutenticacion();
 
-// --- 8. REGISTRO DEL SERVICE WORKER ---
+// --- SERVICE WORKER ---
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register(`/service-worker.js${v}`) 
-          .then((registration) => {
-            console.log('¡Service Worker registrado con éxito! Alcance:', registration.scope);
-          })
-          .catch((error) => {
-            console.error('Falló el registro del Service Worker:', error);
-          });
+        navigator.serviceWorker.register(`/service-worker.js${v}`).catch(() => {});
     });
-} else {
-    console.warn("Service Workers no soportados en este navegador.");
 }

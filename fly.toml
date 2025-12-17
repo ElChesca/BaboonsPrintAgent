@@ -3,13 +3,7 @@ app = 'multinegociobaboons-fly'
 primary_region = 'gru'
 
 [build]
-  builder = "paketobuildpacks/builder-jammy-base"
-  [build.args]
-    PYTHON_COMPILE = "1"
-  [build.vm]
-    cpu_kind = "shared"
-    cpus = 1
-    memory_mb = 2048
+  dockerfile = "Dockerfile"  # Cambia esto para usar Docker
 
 [http_service]
   internal_port = 8080
@@ -22,3 +16,7 @@ primary_region = 'gru'
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
+
+[mounts]
+  source = "club_storage"
+  destination = "/app/app/static/img/premios"
