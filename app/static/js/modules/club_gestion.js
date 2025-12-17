@@ -1,6 +1,7 @@
 import { fetchData } from '../api.js';
-import { mostrarNotificacion } from './notifications.js';
 import { appState } from '../main.js'; 
+// 👇 1. IMPORTAR TU MÓDULO DE NOTIFICACIONES EXISTENTE
+import { mostrarNotificacion } from './notifications.js';
 
 let clienteActivo = null;
 let html5QrCode = null;
@@ -13,6 +14,8 @@ let chartTopInstance = null;
 // =========================================================
 export function inicializarLogicaGestionClub() {
     const negocioId = appState.negocioActivoId;
+    
+    // Validación con notificación linda
     if (!negocioId) {
         mostrarNotificacion("Selecciona un negocio primero", "warning");
         return;
@@ -23,7 +26,7 @@ export function inicializarLogicaGestionClub() {
     cargarPremios(negocioId);
     cargarNiveles(); 
     actualizarHistorialActivo();
-    cargarDashboard(); //Estadisticas
+    cargarDashboard();
 
     // Listener para formulario de Premios
     const formPremio = document.getElementById('form-premio');
@@ -34,144 +37,16 @@ export function inicializarLogicaGestionClub() {
     }
 }
 
-// --- 📊 LÓGICA DEL DASHBOARD ---
-
-async function cargarDashboard() {
-    console.log("🚀 Iniciando carga del Dashboard...");
-    const ctxBalance = document.getElementById('chartBalance');
-    const ctxTop = document.getElementById('chartTop');
-
-    if (!ctxBalance || !ctxTop) {
-        console.error("❌ No encuentro los <canvas> en el HTML. ¿Pegaste el código HTML del dashboard?");
-        return;
-    }
-
-    // Chequeamos si la librería cargó
-    if (typeof Chart === 'undefined') {
-        console.error("❌ La librería Chart.js no está cargada. Revisa el <head> de tu HTML.");
-        mostrarNotificacion("Error: Librería de gráficos no encontrada", "error");
-        return;
-    }
-
-    try {
-        const url = `/api/club/admin/stats?negocio_id=${appState.negocioActivoId}`;
-        console.log("📡 Pidiendo datos a:", url);
-        
-        const data = await fetchData(url);
-        
-        console.log("📦 DATOS RECIBIDOS DEL BACKEND:", data);
-
-        // Validamos que los datos no sean nulos y los forzamos a números
-        const otorgados = parseInt(data.balance.otorgados) || 0;
-        const canjeados = parseInt(data.balance.canjeados) || 0;
-
-        console.log(`🔢 Parseados: Otorgados=${otorgados}, Canjeados=${canjeados}`);
-
-        // --- GRÁFICO 1: DONA ---
-        if (chartBalanceInstance) chartBalanceInstance.destroy();
-        
-        chartBalanceInstance = new Chart(ctxBalance, {
-            type: 'doughnut',
-            data: {
-                labels: ['Puntos Entregados', 'Puntos Canjeados'],
-                datasets: [{
-                    data: [otorgados, canjeados],
-                    backgroundColor: ['#ffc107', '#198754'],
-                    borderWidth: 1,
-                    borderColor: '#ffffff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'right' }
-                }
-            }
-        });
-
-        // --- GRÁFICO 2: BARRAS ---
-        // Validamos arrays
-        const labels = (data.top_premios && data.top_premios.labels) ? data.top_premios.labels : [];
-        const valores = (data.top_premios && data.top_premios.data) ? data.top_premios.data : [];
-
-        console.log("📊 Datos Top Premios:", labels, valores);
-
-        if (chartTopInstance) chartTopInstance.destroy();
-
-        chartTopInstance = new Chart(ctxTop, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Canjes',
-                    data: valores,
-                    backgroundColor: '#0d6efd',
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: 'y',
-                plugins: { legend: { display: false } },
-                scales: { x: { beginAtZero: true } }
-            }
-        });
-
-    } catch (error) {
-        console.error("🔥 Error FATAL en Dashboard:", error);
-    }
-}
 // =========================================================
-// 📷 ESCÁNER QR (ADMIN) - FIX ID "reader-admin"
-// =========================================================
-window.abrirEscanerQR = () => {
-    const modal = document.getElementById('modalEscanerQR');
-    modal.style.display = 'block'; // Manual Open
-
-    setTimeout(() => {
-        // CORRECCIÓN: Usamos 'reader-admin' para no chocar con la Terminal
-        if (!html5QrCode) {
-            html5QrCode = new Html5Qrcode("reader-admin");
-        }
-
-        const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
-        
-        html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
-        .catch(err => {
-            console.error("Error cámara:", err);
-            mostrarNotificacion("No se pudo iniciar la cámara.", "error");
-            window.cerrarEscanerQR();
-        });
-    }, 300);
-};
-
-window.cerrarEscanerQR = () => {
-    document.getElementById('modalEscanerQR').style.display = 'none';
-    if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-            html5QrCode.clear();
-        }).catch(err => console.warn("Cámara ya detenida", err));
-    }
-};
-
-function onScanSuccess(decodedText) {
-    if (navigator.vibrate) navigator.vibrate(200);
-    window.cerrarEscanerQR();
-    document.getElementById('filtro-dni-cliente').value = decodedText;
-    buscarClientePuntos();
-    mostrarNotificacion("¡Cliente detectado!", "success");
-}
-
-function onScanFailure(error) { /* Silencio */ }
-
-// =========================================================
-// 🔍 CLIENTES Y CARGA
+// 🔍 CLIENTES Y CARGA (Aquí estaba el problema visual)
 // =========================================================
 window.buscarClientePuntos = async () => {
     const dni = document.getElementById('filtro-dni-cliente').value;
-    if(!dni) return mostrarNotificacion("Ingrese un DNI", "warning");
+    
+    if(!dni) {
+        mostrarNotificacion("Por favor, ingrese un DNI", "warning");
+        return;
+    }
 
     const token = localStorage.getItem('jwt_token');
     const negocioId = appState.negocioActivoId;
@@ -181,23 +56,43 @@ window.buscarClientePuntos = async () => {
              headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if(!res.ok) throw new Error("Cliente no encontrado");
+        // 👇 MANEJO CORRECTO DEL 404
+        if(!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || "Cliente no encontrado");
+        }
+
         const data = await res.json();
-        
         clienteActivo = data; 
         
+        // Renderizar Panel
         document.getElementById('info-cliente-panel').classList.remove('d-none');
         document.getElementById('nombre-cliente-display').innerText = `${data.nombre}`;
         document.getElementById('puntos-cliente-display').innerText = data.puntos_acumulados || 0;
         
+        // Renderizar Nivel (Badge)
+        const badgeContainer = document.getElementById('nivel-cliente-badge');
+        if(badgeContainer) {
+            const nivel = data.nivel || { nombre: 'Miembro', color: '#6c757d', icono: 'fa-user' };
+            badgeContainer.innerHTML = `
+                <span class="badge rounded-pill px-3 py-2 shadow-sm" 
+                      style="background-color: ${nivel.color}; font-size: 0.9rem;">
+                    <i class="fas ${nivel.icono} me-1"></i> ${nivel.nombre}
+                </span>
+            `;
+        }
+
         // Mostrar botón X
         const btnLimpiar = document.getElementById('btn-limpiar-filtro');
         if(btnLimpiar) btnLimpiar.style.display = 'block';
         
         actualizarBotonesSegunPuntos();
-        mostrarNotificacion(`Cliente: ${data.nombre}`, "success");
+        
+        // 👇 NOTIFICACIÓN VERDE DE ÉXITO
+        mostrarNotificacion(`Cliente encontrado: ${data.nombre}`, "success");
 
     } catch (e) {
+        // 👇 NOTIFICACIÓN ROJA DE ERROR (ESTÉTICA)
         mostrarNotificacion(e.message, "error");
         limpiarCliente();
     }
@@ -229,6 +124,7 @@ window.confirmarCargaPuntos = async () => {
     if (!dni) return mostrarNotificacion("Busque un cliente primero", "warning");
     if (!puntos || parseInt(puntos) <= 0) return mostrarNotificacion("Monto inválido", "warning");
 
+    // Usamos confirm nativo para acciones críticas (o podés hacer un modal lindo después)
     if (!confirm(`¿Cargar ${puntos} puntos a ${dni}?`)) return;
 
     try {
@@ -243,7 +139,9 @@ window.confirmarCargaPuntos = async () => {
             })
         });
 
+        // 👇 ÉXITO
         mostrarNotificacion(res.mensaje, "success");
+        
         document.getElementById('puntos-manual').value = '';
         buscarClientePuntos(); 
         actualizarHistorialActivo();
@@ -256,7 +154,7 @@ window.confirmarCargaPuntos = async () => {
 };
 
 // =========================================================
-// 🏆 NIVELES (LÓGICA MANUAL - NO BOOTSTRAP JS)
+// 🏆 NIVELES
 // =========================================================
 window.cargarNiveles = async () => {
     const tbody = document.getElementById('tabla-niveles-body');
@@ -268,7 +166,7 @@ window.cargarNiveles = async () => {
         tbody.innerHTML = '';
         
         if(res.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin niveles</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin niveles configurados</td></tr>';
             return;
         }
 
@@ -290,7 +188,7 @@ window.abrirModalNivel = () => {
     const modal = document.getElementById('modalNivel');
     document.getElementById('form-nivel').reset();
     document.getElementById('nivel-id').value = '';
-    modal.style.display = 'flex'; // Manual Open
+    modal.style.display = 'flex'; 
 };
 
 window.cerrarModalNivel = () => {
@@ -315,7 +213,7 @@ window.guardarNivel = async (e) => {
 
     try {
         await fetchData('/api/club/admin/niveles', { method: 'POST', body: JSON.stringify(payload) });
-        mostrarNotificacion('Nivel guardado', 'success');
+        mostrarNotificacion('Nivel guardado correctamente', 'success');
         window.cerrarModalNivel();
         cargarNiveles();
     } catch(err) { 
@@ -327,41 +225,25 @@ window.guardarNivel = async (e) => {
 };
 
 window.eliminarNivel = async (id) => {
-    // Usamos confirm nativo (si quieres modal bonito, avísame, pero este es rápido)
     if(!confirm('¿Estás seguro de borrar este nivel?')) return;
     
     try {
         await fetchData(`/api/club/admin/niveles?id=${id}`, { method: 'DELETE' });
-        
-        // ¡ESTO FALTABA! 👇
-        mostrarNotificacion('Nivel eliminado con éxito', 'success');
-        
+        mostrarNotificacion('Nivel eliminado', 'success');
         cargarNiveles();
     } catch(e) { 
-        mostrarNotificacion("No se pudo eliminar: " + e.message, "error"); 
+        mostrarNotificacion("Error: " + e.message, "error"); 
     }
 };
 
 // =========================================================
-// 🎁 PREMIOS (LÓGICA MANUAL)
+// 🎁 PREMIOS
 // =========================================================
-
-
-/* window.cerrarModalManual = () => {
-    const modal = document.getElementById('modalPremio');
-    if(modal) {
-        modal.classList.remove('show');
-        modal.style.display = 'none';
-    }
-}; */
-
-// --- GUARDAR PREMIO (Versión Manual / A prueba de balas) ---
 async function guardarPremio(e, negocioId) {
     e.preventDefault();
     const btn = document.getElementById('btn-submit-premio');
     const txtOriginal = btn.innerText;
     
-    // Validar HTML5 básico (required, min, etc)
     if (!document.getElementById('form-premio').checkValidity()) {
         document.getElementById('form-premio').reportValidity();
         return;
@@ -371,47 +253,35 @@ async function guardarPremio(e, negocioId) {
     btn.disabled = true;
 
     try {
-        // 1. Construimos el FormData MANUALMENTE (Como lo tenías vos antes)
         const formData = new FormData();
         formData.append('negocio_id', negocioId);
-        
-        // IDs explícitos (No dependemos del atributo 'name')
         formData.append('nombre', document.getElementById('premio-nombre').value);
         formData.append('costo_puntos', document.getElementById('premio-costo').value);
         formData.append('stock', document.getElementById('premio-stock').value);
         formData.append('descripcion', document.getElementById('premio-descripcion').value);
 
-        // ID del premio (Solo si es edición)
         const id = document.getElementById('premio-id-hidden').value;
         if(id) formData.append('id', id);
 
-        // Archivo (Solo si seleccionó algo)
         const fileInput = document.getElementById('premio-img-file');
         if (fileInput.files.length > 0) {
             formData.append('imagen', fileInput.files[0]);
         }
 
-        // 2. Fetch directo (Sin fetchData para evitar headers JSON automáticos)
         const token = localStorage.getItem('jwt_token');
         const res = await fetch('/api/club/admin/premios', {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }, // NO Content-Type (FormData lo pone solo)
+            headers: { 'Authorization': `Bearer ${token}` },
             body: formData
         });
         
-        // 3. Manejo de error del servidor (HTML vs JSON)
         const text = await res.text();
         let result;
-        try {
-            result = JSON.parse(text); // Intentamos leer JSON
-        } catch (err) {
-            throw new Error(`Error del Servidor (500): Posiblemente falta una columna en la BD o dato inválido.`);
-        }
+        try { result = JSON.parse(text); } catch (err) { throw new Error("Error del servidor"); }
 
         if (!res.ok) throw new Error(result.error || "Error al guardar");
         
-        // 4. Éxito
-        mostrarNotificacion(id ? "Premio actualizado correctamente" : "Premio creado correctamente", "success");
+        mostrarNotificacion(id ? "Premio actualizado" : "Premio creado", "success");
         window.cerrarModalManual();
         cargarPremios(negocioId);
 
@@ -441,7 +311,7 @@ async function cargarPremios(negocioId) {
         }
     } catch(e) { 
         console.error(e);
-        cont.innerHTML = '<div class="alert alert-danger">Error premios</div>';
+        mostrarNotificacion("Error cargando premios", "error");
     }
 }
 
@@ -467,7 +337,7 @@ function renderizarPremios(premios, contenedor) {
                             <button class="btn btn-success btn-sm w-100 btn-canjear" onclick="iniciarCanje(${p.id}, '${p.nombre}', ${p.costo_puntos})">🎁 Canjear</button>
                             <div class="d-flex gap-2">
                                 <button class="btn btn-sm btn-outline-secondary flex-grow-1" onclick="editarPremio(${p.id})">Editar</button>
-                                <button class="btn btn-sm btn-outline-danger flex-grow-1" onclick="confirmarEliminarPremio(${p.id})"><i class="fa fa-trash"></i></button>
+                                <button class="btn btn-sm btn-outline-danger flex-grow-1" onclick="eliminarPremio(${p.id})"><i class="fa fa-trash"></i></button>
                             </div>
                         </div>
                     </div>
@@ -478,75 +348,43 @@ function renderizarPremios(premios, contenedor) {
     actualizarBotonesSegunPuntos();
 }
 
-/* window.editarPremio = async (id) => {
-    try {
-        const premios = await fetchData(`/api/club/admin/premios?negocio_id=${appState.negocioActivoId}`);
-        const p = premios.find(x => x.id == id);
-        if(p) {
-            document.getElementById('premio-id-hidden').value = p.id;
-            document.getElementById('premio-nombre').value = p.nombre;
-            document.getElementById('premio-costo').value = p.costo_puntos;
-            document.getElementById('premio-stock').value = p.stock;
-            document.getElementById('premio-descripcion').value = p.descripcion || '';
-            document.getElementById('modalPremioLabel').innerText = "Editar Premio";
-            window.abrirModalPremio();
-        }
-    } catch(e) { console.error(e); }
-};
-
- */
-
-// --- GESTIÓN DE PREMIOS (CORREGIDO) ---
-
-// 1. Función interna solo para mostrar el modal (sin borrar nada)
-function mostrarModalPremioVisualmente() {
-    const modal = document.getElementById('modalPremio');
-    modal.classList.add('show'); 
-    modal.style.display = 'block';
-}
-
-// 2. Función para BOTÓN "NUEVO PREMIO" (Borra y abre)
 window.abrirModalPremio = () => {
     document.getElementById('form-premio').reset();
     document.getElementById('premio-id-hidden').value = ''; 
     document.getElementById('modalPremioLabel').innerText = "Nuevo Premio";
     document.getElementById('btn-submit-premio').innerText = "Crear Premio";
     
-    mostrarModalPremioVisualmente(); // Solo abre
+    // Mostrar visualmente
+    const modal = document.getElementById('modalPremio');
+    modal.classList.add('show'); 
+    modal.style.display = 'block';
 };
 
-// 3. Función para BOTÓN "EDITAR" (Carga datos y abre)
 window.editarPremio = async (id) => {
     try {
-        // Buscamos el premio en la API (o en memoria si prefieres, pero esto asegura datos frescos)
         const premios = await fetchData(`/api/club/admin/premios?negocio_id=${appState.negocioActivoId}`);
         const p = premios.find(x => x.id == id);
         
         if(p) {
-            // Llenamos campos
             document.getElementById('premio-id-hidden').value = p.id;
             document.getElementById('premio-nombre').value = p.nombre;
             document.getElementById('premio-costo').value = p.costo_puntos;
             document.getElementById('premio-stock').value = p.stock;
             document.getElementById('premio-descripcion').value = p.descripcion || '';
-            
-            // Limpiamos el input de archivo (no se puede setear valor a file input por seguridad)
             document.getElementById('premio-img-file').value = ''; 
             
-            // Cambiamos textos
             document.getElementById('modalPremioLabel').innerText = "Editar Premio";
             document.getElementById('btn-submit-premio').innerText = "Guardar Cambios";
 
-            // ABRIMOS SIN RESETEAR
-            mostrarModalPremioVisualmente();
+            const modal = document.getElementById('modalPremio');
+            modal.classList.add('show'); 
+            modal.style.display = 'block';
         }
     } catch(e) { 
-        console.error(e);
-        mostrarNotificacion("Error al cargar datos del premio", "error");
+        mostrarNotificacion("Error cargando premio", "error");
     }
 };
 
-// 4. Cerrar
 window.cerrarModalManual = () => {
     const modal = document.getElementById('modalPremio');
     if(modal) {
@@ -556,28 +394,106 @@ window.cerrarModalManual = () => {
 };
 
 window.eliminarPremio = async (id) => {
-    // 1. Confirmación
     if(!confirm("¿Estás seguro de que quieres borrar este premio permanentemente?")) return;
 
     try {
-        // 2. Llamada a la API
         await fetchData(`/api/club/admin/premios?id=${id}`, { method: 'DELETE' });
-        
-        // 3. Notificación y recarga
-        mostrarNotificacion("Premio eliminado correctamente", "success");
+        mostrarNotificacion("Premio eliminado", "success");
         cargarPremios(appState.negocioActivoId);
-
     } catch(e) { 
-        console.error(e);
-        mostrarNotificacion("Error al borrar el premio", "error"); 
+        mostrarNotificacion(e.message, "error"); 
     }
 };
 
+// =========================================================
+// 📷 ESCÁNER QR (ADMIN)
+// =========================================================
+window.abrirEscanerQR = () => {
+    const modal = document.getElementById('modalEscanerQR');
+    modal.style.display = 'block'; 
 
+    setTimeout(() => {
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("reader-admin");
+        }
+        const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+        html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
+        .catch(err => {
+            mostrarNotificacion("No se pudo iniciar la cámara", "error");
+            window.cerrarEscanerQR();
+        });
+    }, 300);
+};
+
+window.cerrarEscanerQR = () => {
+    document.getElementById('modalEscanerQR').style.display = 'none';
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => html5QrCode.clear()).catch(err => {});
+    }
+};
+
+function onScanSuccess(decodedText) {
+    if (navigator.vibrate) navigator.vibrate(200);
+    window.cerrarEscanerQR();
+    document.getElementById('filtro-dni-cliente').value = decodedText;
+    buscarClientePuntos();
+}
+
+function onScanFailure(error) { /* Silencio */ }
 
 // =========================================================
-// 📜 HISTORIAL
+// 📜 HISTORIAL & DASHBOARD
 // =========================================================
+async function cargarDashboard() {
+    // ... (Tu lógica de gráficos se mantiene IGUAL, solo quité los logs molestos) ...
+    const ctxBalance = document.getElementById('chartBalance');
+    const ctxTop = document.getElementById('chartTop');
+    if (!ctxBalance || !ctxTop) return;
+    if (typeof Chart === 'undefined') return;
+
+    try {
+        const url = `/api/club/admin/stats?negocio_id=${appState.negocioActivoId}`;
+        const data = await fetchData(url);
+        
+        const otorgados = parseInt(data.balance.otorgados) || 0;
+        const canjeados = parseInt(data.balance.canjeados) || 0;
+
+        if (chartBalanceInstance) chartBalanceInstance.destroy();
+        chartBalanceInstance = new Chart(ctxBalance, {
+            type: 'doughnut',
+            data: {
+                labels: ['Puntos Entregados', 'Puntos Canjeados'],
+                datasets: [{
+                    data: [otorgados, canjeados],
+                    backgroundColor: ['#ffc107', '#198754'],
+                    borderWidth: 1,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        });
+
+        const labels = (data.top_premios && data.top_premios.labels) ? data.top_premios.labels : [];
+        const valores = (data.top_premios && data.top_premios.data) ? data.top_premios.data : [];
+
+        if (chartTopInstance) chartTopInstance.destroy();
+        chartTopInstance = new Chart(ctxTop, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Canjes',
+                    data: valores,
+                    backgroundColor: '#0d6efd',
+                    borderRadius: 4
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+        });
+
+    } catch (error) { console.error("Error Dashboard:", error); }
+}
+
 window.actualizarHistorialActivo = () => {
     const tabCargas = document.getElementById('tab-cargas');
     if (tabCargas && tabCargas.classList.contains('active')) cargarHistorialCargas();
@@ -648,7 +564,6 @@ window.iniciarCanje = (pid, nombre, costo) => {
     if (clienteActivo) inputDni.value = clienteActivo.dni;
     else inputDni.value = '';
     
-    // Manual Open
     document.getElementById('modalCanje').style.display = 'flex';
 };
 
@@ -695,7 +610,7 @@ function actualizarBotonesSegunPuntos() {
     });
 }
 
-// Cierre global de modales al hacer clic afuera
+// Cierre global de modales
 window.addEventListener('click', (event) => {
     const modals = document.querySelectorAll('.modal');
     modals.forEach(modal => {

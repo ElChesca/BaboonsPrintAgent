@@ -1,6 +1,8 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='css/club_gestion.css') }}">
+<link rel="stylesheet" href="/static/css/notifications.css">
+
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 
 <div class="container-fluid pt-4 px-4">
     
@@ -44,6 +46,7 @@
             </form>
         </div>
     </div>
+
     <div class="club-card">
         <div class="club-header">
             <i class="fa fa-layer-group text-info"></i>
@@ -64,7 +67,7 @@
                         </tr>
                     </thead>
                     <tbody id="tabla-niveles-body">
-                        </tbody>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -108,7 +111,6 @@
         </div>
     </div>
     
-
     <div class="row g-4">
         <div class="col-lg-12">
             <div class="club-card">
@@ -139,9 +141,14 @@
 
                             <div id="info-cliente-panel" class="text-center d-none animate__animated animate__fadeIn">
                                 <div class="p-3 bg-white rounded-3 shadow-sm border">
+                                    
                                     <h4 class="fw-bold text-dark m-0" id="nombre-cliente-display">-</h4>
-                                    <small class="text-success fw-bold">● Cliente Activo</small>
+                                    
+                                    <div id="nivel-cliente-badge" class="mt-2"></div>
+                                    
+                                    <small class="text-success fw-bold d-block mt-1">● Cliente Activo</small> 
                                     <hr class="my-3 opacity-25">
+                                    
                                     <div class="d-flex justify-content-center align-items-baseline gap-1">
                                         <span class="fs-1 fw-bold text-success" id="puntos-cliente-display">0</span>
                                         <span class="text-muted text-uppercase small">pts disponibles</span>
@@ -189,7 +196,7 @@
 
     <section id="contenedor-premios" class="mb-5">
         <div id="premios-grilla" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
-            </div>
+        </div>
         <div id="sin-premios-msg" class="alert alert-secondary border-0 text-center d-none py-4">
             <i class="fa fa-box-open fa-2x mb-2 opacity-50"></i>
             <p class="m-0">No hay premios configurados aún.</p>
@@ -198,7 +205,6 @@
     
     <hr class="my-5 opacity-25">
 
-    <!-- Dashboar de Estadisticas -->
     <div class="row mb-4">
         <div class="col-md-5">
             <div class="card shadow-sm h-100 border-0">
@@ -253,7 +259,6 @@
 
         <div class="card-body p-0">
             <div class="tab-content">
-                
                 <div class="tab-pane fade show active" id="tab-canjes">
                     <div class="table-responsive">
                         <table class="tabla-moderna">
@@ -270,7 +275,6 @@
                         </table>
                     </div>
                 </div>
-                
                 <div class="tab-pane fade" id="tab-cargas">
                     <div class="table-responsive">
                         <table class="tabla-moderna">
@@ -286,68 +290,69 @@
                         </table>
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
     
-
-<div id="modalEscanerQR" class="modal" tabindex="-1" style="display: none; background: rgba(0,0,0,0.85);">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content bg-transparent border-0">
-            <div class="modal-body p-0 text-center">
-                 <div class="bg-white p-2 rounded-3 mx-auto shadow-lg" style="max-width: 400px; position: relative;">
-                    <div id="reader-admin" style="width: 100%; min-height: 300px;"></div>
-                 </div>
-                 <button type="button" class="btn btn-outline-light mt-4 rounded-pill px-4" onclick="cerrarEscanerQR()">
-                    <i class="fa fa-times me-2"></i> Cerrar Cámara
-                 </button>
+    <div id="modalEscanerQR" class="modal" tabindex="-1" style="display: none; background: rgba(0,0,0,0.85);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-transparent border-0">
+                <div class="modal-body p-0 text-center">
+                     <div class="bg-white p-2 rounded-3 mx-auto shadow-lg" style="max-width: 400px; position: relative;">
+                        <div id="reader-admin" style="width: 100%; min-height: 300px;"></div>
+                     </div>
+                     <button type="button" class="btn btn-outline-light mt-4 rounded-pill px-4" onclick="cerrarEscanerQR()">
+                        <i class="fa fa-times me-2"></i> Cerrar Cámara
+                     </button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-
-<div class="modal fade" id="modalPremio" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title" id="modalPremioLabel">Administrar Premio</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="form-premio" enctype="multipart/form-data">
-                    <input type="hidden" id="premio-id-hidden">
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Nombre del Premio</label>
-                        <input type="text" id="premio-nombre" class="form-control" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label small text-muted">Descripción (Opcional)</label>
-                        <textarea id="premio-descripcion" class="form-control" rows="2" placeholder="Ej: Válido solo lunes..."></textarea>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-bold">Costo (Puntos)</label>
-                            <input type="number" id="premio-costo" class="form-control" required>
+    <div class="modal fade" id="modalPremio" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title" id="modalPremioLabel">Administrar Premio</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-premio" enctype="multipart/form-data">
+                        <input type="hidden" id="premio-id-hidden">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nombre del Premio</label>
+                            <input type="text" id="premio-nombre" class="form-control" required>
                         </div>
-                        <div class="col-6">
-                            <label class="form-label fw-bold">Stock Inicial</label>
-                            <input type="number" id="premio-stock" class="form-control" required>
+
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">Descripción (Opcional)</label>
+                            <textarea id="premio-descripcion" class="form-control" rows="2" placeholder="Ej: Válido solo lunes..."></textarea>
                         </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Imagen</label>
-                        <input type="file" id="premio-img-file" class="form-control">
-                    </div>
-                    
-                    <button type="submit" id="btn-submit-premio" class="btn btn-primary w-100 mt-2">Guardar</button>
-                </form>
+
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-bold">Costo (Puntos)</label>
+                                <input type="number" id="premio-costo" class="form-control" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-bold">Stock Inicial</label>
+                                <input type="number" id="premio-stock" class="form-control" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Imagen</label>
+                            <input type="file" id="premio-img-file" class="form-control">
+                        </div>
+                        
+                        <button type="submit" id="btn-submit-premio" class="btn btn-primary w-100 mt-2">Guardar</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
+
 </div>
+
+<div id="notification-container"></div>

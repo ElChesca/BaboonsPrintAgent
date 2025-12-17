@@ -534,6 +534,9 @@ def canjear_premio(current_user):
 
 
 # --- 8. BUSCAR CLIENTE POR DNI (Para canje manual) ---
+# app/routes/club_puntos_routes.py
+
+# --- 8. BUSCAR CLIENTE POR DNI (Para canje manual) ---
 @bp.route('/admin/cliente/<dni>', methods=['GET'])
 @token_required
 def buscar_cliente_club(current_user, dni):
@@ -547,11 +550,18 @@ def buscar_cliente_club(current_user, dni):
         if not row:
             return jsonify({'error': 'Cliente no encontrado'}), 404
             
+        # Limpiamos puntos
+        puntos = row['puntos_acumulados'] if row['puntos_acumulados'] is not None else 0
+        
+        # 🔥 CALCULAMOS EL NIVEL 🔥
+        nivel_data = calcular_nivel_cliente(db, negocio_id, puntos)
+        
         cliente_data = {
             'id': row['id'],
             'nombre': row['nombre'],
-            'puntos_acumulados': row['puntos_acumulados'] if row['puntos_acumulados'] is not None else 0,
-            'dni': row['dni']
+            'puntos_acumulados': puntos,
+            'dni': row['dni'],
+            'nivel': nivel_data # <--- ¡Nuevo dato!
         }
         return jsonify(cliente_data), 200
         
