@@ -1,100 +1,86 @@
-/* --- Estilos para el Loader Global --- */
-.loader-overlay {
-    /* Posicionamiento para cubrir todo */
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+/* ==========================================================================
+   GLOBAL.CSS - Multinegocio Baboons (Unified & Refactored)
+   ========================================================================== */
+
+:root {
+    /* --- COLORS --- */
+    --primary-color: #007bff;
+    --primary-hover: #0056b3;
+    --secondary-color: #6c757d;
+    --secondary-hover: #5a6268;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
     
-    /* Fondo semi-transparente con blur */
-    background-color: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(4px);
+    --bg-body: #f0f2f5;
+    --bg-card: #ffffff;
+    --bg-header: #222222;
+    --bg-input: #ffffff;
+    --bg-light: #f8f9fa;
     
-    /* Centrar el contenido */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    --text-main: #333333;
+    --text-muted: #6c757d;
+    --text-light: #ffffff;
     
-    /* Asegurar que esté por encima de todo */
-    z-index: 9999;
+    --border-color: #dee2e6;
     
-    /* Transición suave */
-    transition: opacity 0.3s ease;
+    /* --- SPACING --- */
+    --spacing-xs: 5px;
+    --spacing-sm: 10px;
+    --spacing-md: 15px;
+    --spacing-lg: 20px;
+    --spacing-xl: 30px;
+
+    /* --- TYPOGRAPHY --- */
+    --font-main: 'Roboto', sans-serif;
+    --font-heading: 'Bebas Neue', sans-serif;
+
+    /* --- BORDERS & SHADOWS --- */
+    --border-radius: 8px;
+    --border-radius-lg: 12px;
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 8px rgba(0,0,0,0.1);
+    --shadow-lg: 0 5px 15px rgba(0,0,0,0.2);
+
+    /* --- LAYOUT --- */
+    --header-height: 60px;
 }
 
-/* El spinner (la animación de círculo) */
-.loader-spinner {
-    border: 6px solid #f3f3f3; /* Gris claro */
-    border-top: 6px solid #007bff; /* Azul primario (ajústalo a tu color) */
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    animation: spin 1.2s linear infinite;
+/* --- 1. RESET & BASE --- */
+* {
+    box-sizing: border-box;
 }
 
-.loader-overlay p {
-    margin-top: 20px;
-    font-size: 1.1rem;
-    color: #333;
+body {
+    font-family: var(--font-main);
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    margin: 0;
+    line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 0;
     font-weight: 500;
 }
 
-/* Animación de rotación */
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-/* ==========================================================================
-   GLOBAL.CSS - Estilos Generales Multinegocio Baboons (Versión Final Depurada)
-   ========================================================================== */
-
-/* --- 1. RESET BÁSICO Y FUENTES --- */
-body {
-    font-family: 'Roboto', sans-serif;
-    margin: 0;
-    background-color: #f0f2f5;
-    color: #333; /* Color de texto por defecto */
-}
-
-/* --- 2. LAYOUT PRINCIPAL --- */
 main {
-    padding: 30px;
+    padding: var(--spacing-xl);
 }
 
-/* --- 3. VISIBILIDAD POR ROLES (CORREGIDO) --- */
-.admin-only, .superadmin-only { 
-    /* --- CORRECCIÓN AQUÍ: Quitamos el !important --- */
-    display: none; /* Oculta por defecto, pero con baja prioridad */
-}
-/* Regla base para mostrar elementos */
-body.rol-admin .admin-only,
-body.rol-superadmin .admin-only,
-body.rol-superadmin .superadmin-only { 
-    display: block; /* 'block', 'flex' o 'inline-block' según el elemento */
+a {
+    text-decoration: none;
+    color: inherit;
 }
 
-/* --- REGLA DE EXCEPCIÓN: Si el elemento también es un .app-grid, ¡usa grid! --- */
-/* Esta es la corrección clave que arregla la segunda grilla */
-body.rol-admin .app-grid.admin-only,
-body.rol-superadmin .app-grid.admin-only,
-body.rol-superadmin .app-grid.superadmin-only {
-    display: grid !important; /* Forzamos display: grid */
-}
+/* --- 2. LAYOUT COMPONENTS --- */
 
-/* --- REGLA DE EXCEPCIÓN: Si el elemento es un .dropdown, ¡usa inline-block! --- */
-body.rol-admin .dropdown.admin-only,
-body.rol-superadmin .dropdown.admin-only,
-body.rol-superadmin .dropdown.superadmin-only {
-    display: inline-block !important; /* Forzamos display: inline-block */
-}
-
-/* --- 4. HEADER (RECONSTRUIDO) --- */
+/* Header */
 header {
-    background-color: #222222;
-    color: white;
-    padding: 10px 30px;
+    background-color: var(--bg-header);
+    color: var(--text-light);
+    padding: var(--spacing-sm) var(--spacing-xl);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -102,10 +88,10 @@ header {
     position: sticky;
     top: 0;
     z-index: 1000;
-    min-height: 60px; /* <- La regla clave */
+    min-height: var(--header-height);
     width: 100%;
-    box-sizing: border-box;
 }
+
 .logo-container {
     height: 35px;
     display: flex;
@@ -116,100 +102,70 @@ header {
     width: auto;
 }
 
-/* --- 5. BARRA SELECTOR NEGOCIO --- */
-#business-selector-bar {
-    background-color: #f8f9fa;
-    padding: 8px 30px;
-    /* display: none; JS la muestra */
-    align-items: center;
-    gap: 15px;
-    border-bottom: 1px solid #dee2e6;
-    min-height: 40px;
-}
-#business-selector-bar label,
-#business-display-name {
-    font-weight: bold;
-    font-size: 0.85em;
-    margin: 0;
-    color: #333;
-}
-#business-selector-bar select {
-    padding: 5px 8px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    font-size: 0.85em;
-    margin-left: 5px;
-}
-#active-business-name-display {
-    font-weight: normal;
-}
-
-/* --- 6. NAVEGACIÓN (RECONSTRUIDA) --- */
+/* Navigation */
 .nav-container {
     flex-grow: 1;
     display: flex;
     justify-content: flex-end;
 }
 
-/* Contenedor principal de la NAV en ESCRITORIO */
 #main-nav {
     display: flex;
     align-items: center;
-    gap: 10px; /* Espacio entre elementos */
+    gap: var(--spacing-sm);
 }
 
-/* Links directos y Títulos de Dropdown */
 #main-nav > a, 
 #main-nav > .dropdown > .dropbtn {
-    color: white;
-    text-decoration: none;
+    color: var(--text-light);
     font-weight: bold;
     padding: 8px 12px;
     border-radius: 5px;
     white-space: nowrap;
     display: flex;
     align-items: center;
-}
-#main-nav > a {
     transition: background-color 0.3s, box-shadow 0.3s;
 }
 
-/* Efecto HOVER (pasar el mouse) */
 #main-nav > a:hover,
 #main-nav > .dropdown:hover > .dropbtn {
     background-color: #444444;
 }
 
-/* Efecto ACTIVE (página actual) */
 #main-nav > a.active {
-    box-shadow: inset 0 -3px 0 0 white; /* Subrayado elegante */
+    box-shadow: inset 0 -3px 0 0 white;
 }
 
-/* Dropdown Menú */
+/* Dropdown */
 .dropdown { position: relative; display: inline-block; }
 
-/* Oculta el .dropdown-content por defecto */
 .dropdown-content {
-    display: none; position: absolute; background-color: #333333;
-    min-width: 180px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-    z-index: 1001; border-radius: 5px; right: 0;
-    margin-top: 5px; /* Pequeña separación */
+    display: none;
+    position: absolute;
+    background-color: #333333;
+    min-width: 180px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1001;
+    border-radius: 5px;
+    right: 0;
+    margin-top: 5px;
 }
 .dropdown-content a {
-    color: white; padding: 12px 16px; display: block;
-    text-align: left; margin-left: 0; width: 100%; box-sizing: border-box;
-    text-decoration: none;
+    color: var(--text-light);
+    padding: 12px 16px;
+    display: block;
+    text-align: left;
+    margin-left: 0;
+    width: 100%;
 }
 .dropdown-content a:hover { background-color: #444444; }
 .dropdown:hover .dropdown-content { display: block; }
 
-/* Marca el dropdown padre si un hijo está activo */
 .dropdown.active > .dropbtn {
      box-shadow: inset 0 -3px 0 0 white;
 }
 
-
-/* Botón Hamburguesa (Oculto en escritorio) */
+/* Mobile Hamburger */
 .hamburger-btn {
     display: none;
     font-size: 2em;
@@ -220,151 +176,138 @@ header {
     padding: 0 10px;
 }
 
-/* --- 7. RESPONSIVE (Móvil) --- */
-@media (max-width: 900px) {
-    header { padding: 10px 15px; min-height: 50px; }
-    .logo-container { height: 30px; }
-    
-    /* Mostramos la hamburguesa */
-    .hamburger-btn { display: block; }
+/* Business Selector Bar */
+#business-selector-bar {
+    background-color: var(--bg-light);
+    padding: 8px var(--spacing-xl);
+    align-items: center;
+    gap: 15px;
+    border-bottom: 1px solid var(--border-color);
+    min-height: 40px;
+}
+#business-selector-bar label,
+#business-display-name {
+    font-weight: bold;
+    font-size: 0.85em;
+    margin: 0;
+    color: var(--text-main);
+}
+#business-selector-bar select {
+    padding: 5px 8px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 0.85em;
+    margin-left: 5px;
+}
+#active-business-name-display { font-weight: normal; }
 
-    /* Ocultamos la nav de escritorio */
-    .nav-container {
-        display: none; /* Oculto por defecto */
-        position: absolute; 
-        top: 50px; /* Justo debajo del header (altura móvil) */
-        left: 0; 
-        width: 100%; 
-        background-color: #333333;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-        z-index: 999;
-    }
-    
-    /* Clase .is-active que pone el JS */
-    .nav-container.is-active { 
-        display: block; 
-    }
-    
-    /* Reordenamos la nav a vertical */
-    #main-nav { 
-        flex-direction: column; 
-        align-items: flex-start; 
-        padding: 10px 0;
-        gap: 0; /* Quitamos gap en móvil */
-    }
-    
-    /* Links y Dropdowns en móvil */
-    #main-nav > a, 
-    #main-nav > .dropdown { 
-        width: 100%; 
-        margin-left: 0; 
-        box-sizing: border-box; /* Importante para width 100% */
-    }
-    
-    #main-nav > a,
-    #main-nav > .dropdown > .dropbtn {
-         padding: 15px 20px;
-         border-bottom: 1px solid #555555;
-         border-radius: 0;
-    }
-    
-    /* Dropdowns en móvil */
-    .dropdown-content { 
-        position: static; 
-        display: block; 
-        background-color: #444; /* Un poco más claro */
-        box-shadow: none; 
-        padding-left: 20px; 
-        width: 100%;
-        box-sizing: border-box;
-    }
-    .dropdown-content a {
-        padding-left: 30px; /* Indentado */
-    }
-    
-    /* Barra de negocio en móvil */
-    #business-selector-bar { padding: 8px 15px; flex-direction: column; align-items: flex-start; }
-    
-    /* --- ARREGLO PARA GRILLA DE APPS EN MÓVIL (2 COLUMNAS) --- */
-    .app-dashboard {
-        padding: 20px 15px; /* Damos padding lateral en móvil */
-    }
-    /* APLICAMOS LA GRILLA DE 2 COLUMNAS A CUALQUIER .app-grid DENTRO DEL DASHBOARD */
-    .app-dashboard .app-grid {
-        grid-template-columns: repeat(2, 1fr) !important; /* !important para ganar la batalla */
-        max-width: 100%; 
-        gap: 15px; /* Espacio entre tarjetas */
-    }
-    .app-card {
-        min-height: 120px; /* Altura original */
-        padding: 15px;
-        border-radius: 12px; /* Bordes redondeados de vuelta */
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Sombra de vuelta */
-    }
-    .app-icon {
-        width: 64px;
-        height: 64px;
-    }
-    .app-name {
-        font-size: 0.9em;
-    }
+/* --- 3. UTILITIES & COMPONENTS --- */
+
+/* Buttons */
+.btn {
+    display: inline-block;
+    padding: 10px 15px;
+    border: none;
+    border-radius: var(--border-radius);
+    font-weight: bold;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    font-size: 1rem;
+}
+.btn:active { transform: translateY(1px); }
+
+.btn-primary { background-color: var(--primary-color); color: white; }
+.btn-primary:hover { background-color: var(--primary-hover); }
+
+.btn-secondary { background-color: var(--secondary-color); color: white; }
+.btn-secondary:hover { background-color: var(--secondary-hover); }
+
+.btn-success { background-color: var(--success-color); color: white; }
+.btn-danger { background-color: var(--danger-color); color: white; }
+
+/* Cards */
+.card, .app-card, .stat-card, .login-container {
+    background-color: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color); /* Optional: can be removed if shadow is enough */
 }
 
-/* --- 8. DASHBOARD (Home - Escritorio) --- */
-.app-dashboard { padding: 30px; text-align: center; }
-.dashboard-title { font-size: 2em; color: #333; margin-bottom: 30px; font-weight: 300; }
-.app-grid {
-    display: grid; 
-    /* 5 COLUMNAS en ESCRITORIO */
-    grid-template-columns: repeat(5, 1fr);
-    gap: 25px; 
-    justify-content: center; 
-    max-width: 1100px; /* Aumentado para 5 columnas */
-    margin: 0 auto;
+/* Forms */
+.form-group { margin-bottom: var(--spacing-md); }
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+.form-control, input[type="text"], input[type="password"], input[type="number"], input[type="email"], select, textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1rem;
+    box-sizing: border-box;
 }
 
-.app-card {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background-color: #ffffff; border-radius: 12px; padding: 15px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    cursor: pointer; min-height: 120px; text-decoration: none; /* Para los <a> */
-}
-.app-card:hover { transform: translateY(-5px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); }
-.app-icon { width: 64px; height: 64px; margin-bottom: 10px; object-fit: contain; }
-.app-name { font-size: 0.9em; color: #555; text-align: center; font-weight: 500; }
-
-/* --- 9. COMPONENTES GLOBALES --- */
-/* (El resto de tus estilos... modales, tablas, botones, etc.) */
-/* Modales */
+/* Modals */
 .modal {
-    display: none; position: fixed; z-index: 1001; /* Encima del header */
-    left: 0; top: 0; width: 100%; height: 100%; overflow: auto;
-    background-color: rgba(0, 0, 0, 0.6); /* Más oscuro */
+    display: none;
+    position: fixed;
+    z-index: 1001;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.6);
     justify-content: center; align-items: center;
+    backdrop-filter: blur(2px);
 }
 .modal-content {
-    background-color: #fff; padding: 25px; border-radius: 8px;
-    width: 90%; max-width: 500px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    background-color: #fff;
+    padding: 25px;
+    border-radius: var(--border-radius);
+    width: 90%; max-width: 500px;
+    box-shadow: var(--shadow-lg);
 }
 .modal-content.large { max-width: 900px; }
+
 .modal-header {
     display: flex; justify-content: space-between; align-items: center;
     border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px;
 }
-.modal-header h2, .modal-header h3 { margin: 0; color: #333; }
 .close-button {
-    color: #aaa; font-size: 32px; font-weight: bold; cursor: pointer;
-    line-height: 1; /* Mejor alineación vertical */
+    color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer;
+    line-height: 1;
 }
-.close-button:hover, .close-button:focus { color: black; text-decoration: none; }
+.close-button:hover { color: #333; }
 
-/* Buscador con Resultados */
+/* Loader */
+.loader-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background-color: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    z-index: 9999;
+    transition: opacity 0.3s ease;
+}
+.loader-spinner {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid var(--primary-color);
+    border-radius: 50%;
+    width: 50px; height: 50px;
+    animation: spin 1.2s linear infinite;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* Search Results */
 .search-container { position: relative; }
 .search-results {
     position: absolute; width: 100%; background-color: white;
     border: 1px solid #ddd; border-top: none; border-radius: 0 0 6px 6px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 250px;
+    box-shadow: var(--shadow-md); max-height: 250px;
     overflow-y: auto; z-index: 100;
 }
 .search-item {
@@ -372,54 +315,194 @@ header {
     justify-content: space-between; align-items: center; font-size: 0.9em;
     border-bottom: 1px solid #f0f0f0;
 }
-.search-item:last-child { border-bottom: none; }
-.search-item:hover { background-color: #f0f0f0; }
-.search-item .stock { color: #6c757d; font-size: 0.85em; }
+.search-item:hover { background-color: var(--bg-light); }
 
-/* Por defecto ocultamos los items de navegación específicos */
-#main-nav .nav-retail,
-#main-nav .nav-consorcio {
-    display: none !important;
+/* --- 4. DASHBOARD GRID (Merged) --- */
+.app-dashboard { padding: var(--spacing-xl); text-align: center; }
+.dashboard-title { font-size: 2em; color: var(--text-main); margin-bottom: 30px; font-weight: 300; }
+
+.app-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 25px;
+    justify-content: center;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+.app-card {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer; min-height: 120px; text-decoration: none;
+    padding: 15px;
+}
+.app-card:hover { transform: translateY(-5px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); }
+.app-icon { width: 64px; height: 64px; margin-bottom: 10px; object-fit: contain; }
+.app-name { font-size: 0.9em; color: #555; text-align: center; font-weight: 500; }
+
+/* --- 5. NOTIFICATIONS (Merged) --- */
+#notification-container {
+    position: fixed; top: 90px; right: 20px; z-index: 99999;
+    display: flex; flex-direction: column; gap: 10px;
+    pointer-events: none;
+}
+.notif-toast {
+    background: white; min-width: 300px; padding: 15px 20px;
+    border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 600; font-size: 0.95rem;
+    border-left: 6px solid #333; pointer-events: auto; cursor: pointer;
+    animation: slideInRight 0.3s ease-out forwards;
+}
+.notif-toast.success { border-left-color: var(--success-color); color: #212529; }
+.notif-toast.error { border-left-color: var(--danger-color); color: #c0392b; }
+.notif-toast.warning { border-left-color: var(--warning-color); color: #d35400; }
+
+@keyframes slideInRight {
+    from { transform: translateX(120%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
 }
 
-/* Muestra el menú de la app activa (display: block para dropdowns) */
-body.app-retail #main-nav .nav-retail {
-    display: block !important;
-}
-body.app-consorcio #main-nav .nav-consorcio {
-    display: block !important;
-}
+/* --- 6. ROLES & VISIBILITY --- */
+.admin-only, .superadmin-only, .operador-only { display: none !important; }
 
-/* Muestra los enlaces directos (revert para que usen su display original) */
-body.app-retail #main-nav a.nav-retail,
-body.app-consorcio #main-nav a.nav-consorcio {
-     display: revert !important; 
+body.rol-operador .operador-only { display: block !important; }
+body.rol-admin .admin-only, body.rol-superadmin .admin-only { display: block !important; }
+body.rol-superadmin .superadmin-only { display: block !important; }
+
+/* Display Corrections for Specific Elements */
+body.rol-admin .app-grid.admin-only,
+body.rol-superadmin .app-grid.admin-only,
+body.rol-superadmin .app-grid.superadmin-only {
+    display: grid !important;
 }
-
-/* --- LÓGICA DE ROLES (CORREGIDA) --- */
-
-/* 1. Ocultar todos los bloques de rol por defecto */
-.admin-only,
-.superadmin-only,
-.operador-only {
-    display: none !important;
+body.rol-admin .dropdown.admin-only,
+body.rol-superadmin .dropdown.admin-only,
+body.rol-superadmin .dropdown.superadmin-only {
+    display: inline-block !important;
 }
 
-/* 2. Mostrar bloques de 'operador' si el body es 'rol-operador' */
-body.rol-operador .operador-only {
-    display: block !important;
+/* --- 7. APP MODE VISIBILITY (Retail vs Consorcio) --- */
+#main-nav .nav-retail, #main-nav .nav-consorcio { display: none !important; }
+body.app-retail #main-nav .nav-retail { display: block !important; }
+body.app-consorcio #main-nav .nav-consorcio { display: block !important; }
+body.app-retail #main-nav a.nav-retail, body.app-consorcio #main-nav a.nav-consorcio { display: revert !important; }
+
+/* --- 8. RESPONSIVE --- */
+@media (max-width: 900px) {
+    header { padding: 10px 15px; min-height: 50px; }
+    .logo-container { height: 30px; }
+    .hamburger-btn { display: block; }
+
+    .nav-container {
+        display: none;
+        position: absolute; top: 50px; left: 0; width: 100%;
+        background-color: #333333; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        z-index: 999;
+    }
+    .nav-container.is-active { display: block; }
+
+    #main-nav { flex-direction: column; align-items: flex-start; padding: 10px 0; gap: 0; }
+
+    #main-nav > a, #main-nav > .dropdown { width: 100%; margin: 0; box-sizing: border-box; }
+    #main-nav > a, #main-nav > .dropdown > .dropbtn {
+         padding: 15px 20px; border-bottom: 1px solid #555555; border-radius: 0;
+    }
+
+    .dropdown-content {
+        position: static; display: block; background-color: #444;
+        box-shadow: none; padding-left: 20px; width: 100%; box-sizing: border-box;
+    }
+
+    #business-selector-bar { padding: 8px 15px; flex-direction: column; align-items: flex-start; }
+
+    .app-dashboard { padding: 20px 15px; }
+    .app-dashboard .app-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        max-width: 100%; gap: 15px;
+    }
+}
+/* app/static/css/global.css additions */
+
+/* --- TABLE STYLES (GENERIC) --- */
+.table, .tabla-bonita, .tabla-venta-elegante {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--spacing-md);
+    font-size: 0.95em;
 }
 
-/* 3. Mostrar bloques 'admin' si el body es 'rol-admin' O 'rol-superadmin' */
-body.rol-admin .admin-only,
-body.rol-superadmin .admin-only {
-    display: block !important;
+.table th, .tabla-bonita th, .tabla-venta-elegante th,
+.table td, .tabla-bonita td, .tabla-venta-elegante td {
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
 }
 
-/* 4. Mostrar bloques 'superadmin' SOLO si el body es 'rol-superadmin' */
-body.rol-superadmin .superadmin-only {
-    display: block !important;
+.table thead th, .tabla-bonita thead th, .tabla-venta-elegante thead th {
+    background-color: var(--bg-light);
+    color: var(--text-main);
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
 }
 
+.table tbody tr:hover, .tabla-bonita tbody tr:hover, .tabla-venta-elegante tbody tr:hover {
+    background-color: var(--bg-light);
+}
 
-/* FIN DEL ARCHIVO - Sin llaves extra */
+.table-responsive, .tabla-contenedor {
+    overflow-x: auto;
+    width: 100%;
+}
+
+/* --- FORM GRID UTILITIES --- */
+.form-grid-3-col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.grid-col-span-3 {
+    grid-column: span 3;
+}
+@media (max-width: 900px) {
+    .grid-col-span-3 { grid-column: span 1; }
+}
+
+.form-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
+    margin-top: var(--spacing-md);
+}
+
+/* --- PAGE HEADER --- */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-xl);
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: var(--spacing-sm);
+}
+.page-header h2 {
+    margin: 0;
+    font-size: 1.8em;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+/* app/static/css/global.css additions */
+
+/* --- MARGIN UTILITIES --- */
+.mb-4 {
+    margin-bottom: var(--spacing-lg);
+}
+
+/* --- GRID UTILITIES --- */
+.grid-col-span-2 {
+    grid-column: span 2;
+}
+@media (max-width: 900px) {
+    .grid-col-span-2 { grid-column: span 1; }
+}

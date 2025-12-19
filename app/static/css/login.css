@@ -1,79 +1,41 @@
-/* Centra todo el contenedor del login en la página */
+/* app/static/css/login.css */
+
 .login-page-wrapper {
     display: flex;
     justify-content: center;
     align-items: center;
-    /* Usamos 80vh (viewport height) para que no quede pegado al header/footer */
     min-height: 80vh;
 }
 
-/* El contenedor principal del formulario, con estilo de "tarjeta" */
+/* Usamos la clase .card de global.css, pero mantenemos el ancho específico */
 .login-container {
-    background-color: #fff;
-    padding: 40px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    max-width: 400px;
     width: 100%;
-    max-width: 400px; /* Un ancho máximo para que no se estire demasiado en pantallas grandes */
-    box-sizing: border-box;
+    /* El resto de estilos (bg, padding, shadow) vienen de .card en global.css */
 }
 
-/* Estilo para el título "Iniciar Sesión" */
 .login-container h2 {
     text-align: center;
     margin-top: 0;
     margin-bottom: 25px;
-    color: #333;
-    font-family: 'Bebas Neue', sans-serif;
+    color: var(--text-main);
+    font-family: var(--font-heading);
     font-size: 2.5em;
 }
 
-/* Estilos para los campos de texto y botones, consistentes con el resto de la app */
-.form-group {
-    margin-bottom: 20px;
-}
+/* .form-group ya está en global.css, solo overrides si es necesario */
 
-.form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-    color: #555;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    box-sizing: border-box;
-    font-size: 1em;
-}
-
-/* El botón de login ocupará todo el ancho */
+/* .btn-primary ya está en global.css, solo overrides si es necesario */
 .btn-primary {
-    width: 100%;
-    padding: 12px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
+    width: 100%; /* El botón de login debe ser full width */
     font-size: 1.1em;
-    font-weight: bold;
-    transition: background-color 0.3s;
     margin-top: 10px;
 }
 
-.btn-primary:hover {
-    background-color: #0056b3;
-}
-
-/* Contenedor para mostrar mensajes de error (ej: "Usuario o contraseña incorrectos") */
 #login-error-message {
-    color: #dc3545; /* Rojo de error */
+    color: var(--danger-color);
     text-align: center;
     margin-top: 15px;
     font-weight: bold;
-    /* Por defecto está oculto hasta que el JS le ponga contenido */
     display: none;
 }
