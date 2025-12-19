@@ -4,82 +4,92 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Para tablas en PDF (jsPDF-AutoTable) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-<h2>💸 Registro de Gastos Operativos</h2>
 
-<div class="card">
-    <h3 id="form-gasto-titulo">Registrar Nuevo Gasto</h3>
-    <form id="form-gasto">
-        <input type="hidden" id="gasto-id">
-        
-        <div class="form-grid-3-col"> <div class="form-group">
-                <label for="gasto-fecha">Fecha:</label>
-                <input type="datetime-local" id="gasto-fecha" required>
-            </div>
+<div class="seccion-contenido-dinamico">
+    <div class="page-header">
+        <h2>💸 Registro de Gastos Operativos</h2>
+    </div>
+
+    <div class="card mb-4">
+        <h3 id="form-gasto-titulo">Registrar Nuevo Gasto</h3>
+        <form id="form-gasto">
+            <input type="hidden" id="gasto-id">
             
-            <div class="form-group">
-                <label for="gasto-categoria">Categoría:</label>
-                <select id="gasto-categoria" required>
-                    <option value="">Cargando categorías...</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="gasto-monto">Monto ($):</label>
-                <input type="number" id="gasto-monto" step="0.01" required>
+            <div class="form-grid-3-col">
+                <div class="form-group">
+                    <label for="gasto-fecha">Fecha:</label>
+                    <input type="datetime-local" id="gasto-fecha" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="gasto-categoria">Categoría:</label>
+                    <select id="gasto-categoria" class="form-control" required>
+                        <option value="">Cargando categorías...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="gasto-monto">Monto ($):</label>
+                    <input type="number" id="gasto-monto" class="form-control" step="0.01" required>
+                </div>
+
+                <div class="form-group grid-col-span-2">
+                    <label for="gasto-descripcion">Descripción (Opcional):</label>
+                    <input type="text" id="gasto-descripcion" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="gasto-metodo-pago">Método de Pago:</label>
+                    <select id="gasto-metodo-pago" class="form-control">
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="gasto-estado">Estado:</label>
+                    <select id="gasto-estado" class="form-control">
+                        <option value="Pagado">Pagado</option>
+                        <option value="Pendiente">Pendiente</option>
+                    </select>
+                </div>
             </div>
 
-            <div class="form-group grid-col-span-3">
-                <label for="gasto-descripcion">Descripción (Opcional):</label>
-                <input type="text" id="gasto-descripcion">
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Guardar Gasto</button>
+                <button type="button" id="btn-cancelar-edicion-gasto" class="btn btn-secondary" style="display: none;">Cancelar</button>
             </div>
+        </form>
+    </div>
 
-            <div class="form-group">
-                <label for="gasto-metodo-pago">Método de Pago:</label>
-                <select id="gasto-metodo-pago">
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Transferencia">Transferencia</option>
-                    <option value="Tarjeta">Tarjeta</option>
-                    <option value="Otro">Otro</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="gasto-estado">Estado:</label>
-                <select id="gasto-estado">
-                    <option value="Pagado">Pagado</option>
-                    <option value="Pendiente">Pendiente</option>
-                </select>
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">Últimos Gastos Registrados</h3>
+            <div class="form-actions" style="margin: 0;">
+                <button id="btn-exportar-gastos-excel" class="btn btn-success"><i class="fas fa-file-excel"></i> Excel</button>
+                <button id="btn-exportar-gastos-pdf" class="btn btn-danger"><i class="fas fa-file-pdf"></i> PDF</button>
             </div>
         </div>
         
-        <div class="form-actions">
-            <button type="submit" class="btn-primary">Guardar Gasto</button>
-            <button type="button" id="btn-cancelar-edicion-gasto" class="btn-secondary" style="display: none;">Cancelar</button>
-        </div>
-    </form>
-</div>
-
-<div class="card">
-    <h3>Últimos Gastos Registrados</h3>
-        <div class="form-actions">
-                <button id="btn-exportar-gastos-excel" class="btn-secondary">Exportar a Excel</button>
-                <button id="btn-exportar-gastos-pdf" class="btn-secondary">Exportar a PDF</button>
-        </div>
-    <div class="tabla-contenedor">
-        <table class="tabla-bonita" id="tabla-gastos">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Categoría</th>
-                    <th>Descripción</th>
-                    <th>Monto</th>
-                    <th>Método Pago</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="tabla-contenedor">
+            <table class="table" id="tabla-gastos">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Categoría</th>
+                        <th>Descripción</th>
+                        <th>Monto</th>
+                        <th>Método Pago</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Se llena con JS -->
                 </tbody>
-        </table>
+            </table>
+        </div>
     </div>
 </div>
