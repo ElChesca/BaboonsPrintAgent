@@ -110,6 +110,72 @@
             </div>
         </div>
     </div>
+
+    <!-- SECCIÓN GESTIÓN DE ENCUESTAS -->
+    <div class="club-card mt-4">
+        <div class="club-header">
+            <i class="fa fa-clipboard-check text-warning"></i>
+            <span>Gestión de Encuestas</span>
+            <button class="btn btn-sm btn-outline-light ms-auto" onclick="abrirModalEncuesta()">
+                <i class="fa fa-plus"></i> Crear Encuesta
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4">Título de la Encuesta</th>
+                            <th>Premio (Pts)</th>
+                            <th>Estado</th>
+                            <th class="text-center">Ver</th> <!-- Nueva columna para el ojo -->
+                            <th class="text-end pe-4">Acción</th> <!-- Columna para borrar -->
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-encuestas-body">
+                        <!-- Se carga vía JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA CREAR/EDITAR ENCUESTA -->
+    <div id="modalEncuesta" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">Configurar Encuesta</h5>
+                <span class="close-button" onclick="cerrarModalEncuesta()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="form-encuesta" onsubmit="guardarEncuesta(event)">
+                    <input type="hidden" id="encuesta-id">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Título de la Encuesta</label>
+                        <input type="text" id="encuesta-titulo" class="form-control mb-3" placeholder="Ej: Experiencia de Usuario">
+                        
+                        <label class="form-label small fw-bold text-muted">Preguntas (Máx 5)</label>
+                        <div id="contenedor-preguntas-dinamicas">
+                            <input type="text" class="form-control form-control-sm mb-2 pregunta-input" placeholder="Pregunta 1">
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="agregarInputPregunta()">
+                            <i class="fa fa-plus"></i> Añadir Pregunta
+                        </button>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Fecha de Expiración</label>
+                        <input type="date" id="encuesta-expiracion" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Puntos otorgados al responder</label>
+                        <input type="number" id="encuesta-puntos" class="form-control" value="50" required>
+                    </div>
+                    <button type="submit" class="btn btn-warning w-100 fw-bold">Publicar Encuesta</button>
+                </form>
+            </div>
+        </div>
+    </div>
     
     <div class="row g-4">
         <div class="col-lg-12">
@@ -254,6 +320,11 @@
                         📥 Cargas (Entradas)
                     </button>
                 </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-respuestas" type="button" onclick="cargarHistorialRespuestas()">
+                        <i class="fas fa-star me-1"></i> Opiniones/Encuestas
+                    </button>
+                </li>
             </ul>
         </div>
 
@@ -290,6 +361,21 @@
                         </table>
                     </div>
                 </div>
+                <div class="tab-pane fade" id="tab-respuestas">
+                <div class="table-responsive">
+                    <table class="tabla-moderna">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">Fecha</th>
+                                <th>Encuesta</th>
+                                <th>Cliente</th>
+                                <th class="text-center pe-4">Calificación</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-respuestas-body"></tbody>
+                    </table>
+                </div>
+            </div>
             </div>
         </div>
     </div>
@@ -349,6 +435,21 @@
                         <button type="submit" id="btn-submit-premio" class="btn btn-primary w-100 mt-2">Guardar</button>
                     </form>
                 </div>
+            </div>
+        </div>
+    </div>
+    <!-- MODAL PARA VER PREGUNTAS DE UNA ENCUESTA -->
+    <div id="modalVerPreguntas" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title">Preguntas de la Encuesta</h5>
+                <span class="close-button" onclick="cerrarModalVerPreguntas()">&times;</span>
+            </div>
+            <div class="modal-body p-4">
+                <h6 id="titulo-encuesta-preguntas" class="fw-bold text-primary mb-3"></h6>
+                <ul id="lista-preguntas-encuesta" class="list-group list-group-flush">
+                    <!-- Se carga vía JS -->
+                </ul>
             </div>
         </div>
     </div>

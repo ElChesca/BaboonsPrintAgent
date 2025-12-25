@@ -10,9 +10,124 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app.database import get_db
 from app import bcrypt
 from app.auth_decorator import token_required
+from app import mail # Importas la instancia de mail
+from flask_mail import Message
+import json
+import time
+from flask import Response, stream_with_context
 
 bp = Blueprint('club_puntos', __name__)
+# Lista para mantener las "colas" de mensajes de los clientes conectados
+notificadores = []
 
+
+def ejecutar_notificacion_cliente(db, negocio_id, cliente_id, nuevos_puntos, mensaje_texto):
+    """Calcula niveles y envía el mensaje al stream del cliente"""
+    try:
+        # 1. Nivel Actual
+        db.execute("""
+            SELECT nombre FROM niveles_club 
+            WHERE negocio_id = %s AND puntos_minimos <= %s
+            ORDER BY puntos_minimos DESC LIMIT 1
+        """, (negocio_id, nuevos_puntos))
+        res_actual = db.fetchone()
+        nivel_nombre = res_actual['nombre'] if res_actual else "Miembro"
+        
+        # 2. Nivel Siguiente y Cálculo de lo que falta
+        db.execute("""
+            SELECT nombre, puntos_minimos FROM niveles_club 
+            WHERE negocio_id = %s AND puntos_minimos > %s
+            ORDER BY puntos_minimos ASC LIMIT 1
+        """, (negocio_id, nuevos_puntos))
+        res_sig = db.fetchone()
+
+        puntos_faltantes = 0
+        proximo_nivel = None
+        if res_sig:
+            puntos_faltantes = res_sig['puntos_minimos'] - nuevos_puntos
+            proximo_nivel = res_sig['nombre']
+
+        # 3. Construir JSON y enviar a la cola (notificadores es la lista global)
+        payload = json.dumps({
+            'puntos': nuevos_puntos,
+            'mensaje': mensaje_texto,
+            'nivel_nombre': nivel_nombre,
+            'falta_para_subir': puntos_faltantes,
+            'proximo_nivel': proximo_nivel
+        })
+
+        for cid, q in notificadores:
+            if cid == cliente_id:
+                q.put(payload)
+                
+    except Exception as e:
+        print(f"⚠️ Error en sistema de notificación: {e}")
+
+@bp.route('/admin/notificacion-general', methods=['POST'])
+@token_required
+def enviar_notificacion_general(current_user):
+    """
+    Envía un mensaje a TODOS los clientes conectados actualmente.
+    """
+    data = request.get_json()
+    titulo = data.get('titulo', '¡Aviso del Club!')
+    mensaje = data.get('mensaje')
+    negocio_id = data.get('negocio_id')
+
+    if not mensaje or not negocio_id:
+        return jsonify({'error': 'Faltan datos'}), 400
+
+    # Construimos el paquete de datos
+    payload = json.dumps({
+        'tipo': 'broadcast', # Identificador para que el JS sepa que no es carga de puntos
+        'titulo': titulo,
+        'mensaje': mensaje
+    })
+
+    # Contador para saber a cuántos les llegó
+    enviados = 0
+
+    # Recorremos todas las colas activas
+    for cid, q in notificadores:
+        # Aquí podrías filtrar si quieres que sea solo para un negocio_id específico
+        # pero por ahora, vamos a enviarlo a todos los activos
+        try:
+            q.put(payload)
+            enviados += 1
+        except:
+            continue
+
+    return jsonify({
+        'status': 'success',
+        'mensaje': f'Notificación enviada a {enviados} clientes conectados.'
+    }), 200
+
+@bp.route('/stream')
+@token_required
+def stream_puntos(current_user):
+    """
+    Mantiene una conexión abierta con el cliente para enviarle 
+    actualizaciones de puntos en tiempo real.
+    """
+    def event_stream():
+        import queue
+        q = queue.Queue()
+        # Registramos al usuario (asociando su ID para enviarle solo lo suyo)
+        notificadores.append((current_user['id'], q))
+        
+        try:
+            while True:
+                # Espera un mensaje de la cola
+                mensaje = q.get()
+                yield f"data: {mensaje}\n\n"
+        except GeneratorExit:
+            # Si el cliente cierra la app o pierde conexión, lo removemos
+            for item in notificadores:
+                if item[1] == q:
+                    notificadores.remove(item)
+                    break
+
+    return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
 
 # --- X. GESTIÓN DE NIVELES (Admin) ---
@@ -65,77 +180,70 @@ def gestion_niveles(current_user):
     return jsonify([dict(r) for r in db.fetchall()]), 200
 
 
-# --- HELPER: CALCULAR NIVEL ACTUAL ---
-# --- HELPER: CALCULAR NIVEL (BLINDADO) ---
 def calcular_nivel_cliente(db, negocio_id, puntos_actuales):
-    """
-    Devuelve el nivel. Si algo falla, devuelve nivel básico para no romper la app.
-    Maneja puntos None convirtiéndolos a 0.
-    """
-    nivel_default = {'nombre': 'Miembro', 'color': '#6c757d', 'icono': 'fa-user'}
-    
-    try:
-        # Validación defensiva: Si puntos es None, es 0.
-        if puntos_actuales is None:
-            puntos_actuales = 0
-            
-        # Nos aseguramos que sean enteros
-        puntos_actuales = int(puntos_actuales)
-        
-        # Buscamos el nivel más alto que cumpla el requisito
-        db.execute("""
-            SELECT nombre, color, icono, puntos_minimos 
-            FROM niveles_club 
-            WHERE negocio_id = %s AND puntos_minimos <= %s
-            ORDER BY puntos_minimos DESC 
-            LIMIT 1
-        """, (negocio_id, puntos_actuales))
-        
-        nivel = db.fetchone()
-        
-        if nivel:
-            # Convertimos a dict estándar para evitar problemas de tipos de cursor
-            return {
-                'nombre': nivel['nombre'],
-                'color': nivel['color'],
-                'icono': nivel['icono']
-            }
-            
-        return nivel_default
+    """Calcula el nivel actual, el siguiente y el progreso necesario."""
+    # 1. Nivel Actual
+    db.execute("""
+        SELECT nombre, color, icono, puntos_minimos 
+        FROM niveles_club 
+        WHERE negocio_id = %s AND puntos_minimos <= %s
+        ORDER BY puntos_minimos DESC LIMIT 1
+    """, (negocio_id, puntos_actuales))
+    actual = db.fetchone() or {'nombre': 'Miembro', 'color': '#6c757d', 'icono': 'fa-user', 'puntos_minimos': 0}
 
-    except Exception as e:
-        print(f"⚠️ Error calculando nivel (no crítico): {e}")
-        return nivel_default # Si falla, devuelve básico, PERO NO CRASHEA
+    # 2. Próximo Nivel
+    db.execute("""
+        SELECT nombre, puntos_minimos 
+        FROM niveles_club 
+        WHERE negocio_id = %s AND puntos_minimos > %s
+        ORDER BY puntos_minimos ASC LIMIT 1
+    """, (negocio_id, puntos_actuales))
+    siguiente = db.fetchone()
+
+    puntos_faltantes = 0
+    if siguiente:
+        puntos_faltantes = siguiente['puntos_minimos'] - puntos_actuales
+
+    return {
+        'nombre': actual['nombre'],
+        'color': actual['color'],
+        'icono': actual['icono'],
+        'puntos_faltantes': puntos_faltantes,
+        'proximo_nivel': siguiente['nombre'] if siguiente else None
+    }
         
 # =========================================================
 # 🛠️ CORRECCIÓN DE TABLAS: "usuarios_club" -> "clientes"
 # =========================================================
-
-# --- APP CLIENTE: PERFIL ---
 @bp.route('/perfil', methods=['GET'])
 @token_required
 def obtener_mi_perfil_club(current_user):
     db = get_db()
     try:
-        # CORREGIDO: Usamos la tabla 'clientes'
+        # Buscamos los datos del cliente Y SUMAMOS su historial en la misma consulta
         db.execute("""
-            SELECT u.nombre, u.email, u.dni, u.puntos_acumulados, u.token_qr, u.negocio_id 
-            FROM clientes u 
-            WHERE u.id = %s
+            SELECT 
+                c.id, c.nombre, c.email, c.dni, c.token_qr, c.negocio_id,
+                (SELECT COALESCE(SUM(monto), 0) FROM historial_cargas WHERE cliente_id = c.id) as puntos_reales
+            FROM clientes c
+            WHERE c.id = %s
         """, (current_user['id'],))
+        
         usuario = db.fetchone()
         
         if not usuario:
             return jsonify({'error': 'Usuario no encontrado'}), 404
 
-        # Calculamos nivel (con tu función helper existente)
-        # Usamos 'or 0' para evitar error si puntos es None
-        nivel_data = calcular_nivel_cliente(db, usuario['negocio_id'], usuario['puntos_acumulados'] or 0)
+        # El total real es la suma de todos sus movimientos
+        total_puntos = usuario['puntos_reales']
+
+        # Calculamos nivel con los puntos reales
+        nivel_data = calcular_nivel_cliente(db, usuario['negocio_id'], total_puntos)
 
         return jsonify({
             'nombre': usuario['nombre'],
             'email': usuario['email'],
-            'puntos_acumulados': usuario['puntos_acumulados'] or 0,
+            'puntos_acumulados': total_puntos, # <--- Enviamos la suma real
             'token_qr': usuario['token_qr'],
             'nivel': nivel_data
         }), 200
@@ -143,8 +251,7 @@ def obtener_mi_perfil_club(current_user):
     except Exception as e:
         print(f"🔥 Error perfil: {e}")
         return jsonify({'error': 'Error al cargar perfil'}), 500
-
-
+    
 # --- TERMINAL: INFO CLIENTE (SCAN QR) ---
 @bp.route('/admin/cliente-info/<token_qr>', methods=['GET'])
 @token_required
@@ -249,39 +356,61 @@ def cargar_puntos(current_user):
 
     try:
         # 1. Buscar cliente
-        db.execute("SELECT id, nombre, puntos_acumulados FROM clientes WHERE token_qr = %s AND negocio_id = %s", (token_qr, negocio_id))
+        db.execute("SELECT id, nombre, puntos_acumulados FROM clientes WHERE (token_qr = %s OR dni = %s) AND negocio_id = %s", (token_qr, token_qr, negocio_id))
         cliente = db.fetchone()
         
         if not cliente: 
-            return jsonify({'error': 'Cliente no encontrado o QR inválido'}), 404
+            return jsonify({'error': 'Cliente no encontrado'}), 404
         
         try:
             puntos_sumar = int(cantidad)
         except ValueError:
             return jsonify({'error': 'La cantidad debe ser un número'}), 400
 
-        # 2. ACTUALIZAR SALDO
+        # 2. Calcular nuevo saldo
+        nuevo_saldo = (cliente['puntos_acumulados'] or 0) + puntos_sumar
+
+        # 3. ACTUALIZAR SALDO EN DB
         db.execute("""
             UPDATE clientes 
-            SET puntos_acumulados = COALESCE(puntos_acumulados, 0) + %s 
+            SET puntos_acumulados = %s 
             WHERE id = %s
-        """, (puntos_sumar, cliente['id']))
+        """, (nuevo_saldo, cliente['id']))
         
-        # 3. GUARDAR HISTORIAL (REACTIVADO Y SEGURO) ✅
-        # Verificamos si current_user es un dict y tiene 'id', si no, None (ej: terminal sin login)
-        admin_id = None
-        if isinstance(current_user, dict) and 'id' in current_user:
-            admin_id = current_user['id']
+        # 4. GUARDAR HISTORIAL
+        admin_id = current_user.get('id') if isinstance(current_user, dict) else None
         
         db.execute("""
             INSERT INTO historial_cargas (negocio_id, cliente_id, monto, motivo, fecha, usuario_id)
             VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP, %s)
         """, (negocio_id, cliente['id'], puntos_sumar, motivo, admin_id))
 
-        # 4. COMMIT
+        # 5. LÓGICA DE REFERIDOS (Solo si es la primera carga real)
+        db.execute("SELECT COUNT(*) as cant FROM historial_cargas WHERE cliente_id = %s", (cliente['id'],))
+        # Si la cuenta es 1, significa que acabamos de insertar la primera carga
+        if db.fetchone()['cant'] == 1:
+            db.execute("SELECT referido_por_dni FROM clientes WHERE id = %s", (cliente['id'],))
+            ref_dni = db.fetchone().get('referido_por_dni')
+            
+            if ref_dni:
+                # Pago al referente
+                db.execute("""
+                    UPDATE clientes SET puntos_acumulados = puntos_acumulados + 200 
+                    WHERE dni = %s AND negocio_id = %s
+                """, (ref_dni, negocio_id))
+                # Historial del referente
+                db.execute("""
+                    INSERT INTO historial_cargas (negocio_id, cliente_id, monto, motivo, fecha)
+                    VALUES (%s, (SELECT id FROM clientes WHERE dni=%s AND negocio_id=%s), 200, 'Premio Reclutamiento', CURRENT_TIMESTAMP)
+                """, (negocio_id, ref_dni, negocio_id))
+
+        # 6. COMMIT
         if hasattr(g, 'db_conn'): g.db_conn.commit()
 
-        nuevo_saldo = (cliente['puntos_acumulados'] or 0) + puntos_sumar
+        # 7. NOTIFICACIÓN EN TIEMPO REAL AL CELULAR ✅
+        ejecutar_notificacion_cliente(db, negocio_id, cliente['id'], nuevo_saldo, f"¡Sumaste {puntos_sumar} puntos!")
+
+        # 8. RESPUESTA AL ADMIN
         return jsonify({
             'mensaje': 'Carga exitosa', 
             'cliente': cliente['nombre'], 
@@ -291,10 +420,8 @@ def cargar_puntos(current_user):
     except Exception as e:
         if hasattr(g, 'db_conn'): g.db_conn.rollback()
         print(f"🔥 Error Carga Puntos: {e}")
-        traceback.print_exc()
         return jsonify({'error': f"Error interno: {str(e)}"}), 500
-
-
+    
 # --- 3. NUEVO ENDPOINT: HISTORIAL DE CARGAS (Para el Admin) ---
 @bp.route('/admin/historial-cargas', methods=['GET'])
 @token_required
@@ -638,73 +765,76 @@ def obtener_historial_canjes(current_user):
 # =========================================================
 # 📱 APP DEL CLIENTE (Pública / Usuario Final)
 # =========================================================
-
-# --- 10. REGISTRO DE USUARIO ---
+# --- 10. REGISTRO DE USUARIO CON PREMIO DE BIENVENIDA ---
 @bp.route('/register', methods=['POST'])
 def register():
     db = get_db() 
     data = request.get_json()
-
-    print(f"--> REGISTRO DATOS: {data}") 
-
+    
     try:
         nombre = data.get('nombre')
         dni = data.get('dni')
         email = data.get('email')
         password = data.get('password')
         negocio_id = data.get('negocio_id')
-        genero = data.get('genero')
-        acepta_terminos = data.get('acepta_terminos')
-        fecha_raw = data.get('fecha_nacimiento')
-
-        fecha_nacimiento = None
-        if fecha_raw and len(fecha_raw) == 10 and '00' not in fecha_raw.split('-'):
-             fecha_nacimiento = fecha_raw
-
-        if not all([nombre, dni, password, negocio_id]):
+        
+        # Validación de campos obligatorios
+        if not all([nombre, dni, email, password, negocio_id]):
             return jsonify({'error': 'Faltan datos obligatorios'}), 400
-
-        db.execute("SELECT id FROM clientes WHERE dni = %s AND negocio_id = %s", (dni, negocio_id))
-        if db.fetchone():
-            return jsonify({'error': 'Ya existe un usuario con este DNI'}), 409
 
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
         token_qr = str(uuid.uuid4())
-        
-        if not email or email.strip() == "": email = None
-        
-        query = """
+      
+        # INSERT: Iniciamos con 100 puntos de regalo
+        db.execute("""
             INSERT INTO clientes (
                 nombre, dni, email, password_hash, negocio_id,
                 genero, fecha_nacimiento, acepta_terminos, token_qr, 
-                app_registrado, puntos_acumulados,
+                referido_por_dni, app_registrado, puntos_acumulados,
                 tipo_cliente, posicion_iva, condicion_venta
-            ) VALUES (
-                %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, 
-                true, 0,
-                'Individuo', 'Consumidor Final', 'Contado'
-            ) RETURNING id
-        """
-        
-        db.execute(query, (
-            nombre, dni, email, hashed_password, negocio_id,
-            genero, fecha_nacimiento, acepta_terminos, token_qr
-        ))
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, true, 100, 
+                'Individuo', 'Consumidor Final', 'Contado')
+            RETURNING id
+        """, (nombre, dni, email, hashed_password, negocio_id, 
+              data.get('genero'), data.get('fecha_nacimiento'), 
+              data.get('acepta_terminos'), token_qr, data.get('ref')))
 
         nuevo_id = db.fetchone()['id']
+
+        # Registramos el regalo en el Historial de Cargas para que el cliente lo vea
+        db.execute("""
+            INSERT INTO historial_cargas (negocio_id, cliente_id, monto, motivo, fecha)
+            VALUES (%s, %s, 100, 'Regalo de Bienvenida App', CURRENT_TIMESTAMP)
+        """, (negocio_id, nuevo_id))
+
         if hasattr(g, 'db_conn'): g.db_conn.commit()
 
-        return jsonify({'message': 'Registro exitoso', 'id': nuevo_id, 'token_qr': token_qr}), 201
+        # ENVÍO DE EMAIL: Lo envolvemos para que si falla el correo, NO falle el registro
+        try:
+            msg = Message("¡Bienvenido a La Kosleña!", recipients=[email])
+            msg.html = f"""
+                <div style="font-family: Arial; border: 1px solid #ff7a21; padding: 20px; border-radius: 10px;">
+                    <h2 style="color: #ff7a21;">¡Felicidades {nombre}!</h2>
+                    <p>Ya eres parte de nuestro club de beneficios.</p>
+                    <p>Como regalo de bienvenida, te hemos acreditado <strong>100 puntos</strong> en tu cuenta.</p>
+                    <p>Usa tu QR en el local para seguir sumando.</p>
+                </div>
+            """
+            mail.send(msg)
+        except Exception as e:
+            print(f"⚠️ Error enviando mail: {e}") 
+
+        return jsonify({
+            'message': '¡Registro exitoso! Ganaste 100 puntos.', 
+            'token_qr': token_qr
+        }), 201
 
     except Exception as e:
         if hasattr(g, 'db_conn'): g.db_conn.rollback()
-        print("ERROR REGISTER:")
-        traceback.print_exc()
         return jsonify({'error': f'Error técnico: {str(e)}'}), 500
 
-
 # --- 11. LOGIN CLIENTE ---
+
 @bp.route('/login', methods=['POST'])
 def login_club():
     data = request.get_json()
@@ -716,35 +846,32 @@ def login_club():
         return jsonify({'error': 'Faltan datos'}), 400
 
     db = get_db()
-    
     try:
-        query = "SELECT id, nombre, puntos_acumulados, token_qr, password_hash FROM clientes WHERE dni = %s"
-        params = [dni]
+        # SUMAMOS EL HISTORIAL DIRECTAMENTE EN EL LOGIN
+        db.execute("""
+            SELECT 
+                c.id, c.nombre, c.token_qr, c.password_hash, c.dni,
+                (SELECT COALESCE(SUM(monto), 0) FROM historial_cargas WHERE cliente_id = c.id) as puntos_reales
+            FROM clientes c 
+            WHERE c.dni = %s AND c.negocio_id = %s
+        """, (dni, negocio_id))
         
-        if negocio_id:
-            query += " AND negocio_id = %s"
-            params.append(negocio_id)
-        
-        db.execute(query, tuple(params))
         cliente = db.fetchone()
 
         if not cliente or not bcrypt.check_password_hash(cliente['password_hash'], password):
             return jsonify({'error': 'Credenciales inválidas'}), 401
 
-        token_qr = cliente['token_qr']
-        if not token_qr:
-            token_qr = str(uuid.uuid4())
-            db.execute("UPDATE clientes SET token_qr = %s WHERE id = %s", (token_qr, cliente['id']))
-            if hasattr(g, 'db_conn'): g.db_conn.commit()
-
+        # Generar token de sesión
         token_payload = {
             'user_id': cliente['id'],
             'id': cliente['id'],
             'negocio_id': negocio_id,
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
         }
-        
         token = jwt.encode(token_payload, current_app.config['SECRET_KEY'], algorithm="HS256")
+
+        # Calculamos el nivel para que el dashboard arranque con todo cargado
+        nivel_data = calcular_nivel_cliente(db, negocio_id, cliente['puntos_reales'])
 
         return jsonify({
             'message': 'Login exitoso',
@@ -752,13 +879,13 @@ def login_club():
             'usuario': { 
                 'id': cliente['id'],
                 'nombre': cliente['nombre'],
-                'puntos': cliente['puntos_acumulados'] or 0,
-                'token_qr': token_qr 
+                'puntos_acumulados': cliente['puntos_reales'], # <--- AQUÍ MANDAMOS EL VALOR REAL
+                'token_qr': cliente['token_qr'],
+                'dni': cliente['dni'],
+                'nivel': nivel_data
             }
         }), 200
-
     except Exception as e:
-        if hasattr(g, 'db_conn'): g.db_conn.rollback()
         print(f"ERROR LOGIN: {e}")
         return jsonify({'error': 'Error interno'}), 500
 
@@ -769,8 +896,8 @@ def login_club():
 def perfil_usuario(current_user):
     db = get_db()
     try:
-        # Obtenemos datos incluyendo negocio_id para calcular nivel
-        db.execute("SELECT puntos_acumulados, token_qr, nombre, negocio_id FROM clientes WHERE id = %s", (current_user['id'],))
+        # Obtenemos datos incluyendo negocio_id para calcular nivel        
+        db.execute("SELECT puntos_acumulados, token_qr, nombre, negocio_id, dni FROM clientes WHERE id = %s", (current_user['id'],))
         row = db.fetchone()
         
         if row:
@@ -780,9 +907,11 @@ def perfil_usuario(current_user):
             
             return jsonify({
                 'nombre': row['nombre'],
+                'dni' : row['dni'],
                 'puntos_acumulados': puntos,
                 'token_qr': row['token_qr'],
-                'nivel': nivel # <--- ENVIAMOS EL NIVEL AL FRONTEND
+                'nivel': nivel 
+                
             }), 200
         
         return jsonify({'error': 'Usuario no encontrado'}), 404
@@ -843,74 +972,37 @@ def info_negocio(id):
 @token_required
 def obtener_estadisticas_club(current_user):
     negocio_id = request.args.get('negocio_id')
-    print(f"\n📊 STATS PARA NEGOCIO ID: {negocio_id}")
-    
     db = get_db()
     
     try:
-        # --- 1. SUMAR PUNTOS OTORGADOS (Intentamos ambas tablas con seguridad) ---
-        puntos_otorgados = 0
-        
-        # Intento A: historial_cargas
-        try:
-            db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM historial_cargas WHERE negocio_id = %s", (negocio_id,))
-            row = db.fetchone()
-            if row: puntos_otorgados += int(row['total'])
-        except Exception as e:
-            print(f"   (Info) No se pudo leer historial_cargas: {e}")
-            if hasattr(g, 'db_conn'): g.db_conn.rollback() # <--- ¡ESTO FALTABA! Limpia el error
-
-        # Intento B: historial_puntos
-        try:
-            db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM historial_puntos WHERE negocio_id = %s", (negocio_id,))
-            row = db.fetchone()
-            if row: puntos_otorgados += int(row['total'])
-        except Exception as e: 
-            print(f"   (Info) No se pudo leer historial_puntos: {e}")
-            if hasattr(g, 'db_conn'): g.db_conn.rollback() # <--- ¡ESTO FALTABA! Limpia el error
-
-        print(f"   -> Total Otorgados: {puntos_otorgados}")
-
+        # --- 1. PUNTOS OTORGADOS (Unificado solo en historial_cargas) ---
+        # Sumamos cargas manuales, encuestas y regalos de bienvenida
+        db.execute("""
+            SELECT COALESCE(SUM(monto), 0) as total 
+            FROM historial_cargas 
+            WHERE negocio_id = %s
+        """, (negocio_id,))
+        puntos_otorgados = int(db.fetchone()['total'])
 
         # --- 2. PUNTOS CANJEADOS ---
-        # Si fallaron las anteriores, el rollback ya limpió el camino para esta
-        try:
-            db.execute("""
-                SELECT COALESCE(SUM(p.costo_puntos), 0) as total
-                FROM canjes c
-                JOIN premios p ON c.premio_id = p.id
-                WHERE c.negocio_id = %s
-            """, (negocio_id,))
-            row = db.fetchone()
-            puntos_canjeados = int(row['total']) if row else 0
-        except Exception as e:
-            print(f"   (Info) Error en canjes: {e}")
-            if hasattr(g, 'db_conn'): g.db_conn.rollback()
-            puntos_canjeados = 0
-            
-        print(f"   -> Total Canjeados: {puntos_canjeados}")
-
+        db.execute("""
+            SELECT COALESCE(SUM(puntos_gastados), 0) as total 
+            FROM canjes 
+            WHERE negocio_id = %s
+        """, (negocio_id,))
+        puntos_canjeados = int(db.fetchone()['total'])
 
         # --- 3. TOP 5 PREMIOS ---
-        try:
-            db.execute("""
-                SELECT p.nombre, COUNT(c.id) as cantidad
-                FROM canjes c
-                JOIN premios p ON c.premio_id = p.id
-                WHERE c.negocio_id = %s
-                GROUP BY p.nombre
-                ORDER BY cantidad DESC
-                LIMIT 5
-            """, (negocio_id,))
-            top_premios = db.fetchall()
-        except Exception as e:
-            print(f"   (Info) Error en Top 5: {e}")
-            if hasattr(g, 'db_conn'): g.db_conn.rollback()
-            top_premios = []
-
-        # Formateo (usando claves de diccionario)
-        top_labels = [row['nombre'] for row in top_premios]
-        top_data = [row['cantidad'] for row in top_premios]
+        db.execute("""
+            SELECT p.nombre, COUNT(c.id) as cantidad
+            FROM canjes c
+            JOIN premios p ON c.premio_id = p.id
+            WHERE c.negocio_id = %s
+            GROUP BY p.nombre
+            ORDER BY cantidad DESC
+            LIMIT 5
+        """, (negocio_id,))
+        top_data = db.fetchall()
 
         return jsonify({
             'balance': {
@@ -918,15 +1010,196 @@ def obtener_estadisticas_club(current_user):
                 'canjeados': puntos_canjeados
             },
             'top_premios': {
-                'labels': top_labels,
-                'data': top_data
+                'labels': [row['nombre'] for row in top_data],
+                'data': [row['cantidad'] for row in top_data]
             }
         }), 200
 
     except Exception as e:
-        # Rollback final por si acaso
         if hasattr(g, 'db_conn'): g.db_conn.rollback()
-        print(f"🔥 ERROR FATAL EN STATS: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'balance': {'otorgados':0, 'canjeados':0}, 'top_premios': {'labels':[], 'data':[]}}), 200
+    
+
+
+# - 16 -- ADMIN: GESTIÓN COMPLETA DE ENCUESTAS ---
+@bp.route('/admin/encuestas', methods=['GET', 'POST', 'DELETE'])
+@token_required
+def gestion_encuestas_admin(current_user):
+    db = get_db()
+    
+    # 1. LISTAR ENCUESTAS (GET)
+    if request.method == 'GET':
+        negocio_id = request.args.get('negocio_id')
+        
+        try:            
+            db.execute("SELECT *, to_char(fecha_expiracion, 'YYYY-MM-DD') as fecha_exp FROM encuestas WHERE negocio_id = %s ORDER BY id DESC", (negocio_id,))
+
+            encuestas = db.fetchall()
+            return jsonify([dict(e) for e in encuestas]), 200
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    # 2. ELIMINAR ENCUESTA (DELETE)
+    if request.method == 'DELETE':
+        encuesta_id = request.args.get('id')
+        try:
+            # Borramos en orden: primero los nietos, luego los hijos, al final el padre
+            db.execute("DELETE FROM respuestas_encuestas WHERE encuesta_id = %s", (encuesta_id,))
+            db.execute("DELETE FROM preguntas_encuestas WHERE encuesta_id = %s", (encuesta_id,))
+            db.execute("DELETE FROM encuestas WHERE id = %s", (encuesta_id,))
+            
+            if hasattr(g, 'db_conn'): g.db_conn.commit()
+            return jsonify({'message': 'Encuesta eliminada correctamente'}), 200
+        except Exception as e:
+            if hasattr(g, 'db_conn'): g.db_conn.rollback()
+            return jsonify({'error': str(e)}), 500
+
+    # 3. CREAR ENCUESTA (POST)
+    if request.method == 'POST':
+        data = request.get_json()
+        try:
+            # 1. Insertamos la encuesta (Maestro)
+            db.execute("""
+                INSERT INTO encuestas (negocio_id, titulo, puntos_premio, fecha_expiracion)
+                VALUES (%s, %s, %s, %s) RETURNING id
+            """, (data['negocio_id'], data['titulo'], data['puntos'], data.get('fecha_expiracion')))
+            
+            encuesta_id = db.fetchone()['id']
+            
+            # 2. Insertamos las preguntas (Detalle)
+            preguntas = data.get('preguntas', []) # Viene como lista de strings
+            for texto in preguntas:
+                if texto.strip():
+                    db.execute("INSERT INTO preguntas_encuestas (encuesta_id, texto_pregunta) VALUES (%s, %s)", 
+                            (encuesta_id, texto))
+            
+            if hasattr(g, 'db_conn'): g.db_conn.commit()
+            return jsonify({'message': 'Encuesta y preguntas creadas'}), 201
+        except Exception as e:
+            if hasattr(g, 'db_conn'): g.db_conn.rollback()
+            return jsonify({'error': str(e)}), 500
+
+
+# --- 17 -- CLIENTE: RESPONDER Y SUMAR (Versión Multi-Pregunta) ---
+@bp.route('/encuesta/responder', methods=['POST'])
+@token_required
+def responder_encuesta(current_user):
+    db = get_db()
+    data = request.get_json()
+    cliente_id = current_user['id']
+    encuesta_id = data.get('encuesta_id')
+    
+    # "respuestas" ahora es un diccionario que mandamos desde el JS: { "id_preg": nota, "id_preg2": nota ... }
+    respuestas = data.get('respuestas') 
+
+    if not respuestas:
+        return jsonify({'error': 'No se recibieron respuestas'}), 400
+
+    try:
+        # 1. Guardamos CADA respuesta individualmente en la tabla de detalle
+        # Usamos .items() para recorrer el par (ID de pregunta, Nota)
+        for pregunta_id, rating in respuestas.items():
+            db.execute("""
+                INSERT INTO respuestas_encuestas (encuesta_id, cliente_id, pregunta_id, rating)
+                VALUES (%s, %s, %s, %s)
+            """, (encuesta_id, cliente_id, pregunta_id, rating))
+        
+        # 2. Buscamos cuánto premio da esta encuesta (Maestro)
+        db.execute("SELECT puntos_premio, titulo FROM encuestas WHERE id = %s", (encuesta_id,))
+        encuesta = db.fetchone()
+        
+        if not encuesta:
+            return jsonify({'error': 'Encuesta no encontrada'}), 404
+
+        # 3. Sumamos los puntos al cliente (UNA SOLA VEZ por la encuesta completa)
+        db.execute("""
+            UPDATE clientes 
+            SET puntos_acumulados = COALESCE(puntos_acumulados, 0) + %s 
+            WHERE id = %s
+        """, (encuesta['puntos_premio'], cliente_id))
+        
+        # 4. Dejamos el registro en el historial general de cargas
+        db.execute("""
+            INSERT INTO historial_cargas (negocio_id, cliente_id, monto, motivo, fecha)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+        """, (current_user['negocio_id'], cliente_id, encuesta['puntos_premio'], f"Encuesta: {encuesta['titulo']}"))
+
+        if hasattr(g, 'db_conn'): g.db_conn.commit()
+        
+        return jsonify({'message': f'¡Encuesta completada! Sumaste {encuesta["puntos_premio"]} talentos.'}), 200
+
+    except Exception as e:
+        if hasattr(g, 'db_conn'): g.db_conn.rollback()
+        print(f"Error al responder encuesta: {e}")
+        return jsonify({'error': str(e)}), 500
+    
+
+# -- 18 -- ENCUESTAS DISPONIBLES (Seguridad Reforzada) ---
+@bp.route('/encuestas-disponibles', methods=['GET'])
+@token_required
+def encuestas_disponibles(current_user):
+    db = get_db()
+    # Seguridad: Usamos el negocio_id del token, no de la URL
+    negocio_id = current_user['negocio_id']
+    cliente_id = current_user['id']
+    
+    # Buscamos encuestas activas no respondidas por este cliente
+    db.execute("""
+        SELECT id, titulo, puntos_premio 
+        FROM encuestas 
+        WHERE negocio_id = %s AND activo = TRUE 
+        AND (fecha_expiracion IS NULL OR fecha_expiracion >= CURRENT_DATE)
+        AND id NOT IN (SELECT encuesta_id FROM respuestas_encuestas WHERE cliente_id = %s)
+    """, (negocio_id, cliente_id))
+    
+    encuestas = db.fetchall()
+    resultado = []
+    
+    for enc in encuestas:
+        # Traemos las preguntas de cada encuesta (Detalle)
+        db.execute("SELECT id, texto_pregunta FROM preguntas_encuestas WHERE encuesta_id = %s", (enc['id'],))
+        preguntas = db.fetchall()
+        
+        e_dict = dict(enc)
+        e_dict['preguntas'] = [dict(p) for p in preguntas]
+        resultado.append(e_dict)
+        
+    return jsonify(resultado), 200
+
+# -19 -- ADMIN: VER RESPUESTAS DE ENCUESTAS ---
+@bp.route('/admin/respuestas-encuestas', methods=['GET'])
+@token_required
+def ver_respuestas_encuestas(current_user):
+    db = get_db()
+    negocio_id = request.args.get('negocio_id')
+    try:
+        query = """
+            SELECT 
+                r.id,
+                e.titulo as encuesta_titulo,
+                c.nombre as cliente_nombre,
+                c.dni as cliente_dni,
+                r.rating,
+                to_char(r.fecha, 'DD/MM/YYYY HH24:MI') as fecha_fmt
+            FROM respuestas_encuestas r
+            INNER JOIN encuestas e ON r.encuesta_id = e.id
+            INNER JOIN clientes c ON r.cliente_id = c.id
+            WHERE e.negocio_id = %s
+            ORDER BY r.fecha DESC
+        """
+        db.execute(query, (negocio_id,))
+        return jsonify([dict(row) for row in db.fetchall()]), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+# -20-- ADMIN: VER PREGUNTAS DE UNA ENCUESTA ---
+@bp.route('/admin/encuesta/<int:id>/preguntas', methods=['GET'])
+@token_required
+def ver_preguntas_encuesta(current_user, id):
+    db = get_db()
+    try:
+        db.execute("SELECT texto_pregunta FROM preguntas_encuestas WHERE encuesta_id = %s", (id,))
+        return jsonify([dict(p) for p in db.fetchall()]), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    

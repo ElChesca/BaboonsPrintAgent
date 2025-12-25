@@ -5,6 +5,9 @@ from flask import Flask, render_template, send_from_directory, abort, request, r
 from .routes import facturacion_routes
 from .extensions import bcrypt
 from .database import close_db, get_db
+from flask_mail import Mail, Message
+
+mail = Mail()
 
 
 def create_app():
@@ -14,6 +17,17 @@ def create_app():
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una_clave_muy_secreta')
     bcrypt.init_app(app)
     app.teardown_appcontext(close_db)
+
+    # Configuración de MAIL de Baboons
+    app.config['MAIL_SERVER'] = 'mail.baboons.com.ar'
+    app.config['MAIL_PORT'] = 465
+    app.config['MAIL_USE_SSL'] = True  # cPanel recomienda SSL para el puerto 465
+    app.config['MAIL_USE_TLS'] = False # SSL y TLS no suelen ir juntos en el 465
+    app.config['MAIL_USERNAME'] = 'info@baboons.com.ar'
+    app.config['MAIL_PASSWORD'] = 'Nahufedelu00'
+    app.config['MAIL_DEFAULT_SENDER'] = ('La Kosleña Club', 'info@baboons.com.ar')
+        
+    mail.init_app(app)
 
     # --- Registro de Blueprints ---
     from .routes import auth_routes, product_routes, negocios_routes, user_routes, \

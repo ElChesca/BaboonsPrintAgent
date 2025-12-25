@@ -27,6 +27,7 @@ export function inicializarLogicaGestionClub() {
     cargarNiveles(); 
     actualizarHistorialActivo();
     cargarDashboard();
+    cargarEncuestas();
 
     // Listener para formulario de Premios
     const formPremio = document.getElementById('form-premio');
@@ -495,9 +496,10 @@ async function cargarDashboard() {
 }
 
 window.actualizarHistorialActivo = () => {
-    const tabCargas = document.getElementById('tab-cargas');
-    if (tabCargas && tabCargas.classList.contains('active')) cargarHistorialCargas();
-    else cargarHistorialCanjes();
+
+    if (document.getElementById('tab-cargas').classList.contains('active')) cargarHistorialCargas();
+    else if (document.getElementById('tab-canjes').classList.contains('active')) cargarHistorialCanjes();
+    else cargarHistorialRespuestas();
 };
 
 window.cargarHistorialCanjes = async () => {
@@ -623,3 +625,169 @@ window.addEventListener('click', (event) => {
 
 async function cargarConfiguracion(nid) { /* Placeholder */ }
 window.toggleEdicionReglas = () => { /* Placeholder */ };
+
+// --- GESTIÓN DE ENCUESTAS ---
+
+window.cargarEncuestas = async () => {
+    const tbody = document.getElementById('tabla-encuestas-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center">Cargando...</td></tr>';
+
+    try {
+        // Asumiendo que crearás este endpoint en el back
+        const res = await fetchData(`/api/club/admin/encuestas?negocio_id=${appState.negocioActivoId}`);
+        tbody.innerHTML = '';
+        
+        if(res.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay encuestas creadas</td></tr>';
+            return;
+        }
+
+        res.forEach(e => {
+            tbody.innerHTML += `
+            <tr>
+                <td class="ps-4 fw-bold text-dark">${e.titulo}</td>
+                <td><span class="badge bg-success bg-opacity-10 text-success">💎 ${e.puntos_premio}</span></td>
+                <td><span class="badge ${e.activo ? 'bg-info' : 'bg-secondary'}">${e.activo ? 'Activa' : 'Pausada'}</span></td>
+                
+                <!-- Columna del ojo centrada -->
+                <td class="text-center">
+                    <button class="btn btn-sm btn-link text-primary p-0" onclick="verPreguntas(${e.id}, '${e.titulo}')" title="Ver Preguntas">
+                        <i class="fa fa-eye fa-lg"></i>
+                    </button>
+                </td>                
+                <td class="text-end pe-4">
+                    <button class="btn btn-sm btn-outline-danger border-0" onclick="eliminarEncuesta(${e.id})">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+    } catch(err) { 
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error al cargar</td></tr>';
+    }
+};
+
+window.abrirModalEncuesta = () => {
+    const modal = document.getElementById('modalEncuesta');
+    document.getElementById('form-encuesta').reset();
+    document.getElementById('encuesta-id').value = '';
+    modal.style.display = 'flex';
+};
+
+window.cerrarModalEncuesta = () => {
+    document.getElementById('modalEncuesta').style.display = 'none';
+};
+
+window.guardarEncuesta = async (event) => {
+    event.preventDefault();
+    const preguntas = Array.from(document.querySelectorAll('.pregunta-input'))
+                           .map(i => i.value)
+                           .filter(v => v.trim() !== "");
+
+    const payload = {
+        negocio_id: appState.negocioActivoId,
+        titulo: document.getElementById('encuesta-titulo').value,
+        puntos: document.getElementById('encuesta-puntos').value,
+        fecha_expiracion: document.getElementById('encuesta-expiracion').value || null,
+        preguntas: preguntas // <--- Enviamos la lista
+    };
+
+    try {
+        await fetchData('/api/club/admin/encuestas', { 
+            method: 'POST', 
+            body: JSON.stringify(payload) 
+        });
+        mostrarNotificacion('Encuesta publicada con éxito', 'success');
+        cerrarModalEncuesta();
+        cargarEncuestas();
+    } catch(err) {
+        mostrarNotificacion(err.message, 'error');
+    }
+};
+
+window.eliminarEncuesta = async (id) => {
+    if(!confirm('¿Eliminar esta encuesta? Se perderán las estadísticas asociadas.')) return;
+    try {
+        await fetchData(`/api/club/admin/encuestas?id=${id}`, { method: 'DELETE' });
+        mostrarNotificacion('Encuesta eliminada', 'success');
+        cargarEncuestas();
+    } catch(err) {
+        mostrarNotificacion(err.message, 'error');
+    }
+};
+
+window.cargarHistorialRespuestas = async () => {
+    const tbody = document.getElementById('tabla-respuestas-body');
+    if(!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center">Cargando...</td></tr>';
+
+    try {
+        const datos = await fetchData(`/api/club/admin/respuestas-encuestas?negocio_id=${appState.negocioActivoId}`);
+        tbody.innerHTML = '';
+        if (datos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin respuestas aún</td></tr>';
+            return;
+        }
+
+        datos.forEach(d => {
+            // Generar estrellitas según el rating
+            let estrellas = '';
+            for(let i=1; i<=5; i++) {
+                estrellas += `<i class="fa fa-star ${i <= d.rating ? 'text-warning' : 'text-light'}"></i>`;
+            }
+
+            tbody.innerHTML += `
+                <tr>
+                    <td class="ps-4 small">${d.fecha_fmt}</td>
+                    <td class="fw-bold">${d.encuesta_titulo}</td>
+                    <td>${d.cliente_nombre} <br><small class="text-muted">DNI: ${d.cliente_dni}</small></td>
+                    <td class="text-center pe-4">${estrellas}</td>
+                </tr>`;
+        });
+    } catch(e) { console.error(e); }
+};
+
+window.agregarInputPregunta = () => {
+    const cont = document.getElementById('contenedor-preguntas-dinamicas');
+    const cantidad = cont.querySelectorAll('input').length;
+    if (cantidad < 5) {
+        const input = document.createElement('input');
+        input.className = 'form-control form-control-sm mb-2 pregunta-input';
+        input.placeholder = `Pregunta ${cantidad + 1}`;
+        cont.appendChild(input);
+    }
+};
+
+window.verPreguntas = async (id, titulo) => {
+    const modal = document.getElementById('modalVerPreguntas');
+    const lista = document.getElementById('lista-preguntas-encuesta');
+    document.getElementById('titulo-encuesta-preguntas').innerText = titulo;
+    
+    lista.innerHTML = '<li class="list-group-item text-center">Cargando preguntas...</li>';
+    modal.style.display = 'flex';
+
+    try {
+        const res = await fetchData(`/api/club/admin/encuesta/${id}/preguntas`);
+        lista.innerHTML = '';
+        
+        if (res.length === 0) {
+            lista.innerHTML = '<li class="list-group-item text-muted">Esta encuesta no tiene preguntas cargadas.</li>';
+        } else {
+            res.forEach((p, index) => {
+                lista.innerHTML += `
+                    <li class="list-group-item d-flex gap-3 align-items-start border-0 border-bottom">
+                        <span class="badge bg-secondary rounded-pill">${index + 1}</span>
+                        <span class="text-dark">${p.texto_pregunta}</span>
+                    </li>`;
+            });
+        }
+    } catch (err) {
+        lista.innerHTML = `<li class="list-group-item text-danger">Error: ${err.message}</li>`;
+    }
+};
+
+window.cerrarModalVerPreguntas = () => {
+    document.getElementById('modalVerPreguntas').style.display = 'none';
+};
+
