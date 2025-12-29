@@ -23,6 +23,7 @@ def create_app():
                         price_lists_routes, unidades_medida_routes, inventory_routes, \
                         historial_inventario_routes, precios_especificos_routes, mobile_routes, \
                         payments_routes, gastos_routes, consorcio_routes, club_puntos_routes 
+    from .crm_social import bp as crm_bp
     blueprints = [
         (auth_routes.bp, '/api'), (product_routes.bp, '/api'), (negocios_routes.bp, '/api'),
         (user_routes.bp, '/api'), (clientes_routes.bp, '/api'), (income_routes.bp, '/api'),
@@ -32,9 +33,8 @@ def create_app():
         (facturacion_routes.bp, '/api'), (price_lists_routes.bp, '/api'), (unidades_medida_routes.bp, '/api'),
         (inventory_routes.bp,'/api'), (historial_inventario_routes.bp,'/api'), (precios_especificos_routes.bp,'/api'),
         (mobile_routes.bp, '/api/mobile'),(payments_routes.bp, '/api'), (gastos_routes.bp, '/api'),
-        (consorcio_routes.bp, '/api'),(club_puntos_routes.bp, '/api/club')
-        
-        
+        (consorcio_routes.bp, '/api'),(club_puntos_routes.bp, '/api/club'),
+        (crm_bp, '/api/crm')
     ]
     for bp, prefix in blueprints:
         app.register_blueprint(bp, url_prefix=prefix)

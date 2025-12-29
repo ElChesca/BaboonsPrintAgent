@@ -77,7 +77,7 @@ const APP_RUTAS = {
         'presupuestos', 'inventario_movil', 'proveedores', 'payments', 
         'historial_pagos_proveedores', 'listas_precios', 'precios_especificos',
         'gastos', 'gastos_categorias', 'categorias', 'unidades_medida','club_puntos',
-        'club_gestion','club_admin'
+        'club_gestion','club_admin', 'crm_social'
     ],
     'consorcio': [
         'home_consorcio', 'reclamos', 'expensas', 'unidades', 'noticias'
@@ -456,6 +456,10 @@ async function inicializarModulo(page) {
                 window.borrarNoticia = borrarNoticia;
                 inicializarLogicaNoticias();
                 break;
+            case 'crm_social':
+                const { inicializarCRM } = await import(`../crm_social/js/crm_main.js${v}`);
+                inicializarCRM();
+                break;
 
             default:
                 console.warn(`No se encontró lógica de inicialización para: ${pageName}`);
@@ -530,7 +534,10 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     const isLoginPage = pageName === 'login';
     if (header) header.style.display = isLoginPage ? 'none' : 'flex';
 
-    const pageToFetch = `${pagePath}?v=${APP_VERSION}`;
+    let pageToFetch = `${pagePath}?v=${APP_VERSION}`;
+    if (pageName === 'crm_social') {
+        pageToFetch = `static/crm_social/crm_social.html?v=${APP_VERSION}`;
+    }
 
     return fetch(pageToFetch)
 
