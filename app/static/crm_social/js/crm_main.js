@@ -122,19 +122,28 @@ function renderLeadsTable(leads) {
     }
 
     leads.forEach(lead => {
+        // Dentro del loop leads.forEach de renderLeadsTable:
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${lead.nombre}</td>
+            <td><strong>${lead.nombre}</strong></td>
             <td>${lead.email || '-'}</td>
             <td>${lead.telefono || '-'}</td>
-            <td><span class="badge badge-${lead.estado}">${lead.estado}</span></td>
-            <td>${lead.origen}</td>
+            <td><span class="badge badge-${lead.estado.toLowerCase()}">${lead.estado}</span></td>
+            <td><i class="fab fa-${lead.origen.toLowerCase()}"></i> ${lead.origen}</td>
             <td>${new Date(lead.fecha_creacion).toLocaleDateString()}</td>
             <td>
-                <button onclick="console.log('Edit ${lead.id}')">✏️</button>
+                <button class="crm-btn-edit" data-lead='${JSON.stringify(lead)}'>✏️</button>
             </td>
         `;
         tbody.appendChild(tr);
+
+        // Al final de la función, activamos los botones:
+        tbody.querySelectorAll('.crm-btn-edit').forEach(btn => {
+            btn.onclick = () => {
+                const data = JSON.parse(btn.getAttribute('data-lead'));
+                abrirEdicion(data);
+            };
+        });
     });
 }
 
@@ -183,4 +192,51 @@ async function handleLeadSubmit(e) {
     } finally {
         hideGlobalLoader();
     }
+}
+
+// 1. Agrega esta función al final de tu archivo crm_main.js
+function abrirEdicion(lead) {
+    const modal = document.getElementById('crm-lead-modal');
+    if (!modal) return;
+
+    // Llenamos los campos del formulario con los datos del lead
+    document.getElementById('crm-modal-title').textContent = 'Editar Lead';
+    document.getElementById('lead-id').value = lead.id;
+    document.getElementById('lead-nombre').value = lead.nombre;
+    document.getElementById('lead-email').value = lead.email || '';
+    document.getElementById('lead-telefono').value = lead.telefono || '';
+    document.getElementById('lead-origen').value = lead.origen;
+    document.getElementById('lead-estado').value = lead.estado;
+    document.getElementById('lead-notas').value = lead.notas || '';
+
+    // Mostramos el modal
+    modal.style.display = 'flex';
+}
+
+// 2. En la función renderLeadsTable, asegúrate de que el listener esté así:
+function renderLeadsTable(leads) {
+    const tbody = document.querySelector('#crm-leads-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    leads.forEach(lead => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${lead.nombre}</strong></td>
+            <td>${lead.email || '-'}</td>
+            <td>${lead.telefono || '-'}</td>
+            <td><span class="badge badge-${lead.estado.toLowerCase()}">${lead.estado}</span></td>
+            <td>${lead.origen}</td>
+            <td>${new Date(lead.fecha_creacion).toLocaleDateString()}</td>
+            <td>
+                <button class="crm-btn-edit" title="Editar">✏️</button>
+            </td>
+        `;
+        
+        // El truco para evitar el ReferenceError es asignar el evento directamente al nodo
+        const editBtn = tr.querySelector('.crm-btn-edit');
+        editBtn.addEventListener('click', () => abrirEdicion(lead));
+        
+        tbody.appendChild(tr);
+    });
 }

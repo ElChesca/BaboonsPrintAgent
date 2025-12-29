@@ -186,3 +186,46 @@
     height: 80px;
     resize: vertical;
 }
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: bold;
+    text-transform: capitalize;
+}
+.badge-nuevo { background-color: #e3f2fd; color: #1976d2; }
+.badge-ganado { background-color: #e8f5e9; color: #2e7d32; }
+.badge-perdido { background-color: #ffebee; color: #c62828; }
+.badge-interesado { background-color: #fff3e0; color: #ef6c00; }
+
+/* Mejora de la tabla y badges */
+.crm-table tr td {
+    vertical-align: middle;
+}
+
+.badge {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.badge-nuevo { background: #d1ecf1; color: #0c5460; }
+.badge-ganado { background: #d4edda; color: #155724; }
+.badge-perdido { background: #f8d7da; color: #721c24; }
+.badge-contactado { background: #fff3cd; color: #856404; }
+
+.crm-btn-edit {
+    border: none;
+    background: #e9ecef;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.crm-btn-edit:hover {
+    background: #dee2e6;
+    transform: scale(1.1);
+}
