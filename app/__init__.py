@@ -64,6 +64,10 @@ def create_app():
         except Exception as e:
             abort(500)
 
+    # --- CLI Commands ---
+    from .commands import init_crm_db_command
+    app.cli.add_command(init_crm_db_command)
+
     # =================================================================
     # ✨ NUEVA RUTA APP CLUB (Cliente) - OPCIÓN B (Static fuera de App)
     # =================================================================
