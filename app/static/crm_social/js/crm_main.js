@@ -6,6 +6,8 @@ import { mostrarNotificacion } from '../../js/modules/notifications.js';
 let appState = {
     negocioId: localStorage.getItem('negocioActivoId') || '1'
 };
+let leadsCache = []; // Para no pedir a la API cada vez que filtramos
+
 
 export async function inicializarCRM() {
     console.log("Inicializando CRM Module...");
@@ -44,6 +46,19 @@ export async function inicializarCRM() {
     if (leadForm) {
         leadForm.addEventListener('submit', handleLeadSubmit);
     }
+    // Listener para los botones de filtro
+    const filterButtons = document.querySelectorAll('#crm-filter-group .btn');
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Estética: Cambiar clase activa
+                filterButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Lógica: Filtrar
+                const status = btn.getAttribute('data-status');
+                filtrarLeads(status);
+            });
+    });
 
     await checkStatus();
     await loadLeadsStats();
@@ -109,42 +124,6 @@ async function loadLeads() {
     } finally {
         hideGlobalLoader();
     }
-}
-
-function renderLeadsTable(leads) {
-    const tbody = document.querySelector('#crm-leads-table tbody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-
-    if (leads.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No hay leads registrados.</td></tr>';
-        return;
-    }
-
-    leads.forEach(lead => {
-        // Dentro del loop leads.forEach de renderLeadsTable:
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><strong>${lead.nombre}</strong></td>
-            <td>${lead.email || '-'}</td>
-            <td>${lead.telefono || '-'}</td>
-            <td><span class="badge badge-${lead.estado.toLowerCase()}">${lead.estado}</span></td>
-            <td><i class="fab fa-${lead.origen.toLowerCase()}"></i> ${lead.origen}</td>
-            <td>${new Date(lead.fecha_creacion).toLocaleDateString()}</td>
-            <td>
-                <button class="crm-btn-edit" data-lead='${JSON.stringify(lead)}'>✏️</button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-
-        // Al final de la función, activamos los botones:
-        tbody.querySelectorAll('.crm-btn-edit').forEach(btn => {
-            btn.onclick = () => {
-                const data = JSON.parse(btn.getAttribute('data-lead'));
-                abrirEdicion(data);
-            };
-        });
-    });
 }
 
 function openNewLeadModal() {
@@ -230,13 +209,36 @@ function renderLeadsTable(leads) {
             <td>${new Date(lead.fecha_creacion).toLocaleDateString()}</td>
             <td>
                 <button class="crm-btn-edit" title="Editar">✏️</button>
+                <button class="crm-btn-delete" style="background:none; border:none; cursor:pointer;" title="Eliminar">🗑️</button>
             </td>
         `;
         
         // El truco para evitar el ReferenceError es asignar el evento directamente al nodo
         const editBtn = tr.querySelector('.crm-btn-edit');
         editBtn.addEventListener('click', () => abrirEdicion(lead));
+
+        const deleteBtn = tr.querySelector('.crm-btn-delete');
+        deleteBtn.onclick = async () => {
+            if (confirm(`¿Estás seguro de eliminar a ${lead.nombre}?`)) {
+                try {
+                    await fetchData(`/api/crm/leads/${lead.id}`, { method: 'DELETE' });
+                    mostrarNotificacion("Lead eliminado", "success");
+                    loadLeads(); // Recargamos la lista
+                } catch (error) {
+                    mostrarNotificacion("Error al eliminar", "error");
+                }
+            }
+        };
         
         tbody.appendChild(tr);
     });
+}
+
+function filtrarLeads(status) {
+    if (status === 'todos') {
+        renderLeadsTable(leadsCache);
+    } else {
+        const filtrados = leadsCache.filter(l => l.estado.toLowerCase() === status.toLowerCase());
+        renderLeadsTable(filtrados);
+    }
 }

@@ -104,3 +104,17 @@ def get_leads_stats():
         'total': total,
         'nuevos': nuevos
     })
+
+@bp.route('/leads/<int:lead_id>', methods=['DELETE'])
+def delete_lead(lead_id):
+    db = get_db()
+    try:
+        # Aplicamos tu estándar: en lugar de DELETE, hacemos UPDATE de la fecha de baja
+        db.execute(
+            "UPDATE crm_leads SET fecha_baja = CURRENT_TIMESTAMP WHERE id = %s",
+            (lead_id,)
+        )
+        g.db_conn.commit()
+        return jsonify({'success': True, 'message': 'Lead eliminado correctamente'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

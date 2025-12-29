@@ -229,3 +229,35 @@
     background: #dee2e6;
     transform: scale(1.1);
 }
+
+/* crm_styles.css */
+
+.club-card {
+    background-color: #ffffff;
+    border-radius: 0.5rem; /* El estándar de Bootstrap */
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); /* Shadow-sm de Bootstrap */
+    margin-bottom: 1.5rem;
+    border: 1px solid #dee2e6; /* Border-light */
+}
+
+.club-header {
+    background: linear-gradient(45deg, #2c3e50, #34495e); /* Los tonos oscuros que usas en el Club */
+    color: white;
+    padding: 1rem 1.5rem;
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+}
+
+/* Para que los botones de filtro se vean como los de gestión de puntos */
+#crm-filter-group .btn-outline-info {
+    border-color: #0dcaf0; /* Color Info de Bootstrap */
+    color: #0dcaf0;
+}
+
+#crm-filter-group .btn-outline-info.active {
+    background-color: #0dcaf0;
+    color: #fff;
+}
