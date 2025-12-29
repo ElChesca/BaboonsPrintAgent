@@ -8,9 +8,9 @@
     </header>
     <main class="crm-main-content">
         <section class="crm-dashboard">
-            <div class="crm-card">
+            <div class="crm-card crm-clickable" id="crm-card-leads">
                 <h3>Leads</h3>
-                <p class="crm-metric">0</p>
+                <p class="crm-metric" id="crm-leads-metric">0</p>
             </div>
             <div class="crm-card">
                 <h3>Mensajes</h3>
@@ -22,7 +22,82 @@
             </div>
         </section>
         <div id="crm-content-placeholder">
-            <p>Bienvenido al módulo CRM. Seleccione una opción.</p>
+            <!-- LEADS VIEW (Hidden by default) -->
+            <div id="crm-leads-view" style="display: none;">
+                <div class="crm-toolbar">
+                    <h2>Gestión de Leads</h2>
+                    <button id="crm-new-lead-btn" class="crm-btn-primary">+ Nuevo Lead</button>
+                </div>
+                <div class="crm-table-container">
+                    <table class="crm-table" id="crm-leads-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th>Estado</th>
+                                <th>Origen</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Rows injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <p id="crm-welcome-msg">Bienvenido al módulo CRM. Seleccione una opción arriba.</p>
         </div>
     </main>
+</div>
+
+<!-- NEW LEAD MODAL -->
+<div id="crm-lead-modal" class="crm-modal" style="display: none;">
+    <div class="crm-modal-content">
+        <span class="crm-close-modal">&times;</span>
+        <h3 id="crm-modal-title">Nuevo Lead</h3>
+        <form id="crm-lead-form">
+            <input type="hidden" id="lead-id">
+            <div class="crm-form-group">
+                <label>Nombre *</label>
+                <input type="text" id="lead-nombre" required>
+            </div>
+            <div class="crm-form-group">
+                <label>Email</label>
+                <input type="email" id="lead-email">
+            </div>
+            <div class="crm-form-group">
+                <label>Teléfono</label>
+                <input type="text" id="lead-telefono">
+            </div>
+            <div class="crm-form-group">
+                <label>Origen</label>
+                <select id="lead-origen">
+                    <option value="manual">Manual</option>
+                    <option value="web">Web</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="facebook">Facebook</option>
+                </select>
+            </div>
+            <div class="crm-form-group">
+                <label>Estado</label>
+                <select id="lead-estado">
+                    <option value="nuevo">Nuevo</option>
+                    <option value="contactado">Contactado</option>
+                    <option value="interesado">Interesado</option>
+                    <option value="ganado">Ganado (Cliente)</option>
+                    <option value="perdido">Perdido</option>
+                </select>
+            </div>
+            <div class="crm-form-group">
+                <label>Notas</label>
+                <textarea id="lead-notas"></textarea>
+            </div>
+            <div class="crm-form-actions">
+                <button type="submit" class="crm-btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
 </div>

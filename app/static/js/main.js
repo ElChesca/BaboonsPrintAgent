@@ -2,7 +2,7 @@
 // ✨ ARCHIVO COMPLETO (Versión 1.2.2 - CON RESTAURACIÓN DE SESIÓN) ✨
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-const APP_VERSION = "1.2.4"; // Actualizado para forzar recarga
+const APP_VERSION = "1.2.5"; // Actualizado para forzar recarga
 const v = `?v=${APP_VERSION}`;
 
 // --- AUTO-LIMPIEZA DE CACHÉ LOCAL ---

@@ -1,4 +1,3 @@
-# app/database.py
 import os
 import psycopg2
 import psycopg2.extras # Importante para obtener resultados como diccionarios
