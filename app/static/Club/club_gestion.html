@@ -3,6 +3,7 @@
 
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <div class="container-fluid pt-4 px-4">
     
@@ -340,7 +341,20 @@
                                 <input type="number" id="premio-stock" class="form-control" required>
                             </div>
                         </div>
-                        
+                        <!-- "Descuento" (con el Caballo de Troya) -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Tipo de Premio</label>
+                            <select id="premio-tipo" class="form-select border-primary-subtle shadow-sm">
+                                <option value="producto">🎁 Producto Físico</option>
+                                <option value="descuento">🐎 Caballo de Troya (Descuento $)</option>
+                            </select>
+                            <div class="form-text small text-muted">Los descuentos muestran el logo del Caballo de Troya en la App.</div>
+                        </div>
+                         <!-- "Descuento" premio con Efecto de Fuego-->
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="nuevo-premio-fuego">
+                            <label class="form-check-label" for="nuevo-premio-fuego">Premio Fuego 🔥 (Efecto especial en App)</label>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label">Imagen</label>
                             <input type="file" id="premio-img-file" class="form-control">
