@@ -102,27 +102,6 @@ export function inicializarLogicaLogin() {
             }
 
             window.dispatchEvent(new Event('authChange'));
-
-            // --- CORRECCIÓN DEL ERROR "HOME NO EXISTE" ---
-            // Decidimos qué home cargar según el tipo de negocio
-            let paginaHome = 'static/home_retail.html'; // Default
-            
-            if (data.negocio_tipo === 'consorcio') {
-                paginaHome = 'static/home_consorcio.html';
-            } else if (data.negocio_tipo === 'retail') {
-                paginaHome = 'static/home_retail.html';
-            }
-
-            // Buscamos el link activo para la UI
-            const homeLink = document.querySelector(`a[onclick*="${paginaHome.replace('static/', '')}"]`) || document.querySelector('#link-home');
-
-            // Redirigimos
-            if (window.loadContent) {
-                window.loadContent(null, paginaHome, homeLink);
-            } else {
-                window.location.reload(); // Fallback de seguridad
-            }
-
             
         } catch (error) {
             console.error("Login error:", error);
