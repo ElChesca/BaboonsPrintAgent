@@ -261,3 +261,67 @@
     background-color: #0dcaf0;
     color: #fff;
 }
+/* Kanban Styles */
+.kanban-header {
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    text-align: center;
+}
+.lead-card {
+    background: white;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-left: 4px solid #3498db;
+    cursor: grab;
+    transition: 0.2s;
+}
+.lead-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+.lead-card h6 { margin: 0; color: #2c3e50; font-weight: bold; }
+.lead-card small { color: #7f8c8d; font-size: 0.75rem; }
+
+.kanban-column {
+    min-height: 200px;
+    border-radius: 4px;
+    background-color: rgba(0,0,0,0.02);
+}
+
+.lead-card {
+    border-radius: 8px;
+    cursor: grab;
+    transition: all 0.2s ease;
+}
+
+.lead-card:active {
+    cursor: grabbing;
+}
+
+.lead-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+
+.bg-light-blue {
+    background-color: #e3f2fd !important;
+    border: 2px dashed #0d6efd !important;
+}
+
+/* Borde para Lead Frío */
+.lead-card.border-danger {
+    border-left-width: 8px !important;
+    background-color: #fff5f5 !important;
+}
+
+/* Estilo para notas rápidas */
+.lead-card textarea {
+    font-size: 0.7rem;
+    resize: none;
+    height: 30px;
+    border-radius: 4px;
+    transition: height 0.2s;
+}
+
+.lead-card textarea:focus {
+    height: 60px;
+}

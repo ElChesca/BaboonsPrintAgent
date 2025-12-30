@@ -59,9 +59,12 @@ def create_lead():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/leads/<int:lead_id>', methods=['PUT'])
+
+# Busca esta línea en app/crm_social/leads_routes.py
+@bp.route('/leads/<int:lead_id>', methods=['PUT', 'PATCH']) # <-- Agrega 'PATCH' aquí
 def update_lead(lead_id):
     data = request.get_json()
+    # Lista de campos que permitimos actualizar
     fields = ['nombre', 'email', 'telefono', 'estado', 'origen', 'notas']
     updates = []
     values = []
