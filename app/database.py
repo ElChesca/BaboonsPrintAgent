@@ -1,4 +1,3 @@
-# app/database.py
 import os
 import psycopg2
 import psycopg2.extras # Importante para obtener resultados como diccionarios
@@ -21,6 +20,10 @@ def get_db():
         g.db_conn = psycopg2.connect(db_url)
         # 3. Crea un cursor que devuelve filas como diccionarios (ej: row['nombre'])
         g.db = g.db_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # 🔥Configuramos la zona horaria para esta conexión/petición
+        g.db.execute("SET TIME ZONE 'America/Argentina/Buenos_Aires';")
+        
     return g.db
 
 def close_db(e=None):

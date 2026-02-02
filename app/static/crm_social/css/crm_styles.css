@@ -1,0 +1,416 @@
+/* Scoped styles for CRM module */
+.crm-container {
+    padding: 20px;
+    background-color: #f4f6f9;
+    min-height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.crm-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.crm-header h1 {
+    margin: 0;
+    color: #2c3e50;
+}
+
+.crm-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.crm-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    text-align: center;
+}
+
+.crm-clickable {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.crm-clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.crm-card h3 {
+    margin-top: 0;
+    color: #7f8c8d;
+    font-size: 0.9em;
+    text-transform: uppercase;
+}
+
+.crm-metric {
+    font-size: 2em;
+    font-weight: bold;
+    color: #3498db;
+    margin: 10px 0 0;
+}
+
+#crm-refresh-btn {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#crm-refresh-btn:hover {
+    background-color: #2980b9;
+}
+
+/* CRM Table Styles */
+.crm-table-container {
+    overflow-x: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.crm-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.crm-table th, .crm-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.crm-table th {
+    background-color: #f8f9fa;
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.crm-table tbody tr:hover {
+    background-color: #f9f9f9;
+}
+
+.crm-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.crm-btn-primary {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.crm-btn-primary:hover {
+    background-color: #2980b9;
+}
+
+/* Modal Styles */
+.crm-modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.crm-modal-content {
+    background-color: #fefefe;
+    padding: 20px;
+    border-radius: 8px;
+    width: 500px;
+    max-width: 90%;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    position: relative;
+    top: 10%; /* Fallback */
+    margin: auto;
+}
+
+.crm-close-modal {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.crm-close-modal:hover {
+    color: black;
+}
+
+.crm-form-group {
+    margin-bottom: 15px;
+}
+
+.crm-form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #333;
+    font-weight: 500;
+}
+
+.crm-form-group input, .crm-form-group select, .crm-form-group textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box; /* Important for width 100% */
+}
+
+.crm-form-group textarea {
+    height: 80px;
+    resize: vertical;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: bold;
+    text-transform: capitalize;
+}
+.badge-nuevo { background-color: #e3f2fd; color: #1976d2; }
+.badge-ganado { background-color: #e8f5e9; color: #2e7d32; }
+.badge-perdido { background-color: #ffebee; color: #c62828; }
+.badge-interesado { background-color: #fff3e0; color: #ef6c00; }
+
+/* Mejora de la tabla y badges */
+.crm-table tr td {
+    vertical-align: middle;
+}
+
+.badge {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.badge-nuevo { background: #d1ecf1; color: #0c5460; }
+.badge-ganado { background: #d4edda; color: #155724; }
+.badge-perdido { background: #f8d7da; color: #721c24; }
+.badge-contactado { background: #fff3cd; color: #856404; }
+
+.crm-btn-edit {
+    border: none;
+    background: #e9ecef;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.crm-btn-edit:hover {
+    background: #dee2e6;
+    transform: scale(1.1);
+}
+
+/* crm_styles.css */
+
+.club-card {
+    background-color: #ffffff;
+    border-radius: 0.5rem; /* El estándar de Bootstrap */
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); /* Shadow-sm de Bootstrap */
+    margin-bottom: 1.5rem;
+    border: 1px solid #dee2e6; /* Border-light */
+}
+
+.club-header {
+    background: linear-gradient(45deg, #2c3e50, #34495e); /* Los tonos oscuros que usas en el Club */
+    color: white;
+    padding: 1rem 1.5rem;
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+}
+
+/* Para que los botones de filtro se vean como los de gestión de puntos */
+#crm-filter-group .btn-outline-info {
+    border-color: #0dcaf0; /* Color Info de Bootstrap */
+    color: #0dcaf0;
+}
+
+#crm-filter-group .btn-outline-info.active {
+    background-color: #0dcaf0;
+    color: #fff;
+}
+/* Kanban Styles */
+.kanban-header {
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    text-align: center;
+}
+.lead-card {
+    background: white;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-left: 4px solid #3498db;
+    cursor: grab;
+    transition: 0.2s;
+}
+.lead-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+.lead-card h6 { margin: 0; color: #2c3e50; font-weight: bold; }
+.lead-card small { color: #7f8c8d; font-size: 0.75rem; }
+
+.kanban-column {
+    min-height: 200px;
+    border-radius: 4px;
+    background-color: rgba(0,0,0,0.02);
+}
+
+.lead-card {
+    border-radius: 8px;
+    cursor: grab;
+    transition: all 0.2s ease;
+}
+
+.lead-card:active {
+    cursor: grabbing;
+}
+
+.lead-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+
+.bg-light-blue {
+    background-color: #e3f2fd !important;
+    border: 2px dashed #0d6efd !important;
+}
+
+/* Borde para Lead Frío */
+.lead-card.border-danger {
+    border-left-width: 8px !important;
+    background-color: #fff5f5 !important;
+}
+
+/* Estilo para notas rápidas */
+.lead-card textarea {
+    font-size: 0.7rem;
+    resize: none;
+    height: 30px;
+    border-radius: 4px;
+    transition: height 0.2s;
+}
+
+.lead-card textarea:focus {
+    height: 60px;
+}
+.timeline-container {
+    padding-left: 15px;
+    border-left: 2px solid #e9ecef;
+    margin-left: 10px;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -21px;
+    top: 5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #0d6efd;
+    border: 2px solid white;
+}
+
+.timeline-date {
+    font-size: 0.7rem;
+    color: #adb5bd;
+    font-weight: bold;
+}
+
+.timeline-desc {
+    font-size: 0.85rem;
+    color: #495057;
+}
+/* Contenedor principal del Modal (Fondo oscuro) */
+.modal-custom {
+    display: none; /* Oculto por defecto */
+    position: fixed; /* ¡Esto lo hace flotar! */
+    z-index: 1050; /* Por encima de todo */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Fondo semitransparente */
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px); /* Efecto de desenfoque profesional */
+}
+
+/* Caja de contenido del Modal */
+.modal-content-custom {
+    background-color: #fff;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* Animación de entrada estilo Odoo */
+.animate__zoomIn {
+    animation-duration: 0.3s;
+}
+
+/* Estilos para la Línea de Tiempo dentro del modal */
+.timeline-container {
+    padding-left: 20px;
+    border-left: 2px solid #e9ecef;
+    margin-left: 10px;
+    position: relative;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -27px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #0d6efd;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px #0d6efd;
+}

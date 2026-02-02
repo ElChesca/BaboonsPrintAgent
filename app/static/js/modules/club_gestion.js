@@ -82,6 +82,23 @@ window.buscarClientePuntos = async () => {
                 </span>
             `;
         }
+        // ... después de renderizar el badge del nivel ...
+        const panelInfo = document.getElementById('info-cliente-panel');
+        const canjesPendientes = data.canjes_pendientes || [];
+
+        if (canjesPendientes.length > 0) {
+            // Insertamos un aviso dinámico en el panel del cliente
+            const avisoCanje = document.createElement('div');
+            avisoCanje.className = "alert alert-warning mt-3 border-0 shadow-sm animate__animated animate__pulse animate__infinite";
+            avisoCanje.innerHTML = `
+                <h6 class="fw-bold mb-1"><i class="fas fa-gift me-2"></i>¡Canje Pendiente!</h6>
+                <p class="small mb-2">El cliente solicitó: <b>${canjesPendientes[0].premio_nombre}</b></p>
+                <button class="btn btn-dark btn-sm w-100 rounded-pill" onclick="entregarPremio(${canjesPendientes[0].id})">
+                    CONFIRMAR ENTREGA
+                </button>
+            `;
+            panelInfo.appendChild(avisoCanje);
+        }
 
         // Mostrar botón X
         const btnLimpiar = document.getElementById('btn-limpiar-filtro');
@@ -154,6 +171,54 @@ window.confirmarCargaPuntos = async () => {
     }
 };
 
+// --- CANJE DE PREMIO ---
+window.entregarPremio = async (canjeId) => {
+    if (!confirm("¿Confirmas la entrega física del premio?")) return;
+
+    try {
+        const token = localStorage.getItem('jwt_token');
+        const res = await fetch(`/api/club/admin/confirmar-entrega`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({ canje_id: canjeId })
+        });
+
+        const result = await res.json();
+        
+        if (res.ok) {
+            // 1. Intentamos mostrar el cartel lindo si Swal existe
+            if (typeof Swal !== 'undefined') {
+                await Swal.fire({
+                    title: '¡Entrega Exitosa!',
+                    html: `Premio: <b>${result.premio}</b><br>Comprobante: <span class="fs-2 text-primary"><b>${result.comprobante}</b></span>`,
+                    icon: 'success',
+                    confirmButtonColor: '#ff7a21'
+                });
+            } else {
+                alert(`¡Entrega Exitosa! Comprobante: ${result.comprobante}`);
+            }
+
+            // 2. 🔥 LA CLAVE: Limpiamos y buscamos de nuevo al cliente
+            // Esto hará que el aviso amarillo de canje desaparezca porque el estado ya no es 'pendiente'
+            await buscarClientePuntos(); 
+            cargarDashboard();
+            
+        } else {
+            // Si el canje ya se hizo, igual refrescamos para limpiar el panel "fantasma"
+            if (res.status === 404) {
+                mostrarNotificacion("Este canje ya fue procesado anteriormente.", "info");
+                buscarClientePuntos();
+            } else {
+                throw new Error(result.error);
+            }
+        }
+    } catch (e) {
+        mostrarNotificacion(e.message, "error");
+    }
+};
 // =========================================================
 // 🏆 NIVELES
 // =========================================================
@@ -259,7 +324,11 @@ async function guardarPremio(e, negocioId) {
         formData.append('nombre', document.getElementById('premio-nombre').value);
         formData.append('costo_puntos', document.getElementById('premio-costo').value);
         formData.append('stock', document.getElementById('premio-stock').value);
-        formData.append('descripcion', document.getElementById('premio-descripcion').value);
+        formData.append('descripcion', document.getElementById('premio-descripcion').value);        
+        formData.append('tipo_premio', document.getElementById('premio-tipo').value); 
+        
+        const esFuego = document.getElementById('nuevo-premio-fuego').checked ? 1 : 0;
+        formData.append('es_fuego', esFuego);
 
         const id = document.getElementById('premio-id-hidden').value;
         if(id) formData.append('id', id);
@@ -373,9 +442,12 @@ window.editarPremio = async (id) => {
             document.getElementById('premio-stock').value = p.stock;
             document.getElementById('premio-descripcion').value = p.descripcion || '';
             document.getElementById('premio-img-file').value = ''; 
+            document.getElementById('premio-tipo').value = p.tipo_premio || 'producto'; 
+            document.getElementById('nuevo-premio-fuego').checked = (p.es_fuego === 1 || p.es_fuego === true);
             
             document.getElementById('modalPremioLabel').innerText = "Editar Premio";
             document.getElementById('btn-submit-premio').innerText = "Guardar Cambios";
+            
 
             const modal = document.getElementById('modalPremio');
             modal.classList.add('show'); 

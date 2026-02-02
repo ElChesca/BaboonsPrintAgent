@@ -1,0 +1,167 @@
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/club_gestion.css"> 
+<link rel="stylesheet" href="/static/crm_social/css/crm_styles.css">
+
+<div class="container-fluid pt-4 px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="fw-light text-secondary m-0">
+            <i class="fas fa-users-cog text-primary me-2"></i>Gestión de CRM & Leads
+        </h3>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" id="crm-refresh-btn">
+                <i class="fa fa-sync-alt me-1"></i> Actualizar
+            </button>
+            <button class="btn btn-primary btn-sm rounded-pill px-3" id="crm-new-lead-btn">
+                <i class="fa fa-plus me-1"></i> Nuevo Lead
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="club-card p-4 text-center border-0 shadow-sm bg-white">
+                <h6 class="text-muted text-uppercase small fw-bold">Total Leads Activos</h6>
+                <h2 class="display-5 fw-bold text-primary mb-0" id="crm-leads-metric">0</h2>
+                <small class="text-success"><i class="fa fa-check-circle me-1"></i>Sincronizado</small>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="club-card p-4 border-0 shadow-sm bg-white h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="small fw-bold text-uppercase text-muted">Tasa de Conversión (Ganados)</span>
+                    <span id="progreso-texto" class="badge bg-success">0% de Éxito</span>
+                </div>
+                <div class="progress" style="height: 15px; border-radius: 10px;">
+                    <div id="crm-progreso-barra" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="club-card shadow-sm border-0 mb-4 bg-white">
+        <div class="py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="btn-group btn-group-sm" role="group" id="crm-filter-group">
+                <button type="button" class="btn btn-outline-info active" data-status="todos">Todos</button>
+                <button type="button" class="btn btn-outline-info" data-status="nuevo">Nuevos</button>
+                <button type="button" class="btn btn-outline-info" data-status="contactado">Contactados</button>
+                <button type="button" class="btn btn-outline-info" data-status="interesado">Interesados</button>
+                <button type="button" class="btn btn-outline-info" data-status="ganado">Clientes</button>
+            </div>
+            
+            <div class="input-group input-group-sm" style="max-width: 400px;">
+                <span class="input-group-text bg-light border-end-0"><i class="fa fa-search text-muted"></i></span>
+                <input type="text" id="crm-search-input" class="form-control border-start-0 bg-light" placeholder="Buscar por nombre, teléfono u origen...">
+            </div>
+        </div>
+    </div>
+
+    <div id="crm-kanban-container">
+        <div class="row g-3" id="kanban-board">
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="club-card bg-light border-0 shadow-sm h-100">
+                    <div class="club-header bg-info bg-gradient py-2 px-3 d-flex justify-content-between text-white rounded-top">
+                        <span><i class="fa fa-star me-2"></i>NUEVO</span>
+                        <span class="badge bg-white text-info" id="count-nuevo">0</span>
+                    </div>
+                    <div class="kanban-column p-2" id="nuevo" style="min-height: 500px;"></div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="club-card bg-light border-0 shadow-sm h-100">
+                    <div class="club-header bg-warning bg-gradient py-2 px-3 d-flex justify-content-between text-dark rounded-top">
+                        <span><i class="fa fa-phone me-2"></i>CONTACTADO</span>
+                        <span class="badge bg-dark text-white" id="count-contactado">0</span>
+                    </div>
+                    <div class="kanban-column p-2" id="contactado" style="min-height: 500px;"></div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="club-card bg-light border-0 shadow-sm h-100">
+                    <div class="club-header bg-primary bg-gradient py-2 px-3 d-flex justify-content-between text-white rounded-top">
+                        <span><i class="fa fa-fire me-2"></i>INTERESADO</span>
+                        <span class="badge bg-white text-primary" id="count-interesado">0</span>
+                    </div>
+                    <div class="kanban-column p-2" id="interesado" style="min-height: 500px;"></div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="club-card bg-light border-0 shadow-sm h-100">
+                    <div class="club-header bg-success bg-gradient py-2 px-3 d-flex justify-content-between text-white rounded-top">
+                        <span><i class="fa fa-check-circle me-2"></i>GANADO</span>
+                        <span class="badge bg-white text-success" id="count-ganado">0</span>
+                    </div>
+                    <div class="kanban-column p-2" id="ganado" style="min-height: 500px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="crm-lead-modal" class="modal-custom">
+    <div class="modal-content-custom animate__animated animate__zoomIn" style="width: 90%; max-width: 1100px; border-radius: 15px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h5 id="crm-modal-title" class="mb-0 fw-bold text-primary">Detalle del Lead</h5>
+            <button class="btn-close crm-close-modal" aria-label="Close"></button>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-6 border-end">
+                <form id="crm-lead-form" class="px-2">
+                    <input type="hidden" id="lead-id">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">Nombre Completo</label>
+                        <input type="text" id="lead-nombre" class="form-control bg-light" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label small fw-bold text-muted">Teléfono</label>
+                            <input type="text" id="lead-telefono" class="form-control bg-light">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label small fw-bold text-muted">Origen</label>
+                            <select id="lead-origen" class="form-select bg-light">
+                                <option value="Web">Web</option>
+                                <option value="Instagram">Instagram</option>
+                                <option value="Manual">Manual</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">Estado Actual</label>
+                        <select id="lead-estado" class="form-select bg-light">
+                            <option value="nuevo">Nuevo</option>
+                            <option value="contactado">Contactado</option>
+                            <option value="interesado">Interesado</option>
+                            <option value="ganado">Ganado</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">Notas Internas</label>
+                        <textarea id="lead-notas" class="form-control bg-light" rows="5" placeholder="Escribe aquí el seguimiento..."></textarea>
+                    </div>
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary py-2 shadow-sm">
+                            <i class="fa fa-save me-2"></i>Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="col-md-6 px-4">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="fa fa-history me-2 text-primary"></i>
+                    <h6 class="mb-0 fw-bold">Línea de Tiempo de Actividad</h6>
+                </div>
+                <div id="crm-lead-timeline" class="timeline-container pe-2" style="max-height: 450px; overflow-y: auto;">
+                    <div class="text-center py-5">
+                        <i class="fa fa-spinner fa-spin text-muted mb-2"></i>
+                        <p class="small text-muted">Cargando historial...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
