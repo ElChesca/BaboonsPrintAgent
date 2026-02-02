@@ -1,25 +1,23 @@
-/* ==========================================================================
-   ESTILOS DEFINITIVOS PARA EL MÓDULO DE VENTAS (POS)
-   ========================================================================== */
+/* app/static/css/ventas.css */
 
 /* --- 1. ESTRUCTURA GENERAL --- */
 .pos-container {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: var(--spacing-lg);
 }
 
-/* --- 2. CABECERA DE VENTA (Cliente, Forma de Pago, Estado de Caja) --- */
+/* --- 2. CABECERA DE VENTA --- */
 .pos-header {
     display: flex;
     align-items: flex-end;
-    gap: 20px;
-    padding: 15px 20px;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
 }
 .pos-header .form-group {
     margin-bottom: 0;
 }
-.pos-header .form-group:first-child { /* El selector de cliente ocupa más espacio */
+.pos-header .form-group:first-child {
     flex-grow: 1;
 }
 .caja-status-label {
@@ -30,22 +28,21 @@
     border-radius: 6px;
     white-space: nowrap;
 }
-.caja-status-label.abierta { background-color: #e7f4e8; border: 1px solid #28a745; color: #155724; }
-.caja-status-label.cerrada { background-color: #f8d7da; border: 1px solid #dc3545; color: #721c24; }
+.caja-status-label.abierta { background-color: #e7f4e8; border: 1px solid var(--success-color); color: #155724; }
+.caja-status-label.cerrada { background-color: #f8d7da; border: 1px solid var(--danger-color); color: #721c24; }
 
-
-/* --- 3. PANEL DE BÚSQUEDA DE PRODUCTOS --- */
+/* --- 3. PANEL DE BÚSQUEDA --- */
 .search-panel {
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: var(--spacing-lg);
+    background-color: var(--bg-card);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
 }
 .search-panel form {
     display: flex;
     align-items: flex-end;
-    gap: 15px;
-    margin-bottom: 15px;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
 }
 .search-panel .form-group {
     flex-grow: 1;
@@ -59,7 +56,7 @@
     border-top: 1px solid #eee;
 }
 .search-item {
-    padding: 10px 15px; /* Ligeramente más compacto */
+    padding: 10px 15px;
     cursor: pointer;
     display: flex;
     justify-content: space-between;
@@ -68,83 +65,85 @@
     transition: background-color 0.2s;
 }
 .search-item:last-child { border-bottom: none; }
-.search-item:hover { background-color: #f8f9fa; }
+.search-item:hover { background-color: var(--bg-light); }
 .search-item .stock {
     font-size: 0.8em;
-    color: #6c757d;
+    color: var(--text-muted);
 }
 
-/* --- 4. PANELES DE VENTA (Acceso Rápido y Venta Actual) --- */
-.pos-main-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
-.venta-panel { display: flex; flex-direction: column; gap: 20px; }
+/* --- 4. PANELES DE VENTA --- */
+.pos-main-grid { display: grid; grid-template-columns: 1fr; gap: var(--spacing-lg); }
+.venta-panel { display: flex; flex-direction: column; gap: var(--spacing-lg); }
 
-/* Panel Acceso Rápido */
 .panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: var(--spacing-md);
 }
 .panel-header h3 { margin: 0; }
 
 #pos-grid-container { 
     display: grid; 
     grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); 
-    gap: 10px; 
+    gap: var(--spacing-sm);
 }
 .pos-item { 
-    background-color: #fff; border: 1px solid #ddd; border-radius: 8px; 
-    padding: 10px; text-align: center; cursor: pointer; 
-    transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    height: 80px; display: flex; flex-direction: column; justify-content: center;
+    background-color: var(--bg-card);
+    border: 1px solid #ddd;
+    border-radius: var(--border-radius);
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+    height: 80px;
+    display: flex; flex-direction: column; justify-content: center;
 }
-.pos-item:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+.pos-item:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 .pos-item-name { font-weight: bold; font-size: 0.9em; }
-.pos-item-price { font-size: 0.9em; color: #28a745; font-weight: bold; margin-top: 5px; }
+.pos-item-price { font-size: 0.9em; color: var(--success-color); font-weight: bold; margin-top: 5px; }
 
-
-/* --- 5. TABLA DE VENTA ACTUAL (Compacta) --- */
+/* --- 5. TABLA DE VENTA --- */
 .tabla-contenedor-venta {
     overflow-y: auto;
-    max-height: 30vh; /* Ligeramente más baja para dar espacio */
+    max-height: 30vh;
 }
 .tabla-venta-elegante {
     width: 100%;
     border-collapse: collapse;
 }
-/* ✨ CORRECCIÓN CLAVE: Tabla más compacta ✨ */
 .tabla-venta-elegante th, .tabla-venta-elegante td {
-    padding: 8px 12px; /* Menos padding vertical y horizontal */
+    padding: 8px 12px;
     text-align: left;
-    font-size: 0.9em; /* Fuente ligeramente más pequeña */
+    font-size: 0.9em;
     border-bottom: 1px solid #e9ecef;
 }
 .tabla-venta-elegante thead th {
-    background-color: #f8f9fa;
-    color: #333;
-    border-bottom: 2px solid #dee2e6;
+    background-color: var(--bg-light);
+    color: var(--text-main);
+    border-bottom: 2px solid var(--border-color);
     position: sticky;
     top: 0;
 }
 .tabla-venta-elegante tbody tr:nth-child(even) {
-    background-color: #f8f9fa;
+    background-color: var(--bg-light);
 }
-.tabla-venta-elegante .btn-quitar { /* Botón más pequeño */
+.tabla-venta-elegante .btn-quitar {
     padding: 2px 8px; 
     font-size: 0.8em;
 }
 
-
-/* --- 6. FOOTER DE VENTA (Finalización) --- */
+/* --- 6. FOOTER DE VENTA --- */
 .venta-footer {
-    border-top: 2px solid #dee2e6;
-    padding-top: 15px;
+    border-top: 2px solid var(--border-color);
+    padding-top: var(--spacing-md);
 }
 .venta-ajustes-extra {
     display: flex;
-    gap: 20px;
+    gap: var(--spacing-lg);
     justify-content: flex-end;
-    margin-bottom: 15px;
+    margin-bottom: var(--spacing-md);
 }
 .venta-ajustes-extra .form-group { margin-bottom: 0; }
 
@@ -152,42 +151,41 @@
     text-align: right;
     font-size: 2.2em;
     font-weight: bold;
-    color: #007bff;
-    margin-bottom: 20px;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-lg);
 }
 .venta-total-display span {
     font-size: 0.5em;
-    color: #6c757d;
+    color: var(--text-muted);
     display: block;
     margin-bottom: -15px;
 }
 .finalization-controls {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 15px;
+    gap: var(--spacing-md);
     align-items: flex-end;
 }
 .finalization-controls .form-group { margin: 0; }
 .finalization-controls .form-actions { display: flex; gap: 10px; }
 
 #pago-detalles-container {
-    display: none; /* Se muestra con JS */
+    display: none;
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 15px;
-    margin-top: 15px;
-    padding-top: 15px;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
     border-top: 1px dashed #ccc;
 }
 #calculo-vuelto-container .vuelto-display { font-weight: bold; margin-top: 5px; font-size: 0.9em; }
 
-
-/* --- 7. INTERRUPTOR (Switch) Y RESPONSIVE --- */
+/* --- 7. SWITCH --- */
 .switch-container { display: flex; align-items: center; gap: 8px; font-size: 0.9em; color: #555; }
 .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
 .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-input:checked + .slider { background-color: #28a745; }
+input:checked + .slider { background-color: var(--success-color); }
 input:checked + .slider:before { transform: translateX(22px); }
 
 @media (max-width: 600px) {

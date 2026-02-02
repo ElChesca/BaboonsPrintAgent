@@ -1,28 +1,30 @@
 <div class="seccion-contenido-dinamico">
-    <h2>📦 Registrar Ingreso de Mercadería</h2>
+    <div class="page-header">
+        <h2>📦 Registrar Ingreso de Mercadería</h2>
+    </div>
 
-    <div class="main-grid">
+    <div class="form-grid-3-col" style="grid-template-columns: 1fr 2fr;"> <!-- Custom split -->
         <!-- Columna Izquierda: Formulario de Ítems -->
         <div class="card">
             <h3>Añadir Producto al Ingreso</h3>
             <form id="form-add-item-ingreso">
                 <div class="form-group">
                     <label for="ingreso-producto-selector">Producto:</label>
-                    <select id="ingreso-producto-selector" required>
+                    <select id="ingreso-producto-selector" class="form-control" required>
                         <option value="">Seleccione un producto...</option>
-                        </select>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="ingreso-item-cantidad">Cantidad:</label>
-                    <input type="number" id="ingreso-item-cantidad" step="any" required min="0.01">
+                    <input type="number" id="ingreso-item-cantidad" class="form-control" step="any" required min="0.01">
                 </div>
-                <!-- CAMBIO AQUÍ: Input para Precio de Costo -->
+
                 <div class="form-group">
                     <label for="ingreso-item-costo">Precio de Costo Unitario (opcional):</label>
-                    <input type="number" id="ingreso-item-costo" step="0.01" min="0">
-                    <small>Deje vacío si no cambió o no aplica.</small>
+                    <input type="number" id="ingreso-item-costo" class="form-control" step="0.01" min="0">
+                    <small class="text-muted">Deje vacío si no cambió o no aplica.</small>
                 </div>
-                <button type="submit" class="btn btn-secondary">➕ Añadir Ítem</button>
+                <button type="submit" class="btn btn-secondary" style="width: 100%;">➕ Añadir Ítem</button>
             </form>
         </div>
 
@@ -32,38 +34,38 @@
             <form id="form-finalize-ingreso">
                 <div class="form-group">
                     <label for="ingreso-proveedor-selector">Proveedor:</label>
-                    <select id="ingreso-proveedor-selector" required>
+                    <select id="ingreso-proveedor-selector" class="form-control" required>
                         <option value="">Seleccione un proveedor...</option>
-                        </select>
+                    </select>
                 </div>
-                <!-- CAMBIO AQUÍ: Campos para la Factura -->
-                <div class="form-row" style="display: flex; gap: 10px;">
-                    <div class="form-group" style="flex: 1;">
+
+                <div class="form-grid-3-col">
+                    <div class="form-group">
                         <label for="ingreso-factura-tipo">Tipo Fact.</label>
-                        <input type="text" id="ingreso-factura-tipo" placeholder="Ej: A, C, R" required>
+                        <input type="text" id="ingreso-factura-tipo" class="form-control" placeholder="Ej: A, C, R" required>
                     </div>
-                     <div class="form-group" style="flex: 1;">
+                     <div class="form-group">
                         <label for="ingreso-factura-prefijo">Prefijo</label>
-                        <input type="text" id="ingreso-factura-prefijo" placeholder="Ej: 0001" required>
+                        <input type="text" id="ingreso-factura-prefijo" class="form-control" placeholder="Ej: 0001" required>
                     </div>
-                    <div class="form-group" style="flex: 2;">
+                    <div class="form-group">
                         <label for="ingreso-factura-numero">Número Fact.</label>
-                        <input type="text" id="ingreso-factura-numero" placeholder="Ej: 00123456" required>
+                        <input type="text" id="ingreso-factura-numero" class="form-control" placeholder="Ej: 00123456" required>
                     </div>
                 </div>
+
                 <div class="form-group">
                     <label for="ingreso-referencia">Referencia / Observaciones (opcional):</label>
-                    <input type="text" id="ingreso-referencia">
+                    <input type="text" id="ingreso-referencia" class="form-control">
                 </div>
 
                 <h4>Ítems a Ingresar</h4>
                 <div class="tabla-contenedor" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">
-                    <table id="staged-items-ingreso" class="tabla-bonita tabla-compacta">
+                    <table id="staged-items-ingreso" class="table">
                         <thead>
                             <tr>
                                 <th>Producto</th>
                                 <th>Cantidad</th>
-                                <!-- CAMBIO AQUÍ: Columna Costo -->
                                 <th>Costo Unit.</th>
                                 <th>Acción</th>
                             </tr>
@@ -74,13 +76,14 @@
                     </table>
                 </div>
                 
-                <!-- CAMBIO AQUÍ: Div para mostrar alertas de precios -->
-                <div id="alertas-precios-container" class="hidden" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ffcc00; background-color: #fff9e6; border-radius: 5px;">
-                    <h4>⚠️ Alertas de Variación de Costos</h4>
+                <div id="alertas-precios-container" class="hidden" style="margin-bottom: 15px; padding: 10px; border: 1px solid var(--warning-color); background-color: #fff9e6; border-radius: var(--border-radius);">
+                    <h4 style="color: var(--warning-color);">⚠️ Alertas de Variación de Costos</h4>
                     <ul id="lista-alertas-precios" style="margin: 0; padding-left: 20px;"></ul>
                 </div>
 
-                <button type="submit" class="btn-primary">Registrar Ingreso y Actualizar Stock</button>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Registrar Ingreso y Actualizar Stock</button>
+                </div>
             </form>
         </div>
     </div>
