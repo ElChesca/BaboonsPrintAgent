@@ -325,3 +325,92 @@
 .lead-card textarea:focus {
     height: 60px;
 }
+.timeline-container {
+    padding-left: 15px;
+    border-left: 2px solid #e9ecef;
+    margin-left: 10px;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -21px;
+    top: 5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #0d6efd;
+    border: 2px solid white;
+}
+
+.timeline-date {
+    font-size: 0.7rem;
+    color: #adb5bd;
+    font-weight: bold;
+}
+
+.timeline-desc {
+    font-size: 0.85rem;
+    color: #495057;
+}
+/* Contenedor principal del Modal (Fondo oscuro) */
+.modal-custom {
+    display: none; /* Oculto por defecto */
+    position: fixed; /* ¡Esto lo hace flotar! */
+    z-index: 1050; /* Por encima de todo */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Fondo semitransparente */
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px); /* Efecto de desenfoque profesional */
+}
+
+/* Caja de contenido del Modal */
+.modal-content-custom {
+    background-color: #fff;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* Animación de entrada estilo Odoo */
+.animate__zoomIn {
+    animation-duration: 0.3s;
+}
+
+/* Estilos para la Línea de Tiempo dentro del modal */
+.timeline-container {
+    padding-left: 20px;
+    border-left: 2px solid #e9ecef;
+    margin-left: 10px;
+    position: relative;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -27px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #0d6efd;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px #0d6efd;
+}

@@ -121,3 +121,62 @@ def delete_lead(lead_id):
         return jsonify({'success': True, 'message': 'Lead eliminado correctamente'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# Función auxiliar para registrar hitos
+def registrar_actividad(lead_id, tipo, descripcion, negocio_id):
+    db = get_db()
+    query = """
+        INSERT INTO crm_actividades (lead_id, tipo_accion, descripcion, negocio_id)
+        VALUES (%s, %s, %s, %s)
+    """
+    db.execute(query, (lead_id, tipo, descripcion, negocio_id))
+    g.db_conn.commit()
+
+@bp.route('/leads/<int:lead_id>', methods=['PATCH'])
+def patch_lead(lead_id):
+    data = request.get_json()
+    db = get_db()
+    
+    # 1. Antes de actualizar, traemos el estado actual para comparar
+    db.execute("SELECT estado, notas, negocio_id FROM crm_leads WHERE id = %s", (lead_id,))
+    lead_actual = db.fetchone()
+    
+    # 2. Lógica de actualización (lo que ya tenías)
+    fields = ['estado', 'notas', 'nombre', 'telefono']
+    updates = []
+    values = []
+    for f in fields:
+        if f in data:
+            updates.append(f"{f} = %s")
+            values.append(data[f])
+    
+    if updates:
+        values.append(lead_id)
+        db.execute(f"UPDATE crm_leads SET {', '.join(updates)} WHERE id = %s", values)
+        
+        # 3. REGISTRO DE HISTORIAL (La magia de Kommo)
+        if 'estado' in data and data['estado'] != lead_actual['estado']:
+            registrar_actividad(lead_id, 'movimiento', 
+                               f"Cambiado de {lead_actual['estado']} a {data['estado']}", 
+                               lead_actual['negocio_id'])
+        
+        if 'notas' in data and data['notas'] != lead_actual['notas']:
+            registrar_actividad(lead_id, 'nota', "Nueva nota rápida agregada", lead_actual['negocio_id'])
+            
+        g.db_conn.commit()
+    
+    return jsonify({'success': True}), 200
+
+# Nueva ruta para traer el historial
+@bp.route('/leads/<int:lead_id>/historial', methods=['GET'])
+def get_historial(lead_id):
+    db = get_db()
+    query = """
+        SELECT tipo_accion, descripcion, to_char(fecha_hito, 'DD/MM HH24:MI') as fecha
+        FROM crm_actividades
+        WHERE lead_id = %s
+        ORDER BY fecha_hito DESC
+    """
+    db.execute(query, (lead_id,))
+    return jsonify(db.fetchall()), 200
