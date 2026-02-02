@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 import jwt
 import os 
 
@@ -25,7 +25,7 @@ def token_required(f):
             return jsonify({'message': 'Falta el token'}), 401
 
         try:
-            secret_key = os.environ.get('SECRET_KEY')
+            secret_key = current_app.config.get('SECRET_KEY')
             if not secret_key:
                  return jsonify({'message': 'Error de configuración del servidor (SK)'}), 500
                  
@@ -44,7 +44,8 @@ def token_required(f):
         except jwt.InvalidTokenError:
             return jsonify({'message': 'Token inválido'}), 401
         except Exception as e:
-             print(f"Error inesperado validando token: {e}")
+             import sys
+             print(f"Error inesperado validando token: {e}", file=sys.stderr)
              return jsonify({'message': 'Error al procesar el token'}), 500
 
         # Importante: pasamos los datos del usuario a la función original

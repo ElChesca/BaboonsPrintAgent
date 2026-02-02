@@ -381,11 +381,16 @@ body.rol-superadmin .dropdown.superadmin-only {
     display: inline-block !important;
 }
 
-/* --- 7. APP MODE VISIBILITY (Retail vs Consorcio) --- */
-#main-nav .nav-retail, #main-nav .nav-consorcio { display: none !important; }
+/* --- 7. APP MODE VISIBILITY (Retail vs Consorcio vs Rentals) --- */
+#main-nav .nav-retail, #main-nav .nav-consorcio, #main-nav .nav-rentals { display: none !important; }
+
 body.app-retail #main-nav .nav-retail { display: block !important; }
 body.app-consorcio #main-nav .nav-consorcio { display: block !important; }
-body.app-retail #main-nav a.nav-retail, body.app-consorcio #main-nav a.nav-consorcio { display: revert !important; }
+body.app-rentals #main-nav .nav-rentals { display: block !important; }
+
+body.app-retail #main-nav a.nav-retail,
+body.app-consorcio #main-nav a.nav-consorcio,
+body.app-rentals #main-nav a.nav-rentals { display: revert !important; }
 
 /* --- 8. RESPONSIVE --- */
 @media (max-width: 900px) {

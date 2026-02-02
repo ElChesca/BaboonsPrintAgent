@@ -1,0 +1,19 @@
+<div class="app-dashboard">
+    <h1 class="dashboard-title">Panel de Alquileres</h1>
+    <div class="app-grid">
+         <a href="#rentals_units" onclick="loadContent(event, 'static/rentals/rentals_units.html', this)" class="app-card">
+            <img src="/static/img/logo.png" class="app-icon" alt="Unidades">
+            <div class="app-name">Unidades</div>
+         </a>
+         <a href="#rentals_contracts" onclick="loadContent(event, 'static/rentals/rentals_contracts.html', this)" class="app-card">
+            <img src="/static/img/logo.png" class="app-icon" alt="Contratos">
+            <div class="app-name">Contratos</div>
+         </a>
+    </div>
+    <div id="alerts-container" style="margin-top: 30px; text-align: left; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h3>🔔 Alertas de Vencimiento (Próximos 30 días)</h3>
+        <div id="expiring-contracts-list">
+            <p>Cargando alertas...</p>
+        </div>
+    </div>
+</div>

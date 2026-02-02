@@ -37,3 +37,33 @@ def init_crm_db_command():
         click.echo(f'Error creating tables: {e}')
         click.echo('If you are running locally with SQLite, this might fail due to "SERIAL" keyword.')
         click.echo('For SQLite, the table might have been created via schema.sql already.')
+
+@click.command('init-rentals-db')
+@with_appcontext
+def init_rentals_db_command():
+    """Creates the Rentals tables in the database."""
+    db = get_db()
+    click.echo('Initializing Rentals database...')
+
+    with current_app.open_resource('../migrations/rentals.sql') as f:
+        sql_content = f.read().decode('utf8')
+
+    try:
+        db.executescript(sql_content)
+        from flask import g
+        if hasattr(g, 'db_conn'):
+             g.db_conn.commit()
+             click.echo('Rentals tables created successfully.')
+        else:
+             click.echo('Warning: Could not commit transaction. g.db_conn not found.')
+    except Exception as e:
+        # Fallback for Postgres if executescript is not available on the cursor wrapper
+        # or if syntax differs slightly (though my SQL tried to be generic enough except AUTOINCREMENT)
+        try:
+            db.execute(sql_content)
+            from flask import g
+            if hasattr(g, 'db_conn'):
+                g.db_conn.commit()
+                click.echo('Rentals tables created successfully (Execute fallback).')
+        except Exception as e2:
+            click.echo(f'Error creating tables: {e2}')

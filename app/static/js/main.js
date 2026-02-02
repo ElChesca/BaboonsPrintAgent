@@ -82,6 +82,9 @@ const APP_RUTAS = {
     'consorcio': [
         'home_consorcio', 'reclamos', 'expensas', 'unidades', 'noticias'
     ],
+    'rentals': [
+        'rentals_dashboard', 'rentals_units', 'rentals_contracts'
+    ],
     'comun': [
         'configuracion', 'usuarios', 'negocios'
     ]
@@ -211,7 +214,10 @@ export async function actualizarUIAutenticacion() {
             const requestedPage = window.location.hash.substring(1).split('?')[0];
             
             // Lógica de Home Dinámico
-            const defaultHomePage = appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail';
+            let defaultHomePage = 'home_retail';
+            if (appState.negocioActivoTipo === 'consorcio') defaultHomePage = 'home_consorcio';
+            if (appState.negocioActivoTipo === 'rentals') defaultHomePage = 'rentals_dashboard';
+
             let pageToLoad = (requestedPage && requestedPage !== 'login') ? requestedPage : defaultHomePage;
             
             if (pageToLoad === 'home' || pageToLoad === '') {
@@ -460,6 +466,12 @@ async function inicializarModulo(page) {
                 const { inicializarCRM } = await import(`../crm_social/js/crm_main.js${v}`);
                 inicializarCRM();
                 break;
+            case 'rentals_dashboard':
+            case 'rentals_units':
+            case 'rentals_contracts':
+                const { inicializarRentals } = await import(`../rentals/js/rentals.js${v}`);
+                inicializarRentals(pageName);
+                break;
 
             default:
                 console.warn(`No se encontró lógica de inicialización para: ${pageName}`);
@@ -500,7 +512,11 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
         if (!rutasPermitidas.includes(pageName) && !rutasComunes.includes(pageName)) {
             console.warn(`ACCESO DENEGADO: ${tipoAppActual} -> ${pageName}.`);
             mostrarNotificacion('Módulo no disponible para este tipo de negocio.', 'warning');
-            const homePage = (tipoAppActual === 'consorcio') ? 'home_consorcio' : 'home_retail';
+
+            let homePage = 'home_retail';
+            if (tipoAppActual === 'consorcio') homePage = 'home_consorcio';
+            if (tipoAppActual === 'rentals') homePage = 'rentals_dashboard';
+
             window.location.replace(`#${homePage}`);
             loadContent(null, `static/${homePage}.html`, null, true);
             return;
@@ -620,7 +636,11 @@ document.body.addEventListener('change', (e) => {
             const negocioSeleccionado = appState.negociosCache.find(n => String(n.id) === nuevoNegocioId);
             appState.negocioActivoTipo = negocioSeleccionado ? negocioSeleccionado.tipo_app : 'retail';
             actualizarUIporTipoApp();
-            const homePage = appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail';
+
+            let homePage = 'home_retail';
+            if (appState.negocioActivoTipo === 'consorcio') homePage = 'home_consorcio';
+            if (appState.negocioActivoTipo === 'rentals') homePage = 'rentals_dashboard';
+
             loadContent(null, `static/${homePage}.html`);
         }
     }
@@ -629,7 +649,11 @@ document.body.addEventListener('change', (e) => {
 window.addEventListener('popstate', (e) => {
     const currentHashPageName = window.location.hash.substring(1).split('?')[0];
     const pageFromState = e.state?.page;
-    const defaultHomePage = appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail';
+
+    let defaultHomePage = 'home_retail';
+    if (appState.negocioActivoTipo === 'consorcio') defaultHomePage = 'home_consorcio';
+    if (appState.negocioActivoTipo === 'rentals') defaultHomePage = 'rentals_dashboard';
+
     const defaultHomeHtml = `static/${defaultHomePage}.html`;
 
     if (pageFromState) {
