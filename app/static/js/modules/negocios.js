@@ -20,6 +20,7 @@ function renderizarTabla() {
                 <td>${n.id}</td>
                 <td style="text-align: center;">${logoHtml}</td>
                 <td>${n.nombre}</td>
+                <td>${n.tipo_app || 'retail'}</td>
                 <td>${n.direccion || '-'}</td>
                 <td class="acciones">
                     <button class="btn-secondary" onclick="window.editarNegocio(${n.id})">Editar</button>
@@ -49,7 +50,8 @@ function resetFormulario() {
     if(form) form.reset();
     
     document.getElementById('negocio-id').value = '';
-    document.getElementById('logo-negocio').value = ''; // Limpiamos el campo logo
+    document.getElementById('logo-negocio').value = '';
+    document.getElementById('tipo-app-negocio').value = 'retail';
     if(btnCancelar) btnCancelar.style.display = 'none';
 }
 
@@ -62,7 +64,8 @@ window.editarNegocio = (id) => {
     document.getElementById('negocio-id').value = negocio.id;
     document.getElementById('nombre-negocio').value = negocio.nombre;
     document.getElementById('direccion-negocio').value = negocio.direccion;
-    document.getElementById('logo-negocio').value = negocio.logo_url || ''; // Carga el logo
+    document.getElementById('logo-negocio').value = negocio.logo_url || '';
+    document.getElementById('tipo-app-negocio').value = negocio.tipo_app || 'retail';
     
     const btnCancelar = document.getElementById('btn-cancelar-edicion-negocio');
     if(btnCancelar) btnCancelar.style.display = 'inline-block';
@@ -88,7 +91,8 @@ async function guardarNegocio(e) {
     const data = {
         nombre: document.getElementById('nombre-negocio').value,
         direccion: document.getElementById('direccion-negocio').value,
-        logo_url: logoInput // Enviamos la ruta procesada
+        tipo_app: document.getElementById('tipo-app-negocio').value,
+        logo_url: logoInput
     };
 
     const esEdicion = !!id;

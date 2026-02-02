@@ -14,6 +14,14 @@
                 <label for="direccion-negocio">Dirección:</label>
                 <input type="text" id="direccion-negocio">
             </div>
+            <div class="form-group">
+                <label for="tipo-app-negocio">Tipo de Negocio:</label>
+                <select id="tipo-app-negocio">
+                    <option value="retail">Retail (Ventas/Inventario)</option>
+                    <option value="consorcio">Consorcio</option>
+                    <option value="rentals">Rentals (Alquileres)</option>
+                </select>
+            </div>
             <div class="form-group grid-col-span-2">
                 <label for="logo-negocio">URL del Logo (Ruta estática):</label>
                 <input type="text" id="logo-negocio" placeholder="/static/img/logos/mi_logo.png">
@@ -35,6 +43,7 @@
                 <tr>
                     <th>ID</th>
                     <th>Logo</th> <th>Nombre</th>
+                    <th>Tipo</th>
                     <th>Dirección</th>
                     <th>Acciones</th>
                 </tr>
