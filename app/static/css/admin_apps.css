@@ -1,0 +1,57 @@
+.tabs-container {
+    border-bottom: 2px solid #ddd;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1.1em;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+    color: var(--text-muted);
+}
+
+.tab-btn:hover {
+    color: var(--primary-color);
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.tab-btn.active {
+    border-bottom-color: var(--primary-color);
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+.module-group {
+    margin-bottom: 20px;
+}
+
+.module-group-title {
+    font-size: 1em;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: var(--secondary-color);
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+.module-check-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: background 0.2s;
+    cursor: pointer;
+}
+
+.module-check-item:hover {
+    background-color: var(--bg-body);
+}
+
+.module-check-item input[type="checkbox"] {
+    margin-right: 10px;
+    transform: scale(1.2);
+}

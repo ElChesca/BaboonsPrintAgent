@@ -1,7 +1,7 @@
 <div class="seccion-contenido-dinamico">
     <h2>⚙️ Configuración del Negocio</h2>
     <form id="form-configuracion">
-        
+
         <div class="config-item">
             <label for="config-vender-stock-negativo">Permitir vender con stock negativo:</label>
             <select id="config-vender-stock-negativo" data-clave="vender_stock_negativo">
@@ -14,14 +14,14 @@
         <div class="config-item">
             <label for="config-cliente-defecto">Cliente por defecto en ventas:</label>
             <select id="config-cliente-defecto" data-clave="cliente_defecto_id">
-                </select>
+            </select>
             <small>Cliente que se seleccionará automáticamente al iniciar una nueva venta.</small>
         </div>
         <div class="config-item">
             <label for="config-lista-defecto">Lista de precios por defecto para nuevos clientes:</label>
             <select id="config-lista-defecto" data-clave="lista_precio_defecto_id">
                 <option value="">Ninguna (General)</option>
-                </select>
+            </select>
             <small>Esta lista se seleccionará automáticamente al crear un nuevo cliente.</small>
         </div>
 
@@ -35,6 +35,25 @@
                 <option value="Cuenta Corriente">Cuenta Corriente</option>
             </select>
             <small>Método de pago preseleccionado en la pantalla de ventas.</small>
+        </div>
+
+        <div class="config-section-title" style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+            <h3>💳 Integración Mercado Pago Point</h3>
+            <p><small class="text-muted">Configura tu dispositivo Postnet para que los montos se envíen
+                    automáticamente.</small></p>
+        </div>
+
+        <div class="config-item">
+            <label for="config-mp-access-token">Access Token (Vendedor):</label>
+            <input type="password" id="config-mp-access-token" data-clave="mp_access_token" placeholder="APP_USR-...">
+            <small>Token de seguridad obtenido de Mercado Pago Developers.</small>
+        </div>
+
+        <div class="config-item">
+            <label for="config-mp-device-id">Device ID (Serial):</label>
+            <input type="text" id="config-mp-device-id" data-clave="mp_device_id"
+                placeholder="ID Serial del dispositivo">
+            <small>El número de serie único de tu dispositivo Point.</small>
         </div>
 
         <div class="form-actions">

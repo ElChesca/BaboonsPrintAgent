@@ -3,9 +3,9 @@ import psycopg2
 import psycopg2.extras # Importante para obtener resultados como diccionarios
 import sqlite3
 from flask import g
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 
-#load_dotenv() # Carga las variables del archivo .env si existe (para desarrollo local)
+load_dotenv() # Carga las variables del archivo .env si existe (para desarrollo local)
 
 class SQLiteCursorWrapper:
     def __init__(self, cursor):

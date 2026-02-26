@@ -1,5 +1,11 @@
 import os
+import time
 from flask import Flask, render_template, send_from_directory, abort, request, render_template_string 
+
+# ✨ Forzar Zona Horaria de Argentina al inicio
+os.environ['TZ'] = 'America/Argentina/Buenos_Aires'
+if hasattr(time, 'tzset'):
+    time.tzset()
 
 
 from .routes import facturacion_routes
@@ -36,10 +42,16 @@ def create_app():
                         proveedor_routes, ajuste_caja_routes, presupuestos_routes, \
                         price_lists_routes, unidades_medida_routes, inventory_routes, \
                         historial_inventario_routes, precios_especificos_routes, mobile_routes, \
-                        payments_routes, gastos_routes, consorcio_routes, club_puntos_routes 
+                        payments_routes, gastos_routes, consorcio_routes, club_puntos_routes, \
+                        pedidos_routes, logistica_routes
     from .crm_social import bp as crm_bp
     from .crm_social import leads_routes
     from .rentals import routes as rentals_routes
+    from .routes import admin_routes
+    from .routes import distribucion_routes
+    from .routes import import_routes
+    from .routes import empleados_routes
+    from .routes import mercado_pago_routes
 
     blueprints = [
         (auth_routes.bp, '/api'), (product_routes.bp, '/api'), (negocios_routes.bp, '/api'),
@@ -48,12 +60,13 @@ def create_app():
         (config_routes.bp, '/api'), (caja_routes.bp, '/api'), (report_routes.bp, '/api'),
         (proveedor_routes.bp, '/api'), (ajuste_caja_routes.bp, '/api'), (presupuestos_routes.bp, '/api'),
         (facturacion_routes.bp, '/api'), (price_lists_routes.bp, '/api'), (unidades_medida_routes.bp, '/api'),
-        (inventory_routes.bp,'/api'), (historial_inventario_routes.bp,'/api'), (precios_especificos_routes.bp,'/api'),
-        (mobile_routes.bp, '/api/mobile'),(payments_routes.bp, '/api'), (gastos_routes.bp, '/api'),
-        (consorcio_routes.bp, '/api'),(club_puntos_routes.bp, '/api/club'),
-        (crm_bp, '/api/crm'),
-        (leads_routes.bp, '/api/crm'),
-        (rentals_routes.bp, '/api')
+        (inventory_routes.bp, '/api'), (historial_inventario_routes.bp, '/api'), (precios_especificos_routes.bp, '/api'),
+        (mobile_routes.bp, '/api'), (payments_routes.bp, '/api'), (gastos_routes.bp, '/api'),
+        (consorcio_routes.bp, '/api'), (club_puntos_routes.bp, '/api'), (crm_bp, '/api/crm'),
+        (leads_routes.bp, '/api/crm'), (rentals_routes.bp, '/api'),
+        (admin_routes.bp, '/api'), (distribucion_routes.bp, '/api'), (pedidos_routes.bp, '/api'),
+        (logistica_routes.bp, '/api'), (import_routes.bp, '/api'), (empleados_routes.bp, '/api'),
+        (mercado_pago_routes.bp, '/api')
     ]
     for bp, prefix in blueprints:
         app.register_blueprint(bp, url_prefix=prefix)

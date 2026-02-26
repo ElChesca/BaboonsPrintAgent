@@ -1,58 +1,73 @@
-<div class="card">
+<div class="header-container"
+    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <h2>Gestión de Usuarios</h2>
-    <div class="tabla-contenedor">
-        <table id="user-list" class="tabla-bonita">
+    <div class="header-actions">
+        <!-- Puedes agregar botones generales aquí si es necesario -->
+    </div>
+</div>
+
+<div class="user-management-container" style="display: grid; grid-template-columns: 1fr 350px; gap: 20px;">
+
+    <!-- Lista de Usuarios -->
+    <div class="card panel-usuarios">
+        <h3>Usuarios del Sistema</h3>
+        <table id="user-list" class="data-table">
             <thead>
                 <tr>
                     <th>Nombre</th>
                     <th>Email</th>
                     <th>Rol</th>
-                    <th>Negocios Asignados</th>
+                    <th>Negocios</th>
+                    <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
-                </tbody>
+                <!-- Se puebla dinámicamente -->
+            </tbody>
         </table>
+    </div>
+
+    <!-- Formulario Crear Usuario -->
+    <div class="card form-container">
+        <h3>Registrar Nuevo Usuario</h3>
+        <form id="form-add-user">
+            <div class="form-group">
+                <label for="create-nombre">Nombre Completo:</label>
+                <input type="text" id="create-nombre" name="nombre" required>
+            </div>
+            <div class="form-group">
+                <label for="create-email">Email / Login:</label>
+                <input type="email" id="create-email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="create-password">Contraseña inicial:</label>
+                <input type="password" id="create-password" name="password" required>
+            </div>
+            <div class="form-group">
+                <label for="create-rol">Rol:</label>
+                <select id="create-rol" name="rol" required>
+                    <option value="operador">Operador</option>
+                    <option value="vendedor">Vendedor</option>
+                    <option value="chofer">Chofer</option>
+                    <option value="admin">Administrador</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="create-user-negocios">Asignar Negocios (Multiselección):</label>
+                <select id="create-user-negocios" multiple style="height: 100px;">
+                    <!-- Se puebla dinámicamente -->
+                </select>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Crear Usuario</button>
+            </div>
+        </form>
     </div>
 </div>
 
-<div class="card">
-    <h3>Crear Nuevo Usuario</h3>
-    <form id="form-add-user">
-        <div class="form-group">
-            <label for="create-nombre">Nombre completo:</label>
-            <input type="text" id="create-nombre" name="nombre" required>
-        </div>
-        <div class="form-group">
-            <label for="create-email">Correo electrónico:</label>
-            <input type="email" id="create-email" name="email" required>
-        </div>
-        <div class="form-group">
-            <label for="create-password">Contraseña:</label>
-            <input type="password" id="create-password" name="password" required>
-        </div>
-        <div class="form-group">
-            <label for="create-rol">Rol:</label>
-            <select id="create-rol" name="rol" required>
-                <option value="operador">Operador</option>
-                <option value="admin">Administrador</option>
-            </select>
-        </div>
-        
-        <div class="form-group">
-            <label for="create-user-negocios">Asignar a Negocios:</label>
-            <select id="create-user-negocios" multiple>
-                </select>
-            <small>Mantén presionada la tecla Ctrl (o Cmd en Mac) para seleccionar varios.</small>
-        </div>
-
-        <div class="form-actions">
-            <button type="submit" class="btn-primary">Crear Usuario</button>
-        </div>
-    </form>
-</div>
-
+<!-- Modal para Editar Usuario -->
 <div id="edit-user-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -62,24 +77,59 @@
         <form id="form-edit-user">
             <input type="hidden" id="edit-user-id">
             <p><strong>Usuario:</strong> <span id="edit-user-name"></span></p>
-            
+
             <div class="form-group">
                 <label for="edit-rol">Rol:</label>
                 <select id="edit-rol" required>
                     <option value="operador">Operador</option>
+                    <option value="vendedor">Vendedor</option>
+                    <option value="chofer">Chofer</option>
                     <option value="admin">Administrador</option>
                 </select>
             </div>
-            
+
+            <div class="form-group">
+                <label for="edit-password">Nueva Contraseña (opcional):</label>
+                <input type="password" id="edit-password" placeholder="Dejar en blanco para no cambiar">
+            </div>
+
             <div class="form-group">
                 <label>Negocios Asignados:</label>
-                <div id="edit-user-negocios-list" class="checkbox-list">
-                    </div>
+                <div id="edit-user-negocios-list" class="checkbox-list" style="max-height: 150px; overflow-y: auto;">
+                    <!-- Checkboxes de negocios -->
+                </div>
             </div>
-            
-            <div class="form-actions">
+
+            <div class="form-actions"
+                style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
                 <button type="submit" class="btn-primary">Guardar Cambios</button>
+                <button type="button" id="btn-config-vendedor-perms" class="btn-secondary" style="display: none;">⚙️
+                    Configurar Accesos Vendedor</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Modal para Configurar Permisos de Vendedor por Negocio -->
+<div id="config-perms-vendedor-modal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header" style="position: relative;">
+            <h3>⚙️ Configurar Accesos Vendedor</h3>
+            <span id="close-config-perms-modal" class="close-button"
+                style="position: absolute; right: 20px; top: 20px;">&times;</span>
+        </div>
+        <div class="modal-body" style="padding: 20px 0;">
+            <p>Selecciona a qué módulos tendrán acceso los usuarios con rol <strong>Vendedor</strong> en este negocio.
+            </p>
+            <div id="modulos-permisos-list" class="checkbox-list"
+                style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
+                <!-- Se puebla dinámicamente -->
+                <p style="text-align: center; color: #888;">Cargando módulos...</p>
+            </div>
+        </div>
+        <div class="modal-footer"
+            style="margin-top: 20px; text-align: right; display: flex; gap: 10px; justify-content: flex-end;">
+            <button id="btn-save-vendedor-perms" class="btn-primary">Guardar Configuración</button>
+        </div>
     </div>
 </div>

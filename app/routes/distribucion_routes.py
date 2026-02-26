@@ -1,0 +1,1363 @@
+from flask import Blueprint, jsonify, request, g
+from app.database import get_db
+from app.auth_decorator import token_required
+
+bp = Blueprint('distribucion', __name__)
+
+# --- VENDEDORES ---
+
+@bp.route('/negocios/<int:negocio_id>/vendedores', methods=['GET'])
+@token_required
+def get_vendedores(current_user, negocio_id):
+    db = get_db()
+    db.execute(
+        """
+        SELECT v.*, e.nombre as nombre_empleado, e.apellido as apellido_empleado 
+        FROM vendedores v
+        LEFT JOIN empleados e ON v.empleado_id = e.id
+        WHERE v.negocio_id = %s 
+        ORDER BY v.nombre
+        """,
+        (negocio_id,)
+    )
+    vendedores = db.fetchall()
+    return jsonify([dict(row) for row in vendedores])
+
+
+# --- ZONAS ---
+
+@bp.route('/negocios/<int:negocio_id>/zonas', methods=['GET'])
+@token_required
+def get_zonas(current_user, negocio_id):
+    db = get_db()
+    db.execute("""
+        SELECT z.*, COUNT(c.id) AS total_clientes
+        FROM zonas z
+        LEFT JOIN clientes c ON c.zona_id = z.id
+        WHERE z.negocio_id = %s
+        GROUP BY z.id
+        ORDER BY z.nombre
+    """, (negocio_id,))
+    return jsonify([dict(row) for row in db.fetchall()])
+
+
+@bp.route('/negocios/<int:negocio_id>/zonas', methods=['POST'])
+@token_required
+def create_zona(current_user, negocio_id):
+    data = request.get_json()
+    nombre = data.get('nombre', '').strip()
+    if not nombre:
+        return jsonify({'error': 'El nombre es requerido'}), 400
+    db = get_db()
+    try:
+        db.execute(
+            "INSERT INTO zonas (negocio_id, nombre, color, poligono_geografico, descripcion) "
+            "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+            (negocio_id, nombre, data.get('color', '#3388ff'),
+             data.get('poligono_geografico'), data.get('descripcion'))
+        )
+        zona_id = db.fetchone()['id']
+        g.db_conn.commit()
+        return jsonify({'id': zona_id, 'message': 'Zona creada con éxito'}), 201
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/zonas/<int:zona_id>', methods=['PUT'])
+@token_required
+def update_zona(current_user, zona_id):
+    data = request.get_json()
+    db = get_db()
+    try:
+        db.execute("""
+            UPDATE zonas
+            SET nombre = %s, color = %s, poligono_geografico = %s, descripcion = %s
+            WHERE id = %s
+        """, (data.get('nombre'), data.get('color', '#3388ff'),
+               data.get('poligono_geografico'), data.get('descripcion'), zona_id))
+        g.db_conn.commit()
+        return jsonify({'message': 'Zona actualizada'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/zonas/<int:zona_id>', methods=['DELETE'])
+@token_required
+def delete_zona(current_user, zona_id):
+    db = get_db()
+    try:
+        # Desasociar clientes antes de borrar
+        db.execute("UPDATE clientes SET zona_id = NULL WHERE zona_id = %s", (zona_id,))
+        db.execute("UPDATE vendedores SET zona_id = NULL WHERE zona_id = %s", (zona_id,))
+        db.execute("DELETE FROM zonas WHERE id = %s", (zona_id,))
+        g.db_conn.commit()
+        return jsonify({'message': 'Zona eliminada'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/negocios/<int:negocio_id>/zonas/<int:zona_id>/clientes', methods=['GET'])
+@token_required
+def get_clientes_por_zona(current_user, negocio_id, zona_id):
+    db = get_db()
+    db.execute("""
+        SELECT id, nombre, direccion, dni FROM clientes
+        WHERE negocio_id = %s AND zona_id = %s
+        ORDER BY nombre
+    """, (negocio_id, zona_id))
+    return jsonify([dict(row) for row in db.fetchall()])
+
+
+@bp.route('/negocios/<int:negocio_id>/vendedores', methods=['POST'])
+@token_required
+def create_vendedor(current_user, negocio_id):
+    from app.extensions import bcrypt
+    data = request.get_json()
+    nombre = data.get('nombre')
+    email = data.get('email')
+    password = data.get('password')
+    
+    if not nombre:
+        return jsonify({'error': 'Nombre es requerido'}), 400
+        
+    db = get_db()
+    try:
+        # 1. Crear Vendedor
+        db.execute(
+            "INSERT INTO vendedores (negocio_id, nombre, telefono, email, activo, zona_geografica, color) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (negocio_id, nombre, data.get('telefono'), email, data.get('activo', True), data.get('zona_geografica'), data.get('color'))
+        )
+        vendedor_id = db.fetchone()['id']
+
+        # 2. Crear Acceso (Usuario) si hay password y email
+        if password and email:
+            # Verificar si ya existe usuario con ese email
+            db.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+            user_existente = db.fetchone()
+
+            if not user_existente:
+                hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
+                db.execute(
+                    "INSERT INTO usuarios (nombre, email, password, rol, activo) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                    (nombre, email, hashed_pw, 'vendedor', data.get('activo', True))
+                )
+                nuevo_user_id = db.fetchone()['id']
+                
+                # Vincular usuario al negocio
+                db.execute(
+                    "INSERT INTO usuarios_negocios (usuario_id, negocio_id) VALUES (%s, %s)",
+                    (nuevo_user_id, negocio_id)
+                )
+
+        g.db_conn.commit()
+        return jsonify({'id': vendedor_id, 'message': 'Vendedor creado con éxito'}), 201
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/vendedores/<int:id>', methods=['PUT'])
+@token_required
+def update_vendedor(current_user, id):
+    from app.extensions import bcrypt
+    data = request.get_json()
+    db = get_db()
+    
+    nuevo_nombre = data['nombre']
+    nuevo_email = data.get('email')
+    nueva_password = data.get('password')
+    activo = data.get('activo', True)
+
+    try:
+        # 1. Obtener email anterior para rastrear al usuario
+        db.execute("SELECT email, negocio_id FROM vendedores WHERE id = %s", (id,))
+        vendedor_actual = db.fetchone()
+        if not vendedor_actual:
+            return jsonify({'error': 'Vendedor no encontrado'}), 404
+            
+        old_email = vendedor_actual['email']
+        negocio_id = vendedor_actual['negocio_id']
+
+        # 2. Actualizar Vendedor
+        db.execute(
+            """UPDATE vendedores SET nombre=%s, telefono=%s, email=%s, activo=%s, zona_geografica=%s, color=%s WHERE id=%s""",
+            (nuevo_nombre, data.get('telefono'), nuevo_email, activo, data.get('zona_geografica'), data.get('color'), id)
+        )
+
+        # 3. Sincronizar con Usuarios
+        # Buscamos al usuario por el email (el que tenía antes o el nuevo)
+        email_to_search = old_email or nuevo_email
+        if email_to_search:
+            db.execute("SELECT id FROM usuarios WHERE email = %s", (email_to_search,))
+            user_row = db.fetchone()
+
+            if user_row:
+                user_id = user_row['id']
+                # Actualizar datos básicos
+                db.execute(
+                    "UPDATE usuarios SET nombre=%s, email=%s, activo=%s WHERE id=%s",
+                    (nuevo_nombre, nuevo_email, activo, user_id)
+                )
+                # Actualizar password si se envió una nueva
+                if nueva_password:
+                    hashed_pw = bcrypt.generate_password_hash(nueva_password).decode('utf-8')
+                    db.execute("UPDATE usuarios SET password=%s WHERE id=%s", (hashed_pw, user_id))
+            
+            elif nueva_password and nuevo_email:
+                # Si no existía pero ahora se provee password, crearlo
+                hashed_pw = bcrypt.generate_password_hash(nueva_password).decode('utf-8')
+                db.execute(
+                    "INSERT INTO usuarios (nombre, email, password, rol, activo) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                    (nuevo_nombre, nuevo_email, hashed_pw, 'vendedor', activo)
+                )
+                nuevo_user_id = db.fetchone()['id']
+                db.execute(
+                    "INSERT INTO usuarios_negocios (usuario_id, negocio_id) VALUES (%s, %s)",
+                    (nuevo_user_id, negocio_id)
+                )
+
+        g.db_conn.commit()
+        return jsonify({'message': 'Vendedor y acceso actualizados correctamente'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# --- HOJA DE RUTA ---
+
+@bp.route('/negocios/<int:negocio_id>/hoja_ruta', methods=['GET'])
+@token_required
+def get_hojas_ruta(current_user, negocio_id):
+    # Filtros opcionales: fecha, vendedor
+    fecha = request.args.get('fecha')
+    vendedor_id = request.args.get('vendedor_id')
+    
+    # ✨ LOGICA DE PERMISOS DE VENDEDOR
+    if current_user['rol'] == 'vendedor':
+        # El vendedor SOLO puede ver sus propias rutas
+        if not current_user.get('vendedor_id'):
+            return jsonify({'error': 'Usuario vendedor sin ID de vendedor asignado'}), 403
+        vendedor_id = current_user['vendedor_id']
+    
+    query = """
+        SELECT 
+            hr.id, 
+            TO_CHAR(hr.fecha, 'YYYY-MM-DD') as fecha, 
+            hr.estado, 
+            hr.vendedor_id, 
+            v.nombre as vendedor_nombre,
+            hr.chofer_id,
+            (SELECT nombre || ' ' || apellido FROM empleados WHERE id = hr.chofer_id) as chofer_nombre,
+            (SELECT COUNT(*) FROM hoja_ruta_items WHERE hoja_ruta_id = hr.id) as cant_clientes,
+            (SELECT COUNT(*) FROM pedidos WHERE hoja_ruta_id = hr.id) as cant_pedidos,
+            (SELECT COALESCE(SUM(total), 0) FROM pedidos WHERE hoja_ruta_id = hr.id) as total_pedidos,
+            (SELECT COUNT(*) FROM pedidos WHERE hoja_ruta_id = hr.id AND estado = 'entregado') as cant_entregados
+        FROM hoja_ruta hr
+        JOIN vendedores v ON hr.vendedor_id = v.id
+        WHERE hr.negocio_id = %s
+    """
+    params = [negocio_id]
+    
+    if fecha:
+        query += " AND hr.fecha = %s"
+        params.append(fecha)
+    if vendedor_id:
+        query += " AND hr.vendedor_id = %s"
+        params.append(vendedor_id)
+        
+    query += " ORDER BY hr.fecha DESC"
+    
+    db = get_db()
+    db.execute(query, tuple(params))
+    rows = db.fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@bp.route('/negocios/<int:negocio_id>/hoja_ruta', methods=['POST'])
+@token_required
+def create_hoja_ruta(current_user, negocio_id):
+    # ✨ RESTRICCIÓN: Solo Admin o Superadmin pueden crear rutas
+    if current_user['rol'] not in ['admin', 'superadmin']:
+        return jsonify({'error': 'No tiene permisos para crear Hojas de Ruta'}), 403
+
+    data = request.get_json()
+    vendedor_id = data.get('vendedor_id')
+    fecha = data.get('fecha')
+    items = data.get('items', []) # Lista de cliente_ids
+    
+    # if not vendedor_id or not fecha:
+    #     return jsonify({'error': 'Faltan datos'}), 400
+        
+    db = get_db()
+    try:
+        # 1. Crear Cabecera
+        db.execute(
+            "INSERT INTO hoja_ruta (negocio_id, vendedor_id, vehiculo_id, chofer_id, fecha, estado, observaciones) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (negocio_id, vendedor_id, data.get('vehiculo_id'), data.get('chofer_id'), fecha, 'borrador', data.get('observaciones', ''))
+        )
+        hoja_id = db.fetchone()['id']
+        
+        # 2. Insertar Items
+        for idx, item in enumerate(items):
+            # item puede ser un ID o un objeto {cliente_id: 1, ...}
+            cliente_id = item['cliente_id'] if isinstance(item, dict) else item
+            
+            db.execute(
+                "INSERT INTO hoja_ruta_items (hoja_ruta_id, cliente_id, orden, visitado) VALUES (%s, %s, %s, %s)",
+                (hoja_id, cliente_id, idx, False)
+            )
+            
+        g.db_conn.commit()
+        return jsonify({'id': hoja_id, 'message': 'Hoja de ruta creada'}), 201
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/hoja_ruta/<int:id>', methods=['GET'])
+@token_required
+def get_hoja_ruta_detail(current_user, id):
+    db = get_db()
+    
+    # Cabecera
+    db.execute("""
+        SELECT hr.id, hr.negocio_id, hr.vendedor_id, hr.vehiculo_id, hr.chofer_id,
+               TO_CHAR(hr.fecha, 'YYYY-MM-DD') as fecha, hr.estado, hr.observaciones, 
+               v.nombre as vendedor_nombre,
+               vh.patente as vehiculo_patente, vh.modelo as vehiculo_modelo,
+               vh.capacidad_kg, vh.capacidad_volumen_m3,
+               (SELECT nombre || ' ' || apellido FROM empleados WHERE id = hr.chofer_id) as chofer_nombre,
+                vh.latitud as vehiculo_lat, vh.longitud as vehiculo_lng, vh.ultima_actualizacion as vehiculo_gps_ts
+        FROM hoja_ruta hr
+        JOIN vendedores v ON hr.vendedor_id = v.id
+        LEFT JOIN vehiculos vh ON hr.vehiculo_id = vh.id
+        WHERE hr.id = %s
+    """, (id,))
+    cabecera = db.fetchone()
+    
+    if not cabecera:
+        return jsonify({'error': 'No encontrado'}), 404
+
+    # ✨ VERIFICACIÓN DE SEGURIDAD
+    if current_user['rol'] == 'vendedor':
+        if cabecera['vendedor_id'] != current_user.get('vendedor_id'):
+            return jsonify({'error': 'No tiene permisos para ver esta hoja de ruta'}), 403
+
+    # Cálculo de carga actual
+    db.execute("""
+        SELECT 
+            COALESCE(SUM(pd.cantidad * pr.peso_kg), 0) as peso_actual,
+            COALESCE(SUM(pd.cantidad * pr.volumen_m3), 0) as volumen_actual
+        FROM pedidos p
+        JOIN pedidos_detalle pd ON p.id = pd.pedido_id
+        JOIN productos pr ON pd.producto_id = pr.id
+        WHERE p.hoja_ruta_id = %s AND p.estado != 'anulado'
+    """, (id,))
+    carga = db.fetchone()
+        
+    # Items con detección de ventas y pedidos
+    db.execute("""
+        SELECT hri.*, c.nombre as cliente_nombre, c.direccion as cliente_direccion, c.latitud, c.longitud,
+               EXISTS (
+                   SELECT 1 FROM pedidos ped
+                   WHERE ped.cliente_id = hri.cliente_id 
+                   AND ped.hoja_ruta_id = hri.hoja_ruta_id
+                   AND ped.venta_id IS NOT NULL
+               ) OR EXISTS (
+                   SELECT 1 FROM presupuestos p 
+                   WHERE p.cliente_id = hri.cliente_id 
+                   AND DATE(p.fecha) = %s
+                   AND p.anulado = FALSE
+               ) as tiene_venta,
+               EXISTS (
+                   SELECT 1 FROM pedidos ped
+                   WHERE ped.cliente_id = hri.cliente_id 
+                   AND ped.hoja_ruta_id = hri.hoja_ruta_id
+                   AND ped.estado != 'anulado'
+                   AND ped.venta_id IS NULL
+               ) as tiene_pedido
+        FROM hoja_ruta_items hri
+        JOIN clientes c ON hri.cliente_id = c.id
+        WHERE hri.hoja_ruta_id = %s
+        ORDER BY hri.orden ASC
+    """, (cabecera['fecha'], id))
+    items = db.fetchall()
+    
+    result = dict(cabecera)
+    result['items'] = [dict(i) for i in items]
+    result['carga_actual'] = {
+        'peso_kg': float(carga['peso_actual']),
+        'volumen_m3': float(carga['volumen_actual'])
+    }
+    
+    return jsonify(result)
+
+@bp.route('/hoja_ruta/<int:id>/duplicar', methods=['POST'])
+@token_required
+def duplicar_hoja_ruta(current_user, id):
+    """Clona una hoja de ruta existente (cabecera + items) en estado borrador con fecha de hoy."""
+    if current_user['rol'] not in ['admin', 'superadmin']:
+        return jsonify({'error': 'No tiene permisos para duplicar Hojas de Ruta'}), 403
+
+    db = get_db()
+    try:
+        # 1. Obtener la HR original
+        db.execute("""
+            SELECT negocio_id, vendedor_id, vehiculo_id, observaciones
+            FROM hoja_ruta WHERE id = %s
+        """, (id,))
+        original = db.fetchone()
+        if not original:
+            return jsonify({'error': 'Hoja de ruta no encontrada'}), 404
+
+        # 2. Crear nueva HR con fecha de hoy y estado borrador
+        # ✨ REGLA: No duplicamos el vehiculo_id para obligar a asignarlo en la carga física
+        from datetime import date
+        hoy = date.today().isoformat()
+        db.execute(
+            "INSERT INTO hoja_ruta (negocio_id, vendedor_id, vehiculo_id, fecha, estado, observaciones) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+            (original['negocio_id'], original['vendedor_id'], None, hoy, 'borrador', original['observaciones'] or '')
+        )
+        nueva_id = db.fetchone()['id']
+
+        # 3. Copiar items (solo cliente_id y orden, sin visitas ni pedidos)
+        db.execute("""
+            SELECT cliente_id, orden FROM hoja_ruta_items
+            WHERE hoja_ruta_id = %s ORDER BY orden ASC
+        """, (id,))
+        items = db.fetchall()
+        for item in items:
+            db.execute(
+                "INSERT INTO hoja_ruta_items (hoja_ruta_id, cliente_id, orden, visitado) VALUES (%s, %s, %s, FALSE)",
+                (nueva_id, item['cliente_id'], item['orden'])
+            )
+
+        g.db_conn.commit()
+        return jsonify({'id': nueva_id, 'message': 'Hoja de ruta duplicada correctamente'}), 201
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/hoja_ruta/<int:id>', methods=['PUT'])
+@token_required
+def update_hoja_ruta(current_user, id):
+    # ✨ RESTRICCIÓN: Solo Admin o Superadmin pueden editar la configuración de la ruta
+    if current_user['rol'] not in ['admin', 'superadmin']:
+        return jsonify({'error': 'No tiene permisos para modificar la Hoja de Ruta'}), 403
+
+    data = request.get_json()
+    vendedor_id = data.get('vendedor_id')
+    fecha = data.get('fecha')
+    items = data.get('items', []) # Lista de cliente_ids
+    
+    # if not vendedor_id or not fecha:
+    #     return jsonify({'error': 'Faltan datos'}), 400
+        
+    db = get_db()
+    try:
+        # 1. Verificar estado
+        db.execute("SELECT estado, vendedor_id, TO_CHAR(fecha, 'YYYY-MM-DD') as fecha, observaciones FROM hoja_ruta WHERE id = %s", (id,))
+        hr = db.fetchone()
+        if not hr:
+            return jsonify({'error': 'No encontrado'}), 404
+        if hr['estado'] not in ['borrador', 'activa']:
+            return jsonify({'error': 'Solo se pueden editar hojas en estado borrador o activa'}), 400
+            
+        # Tomar los valores nuevos o mantener los anteriores
+        v_id = data.get('vendedor_id', hr['vendedor_id'])
+        fec = data.get('fecha', hr['fecha'])
+        obs = data.get('observaciones', hr['observaciones'])
+        veh_id = data.get('vehiculo_id') if 'vehiculo_id' in data else None
+        # Si vehiculo_id no viene en data, mantenemos el que estaba. Pero si viene como null/None, lo actualizamos.
+        # En el caso de picking siempre vendrá.
+        
+        # 2. Actualizar Cabecera
+        # The instruction provided a malformed block. Reconstructing based on intent to include chofer_id.
+        # Assuming the intent is to update all fields if provided, otherwise keep existing.
+        # The original code had an 'if vehiculo_id in data' block, which is now simplified.
+        db.execute(
+            "UPDATE hoja_ruta SET vendedor_id = %s, vehiculo_id = %s, chofer_id = %s, fecha = %s, observaciones = %s WHERE id = %s",
+            (data.get('vendedor_id', hr['vendedor_id']), 
+             data.get('vehiculo_id', None), # If not provided, set to None (or existing if that's the intent)
+             data.get('chofer_id', None),   # If not provided, set to None (or existing if that's the intent)
+             data.get('fecha', hr['fecha']), 
+             data.get('observaciones', hr['observaciones']), 
+             id)
+        )
+        
+        # 3. Reemplazar Items (SOLO si se proporcionan en la petición)
+        if 'items' in data:
+            db.execute("DELETE FROM hoja_ruta_items WHERE hoja_ruta_id = %s", (id,))
+            for idx, item in enumerate(items):
+                cliente_id = item['cliente_id'] if isinstance(item, dict) else item
+                db.execute(
+                    "INSERT INTO hoja_ruta_items (hoja_ruta_id, cliente_id, orden, visitado) VALUES (%s, %s, %s, %s)",
+                    (id, cliente_id, idx, False)
+                )
+        
+        g.db_conn.commit()
+        return jsonify({'message': 'Hoja de ruta actualizada'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/hoja_ruta/<int:id>/chofer', methods=['PUT'])
+@token_required
+def update_hoja_ruta_chofer(current_user, id):
+    # ✨ Permisos: Admin/Superadmin
+    if current_user['rol'] not in ['admin', 'superadmin']:
+        return jsonify({'error': 'No tiene permisos para asignar chofer'}), 403
+
+    data = request.get_json()
+    chofer_id = data.get('chofer_id')
+    
+    db = get_db()
+    try:
+        # Se permite actualizar el chofer sin importar el estado de la hoja de ruta
+        db.execute(
+            "UPDATE hoja_ruta SET chofer_id = %s WHERE id = %s",
+            (chofer_id, id)
+        )
+        g.db_conn.commit()
+        return jsonify({'message': 'Chofer asignado correctamente'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/hoja_ruta/<int:id>/estado', methods=['PUT'])
+@token_required
+def update_hoja_ruta_estado(current_user, id):
+    data = request.get_json()
+    nuevo_estado = data.get('estado')
+    
+    if nuevo_estado not in ['borrador', 'activa', 'finalizada']:
+        return jsonify({'error': 'Estado inválido'}), 400
+        
+    db = get_db()
+    try:
+        # Update HR state
+        db.execute("UPDATE hoja_ruta SET estado=%s WHERE id=%s", (nuevo_estado, id))
+        
+        # If transitioning to 'activa', update pedidos from 'preparado' to 'en_camino'
+        if nuevo_estado == 'activa':
+            db.execute("""
+                UPDATE pedidos 
+                SET estado = 'en_camino' 
+                WHERE hoja_ruta_id = %s 
+                AND estado = 'preparado'
+            """, (id,))
+        
+        # If transitioning to 'finalizada', return remaining vehicle stock to warehouse
+        if nuevo_estado == 'finalizada':
+            db.execute("SELECT vehiculo_id, negocio_id FROM hoja_ruta WHERE id = %s", (id,))
+            hr_info = db.fetchone()
+            v_id = hr_info['vehiculo_id'] if hr_info else None
+
+            if v_id:
+                # 1. Obtener todo el stock actual del camión
+                db.execute("SELECT producto_id, cantidad FROM vehiculos_stock WHERE vehiculo_id = %s", (v_id,))
+                stock_restante = db.fetchall()
+
+                for item in stock_restante:
+                    p_id = item['producto_id']
+                    cant = float(item['cantidad'])
+
+                    if cant != 0:
+                        # A. Devolver al Depósito Central (cant puede ser negativa si hubo sobreventa móvil)
+                        db.execute("UPDATE productos SET stock = stock + %s WHERE id = %s", (cant, p_id))
+                    
+                    # B. Limpiar el stock del camión para este producto
+                    db.execute("DELETE FROM vehiculos_stock WHERE vehiculo_id = %s AND producto_id = %s", (v_id, p_id))
+
+        g.db_conn.commit()
+        return jsonify({'message': f'Estado actualizado a {nuevo_estado}'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/hoja_ruta/<int:id>/resumen_liquidacion', methods=['GET'])
+@token_required
+def get_resumen_liquidacion(current_user, id):
+    db = get_db()
+    try:
+        # 1. Estadísticas de Visitas
+        db.execute("""
+            SELECT 
+                COUNT(*) as total_clientes,
+                COUNT(*) FILTER (WHERE visitado = TRUE) as visitados,
+                COUNT(*) FILTER (WHERE visitado = FALSE) as pendientes
+            FROM hoja_ruta_items 
+            WHERE hoja_ruta_id = %s
+        """, (id,))
+        stats_visitas = db.fetchone()
+
+        # 2. Resumen de Ventas (a través de Pedidos entregados en esta HR)
+        db.execute("""
+            SELECT 
+                COUNT(p.id) as cant_pedidos_entregados,
+                SUM(v.total) as total_venta_cc
+            FROM pedidos p
+            JOIN ventas v ON p.venta_id = v.id
+            WHERE p.hoja_ruta_id = %s AND p.estado = 'entregado'
+        """, (id,))
+        stats_ventas = db.fetchone()
+
+        # 3. Resumen de Productos Entregados (para descarga/rendición de mercadería)
+        db.execute("""
+            SELECT 
+                pr.nombre as producto,
+                SUM(pd.cantidad) as cantidad_total
+            FROM pedidos p
+            JOIN pedidos_detalle pd ON p.id = pd.pedido_id
+            JOIN productos pr ON pd.producto_id = pr.id
+            WHERE p.hoja_ruta_id = %s AND p.estado = 'entregado'
+            GROUP BY pr.nombre
+            ORDER BY pr.nombre ASC
+        """, (id,))
+        items_entregados = db.fetchall()
+
+        return jsonify({
+            'visitas': dict(stats_visitas),
+            'ventas': {
+                'cantidad': stats_ventas['cant_pedidos_entregados'] or 0,
+                'total_moneda': float(stats_ventas['total_venta_cc']) if stats_ventas['total_venta_cc'] else 0
+            },
+            'productos': [dict(i) for i in items_entregados]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/hoja_ruta/<int:id>/picking_list', methods=['GET'])
+@token_required
+def get_picking_list(current_user, id):
+    db = get_db()
+    try:
+        # Get vehicle and driver info for this HR
+        db.execute("""
+            SELECT 
+                hr.id,
+                v.patente,
+                v.modelo,
+                v.capacidad_kg,
+                v.capacidad_volumen_m3,
+                (SELECT nombre || ' ' || apellido FROM empleados WHERE id = COALESCE(hr.chofer_id, v.chofer_default_id)) as chofer_nombre
+            FROM hoja_ruta hr
+            LEFT JOIN vehiculos v ON hr.vehiculo_id = v.id
+            WHERE hr.id = %s
+        """, (id,))
+        vehicle_row = db.fetchone()
+        vehicle_info = dict(vehicle_row) if vehicle_row else {}
+        
+        # Get products TOTALS (for picking from warehouse)
+        db.execute("""
+            SELECT 
+                pr.nombre as producto,
+                SUM(pd.cantidad) as cantidad_total
+            FROM pedidos p
+            JOIN pedidos_detalle pd ON p.id = pd.pedido_id
+            JOIN productos pr ON pd.producto_id = pr.id
+            WHERE p.hoja_ruta_id = %s AND p.estado IN ('pendiente', 'preparado', 'en_camino')
+            GROUP BY pr.nombre
+            ORDER BY pr.nombre ASC
+        """, (id,))
+        items = db.fetchall()
+        
+        # Get products BY CLIENT (for delivery)
+        db.execute("""
+            SELECT 
+                c.nombre as cliente_nombre,
+                c.direccion as cliente_direccion,
+                p.id as pedido_id,
+                hri.orden as orden_parada,
+                pr.nombre as producto,
+                pd.cantidad
+            FROM pedidos p
+            JOIN clientes c ON p.cliente_id = c.id
+            JOIN pedidos_detalle pd ON p.id = pd.pedido_id
+            JOIN productos pr ON pd.producto_id = pr.id
+            LEFT JOIN hoja_ruta_items hri ON hri.hoja_ruta_id = p.hoja_ruta_id AND hri.cliente_id = p.cliente_id
+            WHERE p.hoja_ruta_id = %s AND p.estado IN ('pendiente', 'preparado', 'en_camino')
+            ORDER BY hri.orden ASC, c.nombre ASC, pr.nombre ASC
+        """, (id,))
+        items_by_client = db.fetchall()
+        
+        # Group by client
+        clientes = {}
+        for row in items_by_client:
+            r = dict(row)
+            cliente_key = r['cliente_nombre']
+            if cliente_key not in clientes:
+                clientes[cliente_key] = {
+                    'nombre': r['cliente_nombre'],
+                    'direccion': r['cliente_direccion'] or 'Sin dirección',
+                    'orden': r['orden_parada'] if r['orden_parada'] is not None else 999,
+                    'productos': []
+                }
+            clientes[cliente_key]['productos'].append({
+                'producto': r['producto'],
+                'cantidad': r['cantidad']
+            })
+        
+        # Convert to list and sort by orden
+        clientes_list = sorted(clientes.values(), key=lambda x: x['orden'])
+        
+        return jsonify({
+            'productos': [dict(i) for i in items],
+            'vehiculo': vehicle_info,
+            'clientes': clientes_list
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/hoja_ruta/<int:id>/item/<int:item_id>', methods=['PUT'])
+@token_required
+def update_hoja_ruta_item(current_user, id, item_id):
+    data = request.get_json()
+    visitado = data.get('visitado')
+    obs = data.get('observaciones')
+    
+    db = get_db()
+    try:
+        # Si visitado es True, guardamos la fecha actual. Si es False, la limpiamos.
+        # Si visitado es null (solo se actualizan observaciones), no tocamos la fecha.
+        if visitado is True:
+            db.execute(
+                "UPDATE hoja_ruta_items SET visitado=%s, observaciones=%s, fecha_visita=CURRENT_TIMESTAMP WHERE id=%s",
+                (visitado, obs, item_id)
+            )
+        elif visitado is False:
+            db.execute(
+                "UPDATE hoja_ruta_items SET visitado=%s, observaciones=%s, fecha_visita=NULL WHERE id=%s",
+                (visitado, obs, item_id)
+            )
+        else: # Solo observaciones
+            db.execute(
+                "UPDATE hoja_ruta_items SET observaciones=%s WHERE id=%s",
+                (obs, item_id)
+            )
+        g.db_conn.commit()
+        return jsonify({'message': 'Item actualizado'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/vehiculos/carga/asignar', methods=['POST'])
+@token_required
+def asignar_carga_vehiculo(current_user):
+    data = request.get_json()
+    vehiculo_id = data.get('vehiculo_id')
+    hoja_ruta_ids = data.get('hoja_ruta_ids', [])
+    
+    if not vehiculo_id or not hoja_ruta_ids:
+        return jsonify({'error': 'Falta vehiculo_id o ids de hojas de ruta'}), 400
+        
+    db = get_db()
+    try:
+        # 1. Obtener Capacidad del Vehículo y Estado de las Rutas
+        db.execute("SELECT capacidad_kg, capacidad_volumen_m3, modelo, patente FROM vehiculos WHERE id = %s", (vehiculo_id,))
+        vehiculo = db.fetchone()
+        if not vehiculo:
+            return jsonify({'error': 'Vehículo no encontrado'}), 404
+            
+        # ✨ Validar si alguna de las rutas ya fue cargada para evitar doble descuento
+        db.execute("SELECT id FROM hoja_ruta WHERE id = ANY(%s) AND carga_confirmada = TRUE", (hoja_ruta_ids,))
+        ya_cargadas = db.fetchall()
+        if ya_cargadas:
+            ids_str = ", ".join([str(r['id']) for r in ya_cargadas])
+            return jsonify({'error': f'Las Hojas de Ruta {ids_str} ya han sido confirmadas como cargadas anteriormente.'}), 409
+
+        cap_kg = float(vehiculo['capacidad_kg'] or 0)
+        cap_m3 = float(vehiculo['capacidad_volumen_m3'] or 0)
+        
+        # 2. Calcular Peso y Volumen Total de las Hojas de Ruta
+        # Sumamos todos los pedidos (pendientes/preparados) de esas rutas
+        query_calc = """
+            SELECT 
+                COALESCE(SUM(pd.cantidad * pr.peso_kg), 0) as total_peso,
+                COALESCE(SUM(pd.cantidad * pr.volumen_m3), 0) as total_volumen
+            FROM pedidos p
+            JOIN pedidos_detalle pd ON p.id = pd.pedido_id
+            JOIN productos pr ON pd.producto_id = pr.id
+            WHERE p.hoja_ruta_id = ANY(%s) 
+            AND p.estado IN ('pendiente', 'preparado') 
+        """
+        # Postgres requiere array literal para ANY: '{1,2,3}'
+        # Pasamos lista directo, psycopg2 suele adaptarlo.
+        db.execute(query_calc, (hoja_ruta_ids,))
+        totales = db.fetchone()
+        
+        peso_req = float(totales['total_peso'])
+        vol_req = float(totales['total_volumen'])
+        
+        # 3. Validar Capacidad (Si el vehículo tiene limites definidos > 0)
+        errores = []
+        if cap_kg > 0 and peso_req > cap_kg:
+            errores.append(f"Exceso de Peso: {peso_req}kg > {cap_kg}kg")
+        if cap_m3 > 0 and vol_req > cap_m3:
+            errores.append(f"Exceso de Volumen: {vol_req}m3 > {cap_m3}m3")
+            
+        if errores:
+             return jsonify({
+                 'error': 'Capacidad excedida', 
+                 'detalles': errores,
+                 'requerido': {'kg': peso_req, 'm3': vol_req},
+                 'disponible': {'kg': cap_kg, 'm3': cap_m3}
+             }), 409
+             
+        # 4. Asignar Vehículo y Marcar Carga como Confirmada
+        db.execute(
+            "UPDATE hoja_ruta SET vehiculo_id = %s, carga_confirmada = TRUE WHERE id = ANY(%s)",
+            (vehiculo_id, hoja_ruta_ids)
+        )
+
+        # 5. LÓGICA DE STOCK MÓVIL: Mover del Depósito al Camión
+        # Traemos el detalle consolidado de productos en estas rutas
+        query_items = """
+            SELECT pd.producto_id, SUM(pd.cantidad) as total_cantidad
+            FROM pedidos p
+            JOIN pedidos_detalle pd ON p.id = pd.pedido_id
+            WHERE p.hoja_ruta_id = ANY(%s) 
+            AND p.estado IN ('pendiente', 'preparado')
+            GROUP BY pd.producto_id
+        """
+        db.execute(query_items, (hoja_ruta_ids,))
+        items_a_mover = db.fetchall()
+
+        # Obtener negocio_id (asumimos que todas las HR son del mismo negocio)
+        db.execute("SELECT negocio_id FROM hoja_ruta WHERE id = %s", (hoja_ruta_ids[0],))
+        negocio_id = db.fetchone()['negocio_id']
+
+        for item in items_a_mover:
+            p_id = item['producto_id']
+            cant = float(item['total_cantidad'])
+
+            # A. Restar del Depósito Central
+            db.execute("UPDATE productos SET stock = stock - %s WHERE id = %s", (cant, p_id))
+
+            # B. Sumar al Camión (UPSERT)
+            db.execute("""
+                INSERT INTO vehiculos_stock (vehiculo_id, producto_id, negocio_id, cantidad)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (vehiculo_id, producto_id) 
+                DO UPDATE SET cantidad = vehiculos_stock.cantidad + EXCLUDED.cantidad, 
+                              last_updated = CURRENT_TIMESTAMP
+            """, (vehiculo_id, p_id, negocio_id, cant))
+        
+        # C. Pasar pedidos de 'pendiente' a 'preparado' automáticamente al confirmar la carga
+        db.execute("""
+            UPDATE pedidos 
+            SET estado = 'preparado' 
+            WHERE hoja_ruta_id = ANY(%s) AND estado = 'pendiente'
+        """, (hoja_ruta_ids,))
+
+        g.db_conn.commit()
+        return jsonify({
+            'message': f'Carga asignada correctamente a {vehiculo["modelo"]} ({vehiculo["patente"]})',
+            'peso_total': peso_req,
+            'volumen_total': vol_req,
+            'productos_movidos': len(items_a_mover)
+        })
+        
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/vehiculos/carga/hojas_ruta_disponibles', methods=['GET'])
+@token_required
+def get_hojas_ruta_disponibles_carga(current_user):
+    negocio_id = request.args.get('negocio_id')
+    db = get_db()
+    
+    # Buscamos hojas de ruta que:
+    # 1. Sean del negocio
+    # 2. Tengan estado 'borrador' o 'activa' (no finalizada)
+    # 3. (Opcional) Tengan pedidos preparados? Por ahora traemos todas las activas recientes
+    # Traemos también la suma de peso/volumen para mostrar en el front
+    
+    query = """
+        SELECT 
+            hr.id, 
+            TO_CHAR(hr.fecha, 'YYYY-MM-DD') as fecha, 
+            hr.estado, 
+            v.nombre as vendedor_nombre,
+            vh.modelo as vehiculo_asignado,
+            COUNT(p.id) as cantidad_pedidos,
+            COALESCE(SUM(pd.cantidad * pr.peso_kg), 0) as peso_kg,
+            COALESCE(SUM(pd.cantidad * pr.volumen_m3), 0) as volumen_m3
+        FROM hoja_ruta hr
+        JOIN vendedores v ON hr.vendedor_id = v.id
+        LEFT JOIN vehiculos vh ON hr.vehiculo_id = vh.id
+        LEFT JOIN pedidos p ON hr.id = p.hoja_ruta_id AND p.estado IN ('pendiente', 'preparado')
+        LEFT JOIN pedidos_detalle pd ON p.id = pd.pedido_id
+        LEFT JOIN productos pr ON pd.producto_id = pr.id
+        WHERE hr.negocio_id = %s 
+        AND hr.estado IN ('borrador', 'activa')
+        GROUP BY hr.id, hr.fecha, hr.estado, v.nombre, vh.modelo
+        ORDER BY hr.fecha DESC
+    """
+    
+    
+    db.execute(query, (negocio_id,))
+    rows = db.fetchall()
+    
+    results = []
+    for row in rows:
+        r = dict(row)
+        r['peso_kg'] = float(r['peso_kg'])
+        r['volumen_m3'] = float(r['volumen_m3'])
+        results.append(r)
+        
+    return jsonify(results)
+
+@bp.route('/pedidos/<int:pedido_id>/entregar', methods=['POST'])
+@token_required
+def entregar_pedido(current_user, pedido_id):
+    data = request.get_json()
+    metodo_pago = data.get('metodo_pago') # 'Efectivo', 'Mercado Pago', 'Cuenta Corriente', etc.
+    db = get_db()
+    
+    try:
+        # 1. Obtener Pedido y Validar Estado
+        db.execute("SELECT * FROM pedidos WHERE id = %s", (pedido_id,))
+        pedido = db.fetchone()
+        
+        if not pedido:
+            return jsonify({'error': 'Pedido no encontrado'}), 404
+            
+        if pedido['estado'] not in ['en_camino', 'preparado', 'pendiente']:
+            return jsonify({'error': f"El pedido no está en estado válido para entrega (Estado actual: {pedido['estado']})"}), 400
+            
+        negocio_id = pedido['negocio_id']
+        cliente_id = pedido['cliente_id']
+        
+        # 2. Verificar Caja Abierta (Obligatorio para registrar venta)
+        db.execute('SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL', (negocio_id,))
+        sesion_abierta = db.fetchone()
+        if not sesion_abierta:
+            return jsonify({'error': 'La caja está cerrada. No se pueden registrar entregas/ventas.'}), 409
+            
+        # 3. Obtener Detalles del Pedido
+        db.execute("""
+            SELECT pd.*, pr.precio_venta as precio, pr.nombre
+            FROM pedidos_detalle pd
+            JOIN productos pr ON pd.producto_id = pr.id
+            WHERE pd.pedido_id = %s
+        """, (pedido_id,))
+        detalles_originales = db.fetchall()
+        
+        if not detalles_originales:
+             # Caso raro: Pedido sin items. Solo actualizamos estado.
+             db.execute("UPDATE pedidos SET estado = 'entregado' WHERE id = %s", (pedido_id,))
+             g.db_conn.commit()
+             return jsonify({'message': 'Pedido entregado (sin items que cobrar)'})
+
+        # --- LÓGICA DE RECHAZO PARCIAL Y BONIFICACIONES ---
+        items_ajustados = data.get('items_ajustados', {}) # {producto_id: cantidad_real}
+        bonificaciones_ajustadas = data.get('bonificaciones_ajustadas', {}) # {producto_id: bonif_real}
+        tiene_ajustes = len(items_ajustados) > 0 or len(bonificaciones_ajustadas) > 0
+        total_devuelto = 0
+        detalles_devolucion = []
+
+        # 4. Calcular Total Venta (Basado en cantidades reales o ajustadas)
+        total_venta_calculado = 0
+        notificaciones = []
+
+        # 5. Crear Venta (Primero creamos la venta para tener el ID)
+        from datetime import datetime
+        descuento_general = float(data.get('descuento', 0))
+        
+        # Necesitamos el total_final para crear la venta, así que iteramos detalles primero
+        items_para_venta = []
+        for item in detalles_originales:
+            producto_id = str(item['producto_id'])
+            cantidad_original = float(item['cantidad'])
+            # Si viene en items_ajustados, usamos esa cantidad, sino la original.
+            cantidad_entregada = float(items_ajustados.get(producto_id, cantidad_original))
+            
+            # Si hubo rechazo parcial
+            if cantidad_entregada < cantidad_original:
+                cantidad_rechazada = cantidad_original - cantidad_entregada
+                precio_u = float(item['precio'])
+                subtotal_rechazo = cantidad_rechazada * precio_u
+                total_devuelto += subtotal_rechazo
+                detalles_devolucion.append({
+                    'producto_id': item['producto_id'],
+                    'cantidad_devuelta': cantidad_rechazada,
+                    'precio_unitario': precio_u,
+                    'subtotal': subtotal_rechazo
+                })
+
+            precio_unitario = float(item['precio'])
+            # Priorizamos bonificación enviada desde el front (ajustada en el momento), sino la original
+            bonif_item = float(bonificaciones_ajustadas.get(producto_id, item.get('bonificacion', 0)))
+            # La bonificación se aplica sobre la cantidad entregada
+            subtotal_item = max(0, (cantidad_entregada - bonif_item) * precio_unitario)
+            
+            total_venta_calculado += subtotal_item
+            items_para_venta.append({
+                'item': item,
+                'cantidad_entregada': cantidad_entregada,
+                'subtotal': subtotal_item,
+                'precio_unitario': precio_unitario,
+                'bonif': bonif_item
+            })
+
+        total_final = max(0, total_venta_calculado - descuento_general)
+
+        # Registrar Venta
+        db.execute(
+            'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
+            (negocio_id, cliente_id, current_user['id'], total_final, metodo_pago, datetime.now(), sesion_abierta['id'], descuento_general)
+        )
+        venta_id = db.fetchone()['id']
+
+        # 6. Registrar Detalles de Venta y Ajustar Stock
+        for p_venta in items_para_venta:
+            db.execute('INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal, bonificacion) VALUES (%s, %s, %s, %s, %s, %s)',
+                       (venta_id, p_venta['item']['producto_id'], p_venta['cantidad_entregada'], p_venta['precio_unitario'], p_venta['subtotal'], p_venta['bonif']))
+
+            # LÓGICA DE STOCK MÓVIL: Descontar del Camión
+            if p_venta['cantidad_entregada'] > 0:
+                # Obtener vehiculo_id de la HR
+                hr_id = pedido.get('hoja_ruta_id') or pedido.get('ho_ruta_id')
+                db.execute("SELECT vehiculo_id FROM hoja_ruta WHERE id = %s", (hr_id,))
+                hr_info = db.fetchone()
+                v_id = hr_info['vehiculo_id'] if hr_info else None
+
+                if v_id:
+                    # A. Descontar del CAMIÓN
+                    db.execute("""
+                        UPDATE vehiculos_stock 
+                        SET cantidad = cantidad - %s 
+                        WHERE vehiculo_id = %s AND producto_id = %s
+                    """, (p_venta['cantidad_entregada'], v_id, p_venta['item']['producto_id']))
+                    
+                    # Log/Check (Opcional: Verificar si quedó en negativo para alertar)
+                else:
+                    # B. Fallback (Depósito Central) - Si por alguna razón no tiene vehículo asignado
+                    db.execute('SELECT nombre, stock, stock_minimo FROM productos WHERE id = %s', (p_venta['item']['producto_id'],))
+                    producto_info = db.fetchone()
+                    stock_anterior = float(producto_info['stock'])
+                    nuevo_stock = stock_anterior - p_venta['cantidad_entregada']
+                    db.execute('UPDATE productos SET stock = %s WHERE id = %s', (nuevo_stock, p_venta['item']['producto_id']))
+                    
+                    if stock_anterior > producto_info['stock_minimo'] and nuevo_stock <= producto_info['stock_minimo']:
+                        notificaciones.append(f"¡Bajo stock! {producto_info['nombre']} ({nuevo_stock} u.)")
+
+        # 7. Registrar Devolución si hubo rechazos
+        if detalles_devolucion:
+            db.execute("""
+                INSERT INTO devoluciones (negocio_id, cliente_id, venta_id, pedido_id, motivo, total_devuelto)
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+            """, (negocio_id, cliente_id, venta_id, pedido_id, data.get('motivo_devolucion', 'Rechazo Parcial en Entrega'), total_devuelto))
+            devolucion_id = db.fetchone()['id']
+
+            for dev in detalles_devolucion:
+                db.execute("""
+                    INSERT INTO devoluciones_detalle (devolucion_id, producto_id, cantidad_devuelta, precio_unitario, subtotal)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (devolucion_id, dev['producto_id'], dev['cantidad_devuelta'], dev['precio_unitario'], dev['subtotal']))
+
+        # 8. Actualizar Pedido
+        db.execute(
+            "UPDATE pedidos SET estado = 'entregado', venta_id = %s WHERE id = %s", 
+            (venta_id, pedido_id)
+        )
+        
+        # 9. Marcar visita en Hoja de Ruta
+        if pedido['ho_ruta_id'] if 'ho_ruta_id' in pedido else pedido.get('hoja_ruta_id'):
+             hr_id = pedido.get('hoja_ruta_id') or pedido.get('ho_ruta_id')
+             db.execute(
+                "UPDATE hoja_ruta_items SET visitado = TRUE, fecha_visita = CURRENT_TIMESTAMP WHERE hoja_ruta_id = %s AND cliente_id = %s",
+                (hr_id, cliente_id)
+             )
+
+        g.db_conn.commit()
+        
+        return jsonify({
+            'message': 'Pedido entregado y venta registrada correctamente' + (' con devoluciones' if detalles_devolucion else ''),
+            'venta_id': venta_id,
+            'notificaciones': notificaciones
+        })
+        
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# --- STOCK MÓVIL / AJUSTES MANUALES ---
+
+@bp.route('/vehiculos/<int:id>/stock/ajustar', methods=['POST'])
+@token_required
+def ajustar_stock_vehiculo(current_user, id):
+    data = request.get_json()
+    producto_id = data.get('producto_id')
+    cantidad_nueva = data.get('cantidad_nueva')
+    negocio_id = data.get('negocio_id')
+
+    if producto_id is None or cantidad_nueva is None or negocio_id is None:
+        return jsonify({'error': 'Faltan datos requeridos'}), 400
+
+    try:
+        cantidad_nueva = float(cantidad_nueva)
+    except ValueError:
+        return jsonify({'error': 'La cantidad debe ser numérica'}), 400
+
+    db = get_db()
+    try:
+        # 1. Obtener stock actual del vehículo
+        db.execute("SELECT cantidad FROM vehiculos_stock WHERE vehiculo_id = %s AND producto_id = %s", (id, producto_id))
+        row = db.fetchone()
+        cantidad_anterior = float(row['cantidad']) if row else 0.0
+        diferencia = cantidad_nueva - cantidad_anterior
+
+        # 2. Actualizar (UPSERT)
+        db.execute("""
+            INSERT INTO vehiculos_stock (vehiculo_id, producto_id, negocio_id, cantidad, last_updated)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (vehiculo_id, producto_id) 
+            DO UPDATE SET cantidad = EXCLUDED.cantidad, last_updated = CURRENT_TIMESTAMP
+        """, (id, producto_id, negocio_id, cantidad_nueva))
+
+        # 3. Registrar ajuste para auditoría
+        db.execute("""
+            INSERT INTO inventario_ajustes 
+            (producto_id, usuario_id, negocio_id, cantidad_anterior, cantidad_nueva, diferencia, motivo)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (producto_id, current_user['id'], negocio_id, cantidad_anterior, cantidad_nueva, diferencia, f'Ajuste Manual Vehículo ID {id}')
+        )
+
+        g.db_conn.commit()
+        return jsonify({'message': 'Stock de vehículo actualizado con éxito', 'cantidad_nueva': cantidad_nueva})
+
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/vehiculos/<int:id>/ubicacion', methods=['POST'])
+@token_required
+def update_vehiculo_ubicacion(current_user, id):
+    data = request.get_json()
+    lat = data.get('latitud')
+    lng = data.get('longitud')
+
+    if lat is None or lng is None:
+        return jsonify({'error': 'Faltan coordenadas'}), 400
+
+    db = get_db()
+    try:
+        db.execute("""
+            UPDATE vehiculos 
+            SET latitud = %s, longitud = %s, ultima_actualizacion = CURRENT_TIMESTAMP 
+            WHERE id = %s
+        """, (lat, lng, id))
+        g.db_conn.commit()
+        return jsonify({'message': 'Ubicación actualizada'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# --- CHOFER / REPARTIDOR APP ENDPOINTS ---
+
+@bp.route('/chofer/mis_rutas', methods=['GET'])
+@token_required
+def get_rutas_chofer(current_user):
+    if current_user['rol'] != 'chofer':
+        return jsonify({'error': 'Acceso denegado, rol chofer requerido'}), 403
+    
+    empleado_id = current_user.get('empleado_id')
+    if not empleado_id:
+        return jsonify({'error': 'Usuario no tiene empleado_id asociado'}), 400
+
+    db = get_db()
+    
+    # 1. Encontrar vehiculo del chofer (donde esta como default_id o donde se haya asignado manual, 
+    # por simplicidad usaremos las rutas del vehiculo que tiene asignado o le mostraremos todas las rutas en curso del negocio)
+    # Lo más lógico: buscar todas las HR donde el vehículo asignado tenga a este empleado como chofer_default_id
+    # O mejor: traemos las HR del negocio que estén Activas y que el vehículo asignado le pertenezca a este chofer
+    
+    query = """
+        SELECT 
+            hr.id, 
+            TO_CHAR(hr.fecha, 'YYYY-MM-DD') as fecha, 
+            hr.estado, 
+            v.nombre as vendedor_nombre,
+            vh.modelo as vehiculo_asignado,
+            vh.patente as vehiculo_patente,
+            COUNT(DISTINCT p.id) as cantidad_pedidos,
+            COALESCE(SUM(pd.cantidad * pr.peso_kg), 0) as peso_kg,
+            COALESCE(SUM(pd.cantidad * pr.volumen_m3), 0) as volumen_m3
+        FROM hoja_ruta hr
+        JOIN vendedores v ON hr.vendedor_id = v.id
+        LEFT JOIN vehiculos vh ON hr.vehiculo_id = vh.id
+        LEFT JOIN pedidos p ON hr.id = p.hoja_ruta_id AND p.estado IN ('pendiente', 'preparado', 'en_camino')
+        LEFT JOIN pedidos_detalle pd ON p.id = pd.pedido_id
+        LEFT JOIN productos pr ON pd.producto_id = pr.id
+        WHERE (hr.chofer_id = %s OR (hr.chofer_id IS NULL AND vh.chofer_default_id = %s))
+        AND hr.estado IN ('activa', 'borrador') -- O solo activa? Mejor activa para que empiece a repartir
+        GROUP BY hr.id, hr.vehiculo_id, hr.fecha, hr.estado, v.nombre, vh.modelo, vh.patente
+        ORDER BY hr.fecha DESC
+    """
+    
+    db.execute(query, (empleado_id, empleado_id))
+    rows = db.fetchall()
+    
+    results = []
+    for row in rows:
+        r = dict(row)
+        r['peso_kg'] = float(r['peso_kg'])
+        r['volumen_m3'] = float(r['volumen_m3'])
+        results.append(r)
+        
+    return jsonify(results)
+
+@bp.route('/chofer/hoja_ruta/<int:id>', methods=['GET'])
+@token_required
+def get_hoja_ruta_chofer(current_user, id):
+    if current_user['rol'] != 'chofer':
+        return jsonify({'error': 'Acceso denegado, rol chofer requerido'}), 403
+
+    db = get_db()
+    
+    # Cabecera
+    db.execute("""
+        SELECT hr.id, hr.estado, TO_CHAR(hr.fecha, 'YYYY-MM-DD') as fecha, v.nombre as vendedor_nombre
+        FROM hoja_ruta hr
+        JOIN vendedores v ON hr.vendedor_id = v.id
+        WHERE hr.id = %s
+    """, (id,))
+    cabecera = db.fetchone()
+    if not cabecera:
+        return jsonify({'error': 'No encontrado'}), 404
+
+    # Traer items (paradas) ordenados
+    db.execute("""
+        SELECT hri.id as hoja_ruta_item_id, hri.hoja_ruta_id, hri.orden, hri.visitado,
+               c.id as cliente_id, c.nombre as cliente_nombre, c.direccion as cliente_direccion, 
+               c.telefono as cliente_telefono, c.ref_interna as cliente_zona,
+               c.latitud, c.longitud
+        FROM hoja_ruta_items hri
+        JOIN clientes c ON hri.cliente_id = c.id
+        WHERE hri.hoja_ruta_id = %s
+        ORDER BY hri.orden ASC
+    """, (id,))
+    items_raw = db.fetchall()
+    
+    # Traer todos los pedidos de la HR para adjuntar a cada parada los productos exactos a bajar
+    db.execute("""
+        SELECT p.id as pedido_id, p.cliente_id, p.estado, p.total,
+               pr.nombre as producto_nombre, pd.cantidad
+        FROM pedidos p
+        JOIN pedidos_detalle pd ON p.id = pd.pedido_id
+        JOIN productos pr ON pd.producto_id = pr.id
+        WHERE p.hoja_ruta_id = %s
+    """, (id,))
+    productos_pedido = db.fetchall()
+    
+    # Agrupar productos por cliente
+    pedidos_por_cliente = {}
+    for prod in productos_pedido:
+        cid = prod['cliente_id']
+        if cid not in pedidos_por_cliente:
+            pedidos_por_cliente[cid] = {
+                'pedido_id': prod['pedido_id'],
+                'estado': prod['estado'],
+                'total': float(prod['total']),
+                'productos': []
+            }
+        pedidos_por_cliente[cid]['productos'].append({
+            'nombre': prod['producto_nombre'],
+            'cantidad': float(prod['cantidad'])
+        })
+
+    # Armar lista final
+    items = []
+    for item in items_raw:
+        r = dict(item)
+        r['pedido'] = pedidos_por_cliente.get(r['cliente_id'])
+        items.append(r)
+
+    result = dict(cabecera)
+    result['items'] = items
+    
+    return jsonify(result)
+
+@bp.route('/chofer/recorrido_unificado', methods=['GET'])
+@token_required
+def get_recorrido_unificado(current_user):
+    if current_user['rol'] != 'chofer':
+        return jsonify({'error': 'Acceso denegado, rol chofer requerido'}), 403
+    
+    empleado_id = current_user.get('empleado_id')
+    if not empleado_id:
+        return jsonify({'error': 'Usuario no tiene empleado_id asociado'}), 400
+
+    db = get_db()
+    
+    # 1. Obtener todas las HRs activas/borrador del chofer
+    db.execute("""
+        SELECT hr.id 
+        FROM hoja_ruta hr
+        LEFT JOIN vehiculos vh ON hr.vehiculo_id = vh.id
+        WHERE (hr.chofer_id = %s OR (hr.chofer_id IS NULL AND vh.chofer_default_id = %s))
+        AND hr.estado IN ('activa', 'borrador')
+    """, (empleado_id, empleado_id))
+    hr_ids = [r['id'] for r in db.fetchall()]
+    
+    if not hr_ids:
+        return jsonify({'items': []})
+
+    # 2. Traer todos los items de esas HRs
+    placeholders = ','.join(['%s'] * len(hr_ids))
+    query_items = f"""
+        SELECT hri.id as hoja_ruta_item_id, hri.hoja_ruta_id, hri.orden, hri.visitado,
+               c.id as cliente_id, c.nombre as cliente_nombre, c.direccion as cliente_direccion, 
+               c.telefono as cliente_telefono, c.ref_interna as cliente_zona,
+               c.latitud, c.longitud,
+               v.nombre as vendedor_nombre
+        FROM hoja_ruta_items hri
+        JOIN clientes c ON hri.cliente_id = c.id
+        JOIN hoja_ruta hr ON hri.hoja_ruta_id = hr.id
+        JOIN vendedores v ON hr.vendedor_id = v.id
+        WHERE hri.hoja_ruta_id IN ({placeholders})
+        ORDER BY hri.hoja_ruta_id, hri.orden ASC
+    """
+    db.execute(query_items, tuple(hr_ids))
+    items_raw = db.fetchall()
+
+    # 3. Traer pedidos asociados
+    query_pedidos = f"""
+        SELECT p.id as pedido_id, p.cliente_id, p.hoja_ruta_id, p.estado, p.total,
+               pr.nombre as producto_nombre, pd.cantidad
+        FROM pedidos p
+        JOIN pedidos_detalle pd ON p.id = pd.pedido_id
+        JOIN productos pr ON pd.producto_id = pr.id
+        WHERE p.hoja_ruta_id IN ({placeholders})
+    """
+    db.execute(query_pedidos, tuple(hr_ids))
+    productos_pedido = db.fetchall()
+
+    # Agrupar productos por (cliente, hr)
+    pedidos_por_cliente_hr = {}
+    for prod in productos_pedido:
+        key = f"{prod['cliente_id']}_{prod['hoja_ruta_id']}"
+        if key not in pedidos_por_cliente_hr:
+            pedidos_por_cliente_hr[key] = {
+                'pedido_id': prod['pedido_id'],
+                'hoja_ruta_id': prod['hoja_ruta_id'],
+                'estado': prod['estado'],
+                'total': float(prod['total']),
+                'productos': []
+            }
+        pedidos_por_cliente_hr[key]['productos'].append({
+            'nombre': prod['producto_nombre'],
+            'cantidad': float(prod['cantidad'])
+        })
+
+    items = []
+    for item in items_raw:
+        r = dict(item)
+        r['pedido'] = pedidos_por_cliente_hr.get(f"{r['cliente_id']}_{r['hoja_ruta_id']}")
+        items.append(r)
+
+    return jsonify({'items': items})

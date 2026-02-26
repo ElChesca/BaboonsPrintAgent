@@ -59,7 +59,12 @@ def get_reporte_caja(current_user, negocio_id):
     """
 
     # (Lógica de filtros de fecha...)
-    if g.db_type == 'sqlite':
+    try:
+        db_type = g.db_type
+    except AttributeError:
+        db_type = 'postgres'
+        
+    if db_type == 'sqlite':
         date_filter_desde = " AND DATE(cs.fecha_apertura) >= %s"
         date_filter_hasta = " AND DATE(cs.fecha_apertura) <= %s"
     else: # PostgreSQL
@@ -197,7 +202,7 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
             saldo_actual += debe - haber
             concepto = ""
             if mov['tipo'] == 'Ingreso Factura':
-                 nro_factura = f"{mov['factura_tipo'] or 'FC'} {str(mov['factura_prefijo']).padStart(4,'0')}-{str(mov['factura_numero']).padStart(8,'0')}" if mov['factura_prefijo'] and mov['factura_numero'] else f"ID:{mov['id']}"
+                 nro_factura = f"{mov['factura_tipo'] or 'FC'} {str(mov['factura_prefijo']).zfill(4)}-{str(mov['factura_numero']).zfill(8)}" if mov['factura_prefijo'] and mov['factura_numero'] else f"ID:{mov['id']}"
                  concepto = f"Factura {nro_factura}"
                  if mov['referencia']: concepto += f" ({mov['referencia']})"
             elif mov['tipo'] == 'Pago Realizado':
@@ -266,7 +271,14 @@ def get_reporte_ganancias(current_user, negocio_id):
         db.execute(query, tuple(params))
         reporte = db.fetchall()
         # Convertir a una lista de diccionarios para la respuesta JSON
-        return jsonify([dict(row) for row in reporte])
+        reporte_list = []
+        for row in reporte:
+            r = dict(row)
+            for k, v in r.items():
+                if isinstance(v, Decimal):
+                    r[k] = float(v)
+            reporte_list.append(r)
+        return jsonify(reporte_list)
     except Exception as e:
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
@@ -279,7 +291,12 @@ def get_reporte_ventas_diarias(current_user, negocio_id):
     fecha_hasta_str = request.args.get('fecha_hasta')
 
     # Determinar el tipo de base de datos para la función de fecha
-    if g.db_type == 'sqlite':
+    try:
+        db_type = g.db_type
+    except AttributeError:
+        db_type = 'postgres' # Default seguro para producción
+
+    if db_type == 'sqlite':
         date_select = "DATE(v.fecha) as dia"
     else: # Asumimos PostgreSQL
         date_select = "CAST(v.fecha AS DATE) as dia"
@@ -296,7 +313,7 @@ def get_reporte_ventas_diarias(current_user, negocio_id):
     """
     params = [negocio_id]
 
-    if g.db_type == 'sqlite':
+    if db_type == 'sqlite':
         date_filter_col = "DATE(v.fecha)"
     else: # Asumimos PostgreSQL
         date_filter_col = "CAST(v.fecha AS DATE)"
@@ -325,6 +342,8 @@ def get_reporte_ventas_diarias(current_user, negocio_id):
             row_dict = dict(row)
             if isinstance(row_dict['dia'], datetime.date):
                 row_dict['dia'] = row_dict['dia'].isoformat()
+            if isinstance(row_dict['total_vendido'], Decimal):
+                row_dict['total_vendido'] = float(row_dict['total_vendido'])
             reporte_list.append(row_dict)
 
         return jsonify(reporte_list)
@@ -332,3 +351,82 @@ def get_reporte_ventas_diarias(current_user, negocio_id):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+# --- ✨ NUEVO REPORTE DE ENTREGAS (Logística) ✨ ---
+@bp.route('/negocios/<int:negocio_id>/reportes/entregas', methods=['GET'])
+@token_required
+def get_reporte_entregas(current_user, negocio_id):
+    db = get_db()
+    
+    fecha_desde_str = request.args.get('fecha_desde')
+    fecha_hasta_str = request.args.get('fecha_hasta')
+    
+    # Consulta base
+    query = """
+        SELECT 
+            hr.id,
+            hr.fecha,
+            hr.estado,
+            COALESCE(vend.nombre, 'Sin Vendedor') as vendedor_nombre,
+            veh.patente as vehiculo_patente,
+            (SELECT COUNT(*) FROM hoja_ruta_items hri WHERE hri.hoja_ruta_id = hr.id) as total_clientes,
+            (SELECT COUNT(*) FROM hoja_ruta_items hri WHERE hri.hoja_ruta_id = hr.id AND hri.visitado = TRUE) as visitados_count,
+            (SELECT COUNT(DISTINCT p.id) 
+             FROM pedidos p 
+             WHERE p.hoja_ruta_id = hr.id AND p.estado != 'anulado') as pedidos_total_count,
+            (SELECT COUNT(DISTINCT p.id) 
+             FROM pedidos p 
+             WHERE p.hoja_ruta_id = hr.id AND p.estado = 'entregado') as pedidos_entregados_count,
+            (SELECT COALESCE(SUM(pd.cantidad * prod.peso_kg), 0)
+             FROM pedidos p
+             JOIN pedidos_detalle pd ON p.id = pd.pedido_id
+             JOIN productos prod ON pd.producto_id = prod.id
+             WHERE p.hoja_ruta_id = hr.id AND p.estado != 'anulado') as total_kilos,
+            (SELECT COALESCE(SUM(v.total), 0)
+             FROM pedidos p 
+             JOIN ventas v ON p.venta_id = v.id 
+             WHERE p.hoja_ruta_id = hr.id AND p.estado = 'entregado') as total_recaudado
+        FROM hoja_ruta hr
+        LEFT JOIN vendedores vend ON hr.vendedor_id = vend.id
+        LEFT JOIN vehiculos veh ON hr.vehiculo_id = veh.id
+        WHERE vend.negocio_id = %s
+    """
+    params = [negocio_id]
+
+    if fecha_desde_str:
+        query += " AND hr.fecha >= %s"
+        params.append(fecha_desde_str)
+    
+    if fecha_hasta_str:
+        query += " AND hr.fecha <= %s"
+        params.append(fecha_hasta_str)
+        
+    query += " ORDER BY hr.fecha DESC, hr.id DESC"
+    
+    try:
+        db.execute(query, tuple(params))
+        rows = db.fetchall()
+        
+        reporte_list = []
+        for row in rows:
+            r = dict(row)
+            # Conversiones de tipos
+            if isinstance(r['fecha'], (datetime.date, datetime.datetime)):
+                r['fecha'] = r['fecha'].isoformat()
+            if isinstance(r['total_recaudado'], Decimal):
+                r['total_recaudado'] = float(r['total_recaudado'])
+            if isinstance(r['total_kilos'], Decimal):
+                r['total_kilos'] = float(r['total_kilos'])
+            
+            # Calcular efectividad (si hay clientes)
+            if r['total_clientes'] > 0:
+                r['efectividad'] = (r['visitados_count'] / r['total_clientes']) * 100
+            else:
+                r['efectividad'] = 0
+                
+            reporte_list.append(r)
+            
+        return jsonify(reporte_list)
+        
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500

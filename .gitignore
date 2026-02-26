@@ -205,3 +205,79 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ============================================================
+# MultinegocioBaboons - Archivos temporales del proyecto
+# ============================================================
+
+# Bases de datos locales (nunca al repo)
+*.db
+*.sqlite
+*.sqlite3
+
+# Scripts temporales de diagnóstico, debug y migración
+check_*.py
+inspect_*.py
+verify_*.py
+diagnose_*.py
+debug_*.py
+test_db*.py
+test_login*.py
+test_mp*.py
+test_sale*.py
+test_import*.py
+fix_*.py
+apply_*.py
+migrate_*.py
+migration_*.py
+patch_*.py
+setup_*.py
+stablize*.py
+remote_stablize*.py
+run_migration*.py
+sync_dev*.py
+clean_schema.py
+create_negocio_modulos_config.py
+identify_user_*.py
+add_home_perm.py
+add_imagen_url_to_productos.py
+add_zona_column.py
+aplicar_bonif_*.py
+corregir_pedido_*.py
+register_pos.py
+dev_init_clean.sql
+schema_temp.sql
+update_clients.sql
+extract_full_schema*.py
+fetch_mp_devices.py
+list_tables.py
+
+# Archivos SQL exportados sueltos
+full_schema_extracted*.sql
+fix_historical_data.sql
+dev_init_clean.sql
+
+# Archivos de output / texto generados
+perms_output*.txt
+
+# Archivos de configuración alternativos
+fly.dev.toml
+
+# Scripts de verificación de producción
+check_pedido*.py
+check_perms.py
+check_rentals_perms.py
+check_schema*.py
+check_modules.py
+check_orphans.py
+check_timezone.py
+check_user_*.py
+check_hr*.py
+inspect_order_*.py
+apply_audit_migration.py
+apply_fleet_employee_migration.py
+apply_linking_migration.py
+apply_module_migration.py
+apply_distribuidora_migration.py
+SCRIPT_LIMPIEZA_*.sql
+DATABASE_SAFETY.md

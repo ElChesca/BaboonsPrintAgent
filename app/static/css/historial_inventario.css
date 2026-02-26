@@ -1,26 +1,156 @@
 /* static/css/historial_inventario.css */
+.historial-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    padding: 25px;
+    margin: 20px;
+}
+
+.historial-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    border-bottom: 2px solid #f8f9fa;
+    padding-bottom: 15px;
+}
+
+.historial-header h2 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
 
 .filtros-historial {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 20px;
+    background: #f8fbff;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    align-items: end;
+}
+
+.filtros-historial .form-group {
+    margin-bottom: 0;
+}
+
+.filtros-historial label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+.filtros-historial input, 
+.filtros-historial select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+/* --- BADGES Y COLORES --- */
+.badge-mov {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.bg-venta { background: #fee2e2; color: #dc2626; }    /* Rojo */
+.bg-ingreso { background: #dcfce7; color: #16a34a; }  /* Verde */
+.bg-ajuste { background: #fef3c7; color: #d97706; }   /* Naranja */
+.bg-reserva { background: #e0f2fe; color: #0284c7; }  /* Azul */
+
+.cantidad-badge {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-weight: 700;
+}
+
+.pos { color: #16a34a; }
+.neg { color: #dc2626; }
+
+.id-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    border: 1px solid #e2e8f0;
+}
+
+/* --- TABLA --- */
+.tabla-moderna {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.tabla-moderna th {
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.tabla-moderna td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.85rem;
+    color: #334155;
+}
+
+.tabla-moderna tr:hover td {
+    background-color: #f8fafc;
+}
+
+.tabla-moderna tr:last-child td {
+    border-bottom: none;
+}
+
+.acciones-historial {
     display: flex;
-    gap: 15px;
-    align-items: flex-end;
-    margin-bottom: 20px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #eee;
+    gap: 10px;
 }
 
-#tabla-historial-inventario tbody tr td:nth-child(4), /* Cantidad */
-#tabla-historial-inventario tbody tr td:nth-child(5) /* Stock Resultante */ {
-    text-align: right;
-    font-weight: bold;
+.btn-icon {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    border: 1px solid transparent;
+    transition: all 0.2s;
 }
 
-/* Color para cantidad positiva (Ingreso/Ajuste+) */
-#tabla-historial-inventario .cantidad-positiva {
-    color: #28a745; /* Verde */
-}
+.btn-icon.btn-filter { background: #2563eb; color: #fff; }
+.btn-icon.btn-filter:hover { background: #1d4ed8; }
 
-/* Color para cantidad negativa (Venta/Ajuste-) */
-#tabla-historial-inventario .cantidad-negativa {
-    color: #dc3545; /* Rojo */
+@media (max-width: 768px) {
+    .historial-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    .acciones-historial {
+        width: 100%;
+        justify-content: space-between;
+    }
 }

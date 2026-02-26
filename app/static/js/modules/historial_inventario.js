@@ -7,41 +7,102 @@ import { mostrarNotificacion } from './notifications.js';
 let historialActual = [];
 
 // --- Funciones de Renderizado y Carga ---
-function formatDateTime(isoString) { /* ... (igual que antes) ... */ }
+
+/**
+ * ✨ FIX: Formateo de fecha real (D/M/AAAA HH:mm)
+ */
+function formatDateTime(isoString) {
+    if (!isoString) return '-';
+    try {
+        const date = new Date(isoString);
+        if (isNaN(date.getTime())) return isoString; // Fallback si no es fecha válida
+
+        return date.toLocaleString('es-AR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return isoString;
+    }
+}
+
+function getMovimientoInfo(tipo) {
+    const map = {
+        'Venta': { class: 'bg-venta', icon: 'fa-shopping-cart' },
+        'Ingreso': { class: 'bg-ingreso', icon: 'fa-plus-circle' },
+        'Ajuste': { class: 'bg-ajuste', icon: 'fa-sliders-h' },
+        'Reserva Pedido': { class: 'bg-reserva', icon: 'fa-box' }
+    };
+    return map[tipo] || { class: 'bg-secondary text-white', icon: 'fa-info-circle' };
+}
 
 function renderizarHistorial(historial) {
     const tbody = document.querySelector('#tabla-historial-inventario tbody');
-    historialActual = historial || []; // Guarda los datos para exportar
+    historialActual = historial || [];
     if (!tbody) return;
+
     tbody.innerHTML = '';
+
     if (historialActual.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">No hay movimientos.</td></tr>`; // Ajusta colspan
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: #64748b;">
+            <i class="fas fa-search fa-2x mb-3" style="display:block; opacity:0.3;"></i>
+            No se encontraron movimientos de inventario.
+        </td></tr>`;
         return;
     }
+
     historialActual.forEach(mov => {
-        const cantidadClass = mov.cantidad_cambio > 0 ? 'cantidad-positiva' : (mov.cantidad_cambio < 0 ? 'cantidad-negativa' : '');
-        const cantidadTexto = mov.cantidad_cambio > 0 ? `+${mov.cantidad_cambio}` : mov.cantidad_cambio;
+        const info = getMovimientoInfo(mov.tipo_movimiento);
+        const cantidadVal = parseFloat(mov.cantidad_cambio) || 0;
+        const cantidadClass = cantidadVal > 0 ? 'pos' : (cantidadVal < 0 ? 'neg' : '');
+        const cantidadTexto = cantidadVal > 0 ? `+${cantidadVal}` : cantidadVal;
+
         tbody.innerHTML += `
             <tr>
-                <td>${formatDateTime(mov.fecha_movimiento)}</td>
-                <td>${mov.producto_nombre} <small style="color: grey;">(ID: ${mov.producto_id})</small></td>
-                <td>${mov.tipo_movimiento}</td>
-                <td class="${cantidadClass}">${cantidadTexto}</td>
-                <td>${mov.stock_resultante !== null ? mov.stock_resultante : '-'}</td>
-                <td>${mov.usuario_nombre || '-'}</td> </tr>
+                <td class="fw-bold">${formatDateTime(mov.fecha_movimiento)}</td>
+                <td>
+                    <div style="font-weight:600;">${mov.producto_nombre}</div>
+                    <div style="font-size:0.75rem; color:#94a3b8;">ID: ${mov.producto_id}</div>
+                </td>
+                <td>
+                    <span class="badge-mov ${info.class}">
+                        <i class="fas ${info.icon}"></i> ${mov.tipo_movimiento}
+                    </span>
+                    <div style="font-size: 0.75rem; color: #64748b; margin-top: 4px;">${mov.motivo || '-'}</div>
+                </td>
+                <td style="text-align:center;">
+                    ${mov.hoja_ruta_id ? `<span class="id-badge bg-light">#${mov.hoja_ruta_id}</span>` : '<span style="color:#cbd5e1;">-</span>'}
+                </td>
+                <td style="text-align:center;">
+                    ${mov.pedido_id ? `<span class="id-badge bg-light">#${mov.pedido_id}</span>` : '<span style="color:#cbd5e1;">-</span>'}
+                </td>
+                <td style="text-align:right;">
+                    <span class="cantidad-badge ${cantidadClass}">${cantidadTexto}</span>
+                </td>
+                <td style="text-align:right; font-weight:600;">
+                    ${mov.stock_resultante !== null ? mov.stock_resultante : '<span style="color:#cbd5e1;">-</span>'}
+                </td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-user-circle" style="color:#cbd5e1;"></i>
+                        <span>${mov.usuario_nombre || 'Sistema'}</span>
+                    </div>
+                </td>
+            </tr>
         `;
     });
 }
 
 async function cargarHistorial() {
-    if (!appState.negocioActivoId) { renderizarHistorial([]); return; }
+    if (!appState.negocioActivoId) return;
 
-    // ✨ Leemos los filtros ✨
     const fechaDesde = document.getElementById('filtro-fecha-desde').value;
     const fechaHasta = document.getElementById('filtro-fecha-hasta').value;
     const productoId = document.getElementById('filtro-producto').value;
 
-    // Construimos la URL con parámetros de query
     const params = new URLSearchParams();
     if (fechaDesde) params.append('fecha_desde', fechaDesde);
     if (fechaHasta) params.append('fecha_hasta', fechaHasta);
@@ -58,64 +119,57 @@ async function cargarHistorial() {
     }
 }
 
-// ✨ NUEVO: Cargar productos en el selector de filtro ✨
 async function cargarProductosFiltro() {
-     const selectProducto = document.getElementById('filtro-producto');
-     if (!selectProducto || !appState.negocioActivoId) return;
-     try {
-         const productos = await fetchData(`/api/negocios/${appState.negocioActivoId}/productos`);
-         productos.forEach(p => {
-             selectProducto.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
-         });
-     } catch (error) {
-         console.error("Error al cargar productos para filtro:", error);
-     }
+    const selectProducto = document.getElementById('filtro-producto');
+    if (!selectProducto || !appState.negocioActivoId) return;
+    try {
+        const productos = await fetchData(`/api/negocios/${appState.negocioActivoId}/productos`);
+        // Limpiar pero mantener el primero
+        selectProducto.innerHTML = '<option value="">-- Todos los Productos --</option>';
+        productos.sort((a, b) => a.nombre.localeCompare(b.nombre)).forEach(p => {
+            selectProducto.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
+        });
+    } catch (error) {
+        console.error("Error al cargar productos para filtro:", error);
+    }
 }
 
-// --- Funciones de Exportación (Reutilizables) ---
-
-// static/js/modules/historial_inventario.js
-
 function exportarTablaAPDF(nombreArchivo, titulo) {
-    // ✨ CORRECCIÓN: Verifica window.jspdf y accede a jsPDF desde ahí ✨
     if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
-        mostrarNotificacion('Error: La librería jsPDF no está cargada correctamente.', 'error');
-        console.error("window.jspdf or window.jspdf.jsPDF is undefined.");
+        mostrarNotificacion('Error: La librería jsPDF no está cargada.', 'error');
         return;
     }
-    // Accedemos a la clase jsPDF a través del objeto global jspdf
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    // Verifica si la función autoTable existe
     if (typeof doc.autoTable !== 'function') {
-         mostrarNotificacion('Error: La extensión jsPDF AutoTable no está cargada.', 'error');
-         console.error("doc.autoTable is not a function.");
-         return;
+        mostrarNotificacion('Error: La extensión jsPDF AutoTable no está cargada.', 'error');
+        return;
     }
 
-    doc.text(titulo, 14, 16);
+    doc.setFontSize(18);
+    doc.text(titulo, 14, 20);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 28);
+
     try {
         doc.autoTable({
             html: '#tabla-historial-inventario',
-            startY: 22,
-            theme: 'striped',
-            headStyles: { fillColor: [41, 128, 185] }
+            startY: 35,
+            theme: 'grid',
+            headStyles: { fillColor: [37, 99, 235], fontSize: 9 }, // Azul Pro
+            styles: { fontSize: 8 }
         });
         doc.save(`${nombreArchivo}.pdf`);
     } catch (error) {
-         mostrarNotificacion('Error al generar el PDF: ' + error.message, 'error');
-         console.error("Error during PDF generation:", error);
+        mostrarNotificacion('Error al generar el PDF: ' + error.message, 'error');
     }
 }
 
-// static/js/modules/historial_inventario.js
-
 function exportarTablaAExcel(nombreArchivo) {
-     // ✨ CORRECCIÓN: Verifica que XLSX exista en window ✨
-     if (typeof window.XLSX === 'undefined') {
-        mostrarNotificacion('Error: La librería XLSX (Excel) no está cargada correctamente.', 'error');
-        console.error("window.XLSX is undefined.");
+    if (typeof window.XLSX === 'undefined') {
+        mostrarNotificacion('Error: La librería XLSX no está cargada.', 'error');
         return;
     }
 
@@ -126,27 +180,27 @@ function exportarTablaAExcel(nombreArchivo) {
 
     try {
         const datosParaExportar = historialActual.map(mov => ({
-            Fecha: formatDateTime(mov.fecha_movimiento),
+            'Fecha y Hora': formatDateTime(mov.fecha_movimiento),
             Producto: mov.producto_nombre,
             Movimiento: mov.tipo_movimiento,
-            Cantidad: mov.cantidad_cambio,
+            'Hoja Ruta': mov.hoja_ruta_id || '-',
+            Pedido: mov.pedido_id || '-',
+            Motivo: mov.motivo || '-',
+            'Cantidad Cambio': mov.cantidad_cambio,
             'Stock Resultante': mov.stock_resultante,
-            Usuario: mov.usuario_nombre || ''
+            'Usuario Responsable': mov.usuario_nombre || 'Sistema'
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(datosParaExportar);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Historial");
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Historial Inv");
         XLSX.writeFile(workbook, `${nombreArchivo}.xlsx`);
     } catch (error) {
-        mostrarNotificacion('Error al generar el archivo Excel: ' + error.message, 'error');
-        console.error("Error during Excel generation:", error);
+        mostrarNotificacion('Error al generar Excel: ' + error.message, 'error');
     }
 }
 
-// --- Inicialización ---
-
-export async function inicializarHistorialInventario() { // La hacemos async
+export async function inicializarHistorialInventario() {
     const btnFiltrar = document.getElementById('btn-filtrar-historial');
     const btnPDF = document.getElementById('btn-exportar-pdf');
     const btnExcel = document.getElementById('btn-exportar-excel');
@@ -155,7 +209,6 @@ export async function inicializarHistorialInventario() { // La hacemos async
     if (btnPDF) btnPDF.addEventListener('click', () => exportarTablaAPDF('historial_inventario', 'Historial de Inventario'));
     if (btnExcel) btnExcel.addEventListener('click', () => exportarTablaAExcel('historial_inventario'));
 
-    // ✨ Cargamos productos para el filtro y luego el historial ✨
-    await cargarProductosFiltro(); 
-    cargarHistorial(); 
+    await cargarProductosFiltro();
+    cargarHistorial();
 }

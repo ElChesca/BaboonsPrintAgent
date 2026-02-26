@@ -1,40 +1,57 @@
 <link rel="stylesheet" href="/static/css/historial_inventario.css">
 
-<div class="card">
-    <h2>📈 Historial de Movimientos de Inventario</h2>
+<div class="historial-card fade-in">
+    <div class="historial-header">
+        <h2><i class="fas fa-chart-line text-primary"></i> Historial de Movimientos de Inventario</h2>
+        <div class="acciones-historial">
+            <button id="btn-exportar-pdf" class="btn btn-outline-danger btn-sm">
+                <i class="fas fa-file-pdf"></i> PDF
+            </button>
+            <button id="btn-exportar-excel" class="btn btn-outline-success btn-sm">
+                <i class="fas fa-file-excel"></i> Excel
+            </button>
+        </div>
+    </div>
 
     <div class="filtros-historial">
         <div class="form-group">
-            <label for="filtro-fecha-desde">Desde:</label>
+            <label for="filtro-fecha-desde">Fecha Desde</label>
             <input type="date" id="filtro-fecha-desde">
         </div>
         <div class="form-group">
-            <label for="filtro-fecha-hasta">Hasta:</label>
+            <label for="filtro-fecha-hasta">Fecha Hasta</label>
             <input type="date" id="filtro-fecha-hasta">
         </div>
-        <div class="form-group" style="flex-grow: 1;">
-            <label for="filtro-producto">Producto:</label>
+        <div class="form-group" style="flex-grow: 2;">
+            <label for="filtro-producto">Filtrar por Producto</label>
             <select id="filtro-producto">
-                <option value="">-- Todos --</option>
-                </select>
+                <option value="">-- Todos los Productos --</option>
+            </select>
         </div>
-        <button id="btn-filtrar-historial" class="btn-secondary">Filtrar</button>
-        <button id="btn-exportar-pdf" class="btn-info">PDF</button>
-        <button id="btn-exportar-excel" class="btn-success">Excel</button>
+        <div>
+            <button id="btn-filtrar-historial" class="btn-icon btn-filter">
+                <i class="fas fa-filter"></i> Filtrar
+            </button>
+        </div>
     </div>
 
-    <div class="tabla-contenedor">
-        <table id="tabla-historial-inventario" class="tabla-bonita">
+    <div class="table-responsive">
+        <table id="tabla-historial-inventario" class="tabla-moderna">
             <thead>
                 <tr>
-                    <th>Fecha</th>
+                    <th>Fecha y Hora</th>
                     <th>Producto</th>
-                    <th>Movimiento</th>
-                    <th>Cantidad</th>
-                    <th>Stock Resultante</th>
-                    <th>Usuario</th> </tr>
+                    <th>Tipo de Movimiento</th>
+                    <th style="text-align: center;">Hoja Ruta</th>
+                    <th style="text-align: center;">Pedido</th>
+                    <th style="text-align: right;">Cantidad</th>
+                    <th style="text-align: right;">Stock Resultante</th>
+                    <th>Usuario Responsable</th>
+                </tr>
             </thead>
-            <tbody></tbody>
+            <tbody>
+                <!-- Se puebla dinámicamente -->
+            </tbody>
         </table>
     </div>
 </div>

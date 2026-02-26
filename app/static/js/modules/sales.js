@@ -10,44 +10,27 @@ import { setupEventListeners } from './sales/events.js';
 async function cargarDatosIniciales() {
     try {
         // Hacemos todas las llamadas a la API al mismo tiempo para más eficiencia   
-        const [clientes, topProductos,listasPrecios] = await Promise.all([
-            fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`),
-            fetchData(`/api/negocios/${appState.negocioActivoId}/productos/top?limit=10`),
+        const [listasPrecios] = await Promise.all([
             fetchData(`/api/negocios/${appState.negocioActivoId}/listas_precios`)
         ]);
-        // Llamamos a la función que carga clientes
-        await cargarClientesSelector(); 
-         // Poblamos el selector de clientes
-        const selectorClientes = document.getElementById('cliente-selector');
-        if (selectorClientes) {
-            selectorClientes.innerHTML = '<option value="">Consumidor Final</option>';
-            clientes.forEach(c => selectorClientes.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
-        }
+
+        // Llamamos a la función que carga clientes (Solo una vez)
+        await cargarClientesSelector();
+
         // ✨ Lógica para poblar el nuevo selector de listas de precios
         const selectorListas = document.getElementById('lista-precios-selector');
-        
-        if (selectorListas) { // <--- ESTE IF FALTABA
-            selectorListas.innerHTML = '<option value="">(Por Cliente)</option>'; 
+
+        if (selectorListas) {
+            let html = '<option value="">(Por Cliente)</option>';
             listasPrecios.forEach(lp => {
-                selectorListas.innerHTML += `<option value="${lp.id}">${lp.nombre}</option>`;
+                html += `<option value="${lp.id}">${lp.nombre}</option>`;
             });
+            selectorListas.innerHTML = html;
         }
 
-        // Renderizamos la grilla de acceso rápido y le pasamos la lógica que debe ejecutar al hacer clic
-        ui.renderPosGrid(topProductos, (productId) => {
-           const productoClickeado = topProductos.find(p => p.id === productId);
-            if (productoClickeado) {
-                const result = state.addItem(productoClickeado, 1);
-                if (result.success) {
-                    ui.renderSaleItemsTable(state.getSaleItems(), state.calculateTotal());
-                } else {
-                    mostrarNotificacion(result.message, 'error');
-                }
-            }
-        });
-
     } catch (error) {
-        mostrarNotificacion('Error al cargar datos iniciales de ventas: ' + error.message, 'error');
+        console.error(error);
+        mostrarNotificacion('Error al cargar datos iniciales de ventas.', 'error');
     }
 }
 // ✨ Añadimos la función para verificar el estado de la caja.
@@ -74,11 +57,11 @@ async function verificarEstadoCaja() {
 export async function recalcularCarritoPorCliente() {
     const items = state.getSaleItems();
     // ✨ --- LOG 2: ¿Llega aquí la función? --- ✨
-    console.log('recalcularCarritoPorCliente called. Items in cart:', items); 
-    
+    console.log('recalcularCarritoPorCliente called. Items in cart:', items);
+
     if (items.length === 0) {
         console.log('Cart is empty, skipping recalculation.'); // LOG adicional
-        return; 
+        return;
     }
 
     const clienteId = document.getElementById('cliente-selector').value || null;
@@ -91,44 +74,49 @@ export async function recalcularCarritoPorCliente() {
 
     try {
         const preciosActualizados = await sendData(
-            `/api/negocios/${appState.negocioActivoId}/recalculate-prices`, 
-            payload, 
+            `/api/negocios/${appState.negocioActivoId}/recalculate-prices`,
+            payload,
             'POST'
         );
-        
+
         // ✨ --- LOG 4: ¿Qué recibimos si funciona? --- ✨
-        console.log('API response OK:', preciosActualizados); 
+        console.log('API response OK:', preciosActualizados);
 
         state.updateItemPrices(preciosActualizados);
         ui.renderSaleItemsTable(state.getSaleItems());
 
     } catch (error) {
         // ✨ --- LOG 5: ¡EL ERROR EXACTO! --- ✨
-        console.error('ERROR caught in recalcularCarritoPorCliente:', error); 
+        console.error('ERROR caught in recalcularCarritoPorCliente:', error);
         mostrarNotificacion('Error al recalcular precios para el cliente.', 'error');
     }
 }
+/** ✨ Establece un cliente seleccionado en la interfaz. */
+export function setClienteSeleccionado(cliente) {
+    const selector = document.getElementById('cliente-selector'); // Input oculto
+    const display = document.getElementById('cliente-display');   // Input texto readonly
+
+    if (!selector || !display) return;
+
+    if (cliente) {
+        selector.value = cliente.id;
+        display.value = cliente.nombre;
+    } else {
+        selector.value = "";
+        display.value = "Consumidor Final";
+    }
+
+    // Disparamos el 'change' para recalcular precios
+    selector.dispatchEvent(new Event('change'));
+}
+
 export async function cargarClientesSelector(seleccionarId = null) {
-    try {
-        const clientes = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`);
-        const selector = document.getElementById('cliente-selector');
-        const valorActual = selector.value; // Guardamos por si acaso
-        
-        selector.innerHTML = '<option value="">Consumidor Final</option>';
-        clientes.forEach(c => {
-            selector.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
-        });
-
-        if (seleccionarId) {
-            selector.value = seleccionarId;
-        } else {
-            selector.value = valorActual; // Restauramos si no hay ID nuevo
-        }
-        // Disparamos el 'change' para recalcular precios si se seleccionó un cliente
-        selector.dispatchEvent(new Event('change')); 
-
-    } catch (error) {
-        mostrarNotificacion('No se pudieron cargar los clientes.', 'error');
+    // Esta función ya no llena un select, pero puede usarse para cargar un cliente específico tras crearlo
+    if (seleccionarId) {
+        try {
+            // Podríamos traer solo ese cliente, pero por ahora si solo tenemos el ID y el nombre del form...
+            // Mejor lo dejamos para que events.js lo maneje tras el post.
+        } catch (error) { console.error(error); }
     }
 }
 
@@ -137,5 +125,5 @@ export function inicializarLogicaVentas() {
     verificarEstadoCaja();
     cargarDatosIniciales();
     // 2. Activa todos los botones y formularios
-    setupEventListeners();    
+    setupEventListeners();
 }

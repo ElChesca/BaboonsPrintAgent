@@ -228,7 +228,12 @@ def get_historial_ajustes(current_user, negocio_id):
     params = [negocio_id]
 
     # Adaptar la función de fecha según la base de datos
-    if g.db_type == 'sqlite':
+    try:
+        db_type = g.db_type
+    except AttributeError:
+        db_type = 'postgres'
+
+    if db_type == 'sqlite':
         date_filter_desde = " AND DATE(ca.fecha) >= %s"
         date_filter_hasta = " AND DATE(ca.fecha) <= %s"
     else: # PostgreSQL

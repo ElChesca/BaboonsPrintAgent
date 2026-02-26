@@ -13,18 +13,20 @@ import { mostrarNotificacion } from './modules/notifications.js';
  * permitiéndonos centralizar la lógica.
  */
 async function handleApiResponse(response) {
-    
+
     //
     // 🕵️‍♂️ --- INICIO DEL INTERCEPTOR DE SESIÓN ZOMBIE --- 🕵️‍♂️
     //
-    if (response.status === 401) {
+    // ✨ FIX: No interceptar si es el endpoint de login (porque allí el 401 es "Credenciales inválidas", no "Sesión expirada")
+    if (response.status === 401 && !response.url.endsWith('/login')) {
         console.error("API Interceptor: Error 401 (Unauthorized). Deslogueando...");
+
         mostrarNotificacion("Tu sesión ha expirado. Ingresa de nuevo.", "error");
-        
+
         // Llamamos a tu función de logout() de auth.js
         // Esta función debe borrar el token y disparar el evento 'authChange'
-        logout(); 
-        
+        logout();
+
         // Lanzamos un error para detener cualquier otra ejecución
         throw new Error('Sesión expirada (401)');
     }
@@ -38,7 +40,7 @@ async function handleApiResponse(response) {
             const errorData = await response.json();
             errorMessage = errorData.message || errorData.error || errorMessage;
         } catch (e) { /* Ignorar si no hay JSON */ }
-        
+
         // Lanzamos el error para que el 'catch' de la llamada original lo tome
         throw new Error(errorMessage);
     }
@@ -52,7 +54,7 @@ async function handleApiResponse(response) {
     if (contentType && contentType.indexOf("application/json") !== -1) {
         return response.json();
     }
-    
+
     // Si no es JSON (como en tu 'fetchData' original)
     return {};
 }
@@ -75,14 +77,14 @@ export async function fetchData(url, options = {}) {
 
     try {
         const response = await fetch(url, config);
-        
+
         // Pasamos la respuesta por nuestro interceptor central
         return handleApiResponse(response);
 
     } catch (error) {
-        // Si el error no es un 401 (que ya redirige), lo logueamos.
-        if (error.message !== 'Sesión expirada (401)') {
-             console.error(`Error en fetchData para ${url}:`, error);
+        // Si el error no es un 401 (que ya redirige), lo logueamos (a menos que sea modo silent).
+        if (error.message !== 'Sesión expirada (401)' && !options.silent) {
+            console.error(`Error en fetchData para ${url}:`, error);
         }
         throw error; // Relanzamos para que el 'catch' original lo tome
     }
@@ -93,7 +95,7 @@ export async function fetchData(url, options = {}) {
  * Unificamos cómo se obtiene el token para que use 'getAuthHeaders'.
  */
 export async function sendData(url, data, method = 'POST') {
-    
+
     // ✨ CORRECCIÓN: Usamos tu función central 'getAuthHeaders'
     // en lugar de 'localStorage.getItem' para ser consistentes.
     const authHeaders = getAuthHeaders();
@@ -109,13 +111,13 @@ export async function sendData(url, data, method = 'POST') {
 
     try {
         const response = await fetch(url, options);
-        
+
         // Pasamos la respuesta por nuestro interceptor central
         return handleApiResponse(response);
 
     } catch (error) {
-         // Si el error no es un 401 (que ya redirige), lo logueamos.
-        if (error.message !== 'Sesión expirada (401)') {
+        // Si el error no es un 401 (que ya redirige), lo logueamos (a menos que sea modo silent).
+        if (error.message !== 'Sesión expirada (401)' && !data?.silent) {
             console.error(`Error en sendData (${method} ${url}):`, error);
         }
         throw error; // Relanzamos para que el 'catch' original lo tome

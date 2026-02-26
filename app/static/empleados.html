@@ -1,0 +1,240 @@
+<div class="container-fluid fade-in" style="padding: 20px;">
+    <div class="page-header">
+        <h2>Gestión de Empleados</h2>
+        <button class="btn btn-primary" onclick="abrirModalEmpleado()">+ Nuevo Empleado</button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow-sm mb-4" style="border-radius: 12px;">
+        <div class="card-body d-flex gap-3 align-items-center">
+            <select id="filtro-rol" class="form-select" style="max-width: 200px;">
+                <option value="">Todos los Roles</option>
+                <option value="chofer">Chofer</option>
+                <option value="vendedor">Vendedor</option>
+                <option value="administrativo">Administrativo</option>
+                <option value="deposito">Depósito</option>
+            </select>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="filtro-activos" checked>
+                <label class="form-check-label" for="filtro-activos">Solo Activos</label>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" onclick="cargarEmpleados()"><i class="fas fa-sync"></i>
+                Refrescar</button>
+        </div>
+    </div>
+
+    <div class="card shadow-sm" style="border-radius: 12px;">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="tabla-empleados">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Rol</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                            <th>Estado</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-empleados">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Empleado -->
+<div id="modal-empleado" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <span class="close" onclick="cerrarModalEmpleado()">&times;</span>
+        <h3 id="modal-titulo">Nuevo Empleado</h3>
+
+        <!-- Pestañas -->
+        <ul class="nav nav-tabs mb-3" id="empleadoTabs">
+            <li class="nav-item">
+                <a class="nav-link active" data-tab="datos-personales" href="#">Datos Personales</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-tab="datos-laborales" href="#">Datos Laborales</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-tab="documentacion" href="#">Documentación</a>
+            </li>
+        </ul>
+
+        <form id="form-empleado">
+            <input type="hidden" id="empleado-id">
+
+            <!-- Tab: Datos Personales -->
+            <div id="tab-datos-personales" class="tab-content active">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Nombre *</label>
+                        <input type="text" id="nombre" class="form-control" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Apellido *</label>
+                        <input type="text" id="apellido" class="form-control" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">DNI</label>
+                        <input type="text" id="dni" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha Nacimiento</label>
+                        <input type="date" id="fecha_nacimiento" class="form-control">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Dirección</label>
+                        <input type="text" id="direccion" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Teléfono</label>
+                        <input type="text" id="telefono" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="email" class="form-control">
+                    </div>
+
+                    <div class="col-12 mt-2">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="check-vincular">
+                            <label class="form-check-label" for="check-vincular">Vincular a Usuario/Vendedor
+                                Existente</label>
+                        </div>
+                    </div>
+                    <div class="col-12" id="container-vinculacion" style="display:none;">
+                        <label class="form-label" id="label-vinculacion">Seleccionar Usuario/Vendedor</label>
+                        <select id="select-vinculacion" class="form-select">
+                            <option value="">Seleccione...</option>
+                        </select>
+                        <div class="form-text text-info">
+                            <i class="fas fa-info-circle"></i> Los datos del empleado se llenarán automáticamente si
+                            selecciona uno.
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Estado Civil</label>
+                        <select id="estado_civil" class="form-select">
+                            <option value="soltero">Soltero/a</option>
+                            <option value="casado">Casado/a</option>
+                            <option value="divorciado">Divorciado/a</option>
+                            <option value="viudo">Viudo/a</option>
+                            <option value="concubinato">Concubinato</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Hijos</label>
+                        <input type="number" id="hijos" class="form-control" value="0" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Datos Laborales -->
+            <div id="tab-datos-laborales" class="tab-content" style="display:none;">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Rol *</label>
+                        <select id="rol" class="form-select" required>
+                            <option value="chofer">Chofer</option>
+                            <option value="vendedor">Vendedor</option>
+                            <option value="administrativo">Administrativo</option>
+                            <option value="deposito">Depósito</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                        <div class="form-text text-info" id="rol-help"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha Ingreso</label>
+                        <input type="date" id="fecha_ingreso" class="form-control">
+                    </div>
+                    <div class="col-12 mt-3">
+                        <h6>Contacto de Emergencia</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Nombre Contacto</label>
+                        <input type="text" id="contacto_emergencia_nombre" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Teléfono Contacto</label>
+                        <input type="text" id="contacto_emergencia_telefono" class="form-control">
+                    </div>
+                    <div class="col-12 mt-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="activo" checked>
+                            <label class="form-check-label" for="activo">Empleado Activo</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Documentación -->
+            <div id="tab-documentacion" class="tab-content" style="display:none;">
+                <div id="doc-upload-container" class="mb-3 border p-3 rounded bg-light">
+                    <h6>Agregar Documento</h6>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <select id="doc-tipo" class="form-select">
+                                <option value="licencia_conducir">Licencia de Conducir</option>
+                                <option value="libreta_sanitaria">Libreta Sanitaria</option>
+                                <option value="antecedentes">Antecedentes Penales</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="date" id="doc-vencimiento" class="form-control" title="Fecha Vencimiento"
+                                placeholder="Fecha Vencimiento">
+                        </div>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-secondary w-100"
+                                onclick="subirDocumento()">Cargar</button>
+                        </div>
+                        <div class="col-12">
+                            <input type="text" id="doc-obs" class="form-control form-control-sm"
+                                placeholder="Observaciones del documento">
+                        </div>
+                    </div>
+                </div>
+
+                <h6>Documentos Cargados</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm" id="tabla-docs">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Vencimiento</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-docs">
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">No hay documentos cargados</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="form-actions mt-4 text-end">
+                <button type="button" class="btn btn-secondary" onclick="cerrarModalEmpleado()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    /* Estilos simples para pestañas y visibilidad */
+    .nav-tabs .nav-link {
+        cursor: pointer;
+    }
+
+    .tab-content {
+        animation: fadeIn 0.3s;
+    }
+</style>

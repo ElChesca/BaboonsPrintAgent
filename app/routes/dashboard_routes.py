@@ -186,3 +186,118 @@ def get_category_ranking(current_user, negocio_id):
         traceback.print_exc()
         return jsonify({'error': 'Ocurrió un error al obtener el ranking de categorías.'}), 500
 
+
+# --- Dashboard Distribuidora ---
+@bp.route('/negocios/<int:negocio_id>/dashboard/distribucion', methods=['GET'])
+@token_required
+def get_dashboard_distribucion(current_user, negocio_id):
+    db = get_db()
+
+    desde_str = request.args.get('desde')
+    hasta_str = request.args.get('hasta')
+
+    hoy = date.today()
+    try:
+        desde = datetime.strptime(desde_str, '%Y-%m-%d').date() if desde_str else hoy - timedelta(days=30)
+        hasta = datetime.strptime(hasta_str, '%Y-%m-%d').date() if hasta_str else hoy
+    except ValueError:
+        desde = hoy - timedelta(days=30)
+        hasta = hoy
+
+    hasta_siguiente = hasta + timedelta(days=1)
+
+    try:
+        # 1. KPIs de Pedidos
+        db.execute("""
+            SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE estado = 'entregado') AS entregados,
+                COUNT(*) FILTER (WHERE estado IN ('pendiente', 'preparado', 'en_ruta')) AS pendientes,
+                COALESCE(SUM(total) FILTER (WHERE estado = 'entregado'), 0) AS facturacion
+            FROM pedidos
+            WHERE negocio_id = %s AND fecha >= %s AND fecha < %s
+        """, (negocio_id, desde, hasta_siguiente))
+        kpi_p = dict(db.fetchone())
+
+        # 2. KPIs de Rutas
+        db.execute("""
+            SELECT
+                COUNT(*) FILTER (WHERE estado = 'completada') AS rutas_completadas
+            FROM hoja_ruta
+            WHERE negocio_id = %s AND fecha >= %s AND fecha < %s
+        """, (negocio_id, desde, hasta_siguiente))
+        kpi_r = dict(db.fetchone())
+
+        # 3. Clientes visitados únicos
+        db.execute("""
+            SELECT COUNT(DISTINCT cliente_id) AS clientes_visitados
+            FROM pedidos
+            WHERE negocio_id = %s AND estado = 'entregado'
+              AND fecha >= %s AND fecha < %s
+        """, (negocio_id, desde, hasta_siguiente))
+        kpi_c = dict(db.fetchone())
+
+        # 4. Ventas por día
+        db.execute("""
+            SELECT DATE(fecha) AS dia,
+                   COALESCE(SUM(total), 0) AS total
+            FROM pedidos
+            WHERE negocio_id = %s AND estado = 'entregado'
+              AND fecha >= %s AND fecha < %s
+            GROUP BY dia ORDER BY dia
+        """, (negocio_id, desde, hasta_siguiente))
+        ventas_por_dia = [{'fecha': str(r['dia']), 'total': float(r['total'])} for r in db.fetchall()]
+
+        # 5. Ranking Vendedores
+        db.execute("""
+            SELECT v.nombre,
+                   COUNT(p.id) AS pedidos,
+                   COALESCE(SUM(p.total) FILTER (WHERE p.estado = 'entregado'), 0) AS total
+            FROM vendedores v
+            LEFT JOIN pedidos p ON p.vendedor_id = v.id
+              AND p.negocio_id = %s AND p.fecha >= %s AND p.fecha < %s
+            WHERE v.negocio_id = %s
+            GROUP BY v.id, v.nombre
+            ORDER BY total DESC LIMIT 5
+        """, (negocio_id, desde, hasta_siguiente, negocio_id))
+        ranking = [dict(r) for r in db.fetchall()]
+        for r in ranking:
+            r['total'] = float(r['total'])
+
+        # 6. Últimas Hojas de Ruta
+        db.execute("""
+            SELECT hr.id, hr.fecha, hr.estado,
+                   v.nombre AS vendedor_nombre,
+                   COUNT(DISTINCT p.id) AS total_pedidos
+            FROM hoja_ruta hr
+            LEFT JOIN vendedores v ON hr.vendedor_id = v.id
+            LEFT JOIN pedidos p ON p.hoja_ruta_id = hr.id
+            WHERE hr.negocio_id = %s
+            GROUP BY hr.id, hr.fecha, hr.estado, v.nombre
+            ORDER BY hr.fecha DESC LIMIT 5
+        """, (negocio_id,))
+        rutas = []
+        for r in db.fetchall():
+            row = dict(r)
+            if row.get('fecha'):
+                row['fecha'] = str(row['fecha'])
+            rutas.append(row)
+
+        return jsonify({
+            'kpis': {
+                'facturacion': float(kpi_p.get('facturacion', 0)),
+                'pedidos_total': int(kpi_p.get('total', 0)),
+                'pedidos_entregados': int(kpi_p.get('entregados', 0)),
+                'pedidos_pendientes': int(kpi_p.get('pendientes', 0)),
+                'rutas_completadas': int(kpi_r.get('rutas_completadas', 0)),
+                'clientes_visitados': int(kpi_c.get('clientes_visitados', 0)),
+            },
+            'ventas_por_dia': ventas_por_dia,
+            'ranking_vendedores': ranking,
+            'ultimas_rutas': rutas
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500

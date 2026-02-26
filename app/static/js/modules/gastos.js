@@ -21,7 +21,7 @@ function renderizarTablaGastos() {
     const tbody = document.querySelector('#tabla-gastos tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    
+
     gastosCache.forEach(g => {
         tbody.innerHTML += `
             <tr class="${g.estado === 'Anulado' ? 'fila-anulada' : ''}">
@@ -44,7 +44,7 @@ function renderizarTablaGastos() {
 
 async function cargarGastos() {
     if (!appState.negocioActivoId) return;
-    
+
     try {
         gastosCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/gastos`);
         renderizarTablaGastos();
@@ -88,7 +88,7 @@ window.editarGasto = (id) => {
     document.getElementById('gasto-descripcion').value = gasto.descripcion;
     document.getElementById('gasto-metodo-pago').value = gasto.metodo_pago;
     document.getElementById('gasto-estado').value = gasto.estado;
-    
+
     document.getElementById('btn-cancelar-edicion-gasto').style.display = 'inline-block';
     window.scrollTo(0, 0);
 };
@@ -110,6 +110,8 @@ window.anularGasto = async (id) => {
 // ==========================================================
 // ✨ MODIFICACIÓN AQUÍ ✨
 // ==========================================================
+import { checkGlobalCashRegisterState } from '../main.js'; // Importamos la función
+
 async function guardarGasto(e) {
     e.preventDefault();
     const id = document.getElementById('gasto-id').value;
@@ -118,11 +120,27 @@ async function guardarGasto(e) {
 
     // 🚫 1. (NUEVA VALIDACIÓN)
     // Si el método es 'Efectivo' Y la caja NO está abierta (no hay ID de sesión)
-    if (metodoPago.toLowerCase() === 'efectivo' && !appState.cajaSesionIdActiva) {
-        mostrarNotificacion('🚫 No se puede registrar un gasto en "Efectivo" si la caja está cerrada. Por favor, abra la caja primero.', 'error');
-        return; // Detener la ejecución
+    // 🚫 1. (VALIDACIÓN CORREGIDA)
+    // Si es EFECTIVO y NO hay caja abierta -> Error
+    // Si es otro método (Transferencia, etc) -> NO requiere caja abierta
+    // Si es Pendiente -> El método puede ser irrelevante o 'Efectivo' pero diferido... 
+    // Asumimos: Si estado es 'Pendiente', NO valida caja, salvo que el usuario insista en marcar 'Efectivo' como método.
+    // Corrección: Si el estado es 'Pagado' Y el método es 'Efectivo', entonces requerimos caja.
+
+    const estado = document.getElementById('gasto-estado').value;
+
+    if (estado === 'Pagado' && metodoPago.toLowerCase() === 'efectivo') {
+        // Re-verificar estado por si acaso (fail-safe)
+        if (!appState.cajaSesionIdActiva) {
+            await checkGlobalCashRegisterState(); // Intento de último momento
+        }
+
+        if (!appState.cajaSesionIdActiva) {
+            mostrarNotificacion('🚫 No se puede registrar un gasto "Pagado" en "Efectivo" si la caja está cerrada.', 'error');
+            return;
+        }
     }
-    
+
     // 🚫 2. (NUEVA VALIDACIÓN) Asegurarse de que el monto sea positivo
     if (monto <= 0) {
         mostrarNotificacion('El monto del gasto debe ser mayor a cero.', 'error');
@@ -142,15 +160,15 @@ async function guardarGasto(e) {
         descripcion: document.getElementById('gasto-descripcion').value,
         metodo_pago: metodoPago,
         estado: document.getElementById('gasto-estado').value,
-        proveedor_id: null, 
-        caja_sesion_id: idSesionCaja // Se asigna el ID de la sesión (o null)
+        proveedor_id: null,
+        caja_sesion_id: (metodoPago.toLowerCase() === 'efectivo') ? idSesionCaja : null // Solo enviamos sesión si es efectivo
     };
 
     const esEdicion = !!id;
-    const url = esEdicion 
+    const url = esEdicion
         ? `/api/negocios/${appState.negocioActivoId}/gastos/${id}`
         : `/api/negocios/${appState.negocioActivoId}/gastos`;
-        
+
     const method = esEdicion ? 'PUT' : 'POST';
 
     try {
@@ -168,7 +186,7 @@ function exportarGastosExcel() {
         mostrarNotificacion('No hay datos para exportar.', 'warning');
         return;
     }
-    
+
     // 1. Preparar los datos (aplanar)
     const datosParaExportar = gastosCache.map(g => ({
         "Fecha": formatearFechaTabla(g.fecha),
@@ -181,7 +199,7 @@ function exportarGastosExcel() {
 
     // 2. Crear la hoja de cálculo
     const ws = XLSX.utils.json_to_sheet(datosParaExportar);
-    
+
     // (Opcional) Ajustar anchos de columna
     ws['!cols'] = [
         { wch: 20 }, // Fecha
@@ -203,7 +221,7 @@ function exportarGastosPDF() {
         mostrarNotificacion('No hay datos para exportar.', 'warning');
         return;
     }
-    
+
     // (Asegurarnos de que la librería jsPDF esté cargada)
     if (typeof jspdf === 'undefined' || typeof jspdf.jsPDF === 'undefined') {
         mostrarNotificacion('Error: La librería jsPDF no se cargó correctamente.', 'error');
@@ -225,7 +243,7 @@ function exportarGastosPDF() {
     // 2. Crear el documento PDF
     const doc = new jsPDF();
     doc.text("Reporte de Gastos Operativos", 14, 15);
-    
+
     // 3. Usar autoTable para dibujar la tabla
     doc.autoTable({
         startY: 20,
@@ -243,18 +261,18 @@ export function inicializarGastos() {
     const form = document.getElementById('form-gasto');
     const btnCancelar = document.getElementById('btn-cancelar-edicion-gasto');
 
-    if (!form) return; 
+    if (!form) return;
 
     form.addEventListener('submit', guardarGasto);
     btnCancelar.addEventListener('click', resetFormularioGastos);
-     // ✨ 1. (NUEVO) Listeners para los botones de exportación
+    // ✨ 1. (NUEVO) Listeners para los botones de exportación
     const btnExcel = document.getElementById('btn-exportar-gastos-excel');
-    const btnPdf = document.getElementById('btn-exportar-gastos-pdf');    
-    if(btnExcel) btnExcel.addEventListener('click', exportarGastosExcel);
-    if(btnPdf) btnPdf.addEventListener('click', exportarGastosPDF);
+    const btnPdf = document.getElementById('btn-exportar-gastos-pdf');
+    if (btnExcel) btnExcel.addEventListener('click', exportarGastosExcel);
+    if (btnPdf) btnPdf.addEventListener('click', exportarGastosPDF);
 
     cargarCategoriasParaDropdown();
     cargarGastos();
-    
+
     document.getElementById('gasto-fecha').value = formatearFechaInput(new Date());
 }

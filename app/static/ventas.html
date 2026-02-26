@@ -3,10 +3,18 @@
 <div class="pos-container">
 
     <div class="pos-header card">
-        <div class="form-group input-with-button">
-            <label for="cliente-selector">Cliente</label>
-            <select id="cliente-selector"></select>
-            <button type="button" id="btn-nuevo-cliente-rapido" class="btn-add-quick" title="Crear Nuevo Cliente">+</button>
+        <div class="form-group input-with-button client-search-group">
+            <label for="cliente-display">Cliente</label>
+            <div class="search-input-container">
+                <input type="hidden" id="cliente-selector" value="">
+                <input type="text" id="cliente-display" readonly placeholder="Consumidor Final"
+                    class="search-input-display">
+                <button type="button" id="btn-buscar-cliente" class="btn-search-icon" title="Buscar Cliente">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <button type="button" id="btn-nuevo-cliente-rapido" class="btn-add-quick"
+                title="Crear Nuevo Cliente">+</button>
         </div>
         <div class="form-group">
             <label for="lista-precios-selector">Lista de Precios</label>
@@ -42,61 +50,79 @@
 
     <div class="pos-main-grid">
         <div class="venta-panel">
-            <div class="card">
+            <div class="card sale-items-card">
                 <div class="panel-header">
-                    <h3>Acceso Rápido</h3>
-                    <div class="switch-container">
-                        <label for="toggle-acceso-rapido">Mostrar</label>
-                        <label class="switch"><input type="checkbox" id="toggle-acceso-rapido" checked><span class="slider"></span></label>
-                    </div>
+                    <h3>Venta Actual</h3>
                 </div>
-                <div id="pos-grid-container"></div>
-            </div>
-            
-            <div class="card">
-                <h3>Venta Actual</h3>
                 <div class="tabla-contenedor-venta">
                     <table id="staged-items-venta" class="tabla-venta-elegante">
-                        <thead><tr><th>Producto /SKU</th><th>Cant.</th><th>Precio U.</th><th>Dto.</th><th>Subtotal</th><th>Acc.</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>Producto / SKU</th>
+                                <th>Cant.</th>
+                                <th>Precio U.</th>
+                                <th>Dto. / Bonif.</th>
+                                <th>Subtotal</th>
+                                <th class="actions-col"></th>
+                            </tr>
+                        </thead>
                         <tbody></tbody>
                     </table>
                 </div>
             </div>
-            
+
             <div class="card venta-footer">
-                <div class="venta-ajustes-extra">
-                    <div class="form-group">
-                        <label for="descuento-extra">Descuento Extra ($)</label>
-                        <input type="number" id="descuento-extra" step="0.01" placeholder="0.00">
+                <div class="venta-ajustes-container">
+                    <div class="venta-ajustes-extra">
+                        <div class="form-group">
+                            <label for="bonificacion-global">Bonif. Global (%)</label>
+                            <input type="number" id="bonificacion-global" step="0.01" placeholder="0.00" min="0"
+                                max="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="descuento-extra">Desc. Global ($)</label>
+                            <input type="number" id="descuento-extra" step="0.01" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="gastos-envio">Gastos de Envío ($)</label>
+                            <input type="number" id="gastos-envio" step="0.01" placeholder="0.00">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="gastos-envio">Gastos de Envío ($)</label>
-                        <input type="number" id="gastos-envio" step="0.01" placeholder="0.00">
+
+                    <div class="venta-total-section">
+                        <div class="venta-total-display">
+                            <span>TOTAL A COBRAR</span>
+                            <strong id="venta-total">$0.00</strong>
+                        </div>
                     </div>
                 </div>
-                <div class="venta-total-display">
-                    <span>TOTAL</span>
-                    <strong id="venta-total">$0.00</strong>
-                </div>
+
                 <form id="form-finalize-venta" class="finalization-controls">
-                    <div id="calculo-vuelto-container" class="form-group">
+                    <div id="calculo-vuelto-container" class="form-group payer-group">
                         <label for="paga-con-input">Paga con</label>
-                        <input type="number" id="paga-con-input" step="any">
-                        <div class="vuelto-display">
-                            <span>Vuelto:</span>
-                            <span id="vuelto-monto">$0.00</span>
+                        <div class="input-wrapper">
+                            <input type="number" id="paga-con-input" step="any" placeholder="0.00">
+                            <div class="vuelto-display">
+                                <span>Vuelto:</span>
+                                <span id="vuelto-monto">$0.00</span>
+                            </div>
                         </div>
                     </div>
                     <div class="form-actions">
-                        <button type="button" id="btn-finalize-sale" class="btn-primary">Cobrar</button>
-                        <button type="button" id="btn-finalize-and-print" class="btn-secondary">Cobrar e Imprimir</button>
+                        <button type="button" id="btn-finalize-sale" class="btn-primary btn-action-main">
+                            <i class="fas fa-check-circle"></i> Cobrar
+                        </button>
+                        <button type="button" id="btn-finalize-and-print" class="btn-secondary btn-action-sub">
+                            <i class="fas fa-print"></i> Cobrar e Imprimir
+                        </button>
                     </div>
                 </form>
-                <div id="pago-detalles-container" style="display: none;">
+                <div id="pago-detalles-container" class="pago-detalles-grid" style="display: none;">
                     <div class="form-group"><label>DNI:</label><input type="text" id="pago-dni"></div>
-                     <div class="form-group"><label>Tarjeta (últ. 4):</label><input type="text" id="pago-tarjeta" maxlength="4"></div>
-                     <div class="form-group"><label>Cupón:</label><input type="text" id="pago-cupon"></div>
-                     <div class="form-group"><label>Banco:</label><input type="text" id="pago-banco"></div>
+                    <div class="form-group"><label>Tarjeta (últ. 4):</label><input type="text" id="pago-tarjeta"
+                            maxlength="4"></div>
+                    <div class="form-group"><label>Cupón:</label><input type="text" id="pago-cupon"></div>
+                    <div class="form-group"><label>Banco:</label><input type="text" id="pago-banco"></div>
                 </div>
             </div>
         </div>
@@ -121,6 +147,26 @@
                     <button type="submit" class="btn-primary">Guardar Cliente</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal de Búsqueda de Clientes -->
+    <div id="modal-buscar-cliente" class="modal">
+        <div class="modal-content search-modal">
+            <div class="modal-header">
+                <h3>Buscar Cliente</h3>
+                <span id="close-modal-buscar-cliente" class="close-button">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="search-box-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="input-buscar-cliente-modal" placeholder="Escribe nombre, DNI o ID..."
+                        autofocus autocomplete="off">
+                </div>
+                <div id="resultados-busqueda-clientes" class="search-results-list">
+                    <div class="search-placeholder">Escribe para empezar a buscar...</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

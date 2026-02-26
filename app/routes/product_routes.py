@@ -1,14 +1,18 @@
-# app/routes/product_routes.py
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, current_app
 from app.database import get_db
 from app.auth_decorator import token_required
 from app.pricing_logic import get_precio_producto # Importa el motor de precios
+import os
+import uuid
+from PIL import Image
+from werkzeug.utils import secure_filename
 
 bp = Blueprint('products', __name__)
 
 @bp.route('/negocios/<int:negocio_id>/productos', methods=['GET'])
 @token_required
 def get_productos(current_user, negocio_id):
+    lista_id = request.args.get('lista_id', type=int)
     db = get_db()
     db.execute(
         """
@@ -21,6 +25,21 @@ def get_productos(current_user, negocio_id):
         (negocio_id,)
     )
     productos = db.fetchall()
+    
+    if lista_id:
+        productos_lista = []
+        for p in productos:
+            p_dict = dict(p)
+            # Calcular el precio para esta lista
+            p_dict['precio_venta'] = get_precio_producto(
+                db_cursor=db,
+                producto_id=p['id'],
+                negocio_id=negocio_id,
+                lista_de_precio_id_override=lista_id
+            )
+            productos_lista.append(p_dict)
+        return jsonify(productos_lista)
+        
     return jsonify([dict(row) for row in productos])
 
 @bp.route('/productos/<int:producto_id>', methods=['GET'])
@@ -53,13 +72,15 @@ def add_producto(current_user, negocio_id):
         db.execute(
             """
             INSERT INTO productos (negocio_id, nombre, stock, precio_venta, precio_costo, unidad_medida,
-                                   categoria_id, stock_minimo, sku, codigo_barras, proveedor_id, alias)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
-            """,
+                                   categoria_id, stock_minimo, sku, codigo_barras, proveedor_id, alias,
+                                   peso_kg, volumen_m3, imagen_url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            """ ,
             (
                 negocio_id, data.get('nombre'), data.get('stock'), data.get('precio_venta'), data.get('precio_costo'),
                 data.get('unidad_medida'), data.get('categoria_id'), data.get('stock_minimo'), sku,
-                data.get('codigo_barras'), data.get('proveedor_id'), data.get('alias')
+                data.get('codigo_barras'), data.get('proveedor_id'), data.get('alias'),
+                data.get('peso_kg', 0), data.get('volumen_m3', 0), data.get('imagen_url')
             )
         )
         nuevo_id = db.fetchone()['id']
@@ -81,7 +102,8 @@ def update_producto(current_user, producto_id):
     update_data = request.get_json()
     campos_validos = [
         'nombre', 'stock', 'precio_venta', 'precio_costo', 'unidad_medida',
-        'categoria_id', 'stock_minimo', 'sku', 'codigo_barras', 'proveedor_id', 'alias'
+        'categoria_id', 'stock_minimo', 'sku', 'codigo_barras', 'proveedor_id', 'alias',
+        'peso_kg', 'volumen_m3', 'imagen_url'
     ]
     fields = [f"{key} = %s" for key in update_data.keys() if key in campos_validos]
     values = [value for key, value in update_data.items() if key in campos_validos]
@@ -91,12 +113,81 @@ def update_producto(current_user, producto_id):
 
     values.append(producto_id)
     db = get_db()
+
+    # ✨ AUDITORÍA: Leer valores actuales antes del UPDATE
+    campos_a_auditar = ['precio_venta', 'precio_costo', 'stock']
+    try:
+        db.execute("SELECT stock, precio_venta, precio_costo, negocio_id FROM productos WHERE id = %s", (producto_id,))
+        prod_actual = db.fetchone()
+
+        if prod_actual:
+            negocio_id_prod = prod_actual['negocio_id']
+
+            # 1. Registrar en productos_bitacora los cambios de precio y stock
+            for campo in campos_a_auditar:
+                if campo in update_data:
+                    val_anterior = prod_actual[campo]
+                    val_nuevo = update_data[campo]
+                    try:
+                        if val_anterior is not None and float(val_anterior) == float(val_nuevo):
+                            continue  # Sin cambio, no registrar
+                    except (TypeError, ValueError):
+                        pass
+                    db.execute(
+                        """
+                        INSERT INTO productos_bitacora
+                            (producto_id, usuario_id, usuario_nombre, campo, valor_anterior, valor_nuevo)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        """,
+                        (producto_id, current_user['id'], current_user.get('nombre', 'Sistema'),
+                         campo, val_anterior, val_nuevo)
+                    )
+
+            # 2. Si cambió el stock, registrar también en inventario_ajustes
+            if 'stock' in update_data:
+                nuevo_stock = float(update_data['stock'])
+                cantidad_anterior = float(prod_actual['stock'])
+                if cantidad_anterior != nuevo_stock:
+                    diferencia = nuevo_stock - cantidad_anterior
+                    db.execute(
+                        """
+                        INSERT INTO inventario_ajustes
+                        (producto_id, usuario_id, negocio_id, cantidad_anterior, cantidad_nueva, diferencia, motivo)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (producto_id, current_user['id'], negocio_id_prod,
+                         cantidad_anterior, nuevo_stock, diferencia, 'Edición Manual')
+                    )
+    except Exception as e_audit:
+        print(f"Error en auditoría de producto: {e_audit}")
+        # No bloqueamos el update si falla la auditoría
+
     db.execute(f"UPDATE productos SET {', '.join(fields)} WHERE id = %s", tuple(values))
     g.db_conn.commit()
 
     db.execute('SELECT * FROM productos WHERE id = %s', (producto_id,))
     producto_actualizado = db.fetchone()
     return jsonify(dict(producto_actualizado))
+
+
+@bp.route('/productos/<int:producto_id>/bitacora', methods=['GET'])
+@token_required
+def get_bitacora_producto(current_user, producto_id):
+    """Devuelve el historial de cambios manuales de un producto."""
+    db = get_db()
+    db.execute(
+        """
+        SELECT id, campo, valor_anterior, valor_nuevo, usuario_nombre,
+               fecha AT TIME ZONE 'America/Argentina/Buenos_Aires' AS fecha_local
+        FROM productos_bitacora
+        WHERE producto_id = %s
+        ORDER BY fecha DESC
+        LIMIT 100
+        """,
+        (producto_id,)
+    )
+    rows = db.fetchall()
+    return jsonify([dict(r) for r in rows])
 
 @bp.route('/productos/<int:producto_id>', methods=['DELETE'])
 @token_required
@@ -124,7 +215,9 @@ def get_top_productos(current_user, negocio_id):
             p.id,
             p.nombre,
             p.precio_venta,
-            p.stock
+            p.stock,
+            p.imagen_url,
+            p.alias
         FROM productos p
         JOIN (
             SELECT vd.producto_id, COUNT(vd.producto_id) as total_ventas
@@ -157,7 +250,7 @@ def buscar_productos_con_precio(current_user, negocio_id):
     # Buscamos productos que coincidan con el término de búsqueda
     db.execute(
         """
-        SELECT id, nombre, alias, precio_venta, stock
+        SELECT id, nombre, alias, precio_venta, stock, sku, imagen_url
         FROM productos
         WHERE negocio_id = %s AND (
             nombre ILIKE %s OR
@@ -294,3 +387,103 @@ def get_producto_por_codigo(current_user, negocio_id):
     except Exception as e:
         print(f"!!! DATABASE ERROR searching by code: {e}") # LOG DE ERROR
         return jsonify({'error': f'Error interno de base de datos: {str(e)}'}), 500
+
+# --- ✨ ACCIONES MASIVAS ✨ ---
+
+@bp.route('/productos/bulk', methods=['DELETE'])
+@token_required
+def bulk_delete_productos(current_user):
+    if current_user['rol'] not in ['admin', 'superadmin']:
+        return jsonify({'message': 'Acción no permitida'}), 403
+
+    data = request.get_json()
+    product_ids = data.get('product_ids', [])
+    
+    if not product_ids:
+        return jsonify({'error': 'No se proporcionaron IDs de productos'}), 400
+
+    db = get_db()
+    try:
+        # Usamos ANY para una sola ejecución eficiente
+        db.execute("DELETE FROM productos WHERE id = ANY(%s)", (product_ids,))
+        g.db_conn.commit()
+        return jsonify({'mensaje': f'{len(product_ids)} productos eliminados con éxito'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/productos/bulk/categoria', methods=['PUT'])
+@token_required
+def bulk_update_categoria(current_user):
+    if current_user['rol'] not in ['admin', 'superadmin']:
+        return jsonify({'message': 'Acción no permitida'}), 403
+
+    data = request.get_json()
+    product_ids = data.get('product_ids', [])
+    nueva_categoria_id = data.get('categoria_id')
+
+    if not product_ids or nueva_categoria_id is None:
+        return jsonify({'error': 'Faltan datos (IDs o Categoría)'}), 400
+
+    db = get_db()
+    try:
+        db.execute(
+            "UPDATE productos SET categoria_id = %s WHERE id = ANY(%s)",
+            (nueva_categoria_id, product_ids)
+        )
+        g.db_conn.commit()
+        return jsonify({'mensaje': f'Categoría actualizada en {len(product_ids)} productos'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+@bp.route('/productos/<int:producto_id>/upload-image', methods=['POST'])
+@token_required
+def upload_product_image(current_user, producto_id):
+    if 'imagen' not in request.files:
+        return jsonify({'error': 'No se encontró la imagen en la solicitud'}), 400
+
+    file = request.files['imagen']
+    if file.filename == '':
+        return jsonify({'error': 'No se seleccionó ninguna imagen'}), 400
+
+    db = get_db()
+    # Verificar si el producto existe
+    db.execute("SELECT negocio_id FROM productos WHERE id = %s", (producto_id,))
+    producto = db.fetchone()
+    if not producto:
+        return jsonify({'error': 'Producto no encontrado'}), 404
+
+    # Lógica de guardado y compresión
+    try:
+        ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'jpg'
+        if ext not in ['jpg', 'jpeg', 'png', 'webp']:
+            return jsonify({'error': 'Formato no soportado'}), 400
+
+        filename = f"prod_{producto_id}_{uuid.uuid4().hex[:8]}.webp"
+        
+        # Ruta en el volumen persistente
+        upload_folder = os.path.join(current_app.static_folder, 'img', 'premios', 'productos')
+        os.makedirs(upload_folder, exist_ok=True)
+        filepath_img = os.path.join(upload_folder, filename)
+
+        # Abrir y comprimir con Pillow
+        img = Image.open(file)
+        
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+            
+        max_size = 800
+        if img.width > max_size or img.height > max_size:
+            img.thumbnail((max_size, max_size), Image.LANCZOS)
+            
+        img.save(filepath_img, "WEBP", quality=80)
+
+        relative_path = f"/static/img/premios/productos/{filename}"
+        db.execute("UPDATE productos SET imagen_url = %s WHERE id = %s", (relative_path, producto_id))
+        g.db_conn.commit()
+
+        return jsonify({'message': 'Imagen subida correctamente', 'imagen_url': relative_path})
+
+    except Exception as e:
+        print(f"Error procesando imagen: {e}")
+        return jsonify({'error': 'Error al procesar la imagen'}), 500

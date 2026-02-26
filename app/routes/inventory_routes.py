@@ -61,6 +61,8 @@ def ajustar_stock(current_user):
 # app/routes/inventory_routes.py
 # ✨ REEMPLAZAR ESTA FUNCIÓN COMPLETA ✨
 
+import openpyxl  # <--- ✨ AÑADIR ESTA IMPORTACIÓN
+
 @bp.route('/negocios/<int:negocio_id>/productos/importar', methods=['POST'])
 @token_required
 def importar_productos(current_user, negocio_id):
@@ -73,8 +75,8 @@ def importar_productos(current_user, negocio_id):
     if file.filename == '':
         return jsonify({'error': 'No se seleccionó ningún archivo'}), 400
 
-    if not (file and file.filename.endswith('.csv')):
-        return jsonify({'error': 'Formato de archivo no válido. Solo se acepta .csv'}), 400
+    if not (file and (file.filename.endswith('.csv') or file.filename.endswith('.xlsx'))):
+        return jsonify({'error': 'Formato de archivo no válido. Solo se acepta .csv o .xlsx'}), 400
 
     db = get_db()
     creados = 0
@@ -84,7 +86,10 @@ def importar_productos(current_user, negocio_id):
     def parse_numero(valor_str):
         if not valor_str:
             return 0.0
-        
+        # Manejo especial para números que ya vienen como float/int de Excel
+        if isinstance(valor_str, (int, float)):
+            return float(valor_str)
+            
         # 1. Quitar espacios, símbolo de moneda ($) y separador de miles (.)
         limpio = str(valor_str).strip().replace('$', '').replace('.', '').strip()
         # 2. Reemplazar la coma decimal (,) por un punto (.)
@@ -95,20 +100,56 @@ def importar_productos(current_user, negocio_id):
         except ValueError:
             raise ValueError(f"formato de número no válido: '{valor_str}'")
 
+    rows_to_process = []
+
     try:
-        stream = io.TextIOWrapper(file.stream, encoding='utf-8-sig')
-        csv_reader = csv.DictReader(stream, delimiter=';') 
-        
-        csv_reader.fieldnames = [
-            f.strip().lower().replace(' ', '_').replace('ó', 'o').replace('í', 'i') 
-            for f in csv_reader.fieldnames
-        ]
+        # --- LECTURA DE ARCHIVO (CSV o EXCEL) ---
+        if file.filename.endswith('.csv'):
+            stream = io.TextIOWrapper(file.stream, encoding='utf-8-sig')
+            csv_reader = csv.DictReader(stream, delimiter=';') 
+            
+            # Normalizar encabezados
+            csv_reader.fieldnames = [
+                f.strip().lower().replace(' ', '_').replace('ó', 'o').replace('í', 'i') 
+                for f in csv_reader.fieldnames
+            ]
+            
+            # Validar encabezados mínimos
+            if 'sku' not in csv_reader.fieldnames or 'nombre' not in csv_reader.fieldnames or 'precio_venta' not in csv_reader.fieldnames:
+                return jsonify({'error': 'El CSV debe contener al menos las columnas "SKU", "Nombre" y "Precio_Venta".'}), 400
 
-        if 'sku' not in csv_reader.fieldnames or 'nombre' not in csv_reader.fieldnames or 'precio_venta' not in csv_reader.fieldnames:
-            return jsonify({'error': 'El CSV debe contener al menos las columnas "SKU", "Nombre" y "Precio_Venta".'}), 400
+            for fila in csv_reader:
+                rows_to_process.append(fila)
 
+        elif file.filename.endswith('.xlsx'):
+            wb = openpyxl.load_workbook(file)
+            ws = wb.active # Tomamos la primera hoja
+            
+            # Leer encabezados de la primera fila
+            headers = [cell.value for cell in ws[1]]
+            headers = [
+                (str(h) if h else '').strip().lower().replace(' ', '_').replace('ó', 'o').replace('í', 'i') 
+                for h in headers
+            ]
+
+             # Validar encabezados mínimos
+            if 'sku' not in headers or 'nombre' not in headers or 'precio_venta' not in headers:
+                return jsonify({'error': 'El Excel debe contener al menos las columnas "SKU", "Nombre" y "Precio_Venta".'}), 400
+
+            # Leer filas
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                fila = {}
+                for idx, header in enumerate(headers):
+                    if idx < len(row):
+                        fila[header] = row[idx]
+                
+                # Solo agregar si tiene al menos nombre o sku
+                if fila.get('nombre') or fila.get('sku'):
+                    rows_to_process.append(fila)
+
+        # --- PROCESAMIENTO DE FILAS (COMÚN) ---
         fila_num = 1
-        for fila in csv_reader:
+        for fila in rows_to_process:
             fila_num += 1
             
             # ✨ --- INICIA EL CAMBIO --- ✨
@@ -117,7 +158,13 @@ def importar_productos(current_user, negocio_id):
                 db.execute('SAVEPOINT fila_savepoint')
                 
                 # --- 1. Limpieza y validación de datos ---
-                sku = fila.get('sku') or None
+                sku = fila.get('sku')
+                if sku is not None:
+                    sku = str(sku).strip()
+                    # Si es un número flotante que termina en .0 (común en Excel), lo limpiamos
+                    if sku.endswith('.0'):
+                        sku = sku[:-2]
+                
                 nombre = fila.get('nombre')
                 
                 precio_venta = parse_numero(fila.get('precio_venta'))
@@ -128,15 +175,29 @@ def importar_productos(current_user, negocio_id):
                 
                 stock_minimo = parse_numero(fila.get('stock_minimo', '0'))
                 
-                codigo_barras = fila.get('codigo_barras') or None
-                alias = fila.get('alias') or None
+                codigo_barras = fila.get('codigo_barras')
+                if codigo_barras is not None:
+                    codigo_barras = str(codigo_barras).strip()
+                    if codigo_barras.endswith('.0'): 
+                        codigo_barras = codigo_barras[:-2]
+
+                # Buscar columna que contenga 'alias'
+                alias = None
+                for key in fila.keys():
+                    if 'alias' in key:
+                        alias = fila[key]
+                        break
+                
+                if alias is not None:
+                    alias = str(alias).strip()
+
                 unidad_medida = fila.get('unidad_medida') or 'un'
 
                 if not nombre:
                     raise ValueError("Falta la columna 'nombre'")
-                if precio_venta <= 0 and (not sku or (sku and not db.fetchone())): # Permite precio 0 solo si actualiza
-                     raise ValueError("El 'precio_venta' debe ser mayor a 0 para productos nuevos")
-                
+                if precio_venta < 0:
+                     raise ValueError("El 'precio_venta' no puede ser negativo")
+
                 # --- 2. Resolución de IDs ---
                 categoria_id = None
                 nombre_cat = fila.get('categoria')

@@ -4,7 +4,7 @@
 // ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
 // ✨ ¡DEBE SER IDÉNTICA a la de tu main.js!
 // ✨ ========================================================================
-const APP_VERSION = "1.2.4"; // ✨ ¡ACTUALIZADO!
+const APP_VERSION = "1.3.5"; // ✨ Mismo que main.js
 // ==========================================================================
 
 const v = `?v=${APP_VERSION}`;
@@ -15,20 +15,26 @@ const CACHE_NAME = `baboons-cache-v${APP_VERSION}`;
 const urlsToCache = [
     '/', // La raíz (index.html)
     '/index.html',
-    
+
     // --- Archivos Principales (versionados) ---
-    `/static/css/global.css?v=2.7`,   // (Debe coincidir con tu index.html)
-    `/static/css/app_types.css?v=1.1.0`, // (El nuevo CSS)
-    `/static/js/main.js?v=1.1.0`,
+    `/static/css/global.css${v}`,
+    `/static/css/app_types.css${v}`,
+    `/static/css/pedidos.css${v}`,
+    `/static/js/main.js${v}`,
     `/static/js/api.js${v}`,
     `/static/js/uiHelpers.js${v}`,
     `/static/js/modules/auth.js${v}`,
     `/static/js/modules/notifications.js${v}`,
-    
+    `/static/js/modules/pedidos.js${v}`,
+    `/static/js/modules/hoja_ruta.js${v}`,
+
     // --- Páginas HTML (versionadas) ---
     `/static/login.html${v}`,
-    `/static/home_retail.html${v}`,     // ✨ REEMPLAZA a home.html
-    `/static/home_consorcio.html${v}`, // ✨ NUEVO
+    `/static/home_retail.html${v}`,
+    `/static/home_consorcio.html${v}`,
+    `/static/home_distribuidora.html${v}`,
+    `/static/pedidos.html${v}`,
+    `/static/hoja_ruta.html${v}`,
 
     // --- Recursos estáticos (no cambian) ---
     '/static/img/logo.png',
@@ -42,17 +48,17 @@ self.addEventListener('install', (event) => {
     console.log(`[Service Worker] Instalando v${APP_VERSION}...`);
     event.waitUntil(
         caches.open(CACHE_NAME)
-          .then((cache) => {
-            console.log('[Service Worker] Precargando App Shell en caché.');
-            return cache.addAll(urlsToCache);
-          })
-          .then(() => {
-            self.skipWaiting(); // Forza al SW a activarse
-          })
-          .catch((error) => {
-             console.error('[Service Worker] Falló la instalación (addAll):', error);
-             // Si falla aquí, revisa que todas las rutas en urlsToCache sean correctas.
-          })
+            .then((cache) => {
+                console.log('[Service Worker] Precargando App Shell en caché.');
+                return cache.addAll(urlsToCache);
+            })
+            .then(() => {
+                self.skipWaiting(); // Forza al SW a activarse
+            })
+            .catch((error) => {
+                console.error('[Service Worker] Falló la instalación (addAll):', error);
+                // Si falla aquí, revisa que todas las rutas en urlsToCache sean correctas.
+            })
     );
 });
 
@@ -85,34 +91,34 @@ self.addEventListener('fetch', (event) => {
     // Estrategia: "Cache first, falling back to network"
     event.respondWith(
         caches.match(event.request)
-          .then((response) => {
-            // 1. Si está en la CACHÉ, lo devolvemos al instante.
-            if (response) {
-                return response;
-            }
+            .then((response) => {
+                // 1. Si está en la CACHÉ, lo devolvemos al instante.
+                if (response) {
+                    return response;
+                }
 
-            // 2. Si NO está en la caché, lo pedimos a INTERNET.
-            return fetch(event.request)
-                .then((networkResponse) => {
-                    
-                    // 3. ¡Lo guardamos en la caché para la próxima vez!
-                    const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME)
-                      .then((cache) => {
-                          cache.put(event.request, responseToCache);
-                      });
-                    
-                    // 4. Devolvemos la respuesta de internet a la app.
-                    return networkResponse;
-                })
-                .catch(() => {
-                    // 5. Si internet falla (offline), devolvemos un error JSON
-                    console.warn(`[Service Worker] Fallo al buscar en red: ${event.request.url}`);
-                    return new Response(
-                        JSON.stringify({ error: 'Fallo al conectar con la red.' }),
-                        { status: 503, headers: { 'Content-Type': 'application/json' } }
-                    );
-                });
-          })
+                // 2. Si NO está en la caché, lo pedimos a INTERNET.
+                return fetch(event.request)
+                    .then((networkResponse) => {
+
+                        // 3. ¡Lo guardamos en la caché para la próxima vez!
+                        const responseToCache = networkResponse.clone();
+                        caches.open(CACHE_NAME)
+                            .then((cache) => {
+                                cache.put(event.request, responseToCache);
+                            });
+
+                        // 4. Devolvemos la respuesta de internet a la app.
+                        return networkResponse;
+                    })
+                    .catch(() => {
+                        // 5. Si internet falla (offline), devolvemos un error JSON
+                        console.warn(`[Service Worker] Fallo al buscar en red: ${event.request.url}`);
+                        return new Response(
+                            JSON.stringify({ error: 'Fallo al conectar con la red.' }),
+                            { status: 503, headers: { 'Content-Type': 'application/json' } }
+                        );
+                    });
+            })
     );
 });

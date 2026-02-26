@@ -1,0 +1,119 @@
+<div class="chofer-container" id="driver-app-container">
+    <div class="chofer-header bg-dark text-white p-3 shadow-sm d-flex justify-content-between align-items-center"
+        style="position: sticky; top: 0; z-index: 1000;">
+        <h4 class="mb-0 fw-bold"><i class="fas fa-truck me-2 text-warning"></i> Mis Rutas</h4>
+        <button class="btn btn-outline-light btn-sm rounded-pill" onclick="logout()"><i class="fas fa-sign-out-alt"></i>
+            Salir</button>
+    </div>
+
+    <div class="container pb-5 pt-3" id="chofer-main-content">
+        <!-- Lista de rutas -->
+        <div id="chofer-rutas-list">
+            <div class="text-center mt-5 text-muted" id="chofer-loading-rutas">
+                <i class="fas fa-truck-loading fa-3x mb-3 text-secondary"></i><br>Buscando tus recorridos...
+            </div>
+            <div id="chofer-rutas-container" class="mt-3"></div>
+        </div>
+
+        <!-- Vista de Paradas de una Ruta (Oculto por defecto) -->
+        <div id="chofer-ruta-detalle" style="display: none;">
+            <button class="btn btn-light border mb-3 w-100 fw-bold shadow-sm" id="btn-volver-rutas">
+                <i class="fas fa-arrow-left me-2"></i> Volver a Mis Rutas
+            </button>
+            <div class="alert alert-info py-2 mb-3 shadow-sm text-center">
+                <h5 class="mb-0 fw-bold" id="chofer-ruta-titulo"><i class="fas fa-route me-1"></i> Ruta...</h5>
+            </div>
+
+            <!-- Mapa del Chofer -->
+            <div id="map-chofer-ruta" class="shadow-sm mb-3" style="height: 300px; border-radius: 12px; z-index: 1;">
+            </div>
+
+            <div id="chofer-paradas-list">
+                <!-- Se inyectan las paradas -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Estilos específicos para aislar al chofer y darle look de App Nativa */
+    body.app-chofer-mode {
+        padding-top: 0 !important;
+        background-color: #f4f6f9;
+    }
+
+    #driver-app-container {
+        max-width: 600px;
+        margin: 0 auto;
+        background: #f4f6f9;
+        min-height: 100vh;
+    }
+
+    .ruta-card {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s;
+        background: #fff;
+        cursor: pointer;
+    }
+
+    .ruta-card:active {
+        transform: scale(0.98);
+    }
+
+    .parada-card {
+        border-radius: 12px;
+        border: none;
+        border-left: 6px solid #ffc107;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+        background: #fff;
+        overflow: hidden;
+    }
+
+    .parada-card.visitado {
+        border-left-color: #28a745;
+    }
+
+    .parada-card.visitado .card-header .badge {
+        background-color: #28a745 !important;
+    }
+
+    .picking-box {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 15px;
+        border: 1px solid #e9ecef;
+    }
+
+    .picking-box ul {
+        list-style: none;
+        padding-left: 0;
+        margin-bottom: 0;
+    }
+
+    .picking-box li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px dashed #dee2e6;
+        font-size: 0.95em;
+        font-weight: 500;
+    }
+
+    .picking-box li:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .picking-box .cant-badge {
+        background: #0d6efd;
+        color: white;
+        border-radius: 5px;
+        padding: 2px 8px;
+        font-weight: bold;
+    }
+</style>

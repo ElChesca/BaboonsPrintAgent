@@ -1,6 +1,7 @@
 import { fetchData } from '../api.js';
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
+import { getCurrentUser } from './auth.js';
 const formatCurrency = (n) => (n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 
 
@@ -18,7 +19,15 @@ async function cargarHistorial() {
             return;
         }
 
+        const currentUser = getCurrentUser();
+        const isAdmin = currentUser && (currentUser.rol === 'admin' || currentUser.rol === 'superadmin');
+
         presupuestos.forEach(p => {
+            // ✨ RESTRICCIÓN: Los vendedores solo ven sus propios presupuestos
+            if (!isAdmin && p.vendedor_id !== currentUser.id) {
+                return; // Saltar este presupuesto
+            }
+
             let estadoHtml;
             if (p.convertido_a_venta) {
                 estadoHtml = '<span class="status-badge status-convertido">Facturado</span>';
@@ -27,6 +36,14 @@ async function cargarHistorial() {
             } else {
                 estadoHtml = '<span class="status-badge status-pendiente">Pendiente</span>';
             }
+
+            // ✨ RESTRICCIÓN: Vendedores NO pueden Anular ni Facturar
+            const accionesHtml = `
+                <button class="btn-editar">Ver / Editar</button>
+                ${isAdmin && !p.convertido_a_venta && !p.anulado ? '<button class="btn-primary btn-facturar">Facturar</button>' : ''}
+                ${isAdmin && !p.anulado ? '<button class="btn-borrar btn-anular">Anular</button>' : ''}
+            `;
+
             const fila = `
                 <tr data-id="${p.id}">
                     <td>${p.id}</td>
@@ -37,11 +54,7 @@ async function cargarHistorial() {
                     <td>${p.observaciones || '-'}</td>
                     <td>${p.fecha_entrega_estimada ? new Date(p.fecha_entrega_estimada).toLocaleDateString('es-AR') : '-'}</td>
                     <td>${estadoHtml}</td>
-                    <td class="acciones">
-                        <button class="btn-editar">Ver</button>
-                        ${!p.convertido_a_venta && !p.anulado ? '<button class="btn-primary btn-facturar">Facturar</button>' : ''}
-                        ${!p.anulado ? '<button class="btn-borrar btn-anular">Anular</button>' : ''}
-                    </td>
+                    <td class="acciones">${accionesHtml}</td>
                 </tr>
             `;
             tbody.innerHTML += fila;
@@ -88,7 +101,7 @@ export function inicializarLogicaHistorialPresupuestos() {
                 }
             }
         }
-        
+
         // --- Lógica para VER / EDITAR ---
         if (target.classList.contains('btn-editar')) {
             // Guardamos el ID en sessionStorage para que la otra página lo lea

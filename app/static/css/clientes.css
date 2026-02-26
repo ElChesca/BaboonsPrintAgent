@@ -1,60 +1,267 @@
-/* --- ESTILOS GENERALES DEL MÓDULO DE CLIENTES --- */
-.main-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 25px; align-items: start; }
+/* --- MODERN UI STYLES FOR CLIENTS MODULE --- */
 
-/* ✨ Punto 2: Formulario compacto en grilla */
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 20px; }
-.form-grid .grid-col-span-2 { grid-column: span 2; }
+/* Header Section */
+.header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 0 5px;
+}
 
-/* --- ESTILOS PARA EL FORMULARIO --- */
-.card h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
-.form-group { margin-bottom: 0; /* La grilla ya maneja el espaciado */ }
-.form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; color: #555; }
-#form-cliente input, #form-cliente select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 1em; }
-.form-actions { margin-top: 20px; display: flex; gap: 10px; }
+.header-section h2 {
+    font-family: var(--font-heading, sans-serif);
+    font-size: 2rem;
+    color: var(--text-main);
+    letter-spacing: 0.5px;
+    margin: 0;
+}
 
-/* --- ESTILOS PARA LA LISTA Y TABLA --- */
-#buscador-clientes { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 1em; margin-bottom: 20px; }
-.tabla-bonita { width: 100%; border-collapse: collapse; }
-.tabla-bonita th, .tabla-bonita td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; word-break: break-word; }
-.tabla-bonita thead th { background-color: #007bff; color: white; }
+/* Card Container */
+.card.full-width {
+    width: 100%;
+    max-width: 100%;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    /* Soft modern shadow */
+    border: none;
+    /* Remove harsh borders */
+    padding: 25px;
+}
 
+/* Search Bar */
+.search-bar {
+    max-width: 400px;
+    margin-bottom: 25px;
+}
 
-/* ✨ Punto 5: Estilos para el Modal de Cuenta Corriente */
-/* ✨ Estilos para que el modal sea un overlay */
+#buscador-clientes {
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px 15px;
+    transition: all 0.2s ease;
+    box-shadow: none;
+}
+
+#buscador-clientes:focus {
+    background-color: #fff;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    outline: none;
+}
+
+/* Table Styling - Clean & Flat */
+.tabla-contenedor {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #f0f0f0;
+}
+
+.tabla-bonita {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.tabla-bonita thead th {
+    background-color: #f8f9fa;
+    color: #4b5563;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    padding: 15px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.tabla-bonita tbody tr {
+    background-color: #fff;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background-color 0.15s;
+}
+
+.tabla-bonita tbody tr:last-child {
+    border-bottom: none;
+}
+
+.tabla-bonita tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+.tabla-bonita td {
+    padding: 15px;
+    color: #374151;
+    vertical-align: middle;
+}
+
+/* Action Buttons in Table */
+.acciones {
+    display: flex;
+    gap: 8px;
+}
+
+.acciones .btn {
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: transform 0.1s, box-shadow 0.1s;
+    border: none;
+}
+
+.acciones .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Modal Styling - Modern Overlay */
 .modal {
-    display: none; /* Oculto por defecto */
-    position: fixed; /* Se queda fijo en la pantalla */
-    z-index: 1000; /* Se asegura de estar por encima de todo */
+    display: none;
+    position: fixed;
+    z-index: 2000;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
-    overflow: auto; /* Permite scroll si el contenido es muy grande */
-    background-color: rgba(0, 0, 0, 0.5); /* Fondo semitransparente */
-    justify-content: center;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    /* Modern blur effect */
     align-items: center;
+    justify-content: center;
 }
 
 .modal-content {
-    background-color: #fefefe;
+    background-color: #fff;
     margin: auto;
-    padding: 20px;
-    border: 1px solid #888;
-    border-radius: 8px;
-    width: 80%;
-    max-width: 900px; /* Ancho máximo para el modal de Cta. Cte. */
+    padding: 30px;
+    border: none;
+    border-radius: 16px;
+    /* Rounded corners */
+    width: 90%;
+    max-width: 800px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    position: relative;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
 }
-#tabla-cta-cte tfoot { font-weight: bold; font-size: 1.1em; }
-#tabla-cta-cte tfoot td { border-top: 2px solid #333; }
-.btn-pdf { background-color: #9333ea; color: white; padding: 8px 14px; }
-.btn-pdf:hover { background-color: #7e22ce; }
 
-/* --- RESPONSIVE --- */
-@media (max-width: 900px) {
-    .main-grid, .form-grid { grid-template-columns: 1fr; }
-    .form-grid .grid-col-span-2 { grid-column: span 1; }
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 15px;
 }
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #111827;
+}
+
+.close-button {
+    color: #9ca3af;
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.close-button:hover {
+    color: #111827;
+}
+
+.modal-body {
+    overflow-y: auto;
+    padding-right: 5px;
+    flex-grow: 1;
+}
+
+/* Form Styles inside Modal */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: #374151;
+    font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    color: #1f2937;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    background-color: #fff;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    outline: none;
+}
+
+.form-actions {
+    margin-top: 30px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 20px;
+}
+
+.form-actions .btn {
+    padding: 10px 20px;
+    font-size: 1rem;
+    border-radius: 8px;
+}
+
+/* Map Selector Styling */
+#map-selector {
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Utilities */
+.grid-col-span-2 {
+    grid-column: span 2;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
-    .tabla-contenedor { overflow-x: auto; }
-    .tabla-bonita { min-width: 700px; }
+    .header-section {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .header-section h2 {
+        font-size: 1.5rem;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .grid-col-span-2 {
+        grid-column: auto;
+    }
 }

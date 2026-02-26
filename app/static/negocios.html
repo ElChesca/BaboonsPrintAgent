@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/static/css/negocios.css"> 
+<link rel="stylesheet" href="/static/css/negocios.css">
 <h2>🏢 Gestión de Negocios</h2>
 
 <div class="card">
@@ -20,6 +20,7 @@
                     <option value="retail">Retail (Ventas/Inventario)</option>
                     <option value="consorcio">Consorcio</option>
                     <option value="rentals">Rentals (Alquileres)</option>
+                    <option value="distribuidora">Distribuidora</option>
                 </select>
             </div>
             <div class="form-group grid-col-span-2">
@@ -27,10 +28,11 @@
                 <input type="text" id="logo-negocio" placeholder="/static/img/logos/mi_logo.png">
                 <small style="color: #888;">Guarda la imagen en /static/img/logos/ y escribe la ruta aquí.</small>
             </div>
-            </div>
+        </div>
         <div class="form-actions">
             <button type="submit" class="btn-primary">Guardar</button>
-            <button type="button" id="btn-cancelar-edicion-negocio" class="btn-secondary" style="display: none;">Cancelar</button>
+            <button type="button" id="btn-cancelar-edicion-negocio" class="btn-secondary"
+                style="display: none;">Cancelar</button>
         </div>
     </form>
 </div>
@@ -42,14 +44,15 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Logo</th> <th>Nombre</th>
+                    <th>Logo</th>
+                    <th>Nombre</th>
                     <th>Tipo</th>
                     <th>Dirección</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
-                </tbody>
+            </tbody>
         </table>
     </div>
 </div>

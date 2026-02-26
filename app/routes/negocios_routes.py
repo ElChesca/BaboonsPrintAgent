@@ -13,8 +13,8 @@ def get_negocios(current_user):
 
     db = get_db()
     try:
-        # ✨ CAMBIO: Añadimos logo_url a la consulta
-        sql_base = "SELECT n.id, n.nombre, n.direccion, n.tipo_app, n.logo_url FROM negocios n"
+        # ✨ CAMBIO: Quitamos logo_url temporalmente
+        sql_base = "SELECT n.id, n.nombre, n.direccion, n.tipo_app FROM negocios n"
         
         if current_user['rol'] == 'superadmin':
             db.execute(f"{sql_base} ORDER BY n.nombre")
@@ -31,7 +31,9 @@ def get_negocios(current_user):
         resultado = []
         for row in negocios:
             r = dict(row)
-            if not r['logo_url']: r['logo_url'] = '' # Evitar nulls en el JSON
+            # if not r['logo_url']: r['logo_url'] = '' # Evitar nulls en el JSON
+            # Quitamos logo_url temporalmente
+            r['logo_url'] = '' 
             resultado.append(r)
             
         return jsonify(resultado)

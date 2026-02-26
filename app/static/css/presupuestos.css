@@ -1,7 +1,8 @@
 /* --- ESTILOS GENERALES DEL MÓDULO DE PRESUPUESTOS --- */
 .main-grid {
     display: grid;
-    grid-template-columns: 3fr 2fr; /* Columna de controles más ancha */
+    grid-template-columns: 3fr 2fr;
+    /* Columna de controles más ancha */
     gap: 25px;
     align-items: start;
 }
@@ -31,8 +32,10 @@ hr {
     max-height: 45vh;
     overflow-y: auto;
 }
+
 .tabla-bonita thead th {
-    background-color: #fd7e14; /* Naranja para presupuestos */
+    background-color: #fd7e14;
+    /* Naranja para presupuestos */
     color: white;
 }
 
@@ -41,6 +44,7 @@ hr {
     padding-top: 15px;
     border-top: 1px solid #e5e7eb;
 }
+
 .total-row {
     display: flex;
     justify-content: space-between;
@@ -48,26 +52,140 @@ hr {
     margin-bottom: 10px;
     font-size: 1.1em;
 }
+
 .total-row span:first-child {
     color: #4b5563;
 }
+
 .total-row span:last-child {
     font-weight: bold;
 }
+
 .input-row input {
     width: 80px;
     text-align: right;
     padding: 5px;
 }
+
 .final-total {
     font-size: 1.8em;
     color: #1d4ed8;
     margin-top: 15px;
 }
 
-/* --- RESPONSIVE --- */
 @media (max-width: 900px) {
     .main-grid {
         grid-template-columns: 1fr;
     }
+}
+
+/* --- ESTILOS BUSCADOR DE CLIENTES --- */
+.search-input-container {
+    display: flex;
+    align-items: center;
+    background: #fcfcfc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    width: 100%;
+    padding-right: 42px;
+}
+
+.client-search-group {
+    padding-right: 42px;
+}
+
+.search-input-display {
+    border: none !important;
+    background: transparent !important;
+    flex-grow: 1;
+    cursor: pointer;
+}
+
+.btn-search-icon {
+    background: transparent;
+    border: none;
+    padding: 0 12px;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.btn-search-icon:hover {
+    color: #6366f1;
+}
+
+/* Modal */
+.search-modal {
+    max-width: 500px;
+    width: 90%;
+}
+
+.search-box-container {
+    display: flex;
+    align-items: center;
+    background: #f1f5f9;
+    border-radius: 12px;
+    padding: 0 16px;
+    margin-bottom: 20px;
+    border: 2px solid transparent;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.search-box-container:focus-within {
+    background: white;
+    border-color: #6366f1;
+}
+
+.search-box-container i {
+    color: #64748b;
+    margin-right: 12px;
+}
+
+.search-box-container input {
+    border: none;
+    background: transparent;
+    height: 48px;
+    flex-grow: 1;
+    font-size: 1rem;
+    outline: none;
+}
+
+.search-results-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+}
+
+.result-item-cliente {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #e2e8f0;
+    transition: background 0.2s;
+}
+
+.result-item-cliente:last-child {
+    border-bottom: none;
+}
+
+.result-item-cliente:hover {
+    background: #f8fafc;
+}
+
+.result-item-cliente .name {
+    font-weight: 600;
+}
+
+.result-item-cliente .sub {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.search-placeholder {
+    padding: 30px;
+    text-align: center;
+    color: #64748b;
+    font-style: italic;
 }

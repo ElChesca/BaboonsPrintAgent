@@ -8,7 +8,8 @@ async function cargarClientesEnSelector() {
     if (!select) return;
 
     try {
-        const clientes = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`);
+        const response = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes?limit=10000`);
+        const clientes = response.data || response;
         select.innerHTML = '<option value="">Consumidor Final (General)</option>';
         clientes.forEach(cliente => {
             select.innerHTML += `<option value="${cliente.id}">${cliente.nombre}</option>`;
@@ -20,7 +21,7 @@ async function cargarClientesEnSelector() {
 async function cargarConfiguracion() {
     try {
         const configs = await fetchData(`/api/negocios/${appState.negocioActivoId}/configuraciones`);
-        
+
         // Asigna los valores a cada input/select que tenga un 'data-clave'
         document.querySelectorAll('#form-configuracion [data-clave]').forEach(input => {
             const clave = input.dataset.clave;
@@ -36,7 +37,7 @@ async function cargarConfiguracion() {
 async function guardarConfiguracion(e) {
     e.preventDefault();
     const payload = {};
-    
+
     // Recoge los valores de todos los inputs/selects con 'data-clave'
     document.querySelectorAll('#form-configuracion [data-clave]').forEach(input => {
         const clave = input.dataset.clave;

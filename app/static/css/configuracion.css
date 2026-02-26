@@ -1,0 +1,27 @@
+/* configuracion.css */
+.config-item {
+    margin-bottom: 1.5rem;
+    padding: 15px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.config-item label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.config-item select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.config-item small {
+    display: block;
+    margin-top: 5px;
+    color: #666;
+}

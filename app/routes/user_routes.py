@@ -26,7 +26,7 @@ def get_usuarios(current_user):
             # Usamos json_agg para agrupar los negocios en un array JSON en una sola consulta.
             query = """
                 SELECT
-                    u.id, u.nombre, u.email, u.rol,
+                    u.id, u.nombre, u.email, u.rol, u.activo,
                     COALESCE(
                         json_agg(json_build_object('id', n.id, 'nombre', n.nombre))
                         FILTER (WHERE n.id IS NOT NULL),
@@ -35,7 +35,7 @@ def get_usuarios(current_user):
                 FROM usuarios u
                 LEFT JOIN usuarios_negocios un ON u.id = un.usuario_id
                 LEFT JOIN negocios n ON un.negocio_id = n.id
-                GROUP BY u.id, u.nombre, u.email, u.rol
+                GROUP BY u.id, u.nombre, u.email, u.rol, u.activo
                 ORDER BY u.nombre;
             """
             db.execute(query)
@@ -54,7 +54,7 @@ def get_usuarios(current_user):
                     WHERE negocio_id IN (SELECT negocio_id FROM admin_negocios)
                 )
                 SELECT
-                    u.id, u.nombre, u.email, u.rol,
+                    u.id, u.nombre, u.email, u.rol, u.activo,
                     COALESCE(
                         -- Mostramos solo los negocios que el admin actual también puede ver
                         json_agg(json_build_object('id', n.id, 'nombre', n.nombre))
@@ -65,7 +65,7 @@ def get_usuarios(current_user):
                 JOIN usuarios_visibles uv ON u.id = uv.usuario_id
                 LEFT JOIN usuarios_negocios un ON u.id = un.usuario_id
                 LEFT JOIN negocios n ON un.negocio_id = n.id
-                GROUP BY u.id, u.nombre, u.email, u.rol
+                GROUP BY u.id, u.nombre, u.email, u.rol, u.activo
                 ORDER BY u.nombre;
             """
             db.execute(query, (current_user['id'],))
@@ -175,12 +175,21 @@ def update_user(current_user, user_id):
             if not db.fetchone():
                  return jsonify({'message': 'No tiene permiso para editar este usuario'}), 403
 
-        # --- 3. ACTUALIZAR ROL ---
+        # --- 3. ACTUALIZAR ROL Y ESTADO ---
         if nuevo_rol:
             db.execute("UPDATE usuarios SET rol = %s WHERE id = %s", (nuevo_rol, user_id))
+        
+        if 'activo' in data:
+            db.execute("UPDATE usuarios SET activo = %s WHERE id = %s", (data['activo'], user_id))
+
+        # --- 3.1 CAMBIO DE CONTRASEÑA (RESETEO POR ADMIN) ---
+        nueva_pass = data.get('password')
+        if nueva_pass:
+            hashed_pass = bcrypt.generate_password_hash(nueva_pass).decode('utf-8')
+            db.execute("UPDATE usuarios SET password = %s WHERE id = %s", (hashed_pass, user_id))
 
         # --- 4. ACTUALIZAR ASIGNACIÓN DE NEGOCIOS (Lógica por Rol) ---
-        if negocios_ids_nuevos is not None: # Chequea si la lista fue enviada (incluso si está vacía)
+        if negocios_ids_nuevos is not None:
 
             if current_user['rol'] == 'superadmin':
                 # SuperAdmin: borra todo y reasigna la lista completa
@@ -223,3 +232,26 @@ def update_user(current_user, user_id):
         g.db_conn.rollback()
         print(f"!!! ERROR en update_user: {e}")
         return jsonify({'error': f'Error al actualizar usuario: {str(e)}'}), 500
+
+@bp.route('/usuarios/<int:user_id>', methods=['DELETE'])
+@token_required
+def toggle_user_active(current_user, user_id):
+    if current_user['rol'] not in ('admin', 'superadmin'):
+        return jsonify({'message': 'Acción no permitida'}), 403
+
+    db = get_db()
+    try:
+        # Obtenemos estado actual
+        db.execute("SELECT activo FROM usuarios WHERE id = %s", (user_id,))
+        user_row = db.fetchone()
+        if not user_row:
+            return jsonify({'message': 'Usuario no encontrado'}), 404
+        
+        nuevo_estado = not user_row['activo']
+        db.execute("UPDATE usuarios SET activo = %s WHERE id = %s", (nuevo_estado, user_id))
+        g.db_conn.commit()
+        
+        return jsonify({'message': f"Usuario {'activado' if nuevo_estado else 'desactivado'} con éxito", 'activo': nuevo_estado})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500

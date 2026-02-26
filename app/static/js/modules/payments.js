@@ -68,7 +68,7 @@ function renderizarTablaFacturas() {
         // Formatear número de factura si existe
         let numFactura = '-';
         if (factura.factura_prefijo && factura.factura_numero) {
-             numFactura = `${factura.factura_tipo || 'FC'} ${factura.factura_prefijo}-${factura.factura_numero}`;
+            numFactura = `${factura.factura_tipo || 'FC'} ${factura.factura_prefijo}-${factura.factura_numero}`;
         }
 
         row.innerHTML = `
@@ -163,7 +163,7 @@ function handleTablaInput(event) {
             valorIngresado = 0;
         }
         // Si se ingresa un monto válido (aunque sea 0), marcar el checkbox
-        checkbox.checked = valorIngresado >= 0 && target.value !== ''; 
+        checkbox.checked = valorIngresado >= 0 && target.value !== '';
         inputMonto.disabled = !checkbox.checked; // Reasegurar estado disabled
     }
 
@@ -188,12 +188,21 @@ async function submitFormularioPago(event) {
     // ==========================================================
     // ✨ VALIDACIÓN DE CAJA ACTIVA (AÑADIDO) ✨
     // ==========================================================
-    
+
     // 🚫 1. Si el método es 'Efectivo' Y la caja NO está abierta
     // (Asegúrate de importar 'appState' de 'main.js' al inicio de este archivo)
-    if (metodoPago.toLowerCase() === 'efectivo' && !appState.cajaSesionIdActiva) {
-        mostrarNotificacion('🚫 No se puede registrar un pago en "Efectivo" si la caja está cerrada. Por favor, abra la caja primero.', 'error');
-        return; // Detener la ejecución
+    // 🚫 1. Si el método es 'Efectivo' Y la caja NO está abierta
+    // (Asegúrate de importar 'appState' de 'main.js' al inicio de este archivo)
+    if (metodoPago.toLowerCase() === 'efectivo') {
+        if (!appState.cajaSesionIdActiva) {
+            // ✨ INTENTO DE RECUPERACIÓN: Verificar estado global si no lo tenemos
+            await import('../main.js').then(m => m.checkGlobalCashRegisterState());
+        }
+
+        if (!appState.cajaSesionIdActiva) {
+            mostrarNotificacion('🚫 No se puede registrar un pago en "Efectivo" si la caja está cerrada. Por favor, abra la caja primero.', 'error');
+            return; // Detener la ejecución
+        }
     }
 
     // 2. Asignar el ID de la sesión de caja (si corresponde)
@@ -228,12 +237,12 @@ async function submitFormularioPago(event) {
             headers: { 'Content-Type': 'application/json' }
         });
         mostrarNotificacion(response.message || 'Pago registrado con éxito.', 'success');
-        
+
         // (Tu lógica de reseteo)
-        selProveedor.value = ''; 
+        selProveedor.value = '';
         facturasPendientesCache = [];
-        renderizarTablaFacturas(); 
-        formPago.reset(); 
+        renderizarTablaFacturas();
+        formPago.reset();
 
     } catch (error) {
         mostrarNotificacion(error.message || 'Error al registrar el pago.', 'error');

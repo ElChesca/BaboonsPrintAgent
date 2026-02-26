@@ -1,0 +1,873 @@
+<div class="container-fluid fade-in" style="padding: 20px;">
+    <div class="page-header">
+        <h2>Hoja de Ruta</h2>
+        <div class="actions">
+            <input type="date" id="filtro-fecha-hr" class="form-control" style="display:inline-block; width:auto;">
+            <button class="btn btn-outline-secondary"
+                onclick="document.getElementById('filtro-fecha-hr').value=''; window.cargarHojasRuta();"
+                title="Ver Todas"><i class="fas fa-sync-alt"></i> Todas</button>
+            <button class="btn btn-primary" onclick="abrirModalHojaRuta()">+ Nueva Hoja</button>
+        </div>
+    </div>
+
+    <!-- Pestañas Principales -->
+    <ul class="nav nav-tabs mb-3" id="hojaRutaTabs">
+        <li class="nav-item">
+            <a class="nav-link active" data-tab="lista" href="#">
+                <i class="fas fa-list me-1"></i> Hojas de Ruta
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-tab="control-carga" href="#">
+                <i class="fas fa-truck-loading me-1"></i> Control de Carga
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-tab="inventario-movil" href="#">
+                <i class="fas fa-boxes me-1"></i> Inventario Móvil
+            </a>
+        </li>
+    </ul>
+
+    <!-- Tab: Lista de Hojas de Ruta -->
+    <div id="tab-lista" class="tab-content">
+
+        <!-- Lista de Hojas de Ruta -->
+        <div id="lista-hojas-ruta" class="card shadow-sm" style="margin-top: 20px;">
+            <div class="card-body">
+                <table class="table table-hover" id="tabla-hr">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>Fecha</th>
+                            <th>Vendedor</th>
+                            <th class="text-center">Clientes</th>
+                            <th class="text-center">Pedidos</th>
+                            <th class="text-end">Monto total</th>
+                            <th class="text-center">Estado Ped.</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Detalle de Hoja de Ruta (Oculto inicialmente) -->
+        <div id="detalle-hoja-ruta" style="display:none; margin-top:20px;">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 id="detalle-titulo">Hoja de Ruta: <span id="detalle-vendedor"></span> (<span id="detalle-fecha"
+                            class="small"></span>)</h4>
+                    <div class="d-flex align-items-center gap-2">
+                        <div id="detalle-acciones-cabecera" class="d-flex gap-2"></div>
+                        <button class="btn btn-sm btn-secondary" onclick="volverListaHR()">Volver</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Info de Vehículo, Chofer y Carga -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="p-2 border rounded bg-light h-100">
+                                <small class="text-muted d-block"><i class="fas fa-truck"></i> Vehículo Asignado</small>
+                                <span id="hr-detail-vehiculo" class="fw-bold">-</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-2 border rounded bg-light h-100">
+                                <small class="text-muted d-block"><i class="fas fa-user-tie"></i> Chofer del Día</small>
+                                <select id="hr-detail-chofer" class="form-select form-select-sm border-info"
+                                    onchange="asignarChoferDirecto(this.value)">
+                                    <option value="">-- Vehículo --</option>
+                                    <!-- Options injected via JS -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-2 border rounded bg-light h-100">
+                                <small class="text-muted d-block"><i class="fas fa-weight-hanging"></i> Peso
+                                    Total</small>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold"><span id="hr-carga-peso">0</span> <small
+                                            id="hr-carga-peso-max" class="text-muted">/ 0 Kg</small></span>
+                                </div>
+                                <div class="progress" style="height: 10px;">
+                                    <div id="hr-carga-peso-bar" class="progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-2 border rounded bg-light h-100">
+                                <small class="text-muted d-block"><i class="fas fa-box"></i> Volumen Total</small>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold"><span id="hr-carga-vol">0</span> <small id="hr-carga-vol-max"
+                                            class="text-muted">/ 0 m³</small></span>
+                                </div>
+                                <div class="progress" style="height: 10px;">
+                                    <div id="hr-carga-vol-bar" class="progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="map-hoja-ruta"
+                        style="height: 350px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 20px; z-index: 1 !important; position: relative;">
+                        <!-- ✨ Legend / Referencia de Colores -->
+                        <div class="map-legend shadow-sm border rounded p-2 bg-white"
+                            style="position: absolute; bottom: 10px; left: 10px; z-index: 1000; font-size: 11px;">
+                            <div class="d-flex align-items-center mb-1">
+                                <div
+                                    style="background:#007bff; width:12px; height:12px; border-radius:50%; margin-right:6px; border:1px solid #fff;">
+                                </div> Pendiente
+                            </div>
+                            <div class="d-flex align-items-center mb-1">
+                                <div
+                                    style="background:#6f42c1; width:12px; height:12px; border-radius:50%; margin-right:6px; border:1px solid #fff;">
+                                </div> Con Pedido
+                            </div>
+                            <div class="d-flex align-items-center mb-1">
+                                <div
+                                    style="background:#fd7e14; width:12px; height:12px; border-radius:50%; margin-right:6px; border:1px solid #fff;">
+                                </div> Visitado
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <div
+                                    style="background:#28a745; width:12px; height:12px; border-radius:50%; margin-right:6px; border:1px solid #fff;">
+                                </div> Venta Real
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <table class="table" id="tabla-detalle-items">
+                    <thead>
+                        <tr>
+                            <th>Orden</th>
+                            <th>Cliente</th>
+                            <th>Dirección</th>
+                            <th>Visitado</th>
+                            <th>Observaciones</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tab: Control de Carga -->
+<div id="tab-control-carga" class="tab-content" style="display:none;">
+    <div class="row">
+        <!-- Columna Izquierda: Selector de Vehículo y Capacidad -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-truck text-primary me-2"></i>Seleccionar Vehículo
+                    </h5>
+                    <select id="carga-vehiculo-selector" class="form-select mb-3">
+                        <option value="">-- Selecciona un vehículo --</option>
+                    </select>
+
+                    <div id="carga-capacidad-container" style="display:none;">
+                        <h6 class="mb-3">Capacidad del Vehículo</h6>
+
+                        <!-- Barra de Peso -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small class="text-muted">Peso (Kg)</small>
+                                <small id="carga-peso-label">0 / 0 Kg</small>
+                            </div>
+                            <div class="progress" style="height: 20px;">
+                                <div id="carga-peso-barra" class="progress-bar bg-success" role="progressbar"
+                                    style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Barra de Volumen -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small class="text-muted">Volumen (m³)</small>
+                                <small id="carga-volumen-label">0 / 0 m³</small>
+                            </div>
+                            <div class="progress" style="height: 20px;">
+                                <div id="carga-volumen-barra" class="progress-bar bg-info" role="progressbar"
+                                    style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <button id="btn-confirmar-carga" class="btn btn-success w-100 mt-3"
+                            onclick="confirmarCargaVehiculoMultiple()">
+                            <i class="fas fa-check"></i> Confirmar Carga
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Hojas de Ruta Disponibles -->
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-route text-success me-2"></i>Hojas de Ruta Disponibles
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="lista-hojas-ruta-carga">
+                        <p class="text-muted text-center py-4">Selecciona un vehículo para ver las rutas disponibles</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tab: Inventario Móvil -->
+<div id="tab-inventario-movil" class="tab-content" style="display:none;">
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-boxes text-primary me-2"></i>Stock en Vehículos</h5>
+            <div class="d-flex gap-2">
+                <select id="select-vehiculo-stock" class="form-select" style="width: auto;"
+                    onchange="cargarStockVehiculo(this.value)">
+                    <option value="">-- Selecciona un Vehículo --</option>
+                </select>
+                <button class="btn btn-outline-secondary btn-sm"
+                    onclick="cargarStockVehiculo(document.getElementById('select-vehiculo-stock').value)">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="stock-vehiculo-vacio" class="text-center py-5">
+                <i class="fas fa-truck-loading fa-3x text-muted mb-3"></i>
+                <p class="text-muted fs-5">Selecciona un vehículo para visualizar su carga actual.</p>
+            </div>
+            <div id="container-tabla-stock-vehiculo" style="display: none;">
+                <table class="table table-hover table-bordered" id="tabla-stock-vehiculo">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Producto</th>
+                            <th class="text-center" style="width: 150px;">Stock en Camión</th>
+                            <th class="text-center" style="width: 200px;">Última Actualización</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nueva Hoja de Ruta (Vista Pro) -->
+<div id="modal-hoja-ruta" class="modal">
+    <div class="modal-content"
+        style="max-width: 95%; width: 1100px; height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header d-flex justify-content-between align-items-center"
+            style="border-bottom: 2px solid #eee; padding-bottom: 10px;">
+            <h3 style="margin:0; color: var(--primary-color);" id="detalle-titulo-modal"><i class="fas fa-route"></i>
+                Configurar Hoja de Ruta Pro
+            </h3>
+            <span class="close" onclick="cerrarModalHojaRuta()" style="font-size: 28px; cursor: pointer;">&times;</span>
+        </div>
+
+        <div class="modal-body"
+            style="flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 15px;">
+            <form id="form-hoja-ruta" style="height: 100%; display: flex; flex-direction: column;">
+                <!-- Cabecera del Formulario -->
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Vendedor Responsable:</label>
+                        <select id="select-vendedor-hr" class="form-select border-primary" required></select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Chofer del Día (Opcional):</label>
+                        <select id="select-chofer-hr" class="form-select border-info">
+                            <option value="">-- Por defecto del vehículo --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Fecha de Reparto:</label>
+                        <input type="date" id="fecha-hr" class="form-control" required>
+                    </div>
+                    <div class="col-md-3 position-relative">
+                        <label class="form-label fw-bold">Buscar Cliente:</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" id="buscar-cliente-hr" class="form-control"
+                                placeholder="Nombre o dirección..." autocomplete="off">
+                        </div>
+                        <!-- ✨ Sugerencias de Búsqueda -->
+                        <div id="sugerencias-clientes-hr" class="shadow-lg border rounded"
+                            style="display:none; position:absolute; top:100%; left:0; right:0; z-index:2000; background:white; max-height:250px; overflow-y:auto; margin-top:2px;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel Split Pro -->
+                <div class="row" style="flex: 1; min-height: 0;">
+                    <!-- Mapa de Selección (Izquierda) -->
+                    <div class="col-md-7 d-flex flex-column" style="height: 100%;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0"><i class="fas fa-map-marked-alt text-info"></i> Seleccionar desde el
+                                Mapa
+                            </h5>
+                            <small class="text-muted">Haz click en los marcadores para añadir paradas</small>
+                        </div>
+                        <div id="map-modal-hr"
+                            style="flex:1; border: 2px solid #ddd; border-radius: 12px; background: #f8f9fa;"></div>
+                    </div>
+
+                    <!-- Lista de Paradas y Orden (Derecha) -->
+                    <div class="col-md-5 d-flex flex-column" style="height: 100%;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0"><i class="fas fa-list-ol text-success"></i> Paradas Seleccionadas</h5>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                    onclick="window.optimizarRuta()" title="Reordenar por cercanía">
+                                    <i class="fas fa-magic"></i> Optimizar
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                    onclick="limpiarRutaTemporal()">Limpiar</button>
+                            </div>
+                        </div>
+                        <div class="ruta-temporal-container"
+                            style="flex:1; overflow-y: auto; border: 1px solid #eee; background: #fff; border-radius: 8px; padding: 5px;">
+                            <ul id="lista-paradas-orden" class="list-group">
+                                <!-- Se puebla dinámicamente -->
+                                <li class="list-group-item text-center text-muted py-4">No hay clientes
+                                    seleccionados
+                                    aún</li>
+                            </ul>
+                        </div>
+                        <div class="mt-2 p-2 bg-light border rounded">
+                            <span class="fw-bold">Total Paradas:</span> <span id="contador-paradas"
+                                class="badge bg-primary">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer del Formulario -->
+                <div class="form-actions mt-3 pt-3 border-top d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-lg btn-outline-secondary"
+                        onclick="cerrarModalHojaRuta()">Descartar</button>
+                    <button type="submit" class="btn btn-lg btn-primary px-5 shadow-sm">
+                        <i class="fas fa-save me-2"></i> Confirmar y Crear Hoja de Ruta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Carga Rápida de Pedido -->
+<div id="modal-pedido-hr" class="modal-overlay" style="display:none; z-index: 2000;">
+    <div class="modal-content"
+        style="max-width: 780px; width: 97%; max-height: 92vh; display: flex; flex-direction: column;">
+        <div class="modal-header d-flex justify-content-between align-items-center" style="flex-shrink:0;">
+            <div>
+                <h5 class="mb-0">🛒 Nuevo Pedido</h5>
+                <small class="text-muted fw-bold" id="pedido-cliente-nombre" style="font-size:0.85rem;"></small>
+            </div>
+            <button class="btn-close-modal" onclick="cerrarModalPedido()">×</button>
+        </div>
+        <div class="modal-body p-3" style="flex:1; overflow-y:auto;">
+            <input type="hidden" id="pedido-cliente-id">
+            <input type="hidden" id="pedido-hr-id">
+
+            <!-- Buscador de Productos -->
+            <div class="mb-2 position-relative">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" id="buscar-producto-pedido" class="form-control"
+                        placeholder="Buscar por nombre o SKU...">
+                </div>
+                <div id="sugerencias-productos-pedido"
+                    class="shadow-sm border rounded bg-white position-absolute w-100 mt-1"
+                    style="display:none; z-index: 3000 !important; max-height: 220px; overflow-y: auto; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                </div>
+            </div>
+
+            <!-- Tabla de items del pedido -->
+            <div class="alert alert-info py-2 px-3 mb-2" style="font-size: 0.75rem; border-left: 4px solid #0dcaf0;">
+                <i class="fas fa-lightbulb me-1"></i> <strong>Tip Promos (ej. 10+1):</strong>
+                Para regalar 1, entrega <strong>11</strong> en Cantidad y marca <strong>1</strong> en Bonif. El sistema
+                cobrará 10.
+            </div>
+            <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+                <table class="table table-sm table-hover mb-0" id="tabla-items-pedido" style="font-size: 0.82rem;">
+                    <thead class="bg-light sticky-top" style="font-size:0.78rem;">
+                        <tr>
+                            <th>Producto</th>
+                            <th width="70" class="text-center">Cant.</th>
+                            <th width="80" class="text-end">Precio</th>
+                            <th width="65" class="text-center" title="Unidades bonificadas (gratis)">Bonif.</th>
+                            <th width="85" class="text-end">Subtotal</th>
+                            <th width="30"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Items cargados dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3 p-2 bg-light rounded d-flex justify-content-between align-items-center">
+                <span class="h5 mb-0">TOTAL:</span>
+                <span class="h4 mb-0 text-primary fw-bold" id="total-pedido-modal">$ 0.00</span>
+            </div>
+
+            <div class="mt-3">
+                <label class="form-label">Observaciones</label>
+                <textarea id="obs-pedido-modal" class="form-control" rows="2"
+                    placeholder="Notas del pedido..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer p-3 border-top d-flex gap-2">
+            <button class="btn btn-secondary flex-grow-1" onclick="cerrarModalPedido()">Cancelar</button>
+            <button class="btn btn-success flex-grow-1" onclick="guardarPedidoRuta()">Guardar Pedido</button>
+        </div>
+    </div>
+
+    <!-- Modal Ver Detalle Pedido (Read-Only) -->
+    <div id="modal-ver-pedido" class="modal-overlay" style="display:none; z-index: 2100;">
+        <div class="modal-content" style="max-width: 600px; width: 95%;">
+            <div class="modal-header d-flex justify-content-between align-items-center bg-light">
+                <h5 class="mb-0"><i class="fas fa-receipt text-primary me-2"></i>Detalle del Pedido #<span
+                        id="ver-pedido-id"></span></h5>
+                <button class="btn-close-modal"
+                    onclick="document.getElementById('modal-ver-pedido').style.display='none'">×</button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="d-flex justify-content-between mb-3">
+                    <div>
+                        <strong class="d-block text-muted small">CLIENTE</strong>
+                        <span id="ver-pedido-cliente" class="h6"></span>
+                    </div>
+                    <div class="text-end">
+                        <strong class="d-block text-muted small">FECHA</strong>
+                        <span id="ver-pedido-fecha"></span>
+                    </div>
+                </div>
+
+                <div class="table-responsive border rounded mb-3">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-center">Cant.</th>
+                                <th class="text-end">P. Unit</th>
+                                <th class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ver-pedido-items"></tbody>
+                        <tfoot class="bg-white border-top">
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold pt-3">TOTAL</td>
+                                <td class="text-end fw-bold text-primary h5 pt-3" id="ver-pedido-total">$ 0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="mb-2">
+                    <strong class="text-muted small">OBSERVACIONES</strong>
+                    <p id="ver-pedido-obs" class="p-2 bg-light rounded small fst-italic text-muted">Sin
+                        observaciones
+                    </p>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <button class="btn btn-secondary"
+                        onclick="document.getElementById('modal-ver-pedido').style.display='none'">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Historial del Cliente -->
+<div id="modal-historial-cliente" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header d-flex justify-content-between align-items-center">
+            <h4 id="historial-cliente-nombre" style="margin:0;">Historial del Cliente</h4>
+            <span class="close" onclick="document.getElementById('modal-historial-cliente').style.display='none'"
+                style="font-size: 28px; cursor: pointer;">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-striped" id="tabla-historial-cliente">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Evento</th>
+                            <th>Monto</th>
+                            <th>Estado/Pago</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Liquidación de Hoja de Ruta -->
+<div id="modal-liquidacion-hr" class="modal-overlay" style="display:none; z-index: 2500;">
+    <div class="modal-content" style="max-width: 550px; width: 95%;">
+        <div class="modal-header d-flex justify-content-between align-items-center">
+            <h3>🏁 Liquidación de Reparto</h3>
+            <button class="btn-close-modal"
+                onclick="document.getElementById('modal-liquidacion-hr').style.display='none'">×</button>
+        </div>
+        <div class="modal-body p-3">
+            <div id="liquidacion-contenido">
+                <div class="row text-center mb-4">
+                    <div class="col-6">
+                        <div class="p-3 border rounded bg-light">
+                            <small class="text-muted d-block">Visitas Reales</small>
+                            <span class="h4 fw-bold" id="liq-stats-visitas">-</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 border rounded bg-light">
+                            <small class="text-muted d-block">Total Ventas (CC)</small>
+                            <span class="h4 fw-bold text-success" id="liq-stats-ventas">$ 0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h5 class="border-bottom pb-2 mb-3">Mercadería Entregada</h5>
+                <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                    <table class="table table-sm" id="tabla-liq-productos">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-center">Cant.</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-info mt-3 small">
+                    <i class="fas fa-info-circle"></i> Al finalizar, la hoja de ruta pasará a estado
+                    <b>FINALIZADA</b> y
+                    ya no podrá ser editada.
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer p-3 border-top d-flex gap-2">
+            <input type="hidden" id="liq-hr-id">
+            <button class="btn btn-outline-primary" onclick="exportarLiquidacionPDF()">
+                <i class="fas fa-print"></i> Imprimir
+            </button>
+            <button class="btn btn-secondary" style="flex:1"
+                onclick="document.getElementById('modal-liquidacion-hr').style.display='none'">Cancelar</button>
+            <button class="btn btn-primary" id="btn-finalizar-liq" style="flex:1"
+                onclick="finalizarLiquidacion()">Finalizar Reparto</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Picking / Confirmación de Reparto -->
+<div id="modal-picking-hr" class="modal-overlay" style="display:none; z-index: 2500;">
+    <div class="modal-content" style="max-width: 500px; width: 95%;">
+        <div class="modal-header d-flex justify-content-between align-items-center">
+            <h3>🚚 Confirmar Salida y Picking</h3>
+            <button class="btn-close-modal"
+                onclick="document.getElementById('modal-picking-hr').style.display='none'">×</button>
+        </div>
+        <div class="modal-body p-4">
+            <input type="hidden" id="picking-hr-id">
+
+            <div class="mb-4">
+                <label class="form-label fw-bold">1. Seleccionar Vehículo / Camión:</label>
+                <select id="select-vehiculo-picking" class="form-select form-select-lg border-primary"
+                    onchange="actualizarCargaEnPicking(this.value)">
+                    <option value="">-- Seleccionar vehículo --</option>
+                </select>
+                <div class="form-text">Asigne un vehículo para validar la capacidad de carga.</div>
+            </div>
+
+            <div id="picking-carga-preview" style="display:none;">
+                <label class="form-label fw-bold">2. Validación de Carga:</label>
+                <div class="p-3 border rounded bg-light mb-3">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>Peso (Kg)</span>
+                            <span id="picking-label-peso">0 / 0 Kg</span>
+                        </div>
+                        <div class="progress" style="height: 12px;">
+                            <div id="picking-bar-peso" class="progress-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>Volumen (m³)</span>
+                            <span id="picking-label-vol">0 / 0 m³</span>
+                        </div>
+                        <div class="progress" style="height: 12px;">
+                            <div id="picking-bar-vol" class="progress-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="picking-alert-sobrecarga" class="alert alert-danger p-2 small" style="display:none;">
+                    <i class="fas fa-exclamation-triangle"></i> <b>¡ATENCIÓN!</b> El peso o volumen exceden la
+                    capacidad
+                    del vehículo.
+                </div>
+            </div>
+
+            <div class="alert alert-info py-2 px-3 small">
+                Al confirmar, la hoja de ruta pasará a estado <b>ACTIVA</b> para el vendedor.
+            </div>
+        </div>
+        <div class="modal-footer p-3 border-top d-flex gap-2">
+            <button class="btn btn-secondary flex-grow-1"
+                onclick="document.getElementById('modal-picking-hr').style.display='none'">Cancelar</button>
+            <button class="btn btn-primary flex-grow-1" id="btn-confirmar-picking"
+                onclick="ejecutarConfirmarReparto()">Confirmar Salida</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    #lista-paradas-orden .list-group-item {
+        margin-bottom: 5px;
+        border-radius: 6px !important;
+        border: 1px solid #ddd;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        padding: 10px;
+    }
+
+    #lista-paradas-orden .list-group-item:hover {
+        background-color: #f0f7ff;
+        border-color: #007bff;
+    }
+
+    .btn-orden {
+        padding: 2px 8px;
+        font-size: 12px;
+        color: #666;
+        cursor: pointer;
+    }
+
+    .btn-orden:hover {
+        color: #007bff;
+    }
+
+    .parada-index {
+        width: 24px;
+        height: 24px;
+        background: #007bff;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        margin-right: 12px;
+        font-weight: bold;
+    }
+
+    /* Estilos Marcadores Mapa Geo Pro */
+    .marker-pin {
+        width: 30px;
+        height: 30px;
+        border-radius: 50% 50% 50% 0;
+        position: absolute;
+        transform: rotate(-45deg);
+        left: 50%;
+        top: 50%;
+        margin: -15px 0 0 -15px;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .marker-label {
+        position: absolute;
+        width: 100%;
+        text-align: center;
+        color: #fff;
+        font-weight: bold;
+        font-style: normal;
+        top: 8px;
+        font-size: 12px;
+        z-index: 1;
+    }
+
+    .custom-div-icon {
+        background: transparent;
+        border: none;
+    }
+</style>
+
+<!-- Modal Mapa de Recorrido Full-Screen -->
+<div id="modal-mapa-recorrido" class="modal-overlay"
+    style="display:none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; background: #fff; flex-direction: column;">
+    <div class="d-flex flex-column h-100 w-100">
+        <div class="d-flex justify-content-between align-items-center p-3 bg-dark text-white" style="flex:0 0 auto;">
+            <h5 class="mb-0"><i class="fas fa-map-marked-alt me-2 text-warning"></i> Mapa de Recorrido Full-Screen</h5>
+            <button class="btn btn-sm btn-outline-light"
+                onclick="document.getElementById('modal-mapa-recorrido').style.display='none'">
+                <i class="fas fa-times me-1"></i> Cerrar
+            </button>
+        </div>
+        <div id="map-full-recorrido"
+            style="flex: 1 1 auto; width: 100%; min-height: 300px; position: relative; z-index: 1;">
+            <!-- Mapa Leaflet -->
+        </div>
+        <div class="p-2 bg-light border-top text-center small text-muted" style="flex:0 0 auto;">
+            <i class="fas fa-info-circle me-1"></i> Sigue el orden de las paradas (1 → 2 → 3...) - La línea azul marca
+            el recorrido de tu hoja de ruta
+        </div>
+    </div>
+</div>
+
+<!-- Modal Asignar Vehículo a HR -->
+<div id="modal-asignar-vehiculo" class="modal-overlay" style="display:none; z-index: 2500;">
+    <!-- ... (Existing content if any, or just placeholder if it was empty comment) ... -->
+    <!-- Assuming "Modal Asignar Vehículo a HR" was a comment for an implementation not shown or checking previous file content -->
+    <!-- I will append the NEW modals after the comment -->
+</div>
+
+<!-- ========================================== -->
+<!-- ✨ MODO REPARTIDOR (Mobile Friendly) ✨ -->
+<!-- ========================================== -->
+<div id="modal-modo-repartidor" class="modal-overlay" style="display:none; z-index: 3000; background: #f8f9fa;">
+    <div class="d-flex flex-column h-100 w-100 bg-white">
+        <!-- Header Repartidor -->
+        <div class="d-flex justify-content-between align-items-center p-3 text-white bg-primary shadow-sm"
+            style="flex:0 0 auto;">
+            <div>
+                <h5 class="mb-0 fw-bold"><i class="fas fa-motorcycle me-2"></i>Modo Repartidor</h5>
+                <small id="repartidor-titulo-ruta" style="opacity:0.9;">HR #000 - Cargando...</small>
+            </div>
+            <button class="btn btn-sm btn-light text-primary fw-bold"
+                onclick="document.getElementById('modal-modo-repartidor').style.display='none'">
+                <i class="fas fa-times me-1"></i> Salir
+            </button>
+        </div>
+
+        <!-- Barra de Progreso -->
+        <div class="px-3 py-2 bg-light border-bottom d-flex justify-content-between align-items-center">
+            <span class="small text-muted fw-bold">PROGRESO DEL REPARTO</span>
+            <span class="badge bg-success" id="repartidor-progress-badge">0%</span>
+        </div>
+        <div class="progress" style="height: 6px; border-radius: 0;">
+            <div id="repartidor-progress-bar" class="progress-bar bg-success" style="width: 0%"></div>
+        </div>
+
+        <!-- Lista de Paradas (Scrollable) -->
+        <div class="flex-grow-1 overflow-auto p-2" id="repartidor-lista-paradas" style="background: #f0f2f5;">
+            <!-- Renderizado Dinámico -->
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-spinner fa-spin fa-2x mb-3"></i><br>Cargando ruta...
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirmar Entrega y Cobro -->
+<div id="modal-confirmar-entrega" class="modal-overlay" style="display:none; z-index: 3100;">
+    <div class="modal-content shadow-lg animate__animated animate__fadeInUp"
+        style="max-width: 400px; width: 95%; border-radius: 15px;">
+        <div class="modal-header bg-success text-white" style="border-radius: 15px 15px 0 0;">
+            <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Confirmar Entrega</h5>
+            <button class="btn-close-modal text-white" onclick="cerrarModalEntrega()">×</button>
+        </div>
+        <div class="modal-body p-4">
+            <input type="hidden" id="entrega-pedido-id">
+
+            <div class="text-center mb-4">
+                <h6 class="text-muted text-uppercase small ls-1">Total a Cobrar</h6>
+                <h1 class="display-4 fw-bold text-dark mb-0" id="entrega-monto-total">$0</h1>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold text-secondary text-uppercase small">Método de Pago</label>
+                <div class="d-grid gap-2">
+                    <input type="radio" class="btn-check" name="metodoPago" id="pago-efectivo" value="Efectivo" checked>
+                    <label
+                        class="btn btn-outline-success btn-lg text-start d-flex justify-content-between align-items-center"
+                        for="pago-efectivo">
+                        <span><i class="fas fa-money-bill-wave me-2"></i>Efectivo</span>
+                        <i class="fas fa-check-circle opacity-0"></i>
+                    </label>
+
+                    <input type="radio" class="btn-check" name="metodoPago" id="pago-mp" value="Mercado Pago">
+                    <label
+                        class="btn btn-outline-primary btn-lg text-start d-flex justify-content-between align-items-center"
+                        for="pago-mp">
+                        <span><i class="fas fa-qrcode me-2"></i>Mercado Pago</span>
+                        <i class="fas fa-check-circle opacity-0"></i>
+                    </label>
+
+                    <input type="radio" class="btn-check" name="metodoPago" id="pago-cc" value="Cuenta Corriente">
+                    <label
+                        class="btn btn-outline-secondary btn-lg text-start d-flex justify-content-between align-items-center"
+                        for="pago-cc">
+                        <span><i class="fas fa-file-invoice me-2"></i>Cuenta Corriente</span>
+                        <i class="fas fa-check-circle opacity-0"></i>
+                    </label>
+                </div>
+            </div>
+
+            <div id="entrega-resumen-items" class="bg-light p-2 rounded small text-muted mb-3"
+                style="max-height:100px; overflow-y:auto;">
+                <!-- Lista de items breve -->
+            </div>
+
+            <button class="btn btn-success btn-lg w-100 py-3 fw-bold shadow-sm hover-scale"
+                onclick="confirmarEntregaBackend()">
+                CONFIRMAR ENTREGA
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Estilos Específicos Modo Repartidor */
+    .card-parada {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        background: white;
+        margin-bottom: 15px;
+        transition: transform 0.2s;
+        overflow: hidden;
+    }
+
+    .card-parada.visitado {
+        opacity: 0.7;
+        background: #f8f9fa;
+    }
+
+    .card-parada-header {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .card-parada-body {
+        padding: 15px;
+    }
+
+    .btn-check:checked+.btn-outline-success .fa-check-circle,
+    .btn-check:checked+.btn-outline-primary .fa-check-circle,
+    .btn-check:checked+.btn-outline-secondary .fa-check-circle {
+        opacity: 1;
+    }
+
+    .hover-scale:hover {
+        transform: scale(1.02);
+    }
+</style>

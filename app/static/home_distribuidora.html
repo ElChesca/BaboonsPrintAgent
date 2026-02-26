@@ -1,0 +1,153 @@
+<div class="app-dashboard">
+    <h2 class="dashboard-title">Operaciones de Distribución</h2>
+    <div class="app-grid">
+        <!-- Específicos de Distribuidora -->
+
+
+        <div class="app-card" onclick="loadContent(event, 'static/hoja_ruta.html', this)">
+            <img src="/static/img/icons/ventas.png" alt="Hoja de Ruta" class="app-icon"
+                onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name">Hojas de Ruta</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/mapa_clientes.html', this)">
+            <img src="/static/img/icons/reportes.png" alt="Mapa Clientes" class="app-icon"
+                onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name">Mapa de Clientes</span>
+        </div>
+
+        <!-- Módulos Estándar -->
+        <div class="app-card" onclick="loadContent(event, 'static/ventas.html', this)">
+            <img src="/static/img/icons/ventas.png" alt="Ventas" class="app-icon">
+            <span class="app-name">Ventas / Pedidos</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/caja.html', this)">
+            <img src="/static/img/icons/caja.png" alt="Caja" class="app-icon">
+            <span class="app-name">Caja</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/clientes.html', this)">
+            <img src="/static/img/icons/clientes.png" alt="Clientes" class="app-icon">
+            <span class="app-name">Cartera de Clientes</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/inventario.html', this)">
+            <img src="/static/img/icons/inventario.png" alt="Inventario" class="app-icon">
+            <span class="app-name">Inventario</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/presupuestos.html', this)">
+            <img src="/static/img/icons/presupuesto.png" alt="Presupuestos" class="app-icon">
+            <span class="app-name">Presupuestos</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/proveedores.html', this)">
+            <img src="/static/img/icons/proveedor.png" alt="Proveedores" class="app-icon">
+            <span class="app-name">Proveedores</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/gastos.html', this)">
+            <img src="/static/img/icons/gastos.png" alt="Gastos Operativos" class="app-icon">
+            <span class="app-name">Gastos Operativos</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/ingresos.html', this)">
+            <img src="/static/img/icons/ingresos.png" alt="Ingresos" class="app-icon">
+            <span class="app-name">Ingresos de Stock</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/dashboard.html', this)">
+            <img src="/static/img/icons/dashboard.png" alt="Dashboard" class="app-icon">
+            <span class="app-name">Estadísticas</span>
+        </div>
+    </div>
+</div>
+
+<div class="app-dashboard" style="padding-top: 15px;">
+    <h2 class="dashboard-title">Historiales y Reportes</h2>
+    <div class="app-grid">
+        <div class="app-card" onclick="loadContent(event, 'static/historial_inventario.html', this)">
+            <img src="/static/img/icons/historial_inventario.png" alt="Historial Inventario" class="app-icon"
+                onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name">Historial Inventario</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/historial_presupuestos.html', this)">
+            <img src="/static/img/icons/presupuesto.png" alt="Presupuestos" class="app-icon"
+                onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name">Historial Presupuestos</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/historial_ajustes.html', this)">
+            <img src="/static/img/icons/caja.png" alt="Historial Ajustes" class="app-icon"
+                onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name">Historial Ajustes</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/historial_pagos_proveedores.html', this)">
+            <img src="/static/img/icons/payments.png" alt="Pagos Prov." class="app-icon"
+                onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name">Historial Pagos Prov.</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/historial_ingresos.html', this)">
+            <img src="/static/img/icons/ingresos.png" alt="Historial Ingresos" class="app-icon"
+                onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name">Historial Ingresos Stock</span>
+        </div>
+    </div>
+</div>
+
+<div class="app-dashboard" style="padding-top: 15px;">
+    <h2 class="dashboard-title">Administración y Reglas</h2>
+    <div class="app-grid admin-only">
+        <div class="app-card" onclick="loadContent(event, 'static/configuracion.html', this)">
+            <img src="/static/img/icons/configuracion.png" alt="Configuración" class="app-icon">
+            <span class="app-name">Conf. y Reglas</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/empleados.html', this)">
+            <img src="/static/img/icons/usuarios.png" alt="Empleados" class="app-icon"
+                onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name">Gestión Empleados</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/vendedores.html', this)">
+            <img src="/static/img/icons/usuarios.png" alt="Vendedores" class="app-icon"
+                onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name">Gestión Vendedores</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/categorias.html', this)">
+            <img src="/static/img/icons/categorias.png" alt="Categorías" class="app-icon">
+            <span class="app-name">Categorías Prod.</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/gastos_categorias.html', this)">
+            <img src="/static/img/icons/gastos_categorias.png" alt="Categorías de Gastos" class="app-icon"
+                onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name">Categorías Gastos</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/listas_precios.html', this)">
+            <img src="/static/img/icons/price_list.png" alt="Listas de Precios" class="app-icon">
+            <span class="app-name">Listas de Precios</span>
+        </div>
+
+        <div class="app-card admin-only" onclick="loadContent(event, 'static/usuarios.html', this)">
+            <img src="/static/img/icons/usuarios.png" alt="Usuarios" class="app-icon">
+            <span class="app-name">Usuarios</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/unidades_medida.html', this)">
+            <img src="/static/img/icons/unidadesdemedida.png" alt="Unidades de Medida" class="app-icon">
+            <span class="app-name">Unidades de Medida</span>
+        </div>
+
+        <div class="app-card superadmin-only" onclick="loadContent(event, 'static/negocios.html', this)">
+            <img src="/static/img/icons/negocios.png" alt="Negocios" class="app-icon">
+            <span class="app-name">Negocios</span>
+        </div>
+    </div>
+</div>

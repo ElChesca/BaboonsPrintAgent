@@ -32,7 +32,7 @@ function renderizarTablaYTotales() {
 
     const bonificacionPct = parseFloat(document.getElementById('presupuesto-bonificacion').value) || 0;
     const interesPct = parseFloat(document.getElementById('presupuesto-interes').value) || 0;
-    
+
     const montoBonificacion = subtotal * (bonificacionPct / 100);
     const montoInteres = subtotal * (interesPct / 100);
     const totalFinal = subtotal - montoBonificacion + montoInteres;
@@ -43,24 +43,29 @@ function renderizarTablaYTotales() {
 
 async function cargarDatosIniciales() {
     try {
-        const [productos, clientes] = await Promise.all([
-            fetchData(`/api/negocios/${appState.negocioActivoId}/productos`),
-            fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`)
-        ]);
-
+        const productos = await fetchData(`/api/negocios/${appState.negocioActivoId}/productos`);
         productosCache = productos;
-        
-        const selCliente = document.getElementById('presupuesto-cliente');
-        selCliente.innerHTML = '<option value="">Seleccione un cliente...</option>';
-        clientes.forEach(c => selCliente.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
 
         const currentUser = getCurrentUser();
         if (currentUser) {
             document.getElementById('presupuesto-vendedor').value = currentUser.nombre;
         }
-
     } catch (error) {
         mostrarNotificacion('Error al cargar datos iniciales: ' + error.message, 'error');
+    }
+}
+
+/** Establece el cliente seleccionado en la interfaz del presupuesto */
+function setClientePresupuesto(cliente) {
+    const hiddenInput = document.getElementById('presupuesto-cliente');
+    const displayInput = document.getElementById('presupuesto-cliente-display');
+    if (!hiddenInput || !displayInput) return;
+    if (cliente) {
+        hiddenInput.value = cliente.id;
+        displayInput.value = cliente.nombre;
+    } else {
+        hiddenInput.value = '';
+        displayInput.value = '';
     }
 }
 /** Carga los datos de un presupuesto existente en el formulario */
@@ -68,15 +73,27 @@ async function cargarPresupuestoParaEditar(id) {
     try {
         const data = await fetchData(`/api/presupuestos/${id}`);
         const { cabecera, detalles } = data;
+        const currentUser = getCurrentUser();
+        const isAdmin = currentUser && (currentUser.rol === 'admin' || currentUser.rol === 'superadmin');
 
-        // ✨ CORRECCIONES CLAVE: Rellenamos todos los campos del formulario.
+        // ✨ PROTECCIÓN EXTRA: Solo el dueño o admin edita
+        if (!isAdmin && cabecera.vendedor_id !== currentUser.id) {
+            mostrarNotificacion('Error: No tienes permiso para editar este presupuesto.', 'error');
+            window.location.hash = '#historial_presupuestos';
+            return;
+        }
+
+        document.getElementById('presupuesto-cliente-display').value = cabecera.cliente_nombre || '';
         document.getElementById('presupuesto-cliente').value = cabecera.cliente_id;
-        document.getElementById('presupuesto-vendedor').value = getCurrentUser().nombre; // O podrías traerlo del backend
+        // Mostramos el nombre del vendedor original (cabecera.vendedor_nombre no existe en cabecera de la API, pero sí en el token decoded... un momento)
+        // La API /api/presupuestos/<id> devuelve el objeto presupuesto directo. 
+        // Necesitamos asegurar que el vendedor_id no se pierda.
+
+        document.getElementById('presupuesto-vendedor').value = cabecera.vendedor_nombre || currentUser.nombre;
         document.getElementById('presupuesto-tipo-comprobante').value = cabecera.tipo_comprobante;
         document.getElementById('presupuesto-forma-pago').value = cabecera.forma_pago;
         document.getElementById('presupuesto-plazo-pago').value = cabecera.plazo_pago;
-        
-        // El formato de fecha del input es 'YYYY-MM-DD'
+
         if (cabecera.fecha_entrega_estimada) {
             document.getElementById('presupuesto-fecha-entrega').value = cabecera.fecha_entrega_estimada.split('T')[0];
         }
@@ -95,7 +112,7 @@ async function cargarPresupuestoParaEditar(id) {
 
         document.querySelector('h2').textContent = `📝 Editando Presupuesto Nro. ${id}`;
         document.getElementById('btn-guardar-presupuesto').textContent = 'Actualizar Presupuesto';
-        
+
     } catch (error) {
         mostrarNotificacion('Error al cargar el presupuesto para editar.', 'error');
     }
@@ -105,31 +122,78 @@ async function cargarPresupuestoParaEditar(id) {
 export function inicializarLogicaPresupuestos() {
     stagedBudgetItems = [];
     const idParaEditar = sessionStorage.getItem('presupuestoIdParaEditar');
-        if (idParaEditar) {
-            // Si encontramos un ID, cargamos ese presupuesto en lugar de empezar de cero
-            cargarPresupuestoParaEditar(idParaEditar);
-            sessionStorage.removeItem('presupuestoIdParaEditar'); // Limpiamos para la próxima vez
-        } else {
-            // Si no, cargamos los datos para un presupuesto nuevo
-            cargarDatosIniciales();
-        }
-        // Lógica para el botón de abrir modal de nuevo cliente
+    if (idParaEditar) {
+        // Si encontramos un ID, cargamos ese presupuesto en lugar de empezar de cero
+        cargarPresupuestoParaEditar(idParaEditar);
+        sessionStorage.removeItem('presupuestoIdParaEditar'); // Limpiamos para la próxima vez
+    } else {
+        // Si no, cargamos los datos para un presupuesto nuevo
+        cargarDatosIniciales();
+    }
+    // --- Lógica del Modal de Búsqueda de Clientes ---
+    const modalBuscarCliente = document.getElementById('modal-buscar-cliente-presupuesto');
+    const btnBuscarCliente = document.getElementById('btn-buscar-cliente-presupuesto');
+    const displayCliente = document.getElementById('presupuesto-cliente-display');
+    const inputBuscar = document.getElementById('input-buscar-cliente-presupuesto');
+    const resultadosContainer = document.getElementById('resultados-clientes-presupuesto');
+    const closeBuscar = document.getElementById('close-buscar-cliente-presupuesto');
+
+    let timeoutBusqueda = null;
+    const abrirModalBusqueda = () => {
+        if (!modalBuscarCliente) return;
+        modalBuscarCliente.style.display = 'flex';
+        if (inputBuscar) { inputBuscar.value = ''; inputBuscar.focus(); }
+        if (resultadosContainer) resultadosContainer.innerHTML = '<div class="search-placeholder">Escribe para empezar a buscar...</div>';
+    };
+
+    if (btnBuscarCliente) btnBuscarCliente.onclick = abrirModalBusqueda;
+    if (displayCliente) displayCliente.onclick = abrirModalBusqueda;
+    if (closeBuscar) closeBuscar.onclick = () => modalBuscarCliente.style.display = 'none';
+    window.addEventListener('click', (e) => {
+        if (modalBuscarCliente && e.target === modalBuscarCliente) modalBuscarCliente.style.display = 'none';
+    });
+
+    if (inputBuscar) {
+        inputBuscar.addEventListener('input', () => {
+            clearTimeout(timeoutBusqueda);
+            const query = inputBuscar.value.trim();
+            if (query.length < 2) {
+                resultadosContainer.innerHTML = '<div class="search-placeholder">Escribe para empezar a buscar...</div>';
+                return;
+            }
+            timeoutBusqueda = setTimeout(async () => {
+                try {
+                    const response = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes?search=${encodeURIComponent(query)}&limit=10`);
+                    const clientes = response.data || [];
+                    if (clientes.length === 0) {
+                        resultadosContainer.innerHTML = '<div class="search-placeholder">No se encontraron clientes.</div>';
+                        return;
+                    }
+                    resultadosContainer.innerHTML = clientes.map(c => `
+                        <div class="result-item-cliente" data-id="${c.id}" data-nombre="${c.nombre}">
+                            <span class="name">${c.nombre}</span>
+                            <span class="sub">${c.dni ? 'DNI: ' + c.dni : 'Sin DNI'} | ${c.direccion || 'Sin dirección'}</span>
+                        </div>`).join('');
+                    resultadosContainer.querySelectorAll('.result-item-cliente').forEach(div => {
+                        div.onclick = () => {
+                            setClientePresupuesto({ id: div.dataset.id, nombre: div.dataset.nombre });
+                            modalBuscarCliente.style.display = 'none';
+                        };
+                    });
+                } catch (err) { console.error(err); }
+            }, 300);
+        });
+    }
+
+    // --- Botón + para crear cliente rápido ---
     const btnAbrirModal = document.getElementById('btn-abrir-modal-cliente');
-        if (btnAbrirModal) {
-            btnAbrirModal.addEventListener('click', () => {
-                // Llamamos a la función global y le pasamos lo que debe hacer cuando el cliente se cree
-                window.abrirModalNuevoCliente(async (nuevoCliente) => {
-                    // 1. Recargamos la lista de clientes en el selector
-                    const selCliente = document.getElementById('presupuesto-cliente');
-                    const clientes = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes`);
-                    selCliente.innerHTML = '<option value="">Seleccione un cliente...</option>';
-                    clientes.forEach(c => selCliente.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
-                    
-                    // 2. Seleccionamos automáticamente el cliente recién creado
-                    selCliente.value = nuevoCliente.id;
-                });
+    if (btnAbrirModal) {
+        btnAbrirModal.addEventListener('click', () => {
+            window.abrirModalNuevoCliente(async (nuevoCliente) => {
+                setClientePresupuesto(nuevoCliente);
             });
-        }
+        });
+    }
 
     const elementos = {
         formAddItem: document.getElementById('form-add-item-presupuesto'),
@@ -228,8 +292,8 @@ export function inicializarLogicaPresupuestos() {
             });
             mostrarNotificacion(response.message, 'success');
             stagedBudgetItems = [];
-            //document.getElementById('form-presupuesto-principal').reset();
             document.getElementById('presupuesto-cliente').value = '';
+            document.getElementById('presupuesto-cliente-display').value = '';
             document.getElementById('presupuesto-forma-pago').value = 'A convenir';
             document.getElementById('presupuesto-plazo-pago').value = '30 días';
             document.getElementById('presupuesto-fecha-entrega').value = '';

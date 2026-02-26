@@ -1,0 +1,112 @@
+<!-- app/static/pos.html -->
+<link rel="stylesheet" href="/static/css/pos.css">
+
+<div class="pos-retail-container">
+    <!-- Header: Status and Quick Info -->
+    <div class="pos-header card">
+        <div class="brand">
+            <span class="brand-text">Re Pancho</span>
+            <span class="brand-tag">Caja Rápida</span>
+        </div>
+        <div class="customer-info">
+            <label>Cliente:</label>
+            <select id="pos-cliente-selector">
+                <option value="">Consumidor Final</option>
+            </select>
+        </div>
+        <div class="user-status">
+            <div id="pos-info-caja" class="caja-badge">Verificando caja...</div>
+            <span id="pos-user-name" class="user-pill">Cargando...</span>
+        </div>
+    </div>
+
+    <div class="pos-content">
+        <!-- Main: Product Selection Grid -->
+        <main class="product-selection">
+            <!-- <div class="search-bar-container">
+                <input type="text" id="pos-product-search" placeholder="Buscar producto o escanear código..."
+                    autocomplete="off">
+                <div id="pos-search-results" class="search-suggestions" style="display: none;"></div>
+            </div> -->
+
+            <!-- <div class="category-tabs" id="pos-categories">
+                <button class="cat-btn active" data-cat="top">Más Vendidos</button>
+            </div> -->
+
+            <div class="products-grid" id="pos-products-grid">
+                <!-- Dynamically populated product buttons -->
+                <div class="loading-grid">Cargando productos...</div>
+            </div>
+        </main>
+
+        <!-- Sidebar: Cart and Payments -->
+        <aside class="cart-panel card">
+            <div class="cart-header">
+                <h3>Venta Actual</h3>
+                <button id="pos-clear-cart" class="btn-text">Vaciar</button>
+            </div>
+
+            <div class="cart-items-container">
+                <table id="pos-cart-table">
+                    <thead>
+                        <tr>
+                            <th>Prod</th>
+                            <th>Cant</th>
+                            <th>Total</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Items will be added here -->
+                    </tbody>
+                </table>
+                <div id="pos-empty-cart-msg" class="empty-msg">Tu carrito está vacío</div>
+            </div>
+
+            <div class="cart-footer">
+                <div class="total-section">
+                    <span class="total-label">Subtotal:</span>
+                    <span id="pos-subtotal" class="total-amount">$0,00</span>
+                </div>
+                <div class="total-section grand-total">
+                    <span class="total-label">TOTAL:</span>
+                    <span id="pos-total" class="total-amount">$0,00</span>
+                </div>
+
+                <div class="payment-actions">
+                    <!-- <button id="pos-pay-mp" class="btn-payment mp">
+                        <i class="icon-mp"></i> QR Mercado Pago
+                    </button> -->
+                    <button id="pos-pay-point" class="btn-payment point" style="background: #009ee3; color: white;">
+                        <i class="fas fa-tablet-alt"></i> Cobrar con Point
+                    </button>
+                    <button id="pos-pay-cash" class="btn-payment cash">
+                        Efectivo (F10)
+                    </button>
+                    <button id="pos-pay-other" class="btn-payment other">
+                        Otros
+                    </button>
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<!-- Simple Payment Modal for 'Other' methods -->
+<div id="pos-payment-modal" class="modal">
+    <div class="modal-content">
+        <h3>Finalizar Venta</h3>
+        <div class="form-group">
+            <label>Método de Pago:</label>
+            <select id="pos-modal-payment-method">
+                <option value="Tarjeta">Tarjeta de Crédito</option>
+                <option value="Debito">Tarjeta de Débito</option>
+                <option value="Transf.">Transferencia</option>
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button id="pos-modal-cancel" class="btn-secondary">Cancelar</button>
+            <button id="pos-modal-confirm" class="btn-primary">Confirmar Venta</button>
+        </div>
+    </div>
+</div>

@@ -21,8 +21,13 @@ const btnStartScanner = document.getElementById('btn-start-scanner');
 const errorDiv = document.getElementById('error-message');
 const scannerContainer = document.getElementById('scanner-container');
 
+// --- Nuevos Selectores (Unificado) ---
+const sourceRadios = document.querySelectorAll('input[name="stock-source"]');
+const vehiculoContainer = document.getElementById('container-vehiculo-selector');
+const vehiculoSelector = document.getElementById('vehiculo-selector-movil');
+
 // Variable para la instancia del escáner
-let html5QrcodeScannerInstance = null; // Renombramos para claridad
+let html5QrcodeScannerInstance = null;
 
 // --- Funciones API ---
 async function fetchWithAuth(url, options = {}) {
@@ -37,7 +42,7 @@ async function fetchWithAuth(url, options = {}) {
         const response = await fetch(url, options);
         if (!response.ok) {
             let errorMsg = `Error ${response.status}`;
-            try { const errData = await response.json(); errorMsg = errData.error || errData.message || errorMsg; } catch (e) {}
+            try { const errData = await response.json(); errorMsg = errData.error || errData.message || errorMsg; } catch (e) { }
             throw new Error(errorMsg);
         }
         if (response.status === 204) return null;
@@ -47,17 +52,52 @@ async function fetchWithAuth(url, options = {}) {
 
 async function buscarProductoPorCodigo(codigo) {
     if (!NEGOCIO_ACTIVO_ID) { mostrarError("Por favor, seleccione un negocio primero."); return null; }
-    console.log(`Buscando código '${codigo}' en NEGOCIO_ID: ${NEGOCIO_ACTIVO_ID}`);
+
+    // Identificar origen
+    const source = Array.from(sourceRadios).find(r => r.checked)?.value || 'deposito';
+    const vehiculoId = vehiculoSelector.value;
+
+    if (source === 'vehiculo' && !vehiculoId) {
+        mostrarError("Por favor, seleccione un vehículo.");
+        return null;
+    }
+
+    console.log(`Buscando código '${codigo}' en origen: ${source} (Negocio: ${NEGOCIO_ACTIVO_ID})`);
     try {
-        return await fetchWithAuth(`/api/negocios/${NEGOCIO_ACTIVO_ID}/productos/por_codigo?codigo=${encodeURIComponent(codigo)}`);
+        // Primero buscamos el producto en el negocio (como siempre)
+        const producto = await fetchWithAuth(`/api/negocios/${NEGOCIO_ACTIVO_ID}/productos/por_codigo?codigo=${encodeURIComponent(codigo)}`);
+
+        // Si el origen es vehículo, necesitamos el stock de ESE camión
+        if (producto && source === 'vehiculo') {
+            const stockData = await fetchWithAuth(`/api/vehiculos/${vehiculoId}/stock`);
+            // Buscamos este producto en el stock del camión
+            const stockItem = stockData.find(s => s.producto_id === producto.id);
+            producto.stock = stockItem ? stockItem.cantidad : 0;
+            producto.source_type = 'vehiculo';
+            producto.vehiculo_id = vehiculoId;
+        } else if (producto) {
+            producto.source_type = 'deposito';
+        }
+
+        return producto;
     } catch (error) { mostrarError(error.message); return null; }
 }
 
 async function ajustarStock(productoId, cantidadNueva) {
     if (!NEGOCIO_ACTIVO_ID) { mostrarError("Por favor, seleccione un negocio primero."); return null; }
+
+    const source = Array.from(sourceRadios).find(r => r.checked)?.value || 'deposito';
+    const vehiculoId = vehiculoSelector.value;
+
     try {
-        const payload = { producto_id: parseInt(productoId), cantidad_nueva: parseInt(cantidadNueva), negocio_id: NEGOCIO_ACTIVO_ID };
-        return await fetchWithAuth(`/api/inventario/ajustar`, { method: 'POST', body: JSON.stringify(payload) });
+        if (source === 'vehiculo') {
+            if (!vehiculoId) throw new Error("Seleccione un vehículo");
+            const payload = { producto_id: parseInt(productoId), cantidad_nueva: parseFloat(cantidadNueva), negocio_id: NEGOCIO_ACTIVO_ID };
+            return await fetchWithAuth(`/api/vehiculos/${vehiculoId}/stock/ajustar`, { method: 'POST', body: JSON.stringify(payload) });
+        } else {
+            const payload = { producto_id: parseInt(productoId), cantidad_nueva: parseFloat(cantidadNueva), negocio_id: NEGOCIO_ACTIVO_ID };
+            return await fetchWithAuth(`/api/inventario/ajustar`, { method: 'POST', body: JSON.stringify(payload) });
+        }
     } catch (error) { mostrarError(error.message); return null; }
 }
 
@@ -72,7 +112,7 @@ function mostrarInfoProducto(producto) {
     if (!productNameEl || !productSkuEl || !productStockEl || !productIdInput || !cantidadNuevaInput || !productInfoDiv || !qrReaderDiv || !btnStartScanner || !statusElement) return;
     productNameEl.textContent = producto.nombre;
     productSkuEl.textContent = producto.sku || producto.codigo_barras;
-    productStockEl.textContent = producto.stock;
+    productStockEl.innerHTML = `${producto.stock} <small class="text-muted">(${producto.source_type === 'vehiculo' ? 'En Camión' : 'En Depósito'})</small>`;
     productIdInput.value = producto.id;
     cantidadNuevaInput.value = producto.stock;
     productInfoDiv.classList.remove('hidden');
@@ -99,81 +139,58 @@ function resetUI() {
     }
     statusElement.classList.remove('hidden');
     errorDiv.classList.add('hidden');
-    // Detiene el escáner si está activo
-    if (html5QrcodeScannerInstance && html5QrcodeScannerInstance.getState() === Html5QrcodeScannerState.SCANNING) {
-         html5QrcodeScannerInstance.clear().catch(err => console.warn("Error al limpiar en resetUI", err));
+    if (html5QrcodeScannerInstance && html5QrcodeScannerInstance.getState() === 'SCANNING') {
+        html5QrcodeScannerInstance.clear().catch(err => console.warn("Error al limpiar en resetUI", err));
     }
 }
 
 // --- Lógica del Escáner ---
-// en static/js/modules/inventario_movil_main.js
-
-// en static/js/modules/inventario_movil_main.js
 
 function onScanSuccess(decodedText, decodedResult) {
     console.log(`Código escaneado: ${decodedText}`);
-    if(statusElement) statusElement.textContent = `Código detectado: ${decodedText}. Buscando...`;
-    if(manualCodeInput) manualCodeInput.value = decodedText;
+    if (statusElement) statusElement.textContent = `Código detectado: ${decodedText}. Buscando...`;
+    if (manualCodeInput) manualCodeInput.value = decodedText;
 
     buscarProductoPorCodigo(decodedText)
         .then(producto => {
-            console.log("Resultado de buscarProductoPorCodigo:", producto);
-
             if (producto) {
-                // ✨ --- VERIFICACIÓN ANTES DE VIBRAR --- ✨
-                // Comprueba si la función existe antes de llamarla
-                if (navigator.vibrate) {
-                    console.log("Intentando vibrar...");
-                    navigator.vibrate(100); // Vibra por 100ms si es posible
-                } else {
-                    console.log("Vibration API no soportada o deshabilitada.");
-                }
-                mostrarInfoProducto(producto); // Muestra info y OCULTA el scanner
+                if (navigator.vibrate) navigator.vibrate(100);
+                mostrarInfoProducto(producto);
             } else {
                 mostrarError(`Producto con código ${decodedText} no encontrado.`);
-                if(btnStartScanner) btnStartScanner.classList.remove('hidden');
-                if(qrReaderDiv) qrReaderDiv.classList.add('hidden');
+                if (btnStartScanner) btnStartScanner.classList.remove('hidden');
+                if (qrReaderDiv) qrReaderDiv.classList.add('hidden');
             }
         })
         .catch(err => {
-            console.error("Error en .catch de buscarProductoPorCodigo:", err);
+            console.error("Error al buscar producto:", err);
             mostrarError(`Error al buscar producto: ${err.message}`);
-            if(btnStartScanner) btnStartScanner.classList.remove('hidden');
-            if(qrReaderDiv) qrReaderDiv.classList.add('hidden');
+            if (btnStartScanner) btnStartScanner.classList.remove('hidden');
+            if (qrReaderDiv) qrReaderDiv.classList.add('hidden');
         })
         .finally(() => {
-            console.log("Ejecutando .finally() para limpiar el escáner.");
-            if (html5QrcodeScannerInstance && html5QrcodeScannerInstance.getState() === Html5QrcodeScannerState.SCANNING) {
-                html5QrcodeScannerInstance.clear()
-                    .then(() => console.log("Escáner limpiado con éxito."))
-                    .catch(error => console.error("Fallo al limpiar el escáner en .finally().", error));
-            } else {
-                 console.log("El escáner no estaba activo o no existe, no se limpió.");
+            if (html5QrcodeScannerInstance && html5QrcodeScannerInstance.getState() === 'SCANNING') {
+                html5QrcodeScannerInstance.clear().catch(error => console.error("Fallo al limpiar el escáner.", error));
             }
         });
 }
 
 function onScanFailure(error) {
     if (typeof error === 'string' && !error.toLowerCase().includes("not found")) { console.warn(`Error de escaneo: ${error}`); }
-    else if (error instanceof Error && error.name !== 'NotFoundException') { console.warn(`Error de escaneo: ${error.name}`, error); }
 }
 
 function iniciarScanner() {
     if (!NEGOCIO_ACTIVO_ID) { mostrarError("Seleccione un negocio."); return; }
-    console.log("iniciarScanner called");
-    if(statusElement) statusElement.textContent = 'Iniciando cámara...';
-    if(btnStartScanner) btnStartScanner.classList.add('hidden');
-    if(qrReaderDiv) qrReaderDiv.classList.remove('hidden');
-    if(productInfoDiv) productInfoDiv.classList.add('hidden');
+    if (statusElement) statusElement.textContent = 'Iniciando cámara...';
+    if (btnStartScanner) btnStartScanner.classList.add('hidden');
+    if (qrReaderDiv) qrReaderDiv.classList.remove('hidden');
+    if (productInfoDiv) productInfoDiv.classList.add('hidden');
 
-    if (html5QrcodeScannerInstance && html5QrcodeScannerInstance.getState() === Html5QrcodeScannerState.SCANNING) {
+    if (html5QrcodeScannerInstance && html5QrcodeScannerInstance.getState() === 'SCANNING') {
         html5QrcodeScannerInstance.clear().catch(err => console.error("Error al limpiar scanner previo", err));
     }
 
     try {
-        if (typeof Html5QrcodeScannerState === 'undefined') throw new Error("La librería Html5QrcodeScanner no se cargó.");
-        console.log("Html5QrcodeScanner encontrado!");
-
         const formatsToSupport = [
             Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
             Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39,
@@ -181,102 +198,97 @@ function iniciarScanner() {
             Html5QrcodeSupportedFormats.QR_CODE
         ];
 
-        html5QrcodeScannerInstance = new Html5QrcodeScanner( "qr-reader", { fps: 10, qrbox: { width: 250, height: 150 }, formatsToSupport: formatsToSupport, experimentalFeatures: { useBarCodeDetectorIfSupported: true }, facingMode: "environment" }, false );
+        html5QrcodeScannerInstance = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: { width: 250, height: 150 }, formatsToSupport: formatsToSupport, experimentalFeatures: { useBarCodeDetectorIfSupported: true }, facingMode: "environment" }, false);
         html5QrcodeScannerInstance.render(onScanSuccess, onScanFailure);
-        if(statusElement) statusElement.textContent = 'Listo para escanear.';
-
+        if (statusElement) statusElement.textContent = 'Listo para escanear.';
     } catch (error) {
         console.error("Error al inicializar Html5QrcodeScanner:", error);
-        mostrarError(`No se pudo iniciar el escáner: ${error.message}. ¿Permitiste acceso a cámara?`);
-        if(statusElement) statusElement.textContent = `Error: ${error.message}`;
-        if(btnStartScanner) btnStartScanner.classList.remove('hidden');
-        if(qrReaderDiv) qrReaderDiv.classList.add('hidden');
+        mostrarError(`No se pudo iniciar el escáner: ${error.message}.`);
+        if (btnStartScanner) btnStartScanner.classList.remove('hidden');
+        if (qrReaderDiv) qrReaderDiv.classList.add('hidden');
     }
 }
 
-// --- Función de Búsqueda ---
 async function buscarYMostrarProducto(codigo) {
     if (!codigo) { mostrarError("Ingrese un código."); return; }
-    if(statusElement) statusElement.textContent = `Buscando: ${codigo}...`;
+    if (statusElement) statusElement.textContent = `Buscando: ${codigo}...`;
     const producto = await buscarProductoPorCodigo(codigo);
-    if (producto) { navigator.vibrate(50); mostrarInfoProducto(producto); }
-    else { if(statusElement) statusElement.textContent = 'Intente de nuevo.'; }
+    if (producto) { if (navigator.vibrate) navigator.vibrate(50); mostrarInfoProducto(producto); }
 }
 
 // --- Inicialización y Listeners ---
 export async function inicializarLogicaInventarioMovil() {
-    console.log("DOM Cargado.");
-    // Polyfill para getState() si no existe (algunas versiones viejas de la librería no lo tienen)
-    if (typeof Html5QrcodeScannerState === 'undefined') {
-        var Html5QrcodeScannerState = { SCANNING: 'SCANNING', NOT_STARTED: 'NOT_STARTED', PAUSED: 'PAUSED' };
-        // Añade un método getState simple si no existe
-        if (typeof Html5QrcodeScannerState.prototype.getState === 'undefined') {
-            Html5QrcodeScannerState.prototype.getState = function() {
-                // Esto es una simplificación, no siempre será 100% preciso
-                return this._isScanning ? Html5QrcodeScannerState.SCANNING : Html5QrcodeScannerState.NOT_STARTED;
-            };
-        }
+    if (!negocioSelector || !manualCodeInput || !btnBuscarManual || !qrReaderDiv || !statusElement || !productInfoDiv || !productNameEl || !productSkuEl || !productStockEl || !productIdInput || !cantidadNuevaInput || !btnAjustar || !btnCancelar || !btnStartScanner || !errorDiv) {
+        console.error("Error FATAL: Faltan elementos esenciales del DOM.");
+        return;
     }
-    console.log("La Funcion Poylfill se ha aplicado si era necesario.");
-    // Verifica si TODOS los elementos esenciales existen
-    if (!negocioSelector || !manualCodeInput || !btnBuscarManual || !qrReaderDiv || !statusElement || !productInfoDiv || !productNameEl || !productSkuEl || !productStockEl || !productIdInput || !cantidadNuevaInput || !btnAjustar || !btnCancelar || !btnStartScanner || !errorDiv) {
-        console.error("Error FATAL: Faltan elementos esenciales del DOM. Verifica IDs en inventario_movil.html.");
-        alert("Error: La página no cargó correctamente. Faltan elementos.");
-        return;
-    }
-    console.log("Elementos esenciales encontrados.");
 
-    // --- Carga de Negocios ---
-    try {
-        const negocios = await fetchWithAuth('/api/negocios');
-        negocioSelector.innerHTML = '<option value="">-- Seleccione Negocio --</option>';
-        negocios.forEach(n => { negocioSelector.innerHTML += `<option value="${n.id}">${n.nombre}</option>`; });
-        const savedNegocioId = localStorage.getItem('negocioActivoId');
-        if (savedNegocioId && negocios.some(n => n.id == savedNegocioId)) {
-            negocioSelector.value = savedNegocioId;
-            NEGOCIO_ACTIVO_ID = savedNegocioId;
-            btnStartScanner.classList.remove('hidden');
-            statusElement.textContent = 'Listo. Apunte cámara o ingrese código.';
-        } else {
-             statusElement.textContent = 'Seleccione un negocio.';
-             btnStartScanner.classList.add('hidden'); // Asegura ocultar si no hay negocio
-        }
-    } catch (error) {
-        mostrarError("Error al cargar negocios: " + error.message);
-        negocioSelector.innerHTML = '<option value="">Error</option>';
-        statusElement.textContent = 'Error al cargar negocios.';
-         btnStartScanner.classList.add('hidden'); // Asegura ocultar si hay error
-    }
+    // --- Carga de Negocios y Vehículos ---
+    try {
+        const negocios = await fetchWithAuth('/api/negocios');
+        negocioSelector.innerHTML = '<option value="">-- Seleccione Negocio --</option>';
+        negocios.forEach(n => { negocioSelector.innerHTML += `<option value="${n.id}">${n.nombre}</option>`; });
 
-    // --- Listeners ---
-    negocioSelector.addEventListener('change', (e) => {
-        NEGOCIO_ACTIVO_ID = e.target.value;
-        localStorage.setItem('negocioActivoId', NEGOCIO_ACTIVO_ID);
-        resetUI();
-        console.log("Negocio activo:", NEGOCIO_ACTIVO_ID);
-    });
-    btnBuscarManual.addEventListener('click', () => buscarYMostrarProducto(manualCodeInput.value));
-    manualCodeInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarYMostrarProducto(manualCodeInput.value); } });
-    btnStartScanner.addEventListener('click', iniciarScanner);
-    btnAjustar.addEventListener('click', async () => {
-        const productoId = productIdInput.value;
-        const cantidad = cantidadNuevaInput.value;
-        if (!productoId || cantidad === '' || isNaN(parseInt(cantidad))) { // Verifica que cantidad sea un número
-            mostrarError("Ingrese una cantidad válida."); return;
-        }
-        btnAjustar.disabled = true; btnAjustar.textContent = 'Ajustando...';
-        const resultado = await ajustarStock(productoId, cantidad);
-        if (resultado) { alert('Stock ajustado con éxito.'); resetUI(); }
-        // Si hubo error, ajustarStock ya mostró el mensaje
-        btnAjustar.disabled = false; btnAjustar.textContent = '✅ Ajustar Stock';
-    });
-    btnCancelar.addEventListener('click', resetUI);
+        const savedNegocioId = localStorage.getItem('negocioId') || localStorage.getItem('negocioActivoId');
+        if (savedNegocioId && negocios.some(n => n.id == savedNegocioId)) {
+            negocioSelector.value = savedNegocioId;
+            NEGOCIO_ACTIVO_ID = savedNegocioId;
+            await cargarVehiculos();
+            btnStartScanner.classList.remove('hidden');
+            statusElement.textContent = 'Listo. Apunte cámara o ingrese código.';
+        } else {
+            statusElement.textContent = 'Seleccione un negocio.';
+            btnStartScanner.classList.add('hidden');
+        }
+    } catch (error) {
+        mostrarError("Error al cargar datos: " + error.message);
+    }
 
-    // Estado inicial UI (redundante pero seguro)
-    qrReaderDiv.classList.add('hidden');
-    productInfoDiv.classList.add('hidden');
-    if (!NEGOCIO_ACTIVO_ID) btnStartScanner.classList.add('hidden');
+    // --- Listeners ---
+    negocioSelector.addEventListener('change', async (e) => {
+        NEGOCIO_ACTIVO_ID = e.target.value;
+        localStorage.setItem('negocioId', NEGOCIO_ACTIVO_ID);
+        await cargarVehiculos();
+        resetUI();
+    });
 
-    console.log("Configuración inicial completa.");
+    sourceRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.value === 'vehiculo') {
+                vehiculoContainer.style.display = 'block';
+            } else {
+                vehiculoContainer.style.display = 'none';
+            }
+            resetUI();
+        });
+    });
+
+    btnBuscarManual.addEventListener('click', () => buscarYMostrarProducto(manualCodeInput.value));
+    manualCodeInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarYMostrarProducto(manualCodeInput.value); } });
+    btnStartScanner.addEventListener('click', iniciarScanner);
+    btnAjustar.addEventListener('click', async () => {
+        const productoId = productIdInput.value;
+        const cantidad = cantidadNuevaInput.value;
+        if (!productoId || cantidad === '' || isNaN(parseFloat(cantidad))) {
+            mostrarError("Ingrese una cantidad válida."); return;
+        }
+        btnAjustar.disabled = true; btnAjustar.textContent = 'Ajustando...';
+        const resultado = await ajustarStock(productoId, cantidad);
+        if (resultado) { alert('Stock ajustado con éxito.'); resetUI(); }
+        btnAjustar.disabled = false; btnAjustar.textContent = '✅ Ajustar Stock';
+    });
+    btnCancelar.addEventListener('click', resetUI);
 }
 
+async function cargarVehiculos() {
+    if (!NEGOCIO_ACTIVO_ID) return;
+    try {
+        const vehiculos = await fetchWithAuth(`/api/vehiculos?negocio_id=${NEGOCIO_ACTIVO_ID}`);
+        vehiculoSelector.innerHTML = '<option value="">-- Seleccione un Vehículo --</option>';
+        vehiculos.filter(v => v.activo).forEach(v => {
+            vehiculoSelector.innerHTML += `<option value="${v.id}">${v.patente} - ${v.modelo}</option>`;
+        });
+    } catch (e) {
+        console.error("Error cargando vehículos", e);
+    }
+}

@@ -14,6 +14,27 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def check_overlap(db, unit_id, start_date, end_date, exclude_contract_id=None):
+    """Verifica si hay solapamiento de fechas para la unidad."""
+    query = """
+        SELECT id FROM alquiler_contratos 
+        WHERE unidad_id = %s 
+        AND estado = 'activo'
+        AND (
+            (fecha_inicio <= %s AND fecha_fin >= %s) OR
+            (fecha_inicio <= %s AND fecha_fin >= %s) OR
+            (fecha_inicio >= %s AND fecha_fin <= %s)
+        )
+    """
+    params = [unit_id, end_date, start_date, end_date, end_date, start_date, end_date]
+    
+    if exclude_contract_id:
+        query += " AND id != %s"
+        params.append(exclude_contract_id)
+        
+    db.execute(query, tuple(params))
+    return db.fetchone() is not None
+
 # --- UNITS (CONTENEDORES) ---
 
 @bp.route('/negocios/<int:negocio_id>/rentals/units', methods=['GET'])
@@ -146,6 +167,10 @@ def create_contract(current_user, negocio_id):
         if r not in request.form:
              return jsonify({'error': f'Falta campo requerido: {r}'}), 400
 
+    db = get_db()
+    if check_overlap(db, request.form['unidad_id'], request.form['fecha_inicio'], request.form['fecha_fin']):
+        return jsonify({'error': 'La unidad ya está alquilada en ese rango de fechas'}), 409
+
     file = request.files.get('archivo_contrato')
     filename_saved = None
 
@@ -158,7 +183,7 @@ def create_contract(current_user, negocio_id):
         filename_saved = f"{timestamp}_{filename}"
         file.save(os.path.join(upload_folder, filename_saved))
 
-    db = get_db()
+    # db = get_db() -> Moved up for validation
     try:
         is_sqlite = 'sqlite' in str(type(g.db_conn))
         # New fields: latitud, longitud, costo_traslado, traslado_a_cargo
@@ -235,6 +260,96 @@ def get_expiring_contracts(current_user):
     db.execute(query, (negocio_id, limit_date))
     contracts = db.fetchall()
     return jsonify([dict(row) for row in contracts])
+
+@bp.route('/rentals/contracts/<int:contract_id>', methods=['PUT'])
+@token_required
+def update_contract(current_user, contract_id):
+    """Actualizar datos del contrato (fechas, monto, notas)"""
+    # Usamos request.form para consistencia si envian archivos en el futuro, 
+    # pero por ahora el frontend podria enviar JSON. Soportemos ambos.
+    if request.is_json:
+        data = request.get_json()
+    else:
+        # Si envian FormData
+        data = request.form.to_dict()
+
+    db = get_db()
+    
+    # Validar overlap si cambian las fechas
+    current_contract_query = "SELECT unidad_id, fecha_inicio, fecha_fin FROM alquiler_contratos WHERE id = %s"
+    db.execute(current_contract_query, (contract_id,))
+    current = db.fetchone()
+    if not current:
+        return jsonify({'error': 'Contrato no encontrado'}), 404
+
+    unit_id = current['unidad_id'] # No permitimos cambiar unidad por ahora en update simple
+    start_date = data.get('fecha_inicio', str(current['fecha_inicio']))
+    end_date = data.get('fecha_fin', str(current['fecha_fin']))
+    
+    # Solo validar si cambiaron fechas
+    if str(start_date) != str(current['fecha_inicio']) or str(end_date) != str(current['fecha_fin']):
+        if check_overlap(db, unit_id, start_date, end_date, exclude_contract_id=contract_id):
+            return jsonify({'error': 'La modificación genera conflicto de fechas'}), 409
+
+    # Campos actualizables
+    fields = ['fecha_inicio', 'fecha_fin', 'monto_mensual', 'dia_vencimiento_pago', 'notas', 
+              'latitud', 'longitud', 'costo_traslado', 'traslado_a_cargo']
+    
+    set_clauses = []
+    values = []
+    for f in fields:
+        if f in data:
+            set_clauses.append(f"{f} = %s")
+            values.append(data[f])
+            
+    if not set_clauses:
+        return jsonify({'message': 'Nada que actualizar'}), 200
+        
+    values.append(contract_id)
+    
+    try:
+        query = f"UPDATE alquiler_contratos SET {', '.join(set_clauses)} WHERE id = %s"
+        db.execute(query, tuple(values))
+        g.db_conn.commit()
+        return jsonify({'message': 'Contrato actualizado'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/rentals/contracts/<int:contract_id>/status', methods=['PATCH'])
+@token_required
+def update_contract_status(current_user, contract_id):
+    """Cambiar estado: activo -> finalizado/cancelado"""
+    data = request.get_json()
+    new_status = data.get('estado')
+    
+    if new_status not in ['finalizado', 'cancelado', 'activo']:
+        return jsonify({'error': 'Estado inválido'}), 400
+        
+    db = get_db()
+    try:
+        # Obtener unidad
+        db.execute("SELECT unidad_id FROM alquiler_contratos WHERE id = %s", (contract_id,))
+        row = db.fetchone()
+        if not row:
+            return jsonify({'error': 'Contrato no encontrado'}), 404
+            
+        unidad_id = row['unidad_id']
+        
+        # Actualizar contrato
+        db.execute("UPDATE alquiler_contratos SET estado = %s WHERE id = %s", (new_status, contract_id))
+        
+        # Si se finaliza o cancela, liberar unidad
+        if new_status in ['finalizado', 'cancelado']:
+            # Verificar si no hay OTRO contrato activo futuro? 
+            # Por simplicidad, asumimos que si finalizas EL activo, la unidad queda libre.
+            db.execute("UPDATE alquiler_unidades SET estado = 'disponible' WHERE id = %s", (unidad_id,))
+            
+        g.db_conn.commit()
+        return jsonify({'message': f'Contrato {new_status}'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
 
 
 # --- PAYMENTS ---

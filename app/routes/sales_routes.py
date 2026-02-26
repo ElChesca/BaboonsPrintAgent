@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify, g
 from app.database import get_db
 from app.auth_decorator import token_required
 import datetime
+import pytz
 
 bp = Blueprint('sales', __name__)
 
@@ -32,11 +33,31 @@ def registrar_venta(current_user, negocio_id):
                 return jsonify({'error': f"Stock insuficiente para '{producto['nombre'] if producto else 'ID desconocido'}'"}), 409
 
     try:
-        total_venta = sum(item['cantidad'] * item['precio_unitario'] for item in detalles)
+        # Cálculo del total base de los items
+        total_items = sum((item['cantidad'] * item['precio_unitario']) - float(item.get('bonificacion', 0)) for item in detalles)
+        
+        # Nuevos campos globales
+        bonificacion_global = float(data.get('bonificacion_global', 0))
+        descuento_global = float(data.get('descuento', 0)) # Mantenemos 'descuento' como nombre de campo en el JSON
+        gastos_envio = float(data.get('gastos_envio', 0))
+        
+        # Total final con bonificación (%), descuento ($) y envío ($)
+        # La bonificación global es un porcentaje que se aplica sobre el total de los items
+        total_con_bonif = total_items * (1 - (bonificacion_global / 100))
+        total_venta = total_con_bonif - descuento_global + gastos_envio
+
+        # Obtener hora actual en Argentina con offset para que el JSON sea unívoco
+        tz_ar = pytz.timezone('America/Argentina/Buenos_Aires')
+        fecha_actual = datetime.datetime.now(tz_ar)
 
         db.execute(
-            'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id',
-            (negocio_id, data.get('cliente_id'), current_user['id'], total_venta, data.get('metodo_pago'), datetime.datetime.now(), sesion_abierta['id'])
+            '''INSERT INTO ventas 
+               (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, 
+                mp_payment_intent_id, mp_status, descuento, bonificacion_global, gastos_envio) 
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id''',
+            (negocio_id, data.get('cliente_id'), current_user['id'], total_venta, data.get('metodo_pago'), 
+             fecha_actual, sesion_abierta['id'], data.get('mp_payment_intent_id'), 
+             data.get('mp_status'), descuento_global, bonificacion_global, gastos_envio)
         )
         venta_id = db.fetchone()['id']
 
@@ -52,9 +73,12 @@ def registrar_venta(current_user, negocio_id):
             db.execute('SELECT nombre, stock, stock_minimo FROM productos WHERE id = %s', (item['producto_id'],))
             producto_antes = db.fetchone()
             stock_anterior = producto_antes['stock']
+            
+            bonificacion = float(item.get('bonificacion', 0))
+            subtotal = (item['cantidad'] - bonificacion) * item['precio_unitario']
 
-            db.execute('INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (%s, %s, %s, %s, %s)',
-                       (venta_id, item['producto_id'], item['cantidad'], item['precio_unitario'], item['cantidad'] * item['precio_unitario']))
+            db.execute('INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal, bonificacion) VALUES (%s, %s, %s, %s, %s, %s)',
+                       (venta_id, item['producto_id'], item['cantidad'], item['precio_unitario'], subtotal, bonificacion))
 
             nuevo_stock = stock_anterior - item['cantidad']
             db.execute('UPDATE productos SET stock = %s WHERE id = %s', (nuevo_stock, item['producto_id']))
@@ -82,6 +106,8 @@ def get_historial_ventas(current_user, negocio_id):
     db = get_db()
     fecha_desde = request.args.get('fecha_desde')
     fecha_hasta = request.args.get('fecha_hasta')
+    cliente_id = request.args.get('cliente_id')
+    
     query = """
         SELECT
             v.id,
@@ -96,9 +122,11 @@ def get_historial_ventas(current_user, negocio_id):
         LEFT JOIN clientes c ON v.cliente_id = c.id
         WHERE v.negocio_id = %s
     """
-    # --- FIN DE LA CORRECCIÓN ---
-    
     params = [negocio_id]
+
+    if cliente_id:
+        query += " AND v.cliente_id = %s"
+        params.append(cliente_id)
 
     # Añadir filtros de fecha si se proporcionan
     if fecha_desde:
@@ -110,14 +138,24 @@ def get_historial_ventas(current_user, negocio_id):
         query += " AND v.fecha < %s"
         params.append(fecha_hasta_dt.strftime('%Y-%m-%d'))
         
-    query += " ORDER BY v.id DESC" # Ordenar por ID descendente es más común para historiales
+    query += " ORDER BY v.id DESC LIMIT 50" # Ordenar por ID descendente es más común para historiales
 
     db.execute(query, tuple(params))
     ventas = db.fetchall()
 
-    # Convertimos los resultados a un formato JSON friendly
-    # Esto ya lo hacías bien, no necesita cambios.
-    resultado_json = [dict(venta) for venta in ventas]
+    # Convertimos los resultados a un formato JSON friendly e ISO 8601 para fechas
+    resultado_json = []
+    for venta in ventas:
+        v_dict = dict(venta)
+        if isinstance(v_dict.get('fecha'), datetime.datetime):
+            # Asegurar que tenga offset de Argentina si no tiene (asumiendo que se guardó en hora local)
+            fecha = v_dict['fecha']
+            if fecha.tzinfo is None:
+                tz_ar = pytz.timezone('America/Argentina/Buenos_Aires')
+                fecha = tz_ar.localize(fecha)
+            v_dict['fecha'] = fecha.isoformat()
+        resultado_json.append(v_dict)
+    
     return jsonify(resultado_json)
 
 # --- RUTA PARA OBTENER DETALLES (Ya la tenías) ---
@@ -165,9 +203,17 @@ def get_venta_completa(current_user, venta_id):
             db.execute("SELECT * FROM clientes WHERE id = %s", (venta['cliente_id'],))
             cliente = db.fetchone()
 
-        # 4. Devolvemos todo en un solo paquete JSON
+        # 4. Devolvemos todo en un solo paquete JSON con fechas formateadas
+        venta_dict = dict(venta)
+        if isinstance(venta_dict.get('fecha'), datetime.datetime):
+            fecha = venta_dict['fecha']
+            if fecha.tzinfo is None:
+                tz_ar = pytz.timezone('America/Argentina/Buenos_Aires')
+                fecha = tz_ar.localize(fecha)
+            venta_dict['fecha'] = fecha.isoformat()
+
         return jsonify({
-            'cabecera': dict(venta),
+            'cabecera': venta_dict,
             'detalles': [dict(d) for d in detalles],
             'cliente': dict(cliente) if cliente else None
         })

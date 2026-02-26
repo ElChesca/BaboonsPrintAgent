@@ -1,26 +1,122 @@
 import { fetchData, sendData } from '../../js/api.js';
-import { appState, loadContent } from '../../js/main.js';
+import { appState } from '../../js/main.js';
 import { mostrarNotificacion } from '../../js/modules/notifications.js';
 
+// --- INICIALIZACIÓN CENTRAL ---
 export async function inicializarRentals(pageName) {
     console.log(`Inicializando Rentals: ${pageName}`);
+
+    // Pequeño delay para asegurar renderizado del DOM si requestAnimationFrame no fue suficiente
+    // A veces en móviles o redes lentas el renderizado del innerHTML puede tener micro-retrasos
+    await new Promise(r => setTimeout(r, 50));
+
     if (pageName === 'rentals_dashboard') {
         loadDashboard();
     } else if (pageName === 'rentals_units') {
-        loadUnits();
-        setupUnitsListeners();
+        waitForElement('rentals-units-table', () => {
+            loadUnits();
+            setupUnitsListeners();
+        });
     } else if (pageName === 'rentals_contracts') {
-        loadContracts();
-        setupContractsListeners();
+        waitForElement('rentals-contracts-table', () => {
+            loadContracts();
+            setupContractsListeners();
+        });
     }
 }
+
+// Helper para esperar elementos
+function waitForElement(id, callback, attempts = 10) {
+    const el = document.getElementById(id);
+    if (el) {
+        callback();
+    } else if (attempts > 0) {
+        // console.warn(`Esperando elemento ${id}... (${attempts})`);
+        setTimeout(() => waitForElement(id, callback, attempts - 1), 100);
+    } else {
+        console.error(`Error crítico: Elemento ${id} no apareció en el DOM.`);
+        mostrarNotificacion(`Error de interfaz: ${id} no encontrado.`, 'error');
+    }
+}
+
+// --- METADATA DE APPS (Iconos y Nombres) ---
+const APP_METADATA = {
+    // RENTALS
+    'rentals_units': { name: 'Unidades', icon: '/static/img/icons/inventario.png', path: 'static/rentals/rentals_units.html' },
+    'rentals_contracts': { name: 'Contratos', icon: '/static/img/icons/presupuesto.png', path: 'static/rentals/rentals_contracts.html' },
+    // COMUNES
+    'configuracion': { name: 'Configuración', icon: '/static/img/icons/configuracion.png', path: 'static/configuracion.html' },
+    'usuarios': { name: 'Usuarios', icon: '/static/img/icons/usuarios.png', path: 'static/usuarios.html' },
+    'negocios': { name: 'Negocios', icon: '/static/img/icons/negocios.png', path: 'static/negocios.html' },
+    // RETAIL
+    'ventas': { name: 'Ventas', icon: '/static/img/icons/ventas.png', path: 'static/ventas.html' },
+    'clientes': { name: 'Clientes', icon: '/static/img/icons/clientes.png', path: 'static/clientes.html' },
+    'caja': { name: 'Caja', icon: '/static/img/icons/caja.png', path: 'static/caja.html' },
+    'presupuestos': { name: 'Presupuestos', icon: '/static/img/icons/presupuesto.png', path: 'static/presupuestos.html' },
+    'inventario': { name: 'Inventario', icon: '/static/img/icons/inventario.png', path: 'static/inventario.html' },
+    'proveedores': { name: 'Proveedores', icon: '/static/img/icons/proveedor.png', path: 'static/proveedores.html' },
+    'payments': { name: 'Pago Proveed.', icon: '/static/img/icons/payments.png', path: 'static/payments.html' },
+    'gastos': { name: 'Gastos Operativos', icon: '/static/img/icons/gastos.png', path: 'static/gastos.html' },
+    'ingresos': { name: 'Ingresos Stock', icon: '/static/img/icons/ingresos.png', path: 'static/ingresos.html' },
+    'inventario_movil': { name: 'Inv. Móvil', icon: '/static/img/icons/inventariomovil.png', path: 'static/inventario_movil.html' },
+    'verificador': { name: 'Verificador', icon: '/static/img/icons/verificador.png', path: 'static/verificador.html' },
+    'crm_social': { name: 'CRM & Redes', icon: '/static/img/icons/clientes.png', path: 'static/crm_social/crm_social.html' },
+    // ADMIN / REPORTES
+    'categorias': { name: 'Categorias Prod.', icon: '/static/img/icons/categorias.png', path: 'static/categorias.html' },
+    'historial_inventario': { name: 'Hist. Inventario', icon: '/static/img/icons/historial_inventario.png', path: 'static/historial_inventario.html' },
+    'listas_precios': { name: 'Listas Precios', icon: '/static/img/icons/price_list.png', path: 'static/listas_precios.html' },
+    'precios_especificos': { name: 'Precios Esp.', icon: '/static/img/icons/precios_especificos.png', path: 'static/precios_especificos.html' },
+    'unidades_medida': { name: 'Unid. Medida', icon: '/static/img/icons/unidadesdemedida.png', path: 'static/unidades_medida.html' },
+    'gastos_categorias': { name: 'Cat. Gastos', icon: '/static/img/icons/gastos_categorias.png', path: 'static/gastos_categorias.html' },
+    'admin_apps': { name: 'Admin Apps', icon: '/static/img/icons/configuracion.png', path: 'static/admin_apps.html' },
+    'reporte_caja': { name: 'Reporte Caja', icon: '/static/img/icons/caja.png', path: 'static/reporte_caja.html' },
+    'reporte_ganancias': { name: 'Reporte Ganancias', icon: '/static/img/icons/ventas.png', path: 'static/reporte_ganancias.html' },
+    'reportes': { name: 'Reportes Gral.', icon: '/static/img/icons/ventas.png', path: 'static/reportes.html' },
+    'historial_ventas': { name: 'Hist. Ventas', icon: '/static/img/icons/ventas.png', path: 'static/historial_ventas.html' },
+    'historial_ingresos': { name: 'Hist. Ingresos', icon: '/static/img/icons/ingresos.png', path: 'static/historial_ingresos.html' },
+    'historial_pagos_proveedores': { name: 'Hist. Pagos', icon: '/static/img/icons/payments.png', path: 'static/historial_pagos_proveedores.html' },
+    'historial_presupuestos': { name: 'Hist. Presup.', icon: '/static/img/icons/presupuesto.png', path: 'static/historial_presupuestos.html' },
+    'historial_ajustes': { name: 'Hist. Ajustes', icon: '/static/img/icons/inventario.png', path: 'static/historial_ajustes.html' },
+    'factura': { name: 'Facturación', icon: '/static/img/icons/caja.png', path: 'static/factura.html' },
+    'ajuste_caja': { name: 'Ajuste Caja', icon: '/static/img/icons/caja.png', path: 'static/ajuste_caja.html' }
+};
 
 // --- DASHBOARD ---
 async function loadDashboard() {
     const negocioId = appState.negocioActivoId;
     if (!negocioId) return;
 
+    // 1. Renderizar APPS Dinámicas
+    const grid = document.getElementById('rentals-app-grid');
+    if (grid) {
+        grid.innerHTML = '';
+        const permisos = appState.permissions['rentals'] || [];
+        const comunes = appState.permissions['comun'] || ['configuracion', 'usuarios', 'negocios'];
+
+        // Unimos y deduplicamos permisos
+        const todosPermisos = [...new Set([...permisos, ...comunes])];
+
+        todosPermisos.forEach(modulo => {
+            if (modulo === 'rentals_dashboard') return; // Skip self
+
+            const meta = APP_METADATA[modulo] || { name: modulo, icon: '/static/img/logo.png', path: `static/${modulo}.html` };
+
+            const card = document.createElement('a');
+            card.href = `#${modulo}`;
+            card.className = 'app-card';
+            card.onclick = (e) => loadContent(e, meta.path || `static/${modulo}.html`, card);
+            card.innerHTML = `
+                <img src="${meta.icon}" class="app-icon" alt="${meta.name}">
+                <div class="app-name">${meta.name}</div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    // 2. Cargar Alertas
     const listContainer = document.getElementById('expiring-contracts-list');
+    if (!listContainer) return;
+
     listContainer.innerHTML = '<p>Cargando...</p>';
 
     try {
@@ -51,9 +147,17 @@ async function loadUnits() {
     if (!negocioId) return;
 
     try {
-        const units = await fetchData(`/api/negocios/${negocioId}/rentals/units`);
+        // Doble check por si acaso
         const tbody = document.getElementById('rentals-units-table');
+        if (!tbody) return;
+
+        const units = await fetchData(`/api/negocios/${negocioId}/rentals/units`);
         tbody.innerHTML = '';
+
+        if (units.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay unidades registradas.</td></tr>';
+            return;
+        }
 
         units.forEach(u => {
             const tr = document.createElement('tr');
@@ -84,81 +188,85 @@ function getStatusClass(status) {
 
 function setupUnitsListeners() {
     window.abrirModalUnidadRental = (id = null) => {
+        const modal = document.getElementById('modal-rental-unit');
+        if (!modal) return;
         document.getElementById('form-rental-unit').reset();
         document.getElementById('unit-id').value = '';
-        document.getElementById('modal-rental-unit').style.display = 'flex';
+
         if (id) {
-             // Fetch specific unit details if needed or pass full object
-             // For simplicity, we assume we reload or fetch
+            // Cargar datos para editar (esto requeriría tener los datos o un fetch individual)
+            // Por simplicidad en este parche, asumimos que no implementamos "Editar" full aquí
+            // o que la lógica de editar ya estaba y la mantenemos simple.
+            // TODO: Implementar fetch unit details if needed
         }
+
+        modal.style.display = 'block';
     };
 
     window.cerrarModalUnidadRental = () => {
-        document.getElementById('modal-rental-unit').style.display = 'none';
+        const modal = document.getElementById('modal-rental-unit');
+        if (modal) modal.style.display = 'none';
     };
 
     window.editarUnidad = async (id) => {
-        // Fetch unit data to fill form
-        // Simplified: reloading list contains data, but better to fetch single or find in cache
-        // Let's fetch single for robustness? Or iterate cache.
-        // Assuming we need to fill the form:
-        // Using a hack to find row data from DOM or re-fetch.
-        // Re-fetching list is cheap.
-        // Or fetch single endpoint I didn't verify if I created it?
-        // Ah, I created update PUT but not GET single.
-        // So I rely on list.
-        const negocioId = appState.negocioActivoId;
-        const units = await fetchData(`/api/negocios/${negocioId}/rentals/units`);
-        const unit = units.find(u => u.id === id);
-        if (unit) {
-            document.getElementById('unit-id').value = unit.id;
-            document.getElementById('unit-nombre').value = unit.nombre;
-            document.getElementById('unit-tipo').value = unit.tipo;
-            document.getElementById('unit-estado').value = unit.estado;
-            document.getElementById('unit-costo').value = unit.costo_adquisicion;
-            document.getElementById('unit-precio').value = unit.precio_base_alquiler;
-            document.getElementById('unit-ubicacion').value = unit.ubicacion_actual;
-            document.getElementById('modal-rental-unit').style.display = 'flex';
-        }
+        // Implementación rápida de fetch para editar
+        try {
+            const units = await fetchData(`/api/negocios/${appState.negocioActivoId}/rentals/units`);
+            const u = units.find(unit => unit.id === id);
+            if (u) {
+                document.getElementById('unit-id').value = u.id;
+                document.getElementById('unit-nombre').value = u.nombre;
+                document.getElementById('unit-tipo').value = u.tipo;
+                document.getElementById('unit-estado').value = u.estado;
+                document.getElementById('unit-costo').value = u.costo_adquisicion;
+                document.getElementById('unit-precio').value = u.precio_base_alquiler;
+                document.getElementById('unit-ubicacion').value = u.ubicacion_actual;
+                const modal = document.getElementById('modal-rental-unit');
+                if (modal) modal.style.display = 'block';
+            }
+        } catch (e) { console.error(e); }
     };
 
     window.eliminarUnidad = async (id) => {
-        if(!confirm('¿Seguro de eliminar?')) return;
+        if (!confirm('¿Seguro que deseas eliminar esta unidad?')) return;
         try {
             await sendData(`/api/rentals/units/${id}`, {}, 'DELETE');
             mostrarNotificacion('Unidad eliminada', 'success');
             loadUnits();
-        } catch(e) {
+        } catch (e) {
             mostrarNotificacion('Error al eliminar', 'error');
         }
     };
 
-    document.getElementById('form-rental-unit').onsubmit = async (e) => {
-        e.preventDefault();
-        const id = document.getElementById('unit-id').value;
-        const data = {
-            nombre: document.getElementById('unit-nombre').value,
-            tipo: document.getElementById('unit-tipo').value,
-            estado: document.getElementById('unit-estado').value,
-            costo_adquisicion: document.getElementById('unit-costo').value,
-            precio_base_alquiler: document.getElementById('unit-precio').value,
-            ubicacion_actual: document.getElementById('unit-ubicacion').value
-        };
+    const form = document.getElementById('form-rental-unit');
+    if (form) {
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('unit-id').value;
+            const data = {
+                nombre: document.getElementById('unit-nombre').value,
+                tipo: document.getElementById('unit-tipo').value,
+                estado: document.getElementById('unit-estado').value,
+                costo_adquisicion: document.getElementById('unit-costo').value,
+                precio_base_alquiler: document.getElementById('unit-precio').value,
+                ubicacion_actual: document.getElementById('unit-ubicacion').value
+            };
 
-        try {
-            const negocioId = appState.negocioActivoId;
-            if (id) {
-                await sendData(`/api/rentals/units/${id}`, data, 'PUT');
-            } else {
-                await sendData(`/api/negocios/${negocioId}/rentals/units`, data, 'POST');
+            try {
+                const negocioId = appState.negocioActivoId;
+                if (id) {
+                    await sendData(`/api/rentals/units/${id}`, data, 'PUT');
+                } else {
+                    await sendData(`/api/negocios/${negocioId}/rentals/units`, data, 'POST');
+                }
+                mostrarNotificacion('Guardado con éxito', 'success');
+                window.cerrarModalUnidadRental();
+                loadUnits();
+            } catch (e) {
+                mostrarNotificacion('Error al guardar', 'error');
             }
-            mostrarNotificacion('Guardado con éxito', 'success');
-            window.cerrarModalUnidadRental();
-            loadUnits();
-        } catch(e) {
-            mostrarNotificacion('Error al guardar', 'error');
-        }
-    };
+        };
+    }
 }
 
 // --- CONTRACTS ---
@@ -167,8 +275,10 @@ async function loadContracts() {
     if (!negocioId) return;
 
     try {
-        const contracts = await fetchData(`/api/negocios/${negocioId}/rentals/contracts`);
         const tbody = document.getElementById('rentals-contracts-table');
+        if (!tbody) return;
+
+        const contracts = await fetchData(`/api/negocios/${negocioId}/rentals/contracts`);
         tbody.innerHTML = '';
 
         contracts.forEach(c => {
@@ -182,6 +292,8 @@ async function loadContracts() {
                 <td>$${c.monto_mensual}</td>
                 <td>
                     <button class="btn btn-sm btn-info" onclick="verPagos(${c.id})">💰 Pagos</button>
+                    <button class="btn btn-sm btn-secondary" onclick="editarContrato(${c.id})">✏️</button>
+                    ${c.estado === 'activo' ? `<button class="btn btn-sm btn-warning" onclick="finalizarContrato(${c.id})">🏁 Fin</button>` : ''}
                     ${c.archivo_contrato ? `<a href="/static/rentals/uploads/${c.archivo_contrato}" target="_blank" class="btn btn-sm btn-secondary">📄</a>` : ''}
                 </td>
             `;
@@ -198,21 +310,29 @@ let marker = null;
 
 function setupContractsListeners() {
     window.abrirModalContrato = async () => {
+        const modal = document.getElementById('modal-rental-contract');
+        if (!modal) return;
+
         const negocioId = appState.negocioActivoId;
         // Load Clients
         const clientes = await fetchData(`/api/negocios/${negocioId}/clientes`);
         const selCliente = document.getElementById('contract-cliente');
         selCliente.innerHTML = '';
-        clientes.forEach(c => selCliente.add(new Option(c.nombre, c.id)));
+        clientes.forEach(c => {
+            selCliente.appendChild(new Option(c.nombre, c.id));
+        });
 
         // Load Available Units
         const units = await fetchData(`/api/negocios/${negocioId}/rentals/units`);
         const selUnidad = document.getElementById('contract-unidad');
         selUnidad.innerHTML = '';
-        units.filter(u => u.estado === 'disponible').forEach(u => selUnidad.add(new Option(`${u.nombre} ($${u.precio_base_alquiler})`, u.id)));
+        units.filter(u => u.estado === 'disponible').forEach(u => {
+            selUnidad.appendChild(new Option(`${u.nombre} ($${u.precio_base_alquiler})`, u.id));
+        });
 
         document.getElementById('form-rental-contract').reset();
-        document.getElementById('modal-rental-contract').style.display = 'flex';
+        document.getElementById('contract-id').value = ''; // Clear ID for new contract
+        modal.style.display = 'block';
 
         // Init Map after Modal is visible (Leaflet requirement)
         setTimeout(() => {
@@ -224,13 +344,12 @@ function setupContractsListeners() {
     };
 
     window.cerrarModalContrato = () => {
-        document.getElementById('modal-rental-contract').style.display = 'none';
+        const modal = document.getElementById('modal-rental-contract');
+        if (modal) modal.style.display = 'none';
     };
 
     function initMap() {
         if (map) return; // Already initialized
-        // Default: San Luis, Argentina (approx center of activity for this client context)
-        // Or generic Latam center
         const defaultLat = -33.29501;
         const defaultLng = -66.33563;
 
@@ -239,7 +358,7 @@ function setupContractsListeners() {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        map.on('click', function(e) {
+        map.on('click', function (e) {
             if (marker) map.removeLayer(marker);
             marker = L.marker(e.latlng).addTo(map);
             document.getElementById('contract-lat').value = e.latlng.lat;
@@ -247,92 +366,170 @@ function setupContractsListeners() {
         });
     }
 
-    document.getElementById('form-rental-contract').onsubmit = async (e) => {
-        e.preventDefault();
-        const formData = new FormData(); // Use FormData for file upload
+    const form = document.getElementById('form-rental-contract');
+    if (form) {
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
 
-        formData.append('cliente_id', document.getElementById('contract-cliente').value);
-        formData.append('unidad_id', document.getElementById('contract-unidad').value);
-        formData.append('fecha_inicio', document.getElementById('contract-inicio').value);
-        formData.append('fecha_fin', document.getElementById('contract-fin').value);
-        formData.append('monto_mensual', document.getElementById('contract-monto').value);
+            // Build FormData manually
+            const dataFields = {
+                cliente_id: document.getElementById('contract-cliente').value,
+                unidad_id: document.getElementById('contract-unidad').value,
+                fecha_inicio: document.getElementById('contract-inicio').value,
+                fecha_fin: document.getElementById('contract-fin').value,
+                monto_mensual: document.getElementById('contract-monto').value,
+                dia_vencimiento_pago: document.getElementById('contract-dia-pago').value,
+                notas: document.getElementById('contract-notas').value,
+                latitud: document.getElementById('contract-lat').value,
+                longitud: document.getElementById('contract-lng').value,
+                costo_traslado: document.getElementById('contract-costo-traslado').value,
+                traslado_a_cargo: document.getElementById('contract-traslado-cargo').value
+            };
 
-        // New Fields
-        formData.append('latitud', document.getElementById('contract-lat').value);
-        formData.append('longitud', document.getElementById('contract-lng').value);
-        formData.append('traslado_a_cargo', document.getElementById('contract-traslado-cargo').value);
-        formData.append('costo_traslado', document.getElementById('contract-traslado-costo').value);
-
-        const fileInput = document.getElementById('contract-file');
-        if (fileInput.files[0]) {
-            formData.append('archivo_contrato', fileInput.files[0]);
-        }
-
-        const photosInput = document.getElementById('contract-photos');
-        if (photosInput.files.length > 0) {
-            for (let i = 0; i < photosInput.files.length; i++) {
-                formData.append('fotos_estado', photosInput.files[i]);
+            if (!dataFields.cliente_id || !dataFields.unidad_id || !dataFields.fecha_inicio || !dataFields.fecha_fin) {
+                mostrarNotificacion("Complete los campos obligatorios", "warning");
+                return;
             }
-        }
 
-        try {
-            const negocioId = appState.negocioActivoId;
-            // Native fetch for FormData as api.js sendData might use JSON
-            const token = localStorage.getItem('token');
-            const response = await fetch(`/api/negocios/${negocioId}/rentals/contracts`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                    // Do NOT set Content-Type, browser sets it with boundary
-                },
-                body: formData
-            });
+            for (const key in dataFields) {
+                formData.append(key, dataFields[key]);
+            }
 
-            if (!response.ok) throw new Error('Error saving contract');
+            const fileInput = document.getElementById('contract-archivo');
+            if (fileInput.files[0]) {
+                formData.append('archivo_contrato', fileInput.files[0]);
+            }
 
-            mostrarNotificacion('Contrato creado', 'success');
-            window.cerrarModalContrato();
-            loadContracts();
-        } catch(e) {
-             console.error(e);
-            mostrarNotificacion('Error al guardar contrato', 'error');
-        }
-    };
+            const photosInput = document.getElementById('contract-fotos');
+            if (photosInput.files.length > 0) {
+                for (let i = 0; i < photosInput.files.length; i++) {
+                    formData.append('fotos_estado', photosInput.files[i]);
+                }
+            }
 
-    // Payments Logic
-    window.cerrarModalPagos = () => {
-        document.getElementById('modal-rental-payments').style.display = 'none';
-    };
+            const contractId = document.getElementById('contract-id').value;
 
-    window.verPagos = async (contractId) => {
-        document.getElementById('payment-contract-id').value = contractId;
-        const payments = await fetchData(`/api/rentals/contracts/${contractId}/payments`);
-        const tbody = document.getElementById('payments-list-body');
-        tbody.innerHTML = '';
-        payments.forEach(p => {
-             const tr = document.createElement('tr');
-             tr.innerHTML = `<td>${p.periodo}</td><td>$${p.monto_pagado}</td><td>${p.fecha_pago}</td>`;
-             tbody.appendChild(tr);
-        });
-        document.getElementById('modal-rental-payments').style.display = 'flex';
-    };
+            try {
+                const negocioId = appState.negocioActivoId;
+                const token = localStorage.getItem('token');
+                let url = `/api/negocios/${negocioId}/rentals/contracts`;
+                let method = 'POST';
 
-    document.getElementById('form-payment').onsubmit = async (e) => {
-        e.preventDefault();
-        const contractId = document.getElementById('payment-contract-id').value;
-        const data = {
-            periodo: document.getElementById('payment-period').value,
-            monto_pagado: document.getElementById('payment-amount').value
+                if (contractId) {
+                    url = `/api/rentals/contracts/${contractId}`;
+                    method = 'PUT';
+                    // Para PUT convertimos a JSON porque requests.form es tricky con files en updates s/n soporte explicito
+                    const data = {};
+                    formData.forEach((value, key) => { data[key] = value });
+                    delete data.archivo_contrato;
+                    delete data.fotos_estado;
+                    await sendData(url, data, 'PUT');
+                } else {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        body: formData
+                    });
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.error || 'Error saving contract');
+                    }
+                }
+
+                mostrarNotificacion('Operación exitosa', 'success');
+                window.cerrarModalContrato();
+                loadContracts();
+            } catch (e) {
+                console.error(e);
+                mostrarNotificacion(e.message || 'Error al guardar', 'error');
+            }
         };
-
-        try {
-            await sendData(`/api/rentals/contracts/${contractId}/payments`, data, 'POST');
-            mostrarNotificacion('Pago registrado', 'success');
-            window.verPagos(contractId); // Reload list
-            document.getElementById('form-payment').reset();
-            document.getElementById('payment-contract-id').value = contractId; // Restore ID
-        } catch(e) {
-            mostrarNotificacion('Error al registrar pago', 'error');
-        }
-    };
+    }
 }
+
+
+window.editarContrato = async (id) => {
+    const contracts = await fetchData(`/api/negocios/${appState.negocioActivoId}/rentals/contracts`);
+    const c = contracts.find(x => x.id === id);
+    if (!c) return;
+
+    // Open modal
+    await window.abrirModalContrato();
+
+    // Fill data
+    document.getElementById('contract-id').value = c.id;
+    document.getElementById('contract-cliente').value = c.cliente_id;
+    // Unidad might not be in the list if it's already rented!
+    // We need to add it temporarily if missing
+    const selUnidad = document.getElementById('contract-unidad');
+    if (![...selUnidad.options].some(o => o.value == c.unidad_id)) {
+        selUnidad.add(new Option(`${c.unidad_nombre} (Actual)`, c.unidad_id));
+    }
+    document.getElementById('contract-unidad').value = c.unidad_id;
+
+    document.getElementById('contract-inicio').value = c.fecha_inicio;
+    document.getElementById('contract-fin').value = c.fecha_fin;
+    document.getElementById('contract-monto').value = c.monto_mensual;
+
+    document.getElementById('contract-lat').value = c.latitud || '';
+    document.getElementById('contract-lng').value = c.longitud || '';
+    document.getElementById('contract-traslado-cargo').value = c.traslado_a_cargo || 'cliente';
+    document.getElementById('contract-traslado-costo').value = c.costo_traslado || 0;
+
+    if (map && c.latitud && c.longitud) {
+        if (marker) map.removeLayer(marker);
+        marker = L.marker([c.latitud, c.longitud]).addTo(map);
+        map.setView([c.latitud, c.longitud], 13);
+    }
+};
+
+window.finalizarContrato = async (id) => {
+    if (!confirm('¿Finalizar este contrato? La unidad pasará a estar disponible.')) return;
+    try {
+        await sendData(`/api/rentals/contracts/${id}/status`, { estado: 'finalizado' }, 'PATCH');
+        mostrarNotificacion('Contrato finalizado', 'success');
+        loadContracts();
+        loadUnits(); // Refrescar unidades también
+    } catch (e) {
+        mostrarNotificacion('Error al finalizar', 'error');
+    }
+};
+
+// Payments Logic
+window.cerrarModalPagos = () => {
+    document.getElementById('modal-rental-payments').style.display = 'none';
+};
+
+window.verPagos = async (contractId) => {
+    document.getElementById('payment-contract-id').value = contractId;
+    const payments = await fetchData(`/api/rentals/contracts/${contractId}/payments`);
+    const tbody = document.getElementById('payments-list-body');
+    tbody.innerHTML = '';
+    payments.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${p.periodo}</td><td>$${p.monto_pagado}</td><td>${p.fecha_pago}</td>`;
+        tbody.appendChild(tr);
+    });
+    document.getElementById('modal-rental-payments').style.display = 'flex';
+};
+
+const formPayment = document.getElementById('form-payment');
+if (formPayment) formPayment.onsubmit = async (e) => {
+    e.preventDefault();
+    const contractId = document.getElementById('payment-contract-id').value;
+    const data = {
+        periodo: document.getElementById('payment-period').value,
+        monto_pagado: document.getElementById('payment-amount').value
+    };
+
+    try {
+        await sendData(`/api/rentals/contracts/${contractId}/payments`, data, 'POST');
+        mostrarNotificacion('Pago registrado', 'success');
+        window.verPagos(contractId); // Reload list
+        document.getElementById('form-payment').reset();
+        document.getElementById('payment-contract-id').value = contractId; // Restore ID
+    } catch (e) {
+        mostrarNotificacion('Error al registrar pago', 'error');
+    }
+};

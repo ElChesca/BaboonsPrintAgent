@@ -1,73 +1,169 @@
 <div id="seccion-dashboard" class="seccion-contenido-dinamico">
-    <h2>📊 Dashboard Principal</h2>
 
-    <!-- === NUEVO BLOQUE DE FILTROS === -->
-    <div class="dashboard-filtros card" style="margin-bottom: 20px; padding: 15px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="margin-bottom: 0;">
-            <label for="fecha-desde">Desde:</label>
-            <input type="date" id="fecha-desde" style="width: auto;"> 
+    <!-- ===== DASHBOARD GENÉRICO (retail, consorcio) ===== -->
+    <div id="dash-generic">
+        <h2>📊 Dashboard</h2>
+        <div class="dashboard-filtros card"
+            style="margin-bottom: 20px; padding: 15px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="fecha-desde">Desde:</label>
+                <input type="date" id="fecha-desde" style="width: auto;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="fecha-hasta">Hasta:</label>
+                <input type="date" id="fecha-hasta" style="width: auto;">
+            </div>
+            <button id="btn-filtrar-dashboard" class="btn btn-primary" style="margin-top: 20px;">Aplicar Filtro</button>
         </div>
-        <div class="form-group" style="margin-bottom: 0;">
-            <label for="fecha-hasta">Hasta:</label>
-            <input type="date" id="fecha-hasta" style="width: auto;">
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <h3>Ventas <span class="rango-fechas">(Hoy)</span></h3>
+                <p id="stat-ventas-hoy">$0.00</p>
+            </div>
+            <div class="stat-card">
+                <h3>Productos Bajo Stock</h3>
+                <p id="stat-bajo-stock">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Total de Clientes</h3>
+                <p id="stat-total-clientes">0</p>
+            </div>
         </div>
-        <button id="btn-filtrar-dashboard" class="btn btn-primary" style="margin-top: 20px;">Aplicar Filtro</button> 
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <h3>Ingresos por Método de Pago <span class="rango-fechas">(Últimos 30 días)</span></h3>
+                <canvas id="payment-methods-chart"></canvas>
+            </div>
+            <div class="stat-card">
+                <h3>Top 5 Categorías <span class="rango-fechas">(Últimos 30 días)</span></h3>
+                <table class="tabla-bonita">
+                    <thead>
+                        <tr>
+                            <th>Categoría</th>
+                            <th>Total Vendido</th>
+                        </tr>
+                    </thead>
+                    <tbody id="category-ranking-table"></tbody>
+                </table>
+            </div>
         </div>
-    <!-- === FIN NUEVO BLOQUE === -->
-
-    <div class="dashboard-stats">
-        <div class="stat-card">
-            <!-- Título modificado para reflejar el rango -->
-            <h3>Ventas <span class="rango-fechas">(Hoy)</span></h3> 
-            <p id="stat-ventas-hoy">$0.00</p>
-        </div>
-        <div class="stat-card">
-            <h3>Productos Bajo Stock</h3>
-            <p id="stat-bajo-stock">0</p>
-        </div>
-        <div class="stat-card">
-            <h3>Total de Clientes</h3>
-            <p id="stat-total-clientes">0</p>
+        <div class="actividad-reciente stat-card">
+            <h3>Actividad Reciente <span class="rango-fechas">(Hoy)</span></h3>
+            <div class="tabla-contenedor">
+                <table class="tabla-bonita">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-actividad-reciente"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    <div class="dashboard-grid">
-        <div class="stat-card">
-            <!-- Título modificado -->
-            <h3>Ingresos por Método de Pago <span class="rango-fechas">(Últimos 30 días)</span></h3>
-            <canvas id="payment-methods-chart"></canvas>
+    <!-- ===== DASHBOARD DISTRIBUIDORA ===== -->
+    <div id="dash-distribuidora" style="display:none;">
+        <div
+            style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <h2 style="margin:0;">🚚 Panel de Distribución</h2>
+            <!-- Filtros rápidos tipo pill -->
+            <div style="display:flex; gap:8px; flex-wrap: wrap; align-items:center;">
+                <div class="dash-distrib-pills" style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button class="pill-btn active" data-periodo="hoy">Hoy</button>
+                    <button class="pill-btn" data-periodo="7d">7 días</button>
+                    <button class="pill-btn" data-periodo="30d">30 días</button>
+                    <button class="pill-btn" data-periodo="mes">Este mes</button>
+                    <button class="pill-btn" data-periodo="anio">Este año</button>
+                </div>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <input type="date" id="dist-desde"
+                        style="font-size:0.85em; padding:5px 8px; border-radius:8px; border:1px solid #cbd5e1;">
+                    <span style="color:#94a3b8;">—</span>
+                    <input type="date" id="dist-hasta"
+                        style="font-size:0.85em; padding:5px 8px; border-radius:8px; border:1px solid #cbd5e1;">
+                    <button id="btn-dist-filtrar"
+                        style="background:#6366f1;color:white;border:none;border-radius:8px;padding:6px 14px;font-size:0.85em;cursor:pointer;">Filtrar</button>
+                </div>
+            </div>
         </div>
 
-        <div class="stat-card">
-            <!-- Título modificado -->
-            <h3>Top 5 Categorías <span class="rango-fechas">(Últimos 30 días)</span></h3>
-            <table class="tabla-bonita">
-                <thead>
-                    <tr>
-                        <th>Categoría</th>
-                        <th>Total Vendido</th>
-                    </tr>
-                </thead>
-                <tbody id="category-ranking-table">
-                    <!-- Contenido dinámico -->
-                </tbody>
-            </table>
+        <!-- KPI Cards -->
+        <div class="dist-kpi-grid">
+            <div class="dist-kpi-card">
+                <div class="dist-kpi-icon">💰</div>
+                <div class="dist-kpi-value" id="kpi-facturacion">$0</div>
+                <div class="dist-kpi-label">Facturación</div>
+            </div>
+            <div class="dist-kpi-card">
+                <div class="dist-kpi-icon">📦</div>
+                <div class="dist-kpi-value" id="kpi-pedidos-total">0</div>
+                <div class="dist-kpi-label">Pedidos totales</div>
+            </div>
+            <div class="dist-kpi-card" style="border-left: 3px solid #10b981;">
+                <div class="dist-kpi-icon">✅</div>
+                <div class="dist-kpi-value" id="kpi-pedidos-entregados">0</div>
+                <div class="dist-kpi-label">Entregados</div>
+            </div>
+            <div class="dist-kpi-card" style="border-left: 3px solid #f59e0b;">
+                <div class="dist-kpi-icon">⏳</div>
+                <div class="dist-kpi-value" id="kpi-pedidos-pendientes">0</div>
+                <div class="dist-kpi-label">Pendientes</div>
+            </div>
+            <div class="dist-kpi-card" style="border-left: 3px solid #6366f1;">
+                <div class="dist-kpi-icon">🗺️</div>
+                <div class="dist-kpi-value" id="kpi-rutas">0</div>
+                <div class="dist-kpi-label">Rutas completadas</div>
+            </div>
+            <div class="dist-kpi-card" style="border-left: 3px solid #ec4899;">
+                <div class="dist-kpi-icon">👥</div>
+                <div class="dist-kpi-value" id="kpi-clientes">0</div>
+                <div class="dist-kpi-label">Clientes visitados</div>
+            </div>
         </div>
-    </div>
 
-    <div class="actividad-reciente stat-card">
-         <!-- Título modificado -->
-        <h3>Actividad Reciente <span class="rango-fechas">(Hoy)</span></h3>
-        <div class="tabla-contenedor">
-            <table class="tabla-bonita">
+        <!-- Gráfico + Ranking lado a lado -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+
+            <div class="stat-card" style="padding: 20px;">
+                <h3 style="margin: 0 0 15px; font-size: 0.95em; color:#475569;">📈 Facturación por día</h3>
+                <div style="position:relative; height: 220px;">
+                    <canvas id="dist-chart-linea"></canvas>
+                </div>
+            </div>
+
+            <div class="stat-card" style="padding: 20px;">
+                <h3 style="margin: 0 0 15px; font-size: 0.95em; color:#475569;">🏆 Ranking de Vendedores</h3>
+                <table class="tabla-bonita" style="font-size: 0.9em;">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Vendedor</th>
+                            <th>Pedidos</th>
+                            <th>Facturado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dist-tabla-ranking"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Últimas Hojas de Ruta -->
+        <div class="stat-card" style="padding: 20px; margin-top: 16px;">
+            <h3 style="margin: 0 0 15px; font-size: 0.95em; color:#475569;">🚚 Últimas Hojas de Ruta</h3>
+            <table class="tabla-bonita" style="font-size: 0.9em;">
                 <thead>
                     <tr>
+                        <th>ID</th>
                         <th>Fecha</th>
-                        <th>Cliente</th>
-                        <th>Total</th>
+                        <th>Vendedor</th>
+                        <th>Pedidos</th>
+                        <th>Estado</th>
                     </tr>
                 </thead>
-                <tbody id="tabla-actividad-reciente"></tbody>
+                <tbody id="dist-tabla-rutas"></tbody>
             </table>
         </div>
     </div>

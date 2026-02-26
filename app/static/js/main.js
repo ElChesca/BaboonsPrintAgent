@@ -2,18 +2,19 @@
 // ✨ ARCHIVO COMPLETO (Versión 1.2.2 - CON RESTAURACIÓN DE SESIÓN) ✨
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-const APP_VERSION = "1.2.5"; // Actualizado para forzar recarga
+const APP_VERSION = "1.4.0"; // Feature: Item-level bonifications & Manual delivery
+window.APP_VERSION = APP_VERSION;
 const v = `?v=${APP_VERSION}`;
 
 // --- AUTO-LIMPIEZA DE CACHÉ LOCAL ---
 window.chequearVersionApp = () => {
     const versionGuardada = localStorage.getItem('app_version');
-    
+
     // Si la versión del código es nueva
     if (versionGuardada !== APP_VERSION) {
         console.warn(`Nueva versión (${APP_VERSION}). Limpiando caché local crítica...`);
         localStorage.setItem('app_version', APP_VERSION);
-        
+
         // Forzamos recarga si ya había entrado antes
         if (versionGuardada) {
             window.location.reload(true);
@@ -34,6 +35,7 @@ import { borrarProveedor } from './modules/proveedores.js';
 import { abrirModalEditarUsuario } from './modules/users.js';
 import { mostrarDetalle as mostrarDetalleIngreso } from './modules/historial_ingresos.js';
 import { mostrarDetallesCaja } from './modules/reporte_caja.js';
+import { inicializarPedidos } from './modules/pedidos.js';
 
 // --- EXPOSICIÓN DE FUNCIONES GLOBALES ---
 window.loadContent = loadContent;
@@ -42,6 +44,7 @@ window.abrirModalEditarUsuario = abrirModalEditarUsuario;
 window.mostrarDetalleIngreso = mostrarDetalleIngreso;
 window.mostrarDetallesCaja = mostrarDetallesCaja;
 window.abrirModalNuevoCliente = abrirModalNuevoCliente;
+window.logout = logout;
 export function toggleMenu() {
     const navContainer = document.querySelector('.nav-container');
     if (navContainer) {
@@ -62,39 +65,29 @@ export function esAdmin() {
 export const appState = {
     negocioActivoId: null,
     negocioActivoTipo: null, // 'retail' o 'consorcio'
-    negociosCache: [],      
+    negociosCache: [],
     userRol: null,
-    filtroProveedorId: null
+    filtroProveedorId: null,
+    permissions: {} // ✨ Permisos dinámicos cargados del backend
 };
 
-// --- MAPA DE RUTAS (SEGURIDAD CAPA 1) ---
-const APP_RUTAS = {
-    'retail': [
-        'home_retail', 'ventas', 'historial_ventas', 'historial_presupuestos',
-        'reportes', 'reporte_caja', 'reporte_ganancias', 'historial_inventario',
-        'inventario', 'clientes', 'dashboard', 'caja', 'factura', 'verificador',
-        'historial_ingresos', 'ingresos', 'historial_ajustes', 'ajuste_caja',
-        'presupuestos', 'inventario_movil', 'proveedores', 'payments', 
-        'historial_pagos_proveedores', 'listas_precios', 'precios_especificos',
-        'gastos', 'gastos_categorias', 'categorias', 'unidades_medida','club_puntos',
-        'club_gestion','club_admin', 'crm_social'
-    ],
-    'consorcio': [
-        'home_consorcio', 'reclamos', 'expensas', 'unidades', 'noticias'
-    ],
-    'rentals': [
-        'rentals_dashboard', 'rentals_units', 'rentals_contracts'
-    ],
-    'comun': [
-        'configuracion', 'usuarios', 'negocios'
-    ]
+// --- MAPA DE RUTAS (YA NO SE USA APP_RUTAS CONSTANTE) ---
+// La constante APP_RUTAS se ha eliminado en favor de appState.permissions
+
+// Mapa de excepciones para rutas que no están en la raíz de static/
+const PATH_MAP = {
+    'rentals_dashboard': 'static/rentals/rentals_dashboard.html',
+    'rentals_units': 'static/rentals/rentals_units.html',
+    'rentals_contracts': 'static/rentals/rentals_contracts.html',
+    'crm_social': 'static/crm_social/crm_social.html',
+    'admin_apps': 'static/admin_apps.html' // ✨ Nueva ruta admin
 };
 
 // --- NUEVA FUNCIÓN UI ---
 function actualizarUIporTipoApp() {
     const tipoApp = appState.negocioActivoTipo || 'retail';
     // console.log(`Actualizando UI para tipo de app: ${tipoApp}`);
-    document.body.classList.remove('app-retail', 'app-consorcio');
+    document.body.classList.remove('app-retail', 'app-consorcio', 'app-rentals');
     document.body.classList.add(`rol-${appState.userRol}`, `app-${tipoApp}`);
 }
 
@@ -108,11 +101,134 @@ function loadPageCSS(pageName) {
         link.type = 'text/css';
         link.href = `static/css/${pageName}.css?v=${APP_VERSION}`; // Corrección aquí
 
+        // Caso especial para rentals si tuvieran CSS específico en su carpeta (opcional)
+        // Caso especial: Evitar cargar CSS específicos si no existen
+        if (pageName.startsWith('rentals_') || pageName === 'crm_social') {
+            return;
+        }
+
         document.head.appendChild(link);
         link.onerror = () => {
-             // console.warn(`Advertencia: No se encontró CSS opcional en ${link.href}`);
-             link.remove();
+            // console.warn(`Advertencia: No se encontró CSS opcional en ${link.href}`);
+            link.remove();
         };
+    }
+}
+
+/**
+ * ✨ FILTRA DINÁMICAMENTE EL MENÚ DE NAVEGACIÓN
+ * Oculta los enlaces a módulos para los que el usuario no tiene permiso explícito.
+ */
+function actualizarVisibilidadMenu() {
+    const user = getCurrentUser();
+    if (!user) return;
+
+    // Los superadmins siempre ven todo
+    if (user.rol === 'superadmin') {
+        document.querySelectorAll('#main-nav a, #main-nav .dropdown').forEach(el => el.style.display = '');
+        return;
+    }
+
+    const tipoAppActual = appState.negocioActivoTipo || 'retail';
+    const perms = appState.permissions[tipoAppActual] || [];
+    const permsComun = appState.permissions['comun'] || ['configuracion', 'usuarios', 'negocios'];
+
+    console.log(`🔍 [Menu] Aplicando filtros para ${tipoAppActual}. Permisos:`, perms);
+
+    // 1. Filtrar enlaces directos
+    document.querySelectorAll('#main-nav > a[href^="#"]').forEach(link => {
+        const pageName = link.getAttribute('href').substring(1);
+        if (pageName === 'home' || pageName === '') return;
+
+        const esHomeDelNegocio =
+            (tipoAppActual === 'retail' && pageName === 'home_retail') ||
+            (tipoAppActual === 'consorcio' && pageName === 'home_consorcio') ||
+            (tipoAppActual === 'distribuidora' && pageName === 'home_distribuidora') ||
+            (tipoAppActual === 'rentals' && pageName === 'rentals_dashboard');
+
+        const tienePermiso = perms.includes(pageName) || permsComun.includes(pageName) || esHomeDelNegocio;
+
+        if (!tienePermiso && !link.classList.contains('superadmin-only')) {
+            link.style.display = 'none';
+        } else {
+            link.style.display = '';
+        }
+    });
+
+    // 2. Filtrar Dropdowns
+    document.querySelectorAll('#main-nav .dropdown').forEach(dropdown => {
+        const subLinks = dropdown.querySelectorAll('.dropdown-content a[href^="#"]');
+        let algunSubPermitido = false;
+
+        subLinks.forEach(subLink => {
+            const pageName = subLink.getAttribute('href').substring(1);
+            const tienePermiso = perms.includes(pageName) || permsComun.includes(pageName);
+
+            if (!tienePermiso) {
+                subLink.style.display = 'none';
+            } else {
+                subLink.style.display = '';
+                algunSubPermitido = true;
+            }
+        });
+        dropdown.style.display = algunSubPermitido ? '' : 'none';
+    });
+}
+
+/**
+ * ✨ FILTRA DINÁMICAMENTE LAS TARJETAS (APPS) EN LOS DASHBOARDS
+ * Oculta las tarjetas que apuntan a módulos sin permiso.
+ */
+function filtrarTarjetasDashboards() {
+    const user = getCurrentUser();
+    if (!user || user.rol === 'superadmin') return;
+
+    const tipoAppActual = appState.negocioActivoTipo || 'retail';
+    const perms = appState.permissions[tipoAppActual] || [];
+    const permsComun = appState.permissions['comun'] || ['configuracion', 'usuarios', 'negocios'];
+
+    const cards = document.querySelectorAll('.app-card[onclick*="loadContent"]');
+    if (cards.length === 0) return;
+
+    console.log(`🔍 [Dash] Filtrando ${cards.length} tarjetas para ${tipoAppActual}`);
+
+    cards.forEach(card => {
+        const onclickAttr = card.getAttribute('onclick');
+        // Regex mejorada: busca cualquier .html dentro de comillas
+        const match = onclickAttr.match(/['"]([^'"]+)\.html['"]/);
+        if (match && match[1]) {
+            const fullPath = match[1];
+            const pageName = fullPath.split('/').pop();
+
+            const esHome = pageName.startsWith('home_') || pageName === 'rentals_dashboard';
+            const tienePermiso = perms.includes(pageName) || permsComun.includes(pageName) || esHome;
+
+            if (!tienePermiso) {
+                card.style.display = 'none';
+            } else {
+                card.style.display = '';
+            }
+        }
+    });
+}
+
+// ✨ NUEVA FUNCIÓN: Verificar estado de caja GLOBALMENTE (para validaciones en otros módulos)
+export async function checkGlobalCashRegisterState() {
+    if (!appState.negocioActivoId) return;
+
+    try {
+        // Usamos el endpoint existente que devuelve el estado
+        const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/caja/estado`);
+        if (data.estado === 'abierta' && data.sesion) {
+            appState.cajaSesionIdActiva = data.sesion.id;
+            // console.log(`✅ Caja Abierta detectada. Sesión ID: ${appState.cajaSesionIdActiva}`);
+        } else {
+            appState.cajaSesionIdActiva = null;
+            // console.log("ℹ️ Caja Cerrada o sin sesión activa.");
+        }
+    } catch (error) {
+        console.warn("No se pudo verificar el estado global de la caja:", error);
+        appState.cajaSesionIdActiva = null;
     }
 }
 
@@ -122,7 +238,7 @@ async function poblarSelectorNegocios() {
     const mainSelector = document.getElementById('selector-negocio');
     const homeSelector = document.getElementById('home-selector-negocio');
     const selectors = [mainSelector, homeSelector].filter(s => s != null);
-    
+
     if (selectors.length === 0) return;
 
     selectors.forEach(s => {
@@ -132,8 +248,8 @@ async function poblarSelectorNegocios() {
 
     try {
         const negocios = await fetchData(`/api/negocios`);
-        appState.negociosCache = negocios; 
-        
+        appState.negociosCache = negocios;
+
         let idSeleccionado = null;
         if (negocios && negocios.length > 0) {
             idSeleccionado = negocios[0].id;
@@ -146,7 +262,7 @@ async function poblarSelectorNegocios() {
 
         const negocioSeleccionado = negocios.find(n => String(n.id) === appState.negocioActivoId);
         appState.negocioActivoTipo = negocioSeleccionado ? negocioSeleccionado.tipo_app : 'retail';
-        
+
         if (appState.negocioActivoId) {
             localStorage.setItem('negocioActivoId', appState.negocioActivoId);
         } else {
@@ -162,7 +278,7 @@ async function poblarSelectorNegocios() {
                 negocios.forEach(negocio => {
                     selector.appendChild(new Option(negocio.nombre, negocio.id));
                 });
-                
+
                 if (appState.negocioActivoId) {
                     selector.value = appState.negocioActivoId;
                 } else if (negocios.length > 0) {
@@ -174,15 +290,82 @@ async function poblarSelectorNegocios() {
                 selector.disabled = false;
             }
         });
-        
+
     } catch (error) {
         console.error("Error en poblarSelectorNegocios:", error);
         mostrarNotificacion("Error al cargar negocios.", "error");
     }
 }
 
+// --- fetchAppPermissions ---
+export async function fetchAppPermissions() {
+    try {
+        const user = getCurrentUser();
+
+        // 1. Cargar permisos globales por tipo de negocio
+        const perms = await fetchData('/api/admin/permissions');
+        appState.permissions = perms;
+
+        // 2. Cargar configuración específica del negocio activo (exclusiones)
+        if (appState.negocioActivoId) {
+            try {
+                const businessConfigs = await fetchData(`/api/negocios/${appState.negocioActivoId}/modulos-config`);
+                const inactiveModules = (businessConfigs || [])
+                    .filter(c => c.is_active === false)
+                    .map(c => c.module_code);
+
+                if (inactiveModules.length > 0) {
+                    console.log(`🚫 Aplicando exclusiones por negocio (${appState.negocioActivoId}):`, inactiveModules);
+                    // Filtrar en todos los tipos de negocio
+                    Object.keys(appState.permissions).forEach(type => {
+                        appState.permissions[type] = appState.permissions[type].filter(m => !inactiveModules.includes(m));
+                    });
+                }
+            } catch (err) {
+                console.warn("No se pudo cargar la configuración de módulos por negocio.");
+            }
+        }
+
+        // 3. Si es VENDEDOR, cargar permisos específicos del negocio activo
+        if (user && user.rol === 'vendedor' && appState.negocioActivoId) {
+            try {
+                const vendedorPerms = await fetchData(`/api/negocios/${appState.negocioActivoId}/permisos-rol/vendedor`);
+                if (vendedorPerms) {
+                    const tipoActual = appState.negocioActivoTipo || 'distribuidora';
+                    // Fusionamos con los permisos específicos (asegurando que el home esté siempre)
+                    const modules = new Set(vendedorPerms || []);
+
+                    // Asegurar Homes base (Red de seguridad)
+                    modules.add('home_retail');
+                    modules.add('home_consorcio');
+                    modules.add('home_distribuidora');
+                    modules.add('rentals_dashboard');
+
+                    appState.permissions[tipoActual] = Array.from(modules);
+                    console.log(`🔐 Permisos dinámicos aplicados para Vendedor en negocio ${appState.negocioActivoId}`);
+                }
+            } catch (err) {
+                console.warn("No se pudieron cargar permisos específicos de vendedor, usando defaults.");
+            }
+        }
+    } catch (error) {
+        console.error("Error cargando permisos:", error);
+        // Fallback de emergencia
+        appState.permissions = {
+            'retail': ['home_retail', 'ventas', 'dashboard'],
+            'distribuidora': ['home_distribuidora', 'vendedores', 'hoja_ruta', 'pedidos', 'mapa_clientes', 'ventas', 'clientes', 'presupuestos', 'caja', 'inventario', 'proveedores', 'gastos', 'ingresos', 'unidades_medida', 'historial_inventario', 'historial_presupuestos', 'historial_ajustes', 'historial_pagos_proveedores', 'historial_ingresos']
+        };
+    }
+}
+
 // --- actualizarUIAutenticacion ---
+let estaActualizandoAuth = false; // Bloqueo de concurrencia
 export async function actualizarUIAutenticacion() {
+    if (estaActualizandoAuth) {
+        console.warn("actualizarUIAutenticacion ya en curso. Ignorando llamada duplicada.");
+        return;
+    }
+    estaActualizandoAuth = true;
     showGlobalLoader();
     try {
         document.body.className = '';
@@ -193,65 +376,117 @@ export async function actualizarUIAutenticacion() {
         const header = document.querySelector('header');
 
         if (!mainNav || !authLink || !businessSelectorBar || !header) {
+            hideGlobalLoader(); // Asegurar hide
             return;
         }
 
         if (user && user.nombre && user.rol) {
             appState.userRol = user.rol;
-            
+
             header.style.display = 'flex';
             mainNav.style.display = 'flex';
             businessSelectorBar.style.display = 'flex';
-            
+
             const newAuthLink = authLink.cloneNode(true);
             newAuthLink.textContent = `Salir (${user.nombre})`;
             authLink.parentNode.replaceChild(newAuthLink, authLink);
             newAuthLink.addEventListener('click', (e) => { e.preventDefault(); logout(); });
-            
-            await poblarSelectorNegocios(); 
-            actualizarUIporTipoApp(); 
-            
+
+            // ✨ CARGAR NEGOCIOS PRIMERO (Para tener el ID activo)
+            await poblarSelectorNegocios();
+
+            // ✨ VERIFICAR ESTADO DE CAJA (CRÍTICO PARA VALIDACIONES)
+            await checkGlobalCashRegisterState();
+
+            // ✨ LUEGO CARGAR PERMISOS (Que depende del ID activo)
+            await fetchAppPermissions();
+
+            // ✨ CONFIGURAR TIMER DE INACTIVIDAD
+            const { setupInactivityTimer } = await import(`./modules/auth.js${v}`);
+            setupInactivityTimer();
+
+            // ✨ LIMPIEZA PREVENTIVA: Si estamos logueados, el login-page-wrapper DEBE morir.
+            const contentArea = document.getElementById('content-area');
+            if (contentArea && contentArea.querySelector('.login-page-wrapper')) {
+                contentArea.innerHTML = '';
+            }
+
+            actualizarUIporTipoApp();
+            actualizarVisibilidadMenu(); // ✨ Filtrar navbar según permisos
+
             const requestedPage = window.location.hash.substring(1).split('?')[0];
-            
+
             // Lógica de Home Dinámico
             let defaultHomePage = 'home_retail';
             if (appState.negocioActivoTipo === 'consorcio') defaultHomePage = 'home_consorcio';
             if (appState.negocioActivoTipo === 'rentals') defaultHomePage = 'rentals_dashboard';
+            if (appState.negocioActivoTipo === 'distribuidora') defaultHomePage = 'home_distribuidora';
+
+            // ✨ LÓGICA CHOFER
+            if (appState.userRol === 'chofer') {
+                defaultHomePage = 'home_chofer';
+                if (mainNav) mainNav.style.display = 'none';
+                if (businessSelectorBar) businessSelectorBar.style.display = 'none';
+                // Cambiar el body para estilos extra si es necesario
+                document.body.classList.add('app-chofer-mode');
+            }
 
             let pageToLoad = (requestedPage && requestedPage !== 'login') ? requestedPage : defaultHomePage;
-            
+
             if (pageToLoad === 'home' || pageToLoad === '') {
                 pageToLoad = defaultHomePage;
             }
-                
-            // VALIDACIÓN DE SEGURIDAD
-            const tipoAppActual = appState.negocioActivoTipo;
-            if (tipoAppActual && pageToLoad !== 'login') {
-                const rutasPermitidas = APP_RUTAS[tipoAppActual] || [];
-                const rutasComunes = APP_RUTAS['comun'] || [];
 
+            // ✨ REDIRECCIÓN FORZADA: Si está en una home de otro tipo de negocio, mandarlo a la suya
+            const esCualquierHome = (pageToLoad === 'home_retail' || pageToLoad === 'home_consorcio' || pageToLoad === 'home_distribuidora' || pageToLoad === 'rentals_dashboard' || pageToLoad === 'home_chofer');
+            if (esCualquierHome && pageToLoad !== defaultHomePage) {
+                console.warn(`Redirigiendo de ${pageToLoad} a ${defaultHomePage} por inconsistencia de tipo de negocio o rol.`);
+                pageToLoad = defaultHomePage;
+            }
+
+            // VALIDACIÓN DE SEGURIDAD CON PERMISOS DINÁMICOS
+            const tipoAppActual = appState.negocioActivoTipo;
+            if (tipoAppActual && pageToLoad !== 'login' && pageToLoad !== 'admin_apps' && appState.userRol !== 'chofer') {
+                const rutasPermitidas = appState.permissions[tipoAppActual] || [];
+                const rutasComunes = appState.permissions['comun'] || ['configuracion', 'usuarios', 'negocios']; // Fallback comun
+
+                // Si es superadmin, acceso total a admin_apps, pero validamos módulos de negocio igual
                 if (!rutasPermitidas.includes(pageToLoad) && !rutasComunes.includes(pageToLoad)) {
-                    console.warn(`Redirección: Usuario '${tipoAppActual}' intentó cargar '${pageToLoad}'. Forzando home.`);
-                    pageToLoad = defaultHomePage;
+                    // Check especial para admin_apps ya manejado arriba
+                    console.warn(`Acceso no autorizado: Usuario '${tipoAppActual}' intentó cargar '${pageToLoad}'.`);
+                    // NO forzamos redirección a home aquí para evitar bucles si la home también está bloqueada.
+                    // Dejamos que loadContent maneje el error y muestre la pantalla de "Acceso Denegado".
+                    // pageToLoad = defaultHomePage; 
                 }
             }
-            
+
             if (requestedPage !== pageToLoad) {
                 window.location.hash = pageToLoad;
-            }
+                // ✨ FIX: Si el hash ya cambió pero popstate está bloqueado por estaActualizandoAuth,
+                // forzamos la carga manual aquí para que el login desaparezca.
+                const cleanHash = pageToLoad.split('?')[0];
+                const queryString = pageToLoad.includes('?') ? '?' + pageToLoad.split('?')[1] : '';
+                const pageUrlToLoad = (PATH_MAP[cleanHash] || `static/${cleanHash}.html`) + queryString;
+                await loadContent(null, pageUrlToLoad, null, true);
+            } else {
+                const fullHash = window.location.hash.substring(1);
+                const cleanHash = fullHash.split('?')[0];
+                const queryString = fullHash.includes('?') ? '?' + fullHash.split('?')[1] : '';
 
-            const fullHash = window.location.hash.substring(1);
-            const pageUrlToLoad = `static/${pageToLoad}.html${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
-            
-            await loadContent(null, pageUrlToLoad);
+                const pageUrlToLoad = (PATH_MAP[cleanHash] || `static/${cleanHash}.html`) + queryString;
+                await loadContent(null, pageUrlToLoad, null, true);
+            }
 
         } else {
             appState.userRol = null;
             appState.negocioActivoId = null;
             appState.negocioActivoTipo = null;
-            
+            appState.permissions = {}; // Clear permissions
+
             // 2. Ocultar Header inmediatamente
             if (header) header.style.display = 'none';
+            mainNav.style.display = 'none';
+            businessSelectorBar.style.display = 'none';
 
             // 3. LIMPIEZA VISUAL FORZADA (Esto arregla que se queden los iconos)
             const contentArea = document.getElementById('content-area');
@@ -262,14 +497,17 @@ export async function actualizarUIAutenticacion() {
             // 4. Forzamos la carga del Login limpio
             // Usamos un pequeño timeout para dar tiempo al navegador a procesar el cambio de hash
             setTimeout(() => {
-                loadContent(null, 'static/login.html')
+                // Pasamos true en el 4to argumento para forzar la carga del HTML
+                // aunque el hash ya sea #login
+                loadContent(null, 'static/login.html', null, true)
                     .catch(err => console.error("Error cargando login:", err));
-            }, 50);    
+            }, 100);
         }
     } catch (error) {
         console.error("Fallo Auth UI:", error);
         logout();
     } finally {
+        estaActualizandoAuth = false;
         hideGlobalLoader();
     }
 }
@@ -279,20 +517,20 @@ async function inicializarModulo(page) {
     if (!page) return;
 
     const pageName = page.split('/').pop().replace('.html', '').split('?')[0];
-    
+
     if (window.currentChartInstance) {
         window.currentChartInstance.destroy();
         window.currentChartInstance = null;
     }
 
     try {
-        switch(pageName) {
-            case 'inventario': 
+        switch (pageName) {
+            case 'inventario':
                 const { inicializarLogicaInventario, abrirModalEditarProducto, borrarProducto, changeProductPage } = await import(`./modules/inventory.js${v}`);
                 window.abrirModalEditarProducto = abrirModalEditarProducto;
                 window.borrarProducto = borrarProducto;
                 window.changeProductPage = changeProductPage;
-                inicializarLogicaInventario(); 
+                inicializarLogicaInventario();
                 break;
             case 'categorias':
                 const { inicializarLogicaCategorias, editarCategoria, borrarCategoria } = await import(`./modules/categorias.js${v}`);
@@ -300,97 +538,105 @@ async function inicializarModulo(page) {
                 window.borrarCategoria = borrarCategoria;
                 inicializarLogicaCategorias();
                 break;
-            case 'login': 
+            case 'login':
                 const { inicializarLogicaLogin } = await import(`./modules/auth.js${v}`);
-                inicializarLogicaLogin(); 
+                inicializarLogicaLogin();
                 break;
-            case 'clientes': 
+            case 'clientes':
                 const { inicializarLogicaClientes } = await import(`./modules/clientes.js${v}`);
-                inicializarLogicaClientes(); 
+                inicializarLogicaClientes();
                 break;
-            case 'usuarios': 
+            case 'usuarios':
                 const { inicializarLogicaUsuarios } = await import(`./modules/users.js${v}`);
-                inicializarLogicaUsuarios(); 
+                inicializarLogicaUsuarios();
                 break;
-            case 'dashboard': 
+            case 'dashboard':
                 const { inicializarLogicaDashboard } = await import(`./modules/dashboard.js${v}`);
-                inicializarLogicaDashboard(); 
+                inicializarLogicaDashboard();
                 break;
-            case 'caja': 
+            case 'caja':
                 const { inicializarLogicaCaja } = await import(`./modules/caja.js${v}`);
-                inicializarLogicaCaja(); 
+                inicializarLogicaCaja();
                 break;
-            case 'reporte_caja': 
+            case 'reporte_caja':
                 const { inicializarLogicaReporteCaja } = await import(`./modules/reporte_caja.js${v}`);
-                inicializarLogicaReporteCaja(); 
+                inicializarLogicaReporteCaja();
                 break;
-            case 'reporte_ganancias': 
+            case 'reporte_ganancias':
                 const { inicializarLogicaReporteGanancias } = await import(`./modules/reporte_ganancias.js${v}`);
-                inicializarLogicaReporteGanancias(); 
+                inicializarLogicaReporteGanancias();
                 break;
-            case 'reportes': 
+            case 'reportes':
                 const { inicializarLogicaReportes } = await import(`./modules/reportes.js${v}`);
-                inicializarLogicaReportes(); 
+                inicializarLogicaReportes();
                 break;
-            case 'factura': 
+            case 'factura':
                 const { inicializarLogicaFactura } = await import(`./modules/factura.js${v}`);
-                inicializarLogicaFactura(); 
+                inicializarLogicaFactura();
                 break;
-            case 'verificador': 
+            case 'verificador':
                 const { inicializarLogicaVerificador } = await import(`./modules/verificador.js${v}`);
-                inicializarLogicaVerificador(); 
+                inicializarLogicaVerificador();
                 break;
-            case 'historial_ingresos': 
+            case 'historial_ingresos':
                 const { inicializarLogicaHistorialIngresos } = await import(`./modules/historial_ingresos.js${v}`);
-                inicializarLogicaHistorialIngresos(); 
+                inicializarLogicaHistorialIngresos();
                 break;
-            case 'ingresos': 
+            case 'ingresos':
                 const { inicializarLogicaIngresos } = await import(`./modules/ingresos.js${v}`);
-                inicializarLogicaIngresos(); 
+                inicializarLogicaIngresos();
                 break;
-            case 'historial_ventas': 
+            case 'historial_ventas':
                 const { inicializarLogicaHistorialVentas } = await import(`./modules/historial_ventas.js${v}`);
-                inicializarLogicaHistorialVentas(); 
+                inicializarLogicaHistorialVentas();
                 break;
-            case 'ventas': 
+            case 'ventas':
                 const { inicializarLogicaVentas } = await import(`./modules/sales.js${v}`);
-                inicializarLogicaVentas(); 
+                inicializarLogicaVentas();
                 break;
-            case 'historial_ajustes': 
+            case 'historial_ajustes':
                 const { inicializarLogicaHistorialAjustes } = await import(`./modules/historial_ajustes.js${v}`);
-                inicializarLogicaHistorialAjustes(); 
+                inicializarLogicaHistorialAjustes();
                 break;
-            case 'ajuste_caja': 
+            case 'ajuste_caja':
                 const { inicializarLogicaAjusteCaja } = await import(`./modules/ajuste_caja.js${v}`);
-                inicializarLogicaAjusteCaja(); 
+                inicializarLogicaAjusteCaja();
                 break;
-            case 'historial_presupuestos': 
+            case 'pos':
+                const { inicializarLogicaPOS } = await import(`./modules/pos.js${v}`);
+                inicializarLogicaPOS();
+                break;
+            case 'historial_presupuestos':
                 const { inicializarLogicaHistorialPresupuestos } = await import(`./modules/historial_presupuestos.js${v}`);
-                inicializarLogicaHistorialPresupuestos(); 
+                inicializarLogicaHistorialPresupuestos();
                 break;
-            case 'presupuestos': 
+            case 'presupuestos':
                 const { inicializarLogicaPresupuestos } = await import(`./modules/presupuestos.js${v}`);
-                inicializarLogicaPresupuestos(); 
+                inicializarLogicaPresupuestos();
                 break;
             case 'inventario_movil':
                 const { inicializarLogicaInventarioMovil } = await import(`./modules/inventario_movil_main.js${v}`);
-                inicializarLogicaInventarioMovil(); 
+                inicializarLogicaInventarioMovil();
                 break;
-            case 'proveedores': 
+            case 'proveedores':
                 const { inicializarLogicaProveedores } = await import(`./modules/proveedores.js${v}`);
-                inicializarLogicaProveedores(); 
+                inicializarLogicaProveedores();
                 break;
-            case 'negocios': 
+            case 'negocios':
                 const { inicializarLogicaNegocios } = await import(`./modules/negocios.js${v}`);
-                inicializarLogicaNegocios(); 
+                inicializarLogicaNegocios();
                 break;
-            case 'payments': 
+            case 'payments':
                 const { inicializarLogicaPagosProveedores } = await import(`./modules/payments.js${v}`);
-                inicializarLogicaPagosProveedores(); 
+                inicializarLogicaPagosProveedores();
                 break;
-            case 'historial_pagos_proveedores': 
+            case 'historial_pagos_proveedores':
                 const { inicializarLogicaHistorialPagosProveedores } = await import(`./modules/historial_pagos_proveedores.js${v}`);
-                inicializarLogicaHistorialPagosProveedores(); 
+                inicializarLogicaHistorialPagosProveedores();
+                break;
+            case 'empleados':
+                const { inicializarLogicaEmpleados } = await import(`./modules/empleados.js${v}`);
+                inicializarLogicaEmpleados();
                 break;
             case 'configuracion':
                 const { inicializarConfiguracion } = await import(`./modules/configuracion.js${v}`);
@@ -414,7 +660,7 @@ async function inicializarModulo(page) {
                 break;
             case 'gastos':
                 const { inicializarGastos } = await import(`./modules/gastos.js${v}`);
-                inicializarGastos(); 
+                inicializarGastos();
                 break;
             case 'gastos_categorias':
                 const { inicializarCategoriasGasto } = await import(`./modules/gastos_categorias.js${v}`);
@@ -424,17 +670,10 @@ async function inicializarModulo(page) {
                 const { inicializarLogicaClubPuntos } = await import(`./modules/club_puntos.js${v}`);
                 inicializarLogicaClubPuntos();
                 break;
-            case 'club_gestion':        
-                const { inicializarLogicaGestionClub, abrirModalPremio, borrarPremio } = await import(`./modules/club_gestion.js${v}`);                                                    
+            case 'club_gestion':
+                const { inicializarLogicaGestionClub, abrirModalPremio, borrarPremio } = await import(`./modules/club_gestion.js${v}`);
                 inicializarLogicaGestionClub();
                 break;
-            case 'home_retail':
-                await poblarSelectorNegocios();
-                break;
-            case 'home_consorcio':
-                const { inicializarLogicaHomeConsorcio } = await import(`./modules/home_consorcio.js${v}`);              
-                inicializarLogicaHomeConsorcio();                
-                break;            
             case 'unidades':
                 const { inicializarLogicaUnidades, abrirModalUnidad, borrarUnidad } = await import(`./modules/unidades.js${v}`);
                 window.abrirModalUnidad = abrirModalUnidad;
@@ -446,17 +685,17 @@ async function inicializarModulo(page) {
                 window.abrirModalReclamo = abrirModalReclamo;
                 window.borrarReclamo = borrarReclamo;
                 inicializarLogicaReclamos();
-                break;          
+                break;
             case 'expensas':
-                const { inicializarLogicaExpensas, verDetallePeriodo, volverALista, emitirPeriodo, abrirModalPago, anularExpensa } = await import(`./modules/expensas.js${v}`);                
+                const { inicializarLogicaExpensas, verDetallePeriodo, volverALista, emitirPeriodo, abrirModalPago, anularExpensa } = await import(`./modules/expensas.js${v}`);
                 window.verDetallePeriodo = verDetallePeriodo;
                 window.volverALista = volverALista;
                 window.emitirPeriodo = emitirPeriodo;
-                window.abrirModalPago = abrirModalPago;  
-                window.anularExpensa = anularExpensa;              
+                window.abrirModalPago = abrirModalPago;
+                window.anularExpensa = anularExpensa;
                 inicializarLogicaExpensas();
                 break;
-            case 'noticias':                
+            case 'noticias':
                 const { inicializarLogicaNoticias, abrirModalNoticia, borrarNoticia } = await import(`./modules/noticias.js${v}`);
                 window.abrirModalNoticia = abrirModalNoticia;
                 window.borrarNoticia = borrarNoticia;
@@ -465,6 +704,40 @@ async function inicializarModulo(page) {
             case 'crm_social':
                 const { inicializarCRM } = await import(`../crm_social/js/crm_main.js${v}`);
                 inicializarCRM();
+                break;
+            case 'home_retail':
+            case 'home_consorcio':
+            case 'home_distribuidora':
+            case 'rentals_dashboard':
+                // Dashboards estáticos, el filtrado de tarjetas se maneja en loadContent
+                break;
+            case 'home_chofer':
+                const { inicializarHomeChofer } = await import(`./modules/home_chofer.js${v}`);
+                inicializarHomeChofer();
+                break;
+            case 'vendedores':
+                const { inicializarVendedores } = await import(`./modules/vendedores.js${v}`);
+                inicializarVendedores();
+                break;
+            case 'hoja_ruta':
+                const { inicializarHojaRuta } = await import(`./modules/hoja_ruta.js${v}`);
+                inicializarHojaRuta();
+                break;
+            case 'logistica':
+                const { inicializarLogistica } = await import(`./modules/logistica.js${v}`);
+                inicializarLogistica();
+                break;
+            case 'pedidos':
+                const { inicializarPedidos } = await import(`./modules/pedidos.js${v}`);
+                inicializarPedidos();
+                break;
+            case 'mapa_clientes':
+                const { inicializarMapaClientes } = await import(`./modules/mapa_clientes.js${v}`);
+                inicializarMapaClientes();
+                break;
+            case 'admin_apps':
+                const { inicializarAdminApps } = await import(`./modules/admin_apps.js${v}`);
+                inicializarAdminApps();
                 break;
             case 'rentals_dashboard':
             case 'rentals_units':
@@ -482,19 +755,53 @@ async function inicializarModulo(page) {
     }
 }
 
+/* --- LOOP PROTECTION SYSTEM --- */
+const LOOP_LIMIT = 5; // Máximo de navegaciones permitidas
+const LOOP_TIME_WINDOW = 3000; // en 3 segundos
+
+function checkLoopProtection() {
+    const now = Date.now();
+    let history = [];
+    try {
+        history = JSON.parse(sessionStorage.getItem('nav_history') || '[]');
+    } catch (e) { history = []; }
+
+    // Limpiar entradas viejas
+    history = history.filter(t => now - t < LOOP_TIME_WINDOW);
+    history.push(now);
+    sessionStorage.setItem('nav_history', JSON.stringify(history));
+
+    if (history.length > LOOP_LIMIT) {
+        console.error("🔥 BUCLE DETECTADO. DETENIENDO EJECUCIÓN 🔥");
+        document.body.innerHTML = `
+            <div style="padding:50px; text-align:center; color:#721c24; background:#f8d7da; font-family:sans-serif; height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                <h1 style="font-size: 3rem;">⚠️ SISTEMA DETENIDO ⚠️</h1>
+                <h3 style="margin-bottom: 2rem;">Se ha detectado un bucle infinito de redirecciones.</h3>
+                <button onclick="sessionStorage.clear(); window.location.href='/#login'; window.location.reload();" 
+                        style="padding:15px 30px; font-size:18px; cursor:pointer; background:#dc3545; color:white; border:none; border-radius:8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    ♻️ REINICIAR SISTEMA (Borrar Caché)
+                </button>
+            </div>
+        `;
+        throw new Error("Loop Protection Triggered: Execution Halted.");
+    }
+}
+
 // --- loadContent ---
 export function loadContent(event, page, clickedLink, fromHistory = false) {
+    checkLoopProtection(); // <--- PROTECCIÓN ACTIVADA
+
     if (event) event.preventDefault();
 
     const pageParts = page.split('?');
     const pagePath = pageParts[0];
     const queryString = pageParts.length > 1 ? `?${pageParts[1]}` : '';
     const pageName = pagePath.split('/').pop().replace('.html', '');
-    
+
     // --- 🛡️ RESUCITACIÓN (RED DE SEGURIDAD SECUNDARIA) ---
     if (!appState.negocioActivoTipo) {
-        const tipoGuardado = localStorage.getItem('tipo_negocio_activo'); 
-        const idGuardado = localStorage.getItem('negocio_activo_id');
+        const tipoGuardado = localStorage.getItem('negocioActivoTipo');
+        const idGuardado = localStorage.getItem('negocioActivoId');
         if (tipoGuardado && tipoGuardado !== 'null' && tipoGuardado !== 'undefined') {
             appState.negocioActivoTipo = tipoGuardado;
             appState.negocioActivoId = idGuardado;
@@ -502,24 +809,56 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     }
 
     const tipoAppActual = appState.negocioActivoTipo;
-    
+
     // (DEBUG ALERT QUITADO PARA PRODUCCIÓN)
 
-    if (tipoAppActual && pageName !== 'login') {
-        const rutasPermitidas = APP_RUTAS[tipoAppActual] || [];
-        const rutasComunes = APP_RUTAS['comun'] || [];
+    if (tipoAppActual && pageName !== 'login' && pageName !== 'admin_apps') {
+        const rutasPermitidas = appState.permissions[tipoAppActual] || [];
+        const rutasComunes = appState.permissions['comun'] || ['configuracion', 'usuarios', 'negocios']; // Fallback comun
 
-        if (!rutasPermitidas.includes(pageName) && !rutasComunes.includes(pageName)) {
+        const esHomeDelNegocio = (pageName === 'home_retail' || pageName === 'home_consorcio' || pageName === 'home_distribuidora' || pageName === 'rentals_dashboard' || pageName === 'home_chofer');
+
+        // Si es superadmin tiene acceso a todo, pero igual respetamos la UI del negocio
+        // Pero admin_apps fue excluido arriba. Choferes solo acceden a home_chofer.
+        if (appState.userRol === 'chofer' && pageName !== 'home_chofer') {
+            return Promise.resolve(); // Silently block or redirect
+        }
+
+        const isChoferRouteBlocked = (appState.userRol !== 'chofer' && pageName === 'home_chofer');
+
+        if (isChoferRouteBlocked || (appState.userRol !== 'chofer' && !rutasPermitidas.includes(pageName) && !rutasComunes.includes(pageName) && !esHomeDelNegocio)) {
             console.warn(`ACCESO DENEGADO: ${tipoAppActual} -> ${pageName}.`);
-            mostrarNotificacion('Módulo no disponible para este tipo de negocio.', 'warning');
 
-            let homePage = 'home_retail';
-            if (tipoAppActual === 'consorcio') homePage = 'home_consorcio';
-            if (tipoAppActual === 'rentals') homePage = 'rentals_dashboard';
+            // Renderizar Pantalla de Error Estática (Detiene el bucle/parpadeo)
+            const contentArea = document.getElementById('content-area');
+            if (contentArea) {
+                const defaultHome = (tipoAppActual === 'consorcio' ? 'home_consorcio' :
+                    tipoAppActual === 'rentals' ? 'rentals_dashboard' :
+                        tipoAppActual === 'distribuidora' ? 'home_distribuidora' : 'home_retail');
 
-            window.location.replace(`#${homePage}`);
-            loadContent(null, `static/${homePage}.html`, null, true);
-            return;
+                contentArea.innerHTML = `
+                    <div class="container text-center" style="margin-top: 50px;">
+                        <h1 class="text-danger">🚫 Acceso Denegado</h1>
+                        <p class="lead">No tienes permisos para acceder al módulo <strong>${pageName}</strong>.</p>
+                        <div class="alert alert-warning">
+                            Tu tipo de negocio es detectado como: <strong>${tipoAppActual}</strong>
+                        </div>
+                        <hr>
+                        <div class="text-start mx-auto" style="max-width: 600px; background: #f8f9fa; padding: 15px; border-radius: 8px; font-family: monospace;">
+                            <strong>Debug Info:</strong><br>
+                            - Rol: ${appState.userRol}<br>
+                            - Permisos para '${tipoAppActual}': ${(appState.permissions[tipoAppActual] || []).join(', ')}
+                        </div>
+                        <br><br>
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                            <button class="btn btn-primary" onclick="window.location.hash='#${defaultHome}'; window.location.reload();">🏠 Volver al Inicio</button>
+                            <button class="btn btn-secondary" onclick="window.location.reload()">🔄 Reintentar</button>
+                            <button class="btn btn-danger" onclick="logout()">🔒 Cerrar Sesión</button>
+                        </div>
+                    </div>
+                `;
+            }
+            return Promise.resolve();
         }
     }
 
@@ -530,21 +869,21 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     const currentUrlBase = baseUrl + window.location.hash.split('?')[0];
 
     if (!fromHistory && currentUrlBase === targetUrlBase) {
-        if(window.location.hash !== fullTargetHash) {
-             history.pushState({ page: page }, '', fullTargetHash);
+        if (window.location.hash !== fullTargetHash) {
+            history.pushState({ page: page }, '', fullTargetHash);
         }
         const navContainer = document.querySelector('.nav-container');
         if (navContainer && navContainer.classList.contains('is-active')) {
-             navContainer.classList.remove('is-active');
+            navContainer.classList.remove('is-active');
         }
-        return;
+        return Promise.resolve();
     }
 
     if (!fromHistory) {
         history.pushState({ page: page }, '', fullTargetHash);
     }
 
-    loadPageCSS(pageName); 
+    loadPageCSS(pageName);
 
     const header = document.querySelector('header');
     const isLoginPage = pageName === 'login';
@@ -553,6 +892,8 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     let pageToFetch = `${pagePath}?v=${APP_VERSION}`;
     if (pageName === 'crm_social') {
         pageToFetch = `static/crm_social/crm_social.html?v=${APP_VERSION}`;
+    } else if (pageName.startsWith('rentals_')) {
+        pageToFetch = `static/rentals/${pageName}.html?v=${APP_VERSION}`;
     }
 
     return fetch(pageToFetch)
@@ -578,12 +919,16 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
 
                     if (linkToActivate) {
                         linkToActivate.classList.add('active');
-                         const parentDropdown = linkToActivate.closest('.dropdown');
+                        const parentDropdown = linkToActivate.closest('.dropdown');
                         if (parentDropdown) parentDropdown.querySelector('.dropbtn')?.classList.add('active');
                     }
+
+                    // ✨ FILTRAR TARJETAS EN DASHBOARDS (Si aplica)
+                    filtrarTarjetasDashboards();
+
                     setTimeout(() => {
                         inicializarModulo(page).catch(err => {
-                             console.error(`Error init modulo ${page}:`, err);
+                            console.error(`Error init modulo ${page}:`, err);
                         });
                     }, 0);
                 });
@@ -591,43 +936,114 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
         })
         .catch(error => {
             console.error("Error loadContent:", error);
-            mostrarNotificacion(`Error al cargar ${pageName}.`, 'error');
-            const defaultHomePage = appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail';
+            const currentHash = window.location.hash.substring(1).split('?')[0];
+
+            let defaultHomePage = 'home_retail';
+            if (appState.negocioActivoTipo === 'consorcio') defaultHomePage = 'home_consorcio';
+            if (appState.negocioActivoTipo === 'rentals') defaultHomePage = 'rentals_dashboard';
+            if (appState.negocioActivoTipo === 'distribuidora') defaultHomePage = 'home_distribuidora';
+            if (appState.userRol === 'chofer') defaultHomePage = 'home_chofer';
+
+            // SI LA PAGINA QUE FALLO FUE EL HOME PROPIO, NO REDIRIGIR A EL (Break loop)
+            if (currentHash === defaultHomePage || pageName === defaultHomePage) {
+                console.error("Fallo crítico en página de inicio. Deteniendo para evitar bucle.");
+                mostrarNotificacion(`Error fatal: No se puede cargar ${pageName}.`, 'error');
+                return;
+            }
+
+            mostrarNotificacion(`Error al cargar ${pageName}. Redirigiendo a inicio...`, 'error');
             window.location.hash = `#${defaultHomePage}`;
-            loadPageCSS(null);
         });
 
-     const navContainer = document.querySelector('.nav-container');
-     if (window.innerWidth <= 900 && navContainer && navContainer.classList.contains('is-active')) {
-         navContainer.classList.remove('is-active');
-     }
+    const navContainer = document.querySelector('.nav-container');
+    if (window.innerWidth <= 900 && navContainer && navContainer.classList.contains('is-active')) {
+        navContainer.classList.remove('is-active');
+    }
 }
 
-export function abrirModalNuevoCliente(callback) { /* ... */ }
+/**
+ * ✨ LÓGICA DE MODAL DE NUEVO CLIENTE "AL VUELO"
+ * Permite crear un cliente desde cualquier parte del sistema sin salir de la vista actual.
+ */
+export async function abrirModalNuevoCliente(callback) {
+    // 1. Crear el overlay del modal si no existe
+    let modal = document.getElementById('modal-nuevo-cliente-quick');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-nuevo-cliente-quick';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <h3 style="margin-bottom: 20px;">👤 Registro Rápido de Cliente</h3>
+                <form id="form-cliente-quick">
+                    <div class="form-group">
+                        <label>Nombre Completo:</label>
+                        <input type="text" id="quick-cliente-nombre" required placeholder="Ej. Juan Pérez">
+                    </div>
+                    <div class="form-group">
+                        <label>DNI / CUIT:</label>
+                        <input type="text" id="quick-cliente-dni" placeholder="Sin puntos ni guiones">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono:</label>
+                        <input type="text" id="quick-cliente-tel">
+                    </div>
+                    <div class="form-actions" style="margin-top: 20px; display: flex; gap: 10px;">
+                        <button type="submit" class="btn-primary" style="flex: 1;">Guardar Cliente</button>
+                        <button type="button" id="btn-cancelar-quick-cliente" class="btn-secondary">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
 
-// --- TIMEOUT ---
-const TIMEOUT_INACTIVIDAD = 15 * 60 * 1000;
-let temporizadorInactividad;
-function reiniciarTemporizador() {
-    clearTimeout(temporizadorInactividad);
-    temporizadorInactividad = setTimeout(() => {
-        const user = getCurrentUser();
-        if (user && !window.location.hash.includes('login')) {
-            mostrarNotificacion("Sesión cerrada por inactividad.", "warning");
-            logout(); 
+    modal.style.display = 'flex';
+
+    const form = document.getElementById('form-cliente-quick');
+    const btnCancelar = document.getElementById('btn-cancelar-quick-cliente');
+
+    // Limpiar formulario al abrir
+    form.reset();
+
+    const cerrarModal = () => { modal.style.display = 'none'; };
+
+    btnCancelar.onclick = cerrarModal;
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const payload = {
+            nombre: document.getElementById('quick-cliente-nombre').value,
+            dni: document.getElementById('quick-cliente-dni').value,
+            telefono: document.getElementById('quick-cliente-tel').value,
+            tipo_cliente: 'Individuo',
+            posicion_iva: 'Consumidor Final',
+            condicion_venta: 'Contado'
+        };
+
+        try {
+            showGlobalLoader();
+            const response = await sendData(`/api/negocios/${appState.negocioActivoId}/clientes`, payload);
+            mostrarNotificacion('Cliente creado con éxito', 'success');
+            cerrarModal();
+            if (callback) {
+                // El backend devuelve {message: ..., id: ...}
+                callback({ id: response.id, nombre: payload.nombre });
+            }
+        } catch (error) {
+            console.error("Error creando cliente quick:", error);
+            mostrarNotificacion(error.message || 'Error al crear cliente', 'error');
+        } finally {
+            hideGlobalLoader();
         }
-    }, TIMEOUT_INACTIVIDAD);
+    };
 }
-window.addEventListener('mousemove', reiniciarTemporizador);
-window.addEventListener('keydown', reiniciarTemporizador);
-window.addEventListener('click', reiniciarTemporizador);
-window.addEventListener('touchstart', reiniciarTemporizador);
+
 
 // --- LISTENERS FINALES ---
 console.log("DOM Cargado. Configurando listeners iniciales...");
-reiniciarTemporizador();
 
-document.body.addEventListener('change', (e) => {
+document.body.addEventListener('change', async (e) => {
     if (e.target.id === 'selector-negocio') {
         const nuevoNegocioId = e.target.value;
         if (nuevoNegocioId) {
@@ -635,36 +1051,44 @@ document.body.addEventListener('change', (e) => {
             localStorage.setItem('negocioActivoId', nuevoNegocioId);
             const negocioSeleccionado = appState.negociosCache.find(n => String(n.id) === nuevoNegocioId);
             appState.negocioActivoTipo = negocioSeleccionado ? negocioSeleccionado.tipo_app : 'retail';
+
+            // Re-fetch permisos si es un rol con permisos dinámicos (Vendedor)
+            const user = getCurrentUser();
+            if (user && user.rol === 'vendedor') {
+                await fetchAppPermissions();
+            }
+
             actualizarUIporTipoApp();
 
             let homePage = 'home_retail';
             if (appState.negocioActivoTipo === 'consorcio') homePage = 'home_consorcio';
             if (appState.negocioActivoTipo === 'rentals') homePage = 'rentals_dashboard';
+            if (appState.negocioActivoTipo === 'distribuidora') homePage = 'home_distribuidora';
 
-            loadContent(null, `static/${homePage}.html`);
+            const homePageUrl = PATH_MAP[homePage] || `static/${homePage}.html`;
+            loadContent(null, homePageUrl);
         }
     }
 });
 
+
+
 window.addEventListener('popstate', (e) => {
-    const currentHashPageName = window.location.hash.substring(1).split('?')[0];
-    const pageFromState = e.state?.page;
+    if (estaActualizandoAuth) return; // ✨ No navegar si estamos re-autenticando
+    const currentHashFull = window.location.hash.substring(1);
+    const cleanHash = currentHashFull.split('?')[0];
+    const queryString = currentHashFull.includes('?') ? '?' + currentHashFull.split('?')[1] : '';
 
     let defaultHomePage = 'home_retail';
     if (appState.negocioActivoTipo === 'consorcio') defaultHomePage = 'home_consorcio';
     if (appState.negocioActivoTipo === 'rentals') defaultHomePage = 'rentals_dashboard';
+    if (appState.negocioActivoTipo === 'distribuidora') defaultHomePage = 'home_distribuidora';
+    if (appState.userRol === 'chofer') defaultHomePage = 'home_chofer';
 
-    const defaultHomeHtml = `static/${defaultHomePage}.html`;
+    const pageToLoad = cleanHash || defaultHomePage;
+    const pageUrl = (PATH_MAP[pageToLoad] || `static/${pageToLoad}.html`) + queryString;
 
-    if (pageFromState) {
-        loadContent(null, pageFromState, null, true);
-    } else if (!window.location.hash || currentHashPageName === 'home') {
-        loadContent(null, defaultHomeHtml, null, true);
-    } else if (currentHashPageName && currentHashPageName !== 'login'){
-        const fullHash = window.location.hash.substring(1);
-        const pageUrl = `static/${fullHash.split('?')[0]}.html${fullHash.includes('?') ? '?' + fullHash.split('?')[1] : ''}`;
-        loadContent(null, pageUrl, null, true);
-    }
+    loadContent(null, pageUrl, null, true);
 });
 
 window.addEventListener('authChange', () => {
@@ -682,8 +1106,8 @@ if (hamburgerBtn && navContainer2) {
 // --- 🛡️🛡️ RESTAURACIÓN DE SESIÓN GLOBAL (AQUÍ ES DONDE SUCEDE LA MAGIA) 🛡️🛡️ ---
 // Esta función se ejecuta YA, antes de que nada más pase.
 const restaurarSesionGlobal = () => {
-    const tipo = localStorage.getItem('tipo_negocio_activo');
-    const id = localStorage.getItem('negocio_activo_id');
+    const tipo = localStorage.getItem('negocioActivoTipo');
+    const id = localStorage.getItem('negocioActivoId');
 
     if (tipo && tipo !== 'null' && tipo !== 'undefined') {
         console.log(`♻️ [Global] Restaurando sesión al inicio: ${tipo}`);
@@ -700,6 +1124,6 @@ actualizarUIAutenticacion();
 // --- SERVICE WORKER ---
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register(`/service-worker.js${v}`).catch(() => {});
+        navigator.serviceWorker.register(`/service-worker.js${v}`).catch(() => { });
     });
 }
