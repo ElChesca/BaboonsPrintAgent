@@ -281,3 +281,8 @@ apply_module_migration.py
 apply_distribuidora_migration.py
 SCRIPT_LIMPIEZA_*.sql
 DATABASE_SAFETY.md
+
+# Archivos con credenciales/seguridad sensibles
+twilio_2FA_recovery_code.txt
+*recovery_code*.txt
+*2fa*.txt
