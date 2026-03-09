@@ -124,47 +124,85 @@
             </div>
         </div>
 
-        <!-- Gráfico + Ranking lado a lado -->
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+        <!-- Rankings Layout -->
+        <div
+            style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 16px;">
 
+            <!-- Ranking Vendedores (Existente) -->
             <div class="stat-card" style="padding: 20px;">
-                <h3 style="margin: 0 0 15px; font-size: 0.95em; color:#475569;">📈 Facturación por día</h3>
-                <div style="position:relative; height: 220px;">
-                    <canvas id="dist-chart-linea"></canvas>
-                </div>
-            </div>
-
-            <div class="stat-card" style="padding: 20px;">
-                <h3 style="margin: 0 0 15px; font-size: 0.95em; color:#475569;">🏆 Ranking de Vendedores</h3>
+                <h3 style="margin: 0 0 15px; font-size: 0.95em; color:#475569;">🏆 Top Vendedores</h3>
                 <table class="tabla-bonita" style="font-size: 0.9em;">
                     <thead>
                         <tr>
                             <th>#</th>
                             <th>Vendedor</th>
                             <th>Pedidos</th>
-                            <th>Facturado</th>
+                            <th>Total</th>
                         </tr>
                     </thead>
                     <tbody id="dist-tabla-ranking"></tbody>
                 </table>
             </div>
+
+            <!-- Ranking Productos (NUEVO) -->
+            <div class="stat-card" style="padding: 20px;">
+                <h3 style="margin: 0 0 15px; font-size: 0.95em; color:#475569;">📦 Productos más Pedidos</h3>
+                <table class="tabla-bonita" style="font-size: 0.9em;">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Producto</th>
+                            <th>Cant.</th>
+                            <th>Pedidos</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dist-tabla-productos"></tbody>
+                </table>
+            </div>
+
+            <!-- Ranking Clientes (NUEVO) -->
+            <div class="stat-card" style="padding: 20px;">
+                <h3 style="margin: 0 0 15px; font-size: 0.95em; color:#475569;">👤 Mejores Clientes</h3>
+                <table class="tabla-bonita" style="font-size: 0.9em;">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Cliente</th>
+                            <th>Pedidos</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dist-tabla-clientes"></tbody>
+                </table>
+            </div>
+
         </div>
 
-        <!-- Últimas Hojas de Ruta -->
-        <div class="stat-card" style="padding: 20px; margin-top: 16px;">
-            <h3 style="margin: 0 0 15px; font-size: 0.95em; color:#475569;">🚚 Últimas Hojas de Ruta</h3>
-            <table class="tabla-bonita" style="font-size: 0.9em;">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Fecha</th>
-                        <th>Vendedor</th>
-                        <th>Pedidos</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody id="dist-tabla-rutas"></tbody>
-            </table>
+        <!-- Panel Operativo Avanzado (GRÁFICOS) -->
+        <div
+            style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 16px;">
+
+            <div class="stat-card" style="padding: 20px;">
+                <h3 style="margin: 0 0 15px; font-size: 0.95em; color:#475569;">📊 Eficacia de Reparto</h3>
+                <div style="position:relative; height: 200px;">
+                    <canvas id="dist-chart-efectividad"></canvas>
+                </div>
+            </div>
+
+            <div class="stat-card" style="padding: 20px;">
+                <h3 style="margin: 0 0 15px; font-size: 0.95em; color:#475569;">💵 Mix de Cobranza</h3>
+                <div style="position:relative; height: 200px;">
+                    <canvas id="dist-chart-cobranza"></canvas>
+                </div>
+            </div>
+
+            <div class="stat-card" style="padding: 20px;">
+                <h3 style="margin: 0 0 15px; font-size: 0.95em; color:#475569;">🚫 Motivos de Rebote (Top 5)</h3>
+                <div style="position:relative; height: 200px;">
+                    <canvas id="dist-chart-rebotes"></canvas>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>

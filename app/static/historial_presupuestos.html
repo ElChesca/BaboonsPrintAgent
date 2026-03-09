@@ -1,28 +1,167 @@
-<div class="card">
-    <h2>🧾 Historial de Presupuestos</h2>
-    <div class="filters">
-        <label>Desde:</label> <input type="date" id="fecha-desde-presupuestos">
-        <label>Hasta:</label> <input type="date" id="fecha-hasta-presupuestos">
-        <button id="btn-filtrar-presupuestos">Filtrar</button>
+<div class="page-presupuestos">
+
+    <!-- ── HEADER ── -->
+    <div class="pres-page-header">
+        <div>
+            <h2 class="pres-page-title">🧾 Historial de Presupuestos</h2>
+            <p class="pres-page-sub">Consultá, filtrá e imprimí todos los presupuestos del negocio.</p>
+        </div>
+        <div class="pres-header-actions">
+            <button id="btn-nuevo-presupuesto" class="btn-primary">➕ Nuevo Presupuesto</button>
+        </div>
     </div>
-    
-    <div class="tabla-contenedor">
-        <table id="tabla-historial-presupuestos" class="tabla-bonita">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Fecha</th>
-                    <th>Cliente</th>
-                    <th>Vendedor</th>
-                    <th>Importe</th>
-                    <th>Observaciones</th>
-                    <th>Fecha Entrega</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
+
+    <!-- ── FILTROS ── -->
+    <div class="pres-filtros-card">
+        <div class="pres-filtros-row">
+            <div class="pres-filtro-group">
+                <label for="pres-buscar">🔍 Buscar</label>
+                <input type="text" id="pres-buscar" placeholder="Cliente, ID, vendedor…">
+            </div>
+            <div class="pres-filtro-group">
+                <label for="fecha-desde-presupuestos">📅 Desde</label>
+                <input type="date" id="fecha-desde-presupuestos">
+            </div>
+            <div class="pres-filtro-group">
+                <label for="fecha-hasta-presupuestos">📅 Hasta</label>
+                <input type="date" id="fecha-hasta-presupuestos">
+            </div>
+            <div class="pres-filtro-group">
+                <label for="pres-filtro-estado">Estado</label>
+                <select id="pres-filtro-estado">
+                    <option value="">Todos</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="convertido">Facturado</option>
+                    <option value="anulado">Anulado</option>
+                </select>
+            </div>
+            <div class="pres-filtro-group pres-filtro-btn">
+                <button id="btn-filtrar-presupuestos" class="btn-secondary">Filtrar</button>
+                <button id="btn-limpiar-filtros-pres" class="btn-ghost">✕ Limpiar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── KPIs ── -->
+    <div class="pres-kpis" id="pres-kpis">
+        <div class="pres-kpi pres-kpi-total">
+            <span class="pres-kpi-valor" id="kpi-pres-total">—</span>
+            <span class="pres-kpi-label">Total</span>
+        </div>
+        <div class="pres-kpi pres-kpi-pendiente">
+            <span class="pres-kpi-valor" id="kpi-pres-pendiente">—</span>
+            <span class="pres-kpi-label">Pendientes</span>
+        </div>
+        <div class="pres-kpi pres-kpi-facturado">
+            <span class="pres-kpi-valor" id="kpi-pres-facturado">—</span>
+            <span class="pres-kpi-label">Facturados</span>
+        </div>
+        <div class="pres-kpi pres-kpi-monto">
+            <span class="pres-kpi-valor" id="kpi-pres-monto">—</span>
+            <span class="pres-kpi-label">Monto Total</span>
+        </div>
+    </div>
+
+    <!-- ── TABLA ── -->
+    <div class="card pres-tabla-card">
+        <div class="tabla-contenedor">
+            <table id="tabla-historial-presupuestos" class="tabla-bonita">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Vendedor</th>
+                        <th style="text-align:right;">Importe</th>
+                        <th>Entrega Est.</th>
+                        <th>Estado</th>
+                        <th style="text-align:center;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="pres-tbody">
+                    <tr>
+                        <td colspan="8" class="pres-loading">⏳ Cargando presupuestos…</td>
+                    </tr>
                 </tbody>
-        </table>
+            </table>
+        </div>
+        <div class="pres-tabla-footer" id="pres-tabla-footer" style="display:none;">
+            <span id="pres-contador">0 presupuestos</span>
+        </div>
+    </div>
+
+    <!-- ── MODAL IMPRESIÓN ── -->
+    <div id="modal-imprimir-pres" class="modal-overlay" style="display:none;">
+        <div class="modal-box modal-print-box" id="contenido-imprimible">
+            <div class="print-header">
+                <div class="print-logo-area">
+                    <strong class="print-empresa" id="print-empresa-nombre">—</strong>
+                </div>
+                <div class="print-doc-info">
+                    <h2>PRESUPUESTO</h2>
+                    <p>N° <strong id="print-numero">—</strong></p>
+                    <p>Fecha: <span id="print-fecha">—</span></p>
+                    <p>Válido hasta: <span id="print-entrega">—</span></p>
+                </div>
+            </div>
+
+            <div class="print-cliente-vendedor">
+                <div>
+                    <h4>Cliente</h4>
+                    <p id="print-cliente">—</p>
+                </div>
+                <div>
+                    <h4>Vendedor</h4>
+                    <p id="print-vendedor">—</p>
+                </div>
+            </div>
+
+            <table class="print-tabla">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Precio Unit.</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="print-items">
+                </tbody>
+            </table>
+
+            <div class="print-totales">
+                <div class="print-total-row">
+                    <span>Subtotal:</span>
+                    <span id="print-subtotal">$0</span>
+                </div>
+                <div class="print-total-row" id="print-bonif-row" style="display:none; color:#16a34a;">
+                    <span>Bonificación (<span id="print-bonif-pct">0</span>%):</span>
+                    <span id="print-bonif-monto">$0</span>
+                </div>
+                <div class="print-total-row" id="print-inter-row" style="display:none; color:#dc2626;">
+                    <span>Interés (<span id="print-inter-pct">0</span>%):</span>
+                    <span id="print-inter-monto">$0</span>
+                </div>
+                <div class="print-total-row print-total-final">
+                    <strong>TOTAL:</strong>
+                    <strong id="print-total">$0</strong>
+                </div>
+            </div>
+
+            <div class="print-obs" id="print-obs-wrap" style="display:none;">
+                <strong>Observaciones:</strong>
+                <p id="print-observaciones"></p>
+            </div>
+
+            <div class="print-pie">
+                <p>Este presupuesto tiene validez de 15 días desde la fecha de emisión.</p>
+            </div>
+
+            <div class="print-acciones no-print">
+                <button onclick="window._imprimirPresupuesto && window._imprimirPresupuesto()" class="btn-primary">🖨️
+                    Imprimir / Guardar PDF</button>
+                <button id="btn-cerrar-modal-print" class="btn-secondary">✕ Cerrar</button>
+            </div>
+        </div>
     </div>
 </div>

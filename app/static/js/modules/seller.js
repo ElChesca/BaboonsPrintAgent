@@ -7,6 +7,7 @@ let productsCache = [];
 let activeClientId = null;
 let activeRouteId = null;
 let editingOrderId = null; // ✨ Estado para saber si editamos
+let motivosReboteCache = []; // ✨ Motivos de rebote para rechazos parciales
 const formatProductName = (p) => p.alias ? `${p.alias} (${p.sku || p.nombre})` : p.nombre;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -54,7 +55,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     await loadRoute(localDate);
+    cargarMotivosRebote();
+
+    // Nota: La lógica de Cambio de Método de Pago ha sido removida para Vendedores
+    // ya que solo realizan la entrega (bajada) sin cobro.
 });
+
+async function cargarMotivosRebote() {
+    if (motivosReboteCache.length > 0) return;
+    const user = getCurrentUser();
+    if (user) {
+        try {
+            motivosReboteCache = await fetchData(`/api/negocios/${user.negocio_id}/motivos_rebote`);
+        } catch (e) {
+            console.error("Error cargando motivos de rebote", e);
+        }
+    }
+}
 
 function loadTodayRoute() {
     const dateInput = document.getElementById('fecha-ruta');
@@ -837,6 +854,11 @@ window.updateBonifEntrega = (index, val) => {
     recalcularTotalEntrega();
 };
 
+window.updateMotivoEntrega = (index, val) => {
+    const item = window.currentEntregaItems[index];
+    item.motivo_rebote_id = val || null;
+};
+
 function renderEntregaItems() {
     const itemsContainer = document.getElementById('entrega-items-container');
     itemsContainer.innerHTML = '';
@@ -863,6 +885,15 @@ function renderEntregaItems() {
                            value="${item.bonificacion}" min="0" max="${item.cantidad_actual}"
                            onchange="updateBonifEntrega(${index}, this.value)">
                 </div>
+                ${(item.cantidad_actual < item.cantidad_original) ? `
+                <div class="mt-2 p-2 bg-warning bg-opacity-10 border border-warning rounded">
+                    <small class="text-danger fw-bold d-block mb-1"><i class="fas fa-exclamation-triangle"></i> Indicar motivo de rechazo (${item.cantidad_original - item.cantidad_actual} unid.):</small>
+                    <select class="form-select form-select-sm border-warning" onchange="updateMotivoEntrega(${index}, this.value)">
+                        <option value="">Seleccione un motivo (Obligatorio)...</option>
+                        ${motivosReboteCache.map(m => `<option value="${m.id}" ${item.motivo_rebote_id == m.id ? 'selected' : ''}>${m.descripcion}</option>`).join('')}
+                    </select>
+                </div>
+                ` : ''}
             </div>
         `;
         itemsContainer.appendChild(div);
@@ -893,6 +924,8 @@ window.recalcularTotalEntrega = () => {
     } else {
         document.getElementById('container-nuevo-total').classList.add('d-none');
     }
+
+    // Nota: recalcularSaldoCtaCte y lógica mixta removida para Vendedores
 };
 
 window.cerrarModalEntrega = function () {
@@ -901,23 +934,37 @@ window.cerrarModalEntrega = function () {
 
 window.confirmarEntregaBackend = async function () {
     const pedidoId = document.getElementById('entrega-pedido-id').value;
-    const metodoPago = document.querySelector('input[name="metodoPago"]:checked').value;
     const pctDesc = parseFloat(document.getElementById('entrega-descuento-pct')?.value || 0);
+
+    // El vendedor solo confirma la Bajada (Entrega sin cobro)
+    const soloBajada = true;
 
     // Preparar datos desde window.currentEntregaItems
     const itemsAjustados = {};
     const bonificacionesAjustadas = {};
+    const motivosAjustados = {};
     let subtotalReal = 0;
+    let faltanMotivos = false;
 
     window.currentEntregaItems.forEach(item => {
         const prodIdStr = item.producto_id.toString();
         itemsAjustados[prodIdStr] = item.cantidad_actual;
         bonificacionesAjustadas[prodIdStr] = item.bonificacion;
 
+        if (item.cantidad_actual < item.cantidad_original) {
+            if (!item.motivo_rebote_id) faltanMotivos = true;
+            motivosAjustados[prodIdStr] = item.motivo_rebote_id;
+        }
+
         // El subtotal real (antes de descuento general) considera (Cant - Bonif)
         const subItem = Math.max(0, item.cantidad_actual - item.bonificacion) * item.precio_unitario;
         subtotalReal += subItem;
     });
+
+    if (faltanMotivos) {
+        Swal.fire('Falta Motivo', 'Debes indicar obligatoriamente el motivo para los productos con cantidad reducida.', 'warning');
+        return;
+    }
 
     const descuentoValor = subtotalReal * (pctDesc / 100);
     const finalTotal = subtotalReal - descuentoValor;
@@ -930,11 +977,11 @@ window.confirmarEntregaBackend = async function () {
         }
 
         const response = await sendData(`/api/pedidos/${pedidoId}/entregar`, {
-            metodo_pago: metodoPago,
-            descuento: descuentoValor,
             items_ajustados: itemsAjustados,
             bonificaciones_ajustadas: bonificacionesAjustadas,
-            motivo_devolucion: 'Rechazo Parcial en Entrega'
+            motivos_ajustados: motivosAjustados,
+            descuento: pctDesc,
+            solo_bajada: soloBajada
         }, 'POST');
 
         // Success

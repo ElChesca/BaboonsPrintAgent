@@ -4,7 +4,9 @@ import { mostrarNotificacion } from './notifications.js';
 
 // --- Instancias de Chart.js ---
 let paymentChartInstance = null;
-let lineChartInstance = null;
+let distEfectividadChart = null;
+let distCobranzaChart = null;
+let distRebotesChart = null;
 
 const formatCurrency = (n) => (n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
 const formatDate = (date) => {
@@ -173,9 +175,9 @@ async function cargarDistribucion(desdeDate, hastaDate) {
 
     try {
         const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/dashboard/distribucion?desde=${desde}&hasta=${hasta}`);
-        const { kpis, ventas_por_dia, ranking_vendedores, ultimas_rutas } = data;
+        const { kpis, ranking_vendedores, ranking_productos, ranking_clientes } = data;
 
-        // KPIs
+        // 1. KPIs
         document.getElementById('kpi-facturacion').textContent = formatCurrency(kpis.facturacion);
         document.getElementById('kpi-pedidos-total').textContent = kpis.pedidos_total;
         document.getElementById('kpi-pedidos-entregados').textContent = kpis.pedidos_entregados;
@@ -183,49 +185,15 @@ async function cargarDistribucion(desdeDate, hastaDate) {
         document.getElementById('kpi-rutas').textContent = kpis.rutas_completadas;
         document.getElementById('kpi-clientes').textContent = kpis.clientes_visitados;
 
-        // Gráfico de línea
-        const ctxLinea = document.getElementById('dist-chart-linea');
-        if (ctxLinea) {
-            if (lineChartInstance) { lineChartInstance.destroy(); lineChartInstance = null; }
-            const labels = ventas_por_dia.map(d => new Date(d.fecha + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }));
-            const values = ventas_por_dia.map(d => d.total);
-            lineChartInstance = new Chart(ctxLinea.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [{
-                        label: 'Facturación',
-                        data: values,
-                        borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99,102,241,0.08)',
-                        borderWidth: 2,
-                        pointRadius: 4,
-                        pointBackgroundColor: '#6366f1',
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { ticks: { callback: v => formatCurrency(v) }, grid: { color: '#f1f5f9' } },
-                        x: { grid: { display: false } }
-                    }
-                }
-            });
-        }
-
-        // Ranking Vendedores
-        const tablaR = document.getElementById('dist-tabla-ranking');
-        if (tablaR) {
-            tablaR.innerHTML = '';
+        // 2. Ranking Vendedores
+        const tablaV = document.getElementById('dist-tabla-ranking');
+        if (tablaV) {
+            tablaV.innerHTML = '';
             if (!ranking_vendedores?.length) {
-                tablaR.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin datos en el período.</td></tr>';
+                tablaV.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin datos.</td></tr>';
             } else {
                 ranking_vendedores.forEach((v, i) => {
-                    tablaR.innerHTML += `
+                    tablaV.innerHTML += `
                         <tr>
                             <td style="font-weight:700; color:${i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#cbd5e1'}">${i + 1}</td>
                             <td>${v.nombre}</td>
@@ -236,26 +204,119 @@ async function cargarDistribucion(desdeDate, hastaDate) {
             }
         }
 
-        // Hojas de Ruta
-        const tablaHR = document.getElementById('dist-tabla-rutas');
-        if (tablaHR) {
-            tablaHR.innerHTML = '';
-            if (!ultimas_rutas?.length) {
-                tablaHR.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">Sin hojas de ruta registradas.</td></tr>';
+        // 3. Ranking Productos
+        const tablaP = document.getElementById('dist-tabla-productos');
+        if (tablaP) {
+            tablaP.innerHTML = '';
+            if (!ranking_productos?.length) {
+                tablaP.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin datos.</td></tr>';
             } else {
-                ultimas_rutas.forEach(hr => {
-                    const badge = ESTADO_BADGES[hr.estado] || { bg: '#f1f5f9', color: '#64748b', label: hr.estado };
-                    const fechaStr = hr.fecha ? new Date(hr.fecha + 'T00:00:00').toLocaleDateString('es-AR') : '-';
-                    tablaHR.innerHTML += `
+                ranking_productos.forEach((p, i) => {
+                    tablaP.innerHTML += `
                         <tr>
-                            <td>#${hr.id}</td>
-                            <td>${fechaStr}</td>
-                            <td>${hr.vendedor_nombre || '-'}</td>
-                            <td style="text-align:center;">${hr.total_pedidos || 0}</td>
-                            <td><span style="background:${badge.bg};color:${badge.color};border-radius:6px;padding:3px 10px;font-size:0.82em;font-weight:600;">${badge.label}</span></td>
+                            <td style="font-weight:700; color:${i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#cbd5e1'}">${i + 1}</td>
+                            <td>${p.nombre}</td>
+                            <td style="text-align:center;">${(p.total_vendido || 0).toLocaleString()}</td>
+                            <td style="text-align:center;">${p.pedidos}</td>
                         </tr>`;
                 });
             }
+        }
+
+        // 4. Ranking Clientes
+        const tablaC = document.getElementById('dist-tabla-clientes');
+        if (tablaC) {
+            tablaC.innerHTML = '';
+            if (!ranking_clientes?.length) {
+                tablaC.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin datos.</td></tr>';
+            } else {
+                ranking_clientes.forEach((c, i) => {
+                    tablaC.innerHTML += `
+                        <tr>
+                            <td style="font-weight:700; color:${i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#cbd5e1'}">${i + 1}</td>
+                            <td>${c.nombre}</td>
+                            <td style="text-align:center;">${c.pedidos}</td>
+                            <td style="font-weight:600;">${formatCurrency(c.total_gastado)}</td>
+                        </tr>`;
+                });
+            }
+        }
+
+        // 5. Gráficos Operativos
+        const ctxEf = document.getElementById('dist-chart-efectividad');
+        if (ctxEf) {
+            if (distEfectividadChart) distEfectividadChart.destroy();
+            distEfectividadChart = new Chart(ctxEf.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Entregas Limpias', 'Con Rebotes'],
+                    datasets: [{
+                        data: [data.efectividad_entrega.entregas_ok, data.efectividad_entrega.entregas_con_rebote],
+                        backgroundColor: ['#10b981', '#f59e0b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+                }
+            });
+        }
+
+        // Gráfico: Mix de Cobranza
+        const ctxCob = document.getElementById('dist-chart-cobranza');
+        if (ctxCob) {
+            if (distCobranzaChart) distCobranzaChart.destroy();
+            const labelsMap = { 'efectivo': 'Efectivo', 'transferencia': 'Transf.', 'cheque': 'Cheque', 'pos': 'POS' };
+            const labels = data.mix_cobranza.map(c => labelsMap[c.metodo_pago] || c.metodo_pago);
+            const values = data.mix_cobranza.map(c => c.total);
+            distCobranzaChart = new Chart(ctxCob.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+                }
+            });
+        }
+
+        // Gráfico: Motivos de Rebote
+        const ctxReb = document.getElementById('dist-chart-rebotes');
+        if (ctxReb) {
+            if (distRebotesChart) distRebotesChart.destroy();
+            const labels = data.motivos_rebote.map(m => m.motivo);
+            const values = data.motivos_rebote.map(m => m.cantidad);
+            distRebotesChart = new Chart(ctxReb.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Cant. Items',
+                        data: values,
+                        backgroundColor: '#94a3b8',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { precision: 0 } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
         }
     } catch (e) {
         console.error("Error cargando dashboard distribución:", e);

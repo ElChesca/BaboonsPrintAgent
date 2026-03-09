@@ -575,24 +575,53 @@ function renderRepartidorMode(detalle, pedidos) {
         const pedido = pedidosMap[item.cliente_id];
         const tienePedido = !!pedido;
         const esEntregado = pedido && pedido.estado === 'entregado';
-        const esVisitado = item.visitado || esEntregado;
+        const esCobrado = pedido && pedido.venta_id !== null && pedido.venta_id !== undefined;
+        // Solo consideramos visitado para el estilo si ya se entregó el pedido 
+        // o si no tiene pedido y fue marcado como visitada la parada.
+        const seVeVisitado = esCobrado || (item.visitado && !tienePedido);
+        const esVisitadoContador = item.visitado || esCobrado;
 
-        if (esVisitado) itemsVisitados++;
+        if (esVisitadoContador) itemsVisitados++;
 
         // Card HTML
         const div = document.createElement('div');
-        div.className = `card-parada ${esVisitado ? 'visitado' : ''}`;
+        div.className = `card-parada ${seVeVisitado ? 'visitado' : ''}`;
 
         let accionBtn = '';
-        if (esEntregado) {
-            accionBtn = `<div class="text-success fw-bold"><i class="fas fa-check-double me-1"></i>ENTREGADO</div>`;
-        } else if (tienePedido) {
-            // Pasamos objeto plano escapado
+        if (esCobrado) {
+            accionBtn = `<div class="text-success fw-bold"><i class="fas fa-check-double me-1"></i>ENTREGADO Y COBRADO</div>`;
+        } else if (esEntregado) {
+            // Ya fue entregado (por el chofer) pero falta el cobro
             accionBtn = `
-                <button class="btn btn-primary w-100 shadow-sm" onclick='window.abrirModalEntrega(${JSON.stringify(pedido).replace(/'/g, "&#39;")})'>
-                    <i class="fas fa-box-open me-2"></i>ENTREGAR ($${pedido.total})
+                <button class="btn btn-warning text-dark w-100 shadow-sm fw-bold" onclick='window.abrirModalEntrega(${JSON.stringify(pedido).replace(/'/g, "&#39;")}, true)'>
+                    <i class="fas fa-hand-holding-usd me-2"></i>💰 REGISTRAR COBRO ($${pedido.total})
                 </button>
             `;
+        } else if (tienePedido) {
+            const isVisitado = item.visitado || esEntregado || esCobrado; // Determine if the stop is considered visited
+            const hrId = detalle.id; // Assuming detalle.id is the hrId
+            const btnAccion = !isVisitado ? (
+                pedido ? `
+                <button class="btn btn-primary w-100 fw-bold btn-lg shadow-sm" onclick='abrirModalEntregaChofer(${hrId || item.hoja_ruta_id || 0}, ${item.hoja_ruta_item_id}, ${JSON.stringify(pedido).replace(/'/g, "&apos;")})'>
+                    <i class="fas fa-hand-holding-usd me-1"></i> Confirmar Bajada
+                </button>
+            ` : `
+                <button class="btn btn-warning w-100 fw-bold btn-lg shadow-sm" onclick="marcarVisitaChofer(${item.hoja_ruta_id || hrId}, ${item.hoja_ruta_item_id}, true, this)">
+                    <i class="fas fa-clipboard-check me-1"></i> Confirmar Bajada
+                </button>
+            `
+            ) : `
+            <button class="btn btn-outline-success w-100 fw-bold" disabled>
+                <i class="fas fa-check-circle me-1"></i> ${pedido ? 'Bajada Confirmada' : 'Bajada Confirmada'}
+            </button>
+            ${(pedido && pedido.venta_id) ?
+                `<small class="text-muted d-block mt-2 text-center"><i class="fas fa-lock"></i> No se puede deshacer (Cobrado)</small>` :
+                `<button class="btn btn-link text-danger w-100 mt-2 btn-sm" onclick="marcarVisitaChofer(${item.hoja_ruta_id || hrId}, ${item.hoja_ruta_item_id}, false, this)">
+                    <i class="fas fa-undo"></i> Deshacer bajada/visita
+                </button>`
+            }
+        `;
+            accionBtn = btnAccion;
         } else {
             accionBtn = `<div class="text-muted"><small>Solo Visita / Sin Pedido</small></div>`;
         }
@@ -613,32 +642,103 @@ function renderRepartidorMode(detalle, pedidos) {
         container.appendChild(div);
     });
 
+    // ✨ AUTO-SCROLL: Ir a la primera parada no visitada
+    setTimeout(() => {
+        const primeraParada = container.querySelector(".card-parada:not(.visitado)");
+        if (primeraParada) {
+            primeraParada.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }, 300);
+
     // Actualizar Barra Progreso
-    const percentage = totalItems > 0 ? Math.round((itemsVisitados / totalItems) * 100) : 0;
-    document.getElementById('repartidor-progress-bar').style.width = `${percentage}%`;
-    document.getElementById('repartidor-progress-badge').innerText = `${percentage}%`;
+    const percentage =
+        totalItems > 0 ? Math.round((itemsVisitados / totalItems) * 100) : 0;
+    document.getElementById("repartidor-progress-bar").style.width =
+        `${percentage}%`;
+    document.getElementById("repartidor-progress-badge").innerText =
+        `${percentage}%`;
 }
 
 function hasCoords(item) {
     return item.latitud && item.longitud;
 }
 
-export function abrirModalEntrega(pedido) {
-    document.getElementById('entrega-pedido-id').value = pedido.id;
-    document.getElementById('entrega-monto-total').innerText = `$${pedido.total.toLocaleString()}`;
+export async function abrirModalEntrega(pedido, isCobroSolamente = false) {
+    document.getElementById("entrega-pedido-id").value = pedido.id;
+    document.getElementById("entrega-pedido-id").dataset.soloCobro = isCobroSolamente ? "true" : "false";
 
-    // Resumen breve items
-    const resumenDiv = document.getElementById('entrega-resumen-items');
-    // Si tuviéramos detalles en 'pedido' object, los mostramos.
-    // El endpoint de listado de pedidos NO trae detalles usualmente.
-    // Opcion A: Fetch detalle. Opcion B: Mostrar solo monto.
-    if (pedido.detalles_resumen) {
-        resumenDiv.innerText = pedido.detalles_resumen; // Si backend lo mandara
-    } else {
-        resumenDiv.innerHTML = '<span class="fst-italic">Ver detalle completo en factura</span>';
+    const montoTotal = parseFloat(pedido.total);
+    document.getElementById("entrega-monto-total").innerText =
+        `$${montoTotal.toLocaleString()}`;
+
+    // Resetear panel mixto
+    document.getElementById("pago-efectivo").checked = true;
+    document.getElementById("panel-pago-mixto").style.display = "none";
+    document.getElementById("monto-efectivo-mixto").value = "";
+    document.getElementById("monto-mp-mixto").value = "";
+    document.getElementById("mixto-saldo-ctacte").innerText = `$${montoTotal.toLocaleString()}`;
+
+    const recalcularSaldoCtaCte = () => {
+        const ef = parseFloat(document.getElementById("monto-efectivo-mixto").value || 0);
+        const mp = parseFloat(document.getElementById("monto-mp-mixto").value || 0);
+        const saldo = Math.max(0, montoTotal - (ef + mp));
+        document.getElementById("mixto-saldo-ctacte").innerText = `$${saldo.toLocaleString()}`;
+    };
+
+    // Bind eventos radio
+    const radios = document.querySelectorAll('input[name="metodoPago"]');
+    radios.forEach((r) => {
+        r.onchange = () => {
+            const panelMixto = document.getElementById("panel-pago-mixto");
+            if (r.value === "Mixto") {
+                panelMixto.style.display = "block";
+                document.getElementById("monto-efectivo-mixto").value = 0;
+                document.getElementById("monto-mp-mixto").value = 0;
+                recalcularSaldoCtaCte();
+            } else {
+                panelMixto.style.display = "none";
+            }
+        };
+    });
+
+    // Calculo automático de saldo Cta Cte en mixto
+    document.getElementById("monto-efectivo-mixto").oninput = recalcularSaldoCtaCte;
+    document.getElementById("monto-mp-mixto").oninput = recalcularSaldoCtaCte;
+
+    // Resumen dinámico con detalles reales
+    const resumenDiv = document.getElementById("entrega-resumen-items");
+    resumenDiv.innerHTML = '<div class="text-center py-2"><i class="fas fa-spinner fa-spin"></i> Cargando detalles del pedido...</div>';
+
+    document.getElementById("modal-confirmar-entrega").style.display = "block";
+
+    try {
+        const detalleCompleto = await fetchData(`/api/pedidos/${pedido.id}`);
+
+        let htmlStr = '<h6 class="border-bottom pb-1 text-dark mb-2" style="font-size:0.9rem;">Pedido Original</h6><ul class="list-unstyled mb-2" style="font-size: 0.85rem;">';
+        if (detalleCompleto.detalles && detalleCompleto.detalles.length > 0) {
+            detalleCompleto.detalles.forEach(d => {
+                const rebote = detalleCompleto.rebotes ? detalleCompleto.rebotes.find(r => r.producto_id === d.producto_id) : null;
+                const cantOriginal = parseFloat(d.cantidad) + (rebote ? parseFloat(rebote.cantidad) : 0);
+                htmlStr += `<li><i class="fas fa-box text-secondary me-1"></i> <b>${cantOriginal}</b>x ${d.producto_nombre} <span class="text-muted">($${parseFloat(d.subtotal).toLocaleString()} cobrables)</span></li>`;
+            });
+        } else {
+            htmlStr += '<li class="text-muted fst-italic">Sin ítems en el pedido</li>';
+        }
+        htmlStr += '</ul>';
+
+        if (detalleCompleto.rebotes && detalleCompleto.rebotes.length > 0) {
+            htmlStr += '<h6 class="border-bottom pb-1 text-danger mb-2 mt-3" style="font-size:0.9rem;"><i class="fas fa-exclamation-triangle"></i> Rechazos / Devoluciones</h6><ul class="list-unstyled mb-0 text-danger" style="font-size: 0.85rem;">';
+            detalleCompleto.rebotes.forEach(r => {
+                htmlStr += `<li>- <b>${r.cantidad}</b>x ${r.producto_nombre} <small class="text-muted d-block ms-3">💬 ${r.motivo || 'Sin motivo'}</small></li>`;
+            });
+            htmlStr += '</ul>';
+        }
+
+        resumenDiv.innerHTML = htmlStr;
+    } catch (e) {
+        console.error("Error cargando detalles del pedido", e);
+        resumenDiv.innerHTML = '<div class="text-danger small"><i class="fas fa-exclamation-circle"></i> No se pudo cargar el detalle completo del pedido. Por favor, revise la factura.</div>';
     }
-
-    document.getElementById('modal-confirmar-entrega').style.display = 'block';
 }
 
 export function cerrarModalEntrega() {
@@ -646,23 +746,48 @@ export function cerrarModalEntrega() {
 }
 
 export async function confirmarEntregaBackend() {
-    const pedidoId = document.getElementById('entrega-pedido-id').value;
-    const metodoPago = document.querySelector('input[name="metodoPago"]:checked').value;
+    const pedidoId = document.getElementById("entrega-pedido-id").value;
+    const isCobroSolamente = document.getElementById("entrega-pedido-id").dataset.soloCobro === "true";
+    const metodoPago = document.querySelector(
+        'input[name="metodoPago"]:checked',
+    ).value;
 
     // Validar
     if (!pedidoId) return;
 
+    const payload = {
+        metodo_pago: metodoPago,
+    };
+
+    if (isCobroSolamente) {
+        payload.solo_cobro = true;
+    }
+
+    if (metodoPago === "Mixto") {
+        payload.monto_efectivo =
+            parseFloat(document.getElementById("monto-efectivo-mixto").value) || 0;
+        payload.monto_mp =
+            parseFloat(document.getElementById("monto-mp-mixto").value) || 0;
+
+        if (payload.monto_efectivo + payload.monto_mp <= 0) {
+            mostrarNotificacion("Debe ingresar los montos para el pago mixto", "error");
+            return;
+        }
+    }
+
     try {
-        const btn = document.querySelector('#modal-confirmar-entrega .btn-success');
+        const btn = document.querySelector("#modal-confirmar-entrega .btn-success");
         const originalText = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
 
-        const response = await sendData(`/api/pedidos/${pedidoId}/entregar`, {
-            metodo_pago: metodoPago
-        }, 'POST');
+        const response = await sendData(
+            `/api/pedidos/${pedidoId}/entregar`,
+            payload,
+            "POST",
+        );
 
-        mostrarNotificacion(response.message, 'success');
+        mostrarNotificacion(response.message, "success");
 
         // Mostrar notificaciones de stock si las hay
         if (response.notificaciones && response.notificaciones.length > 0) {

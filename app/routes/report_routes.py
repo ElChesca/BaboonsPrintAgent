@@ -430,3 +430,68 @@ def get_reporte_entregas(current_user, negocio_id):
     except Exception as e:
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/reportes/bajadas-detalle', methods=['GET'])
+@token_required
+def get_reporte_bajadas_detalle(current_user, negocio_id):
+    db = get_db()
+    
+    if not check_user_negocio_permission(current_user, negocio_id):
+        return jsonify({'error': 'No tiene permisos sobre este negocio'}), 403
+
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+    chofer_id = request.args.get('chofer_id')
+    hoja_ruta_id = request.args.get('hoja_ruta_id')
+
+    query = """
+        SELECT 
+            p.id as pedido_id,
+            p.fecha_entrega as fecha_confirmacion,
+            hr.id as hr_id,
+            v.nombre as chofer_nombre,
+            c.nombre as cliente_nombre,
+            p.total as monto_pedido,
+            p.estado,
+            u.nombre as usuario_confirmacion
+        FROM pedidos p
+        JOIN hoja_ruta hr ON p.hoja_ruta_id = hr.id
+        JOIN vendedores v ON hr.vendedor_id = v.id
+        JOIN clientes c ON p.cliente_id = c.id
+        LEFT JOIN usuarios u ON p.usuario_entrega_id = u.id
+        WHERE p.negocio_id = %s AND p.fecha_entrega IS NOT NULL
+    """
+    params = [negocio_id]
+
+    if fecha_desde:
+        query += " AND CAST(p.fecha_entrega AS DATE) >= %s"
+        params.append(fecha_desde)
+    if fecha_hasta:
+        query += " AND CAST(p.fecha_entrega AS DATE) <= %s"
+        params.append(fecha_hasta)
+    if chofer_id:
+        query += " AND hr.vendedor_id = %s"
+        params.append(chofer_id)
+    if hoja_ruta_id:
+        query += " AND hr.id = %s"
+        params.append(hoja_ruta_id)
+
+    query += " ORDER BY p.fecha_entrega DESC"
+
+    try:
+        db.execute(query, tuple(params))
+        rows = db.fetchall()
+        
+        reporte_list = []
+        for row in rows:
+            r = dict(row)
+            if r['fecha_confirmacion']:
+                r['fecha_confirmacion'] = r['fecha_confirmacion'].isoformat()
+            if isinstance(r['monto_pedido'], Decimal):
+                r['monto_pedido'] = float(r['monto_pedido'])
+            reporte_list.append(r)
+            
+        return jsonify(reporte_list)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500

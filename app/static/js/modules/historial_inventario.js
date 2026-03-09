@@ -3,7 +3,9 @@ import { fetchData } from '../api.js';
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
 
-// Variable global para guardar los datos actuales de la tabla
+// Variables de paginación
+let currentOffset = 0;
+const PAGE_SIZE = 50;
 let historialActual = [];
 
 // --- Funciones de Renderizado y Carga ---
@@ -39,22 +41,27 @@ function getMovimientoInfo(tipo) {
     return map[tipo] || { class: 'bg-secondary text-white', icon: 'fa-info-circle' };
 }
 
-function renderizarHistorial(historial) {
+function renderizarHistorial(historial, append = false) {
     const tbody = document.querySelector('#tabla-historial-inventario tbody');
-    historialActual = historial || [];
     if (!tbody) return;
 
-    tbody.innerHTML = '';
+    if (!append) {
+        tbody.innerHTML = '';
+        historialActual = historial || [];
+    } else {
+        if (historial) historialActual = [...historialActual, ...historial];
+    }
 
     if (historialActual.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: #64748b;">
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: #64748b;">
             <i class="fas fa-search fa-2x mb-3" style="display:block; opacity:0.3;"></i>
             No se encontraron movimientos de inventario.
         </td></tr>`;
         return;
     }
 
-    historialActual.forEach(mov => {
+    const dataRows = append ? historial : historialActual;
+    dataRows.forEach(mov => {
         const info = getMovimientoInfo(mov.tipo_movimiento);
         const cantidadVal = parseFloat(mov.cantidad_cambio) || 0;
         const cantidadClass = cantidadVal > 0 ? 'pos' : (cantidadVal < 0 ? 'neg' : '');
@@ -96,26 +103,56 @@ function renderizarHistorial(historial) {
     });
 }
 
-async function cargarHistorial() {
+async function cargarHistorial(append = false) {
     if (!appState.negocioActivoId) return;
+
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const btnCargarMas = document.getElementById('btn-cargar-mas');
+
+    if (!append) {
+        currentOffset = 0;
+    }
 
     const fechaDesde = document.getElementById('filtro-fecha-desde').value;
     const fechaHasta = document.getElementById('filtro-fecha-hasta').value;
     const productoId = document.getElementById('filtro-producto').value;
+    const tipoMov = document.getElementById('filtro-tipo') ? document.getElementById('filtro-tipo').value : '';
 
     const params = new URLSearchParams();
     if (fechaDesde) params.append('fecha_desde', fechaDesde);
     if (fechaHasta) params.append('fecha_hasta', fechaHasta);
     if (productoId) params.append('producto_id', productoId);
+    if (tipoMov) params.append('tipo', tipoMov);
+    params.append('limit', PAGE_SIZE);
+    params.append('offset', currentOffset);
 
     const url = `/api/negocios/${appState.negocioActivoId}/historial_inventario?${params.toString()}`;
 
+    console.log("🔍 [InvHistorial] Fetching from:", url);
     try {
+        if (loadingIndicator) loadingIndicator.style.display = 'block';
+        if (btnCargarMas) btnCargarMas.disabled = true;
+
         const historial = await fetchData(url);
-        renderizarHistorial(historial);
+        console.log("✅ [InvHistorial] Data received:", historial);
+
+        renderizarHistorial(historial, append);
+
+        if (historial && historial.length === PAGE_SIZE) {
+            if (btnCargarMas) btnCargarMas.style.display = 'block';
+        } else {
+            if (btnCargarMas) btnCargarMas.style.display = 'none';
+        }
+
+        currentOffset += (historial ? historial.length : 0);
+
     } catch (error) {
-        mostrarNotificacion(`Error al cargar historial: ${error.message}`, 'error');
-        renderizarHistorial(null);
+        console.error("Error cargando historial:", error);
+        mostrarNotificacion(`Error: ${error.message}`, 'error');
+        if (!append) renderizarHistorial(null);
+    } finally {
+        if (loadingIndicator) loadingIndicator.style.display = 'none';
+        if (btnCargarMas) btnCargarMas.disabled = false;
     }
 }
 
@@ -204,11 +241,13 @@ export async function inicializarHistorialInventario() {
     const btnFiltrar = document.getElementById('btn-filtrar-historial');
     const btnPDF = document.getElementById('btn-exportar-pdf');
     const btnExcel = document.getElementById('btn-exportar-excel');
+    const btnCargarMas = document.getElementById('btn-cargar-mas');
 
-    if (btnFiltrar) btnFiltrar.addEventListener('click', cargarHistorial);
+    if (btnFiltrar) btnFiltrar.addEventListener('click', () => cargarHistorial(false));
     if (btnPDF) btnPDF.addEventListener('click', () => exportarTablaAPDF('historial_inventario', 'Historial de Inventario'));
     if (btnExcel) btnExcel.addEventListener('click', () => exportarTablaAExcel('historial_inventario'));
+    if (btnCargarMas) btnCargarMas.addEventListener('click', () => cargarHistorial(true));
 
     await cargarProductosFiltro();
-    cargarHistorial();
+    await cargarHistorial(false);
 }

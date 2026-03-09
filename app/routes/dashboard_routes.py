@@ -212,12 +212,12 @@ def get_dashboard_distribucion(current_user, negocio_id):
             SELECT
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE estado = 'entregado') AS entregados,
-                COUNT(*) FILTER (WHERE estado IN ('pendiente', 'preparado', 'en_ruta')) AS pendientes,
+                COUNT(*) FILTER (WHERE estado IN ('pendiente', 'preparado', 'en_camino')) AS pendientes,
                 COALESCE(SUM(total) FILTER (WHERE estado = 'entregado'), 0) AS facturacion
             FROM pedidos
             WHERE negocio_id = %s AND fecha >= %s AND fecha < %s
         """, (negocio_id, desde, hasta_siguiente))
-        kpi_p = dict(db.fetchone())
+        kpis = dict(db.fetchone())
 
         # 2. KPIs de Rutas
         db.execute("""
@@ -246,25 +246,80 @@ def get_dashboard_distribucion(current_user, negocio_id):
               AND fecha >= %s AND fecha < %s
             GROUP BY dia ORDER BY dia
         """, (negocio_id, desde, hasta_siguiente))
-        ventas_por_dia = [{'fecha': str(r['dia']), 'total': float(r['total'])} for r in db.fetchall()]
+        ventas_dia = [{'fecha': str(r['dia']), 'total': float(r['total'])} for r in db.fetchall()]
 
         # 5. Ranking Vendedores
         db.execute("""
-            SELECT v.nombre,
-                   COUNT(p.id) AS pedidos,
-                   COALESCE(SUM(p.total) FILTER (WHERE p.estado = 'entregado'), 0) AS total
+            SELECT v.nombre, COUNT(p.id) AS pedidos, COALESCE(SUM(p.total), 0) AS total
             FROM vendedores v
-            LEFT JOIN pedidos p ON p.vendedor_id = v.id
-              AND p.negocio_id = %s AND p.fecha >= %s AND p.fecha < %s
-            WHERE v.negocio_id = %s
+            LEFT JOIN pedidos p ON v.id = p.vendedor_id AND p.fecha >= %s AND p.fecha < %s AND p.estado = 'entregado'
+            WHERE v.negocio_id = %s AND v.activo = TRUE
             GROUP BY v.id, v.nombre
-            ORDER BY total DESC LIMIT 5
-        """, (negocio_id, desde, hasta_siguiente, negocio_id))
-        ranking = [dict(r) for r in db.fetchall()]
-        for r in ranking:
+            ORDER BY total DESC
+            LIMIT 5
+        """, (desde, hasta_siguiente, negocio_id))
+        ranking_v = [dict(row) for row in db.fetchall()]
+        for r in ranking_v:
             r['total'] = float(r['total'])
 
-        # 6. Últimas Hojas de Ruta
+        # 6. Ranking Productos (Mas pedidos por cantidad)
+        db.execute("""
+            SELECT pr.nombre, SUM(pd.cantidad) as total_vendido, COUNT(DISTINCT pd.pedido_id) as pedidos
+            FROM pedidos_detalle pd
+            JOIN pedidos p ON pd.pedido_id = p.id
+            JOIN productos pr ON pd.producto_id = pr.id
+            WHERE p.negocio_id = %s AND p.fecha >= %s AND p.fecha < %s AND p.estado = 'entregado'
+            GROUP BY pr.id, pr.nombre
+            ORDER BY total_vendido DESC
+            LIMIT 5
+        """, (negocio_id, desde, hasta_siguiente))
+        ranking_p = [dict(row) for row in db.fetchall()]
+
+        # 7. Ranking Clientes (Más compradores por monto)
+        db.execute("""
+            SELECT c.nombre, SUM(p.total) as total_gastado, COUNT(p.id) as pedidos
+            FROM pedidos p
+            JOIN clientes c ON p.cliente_id = c.id
+            WHERE p.negocio_id = %s AND p.fecha >= %s AND p.fecha < %s AND p.estado = 'entregado'
+            GROUP BY c.id, c.nombre
+            ORDER BY total_gastado DESC
+            LIMIT 5
+        """, (negocio_id, desde, hasta_siguiente))
+        ranking_c = [dict(row) for row in db.fetchall()]
+
+        # 8. Eficacia de Entrega (OK vs con Rebotes)
+        db.execute("""
+            SELECT 
+                COUNT(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM pedidos_rebotes pr WHERE pr.pedido_id = p.id)) as entregas_ok,
+                COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM pedidos_rebotes pr WHERE pr.pedido_id = p.id)) as entregas_con_rebote
+            FROM pedidos p
+            WHERE p.negocio_id = %s AND p.fecha >= %s AND p.fecha < %s AND p.estado = 'entregado'
+        """, (negocio_id, desde, hasta_siguiente))
+        eficacia = dict(db.fetchone())
+
+        # 9. Mix de Cobranza (Metodos de Pago)
+        db.execute("""
+            SELECT v.metodo_pago, SUM(p.total) as total
+            FROM pedidos p
+            JOIN ventas v ON p.venta_id = v.id
+            WHERE p.negocio_id = %s AND p.fecha >= %s AND p.fecha < %s AND p.estado = 'entregado'
+            GROUP BY v.metodo_pago
+        """, (negocio_id, desde, hasta_siguiente))
+        mix_c = [dict(row) for row in db.fetchall()]
+
+        # 10. Top Motivos de Rebote
+        db.execute("""
+            SELECT mr.descripcion as motivo, COUNT(*) as cantidad
+            FROM pedidos_rebotes pr
+            JOIN motivos_rebote mr ON pr.motivo_rebote_id = mr.id
+            WHERE pr.negocio_id = %s AND pr.fecha >= %s AND pr.fecha < %s
+            GROUP BY mr.id, mr.descripcion
+            ORDER BY cantidad DESC
+            LIMIT 5
+        """, (negocio_id, desde, hasta_siguiente))
+        motivos_r = [dict(row) for row in db.fetchall()]
+
+        # 11. Últimas Hojas de Ruta
         db.execute("""
             SELECT hr.id, hr.fecha, hr.estado,
                    v.nombre AS vendedor_nombre,
@@ -276,25 +331,30 @@ def get_dashboard_distribucion(current_user, negocio_id):
             GROUP BY hr.id, hr.fecha, hr.estado, v.nombre
             ORDER BY hr.fecha DESC LIMIT 5
         """, (negocio_id,))
-        rutas = []
+        ultimas_r = []
         for r in db.fetchall():
             row = dict(r)
             if row.get('fecha'):
                 row['fecha'] = str(row['fecha'])
-            rutas.append(row)
+            ultimas_r.append(row)
 
         return jsonify({
             'kpis': {
-                'facturacion': float(kpi_p.get('facturacion', 0)),
-                'pedidos_total': int(kpi_p.get('total', 0)),
-                'pedidos_entregados': int(kpi_p.get('entregados', 0)),
-                'pedidos_pendientes': int(kpi_p.get('pendientes', 0)),
+                'facturacion': float(kpis.get('facturacion', 0)),
+                'pedidos_total': int(kpis.get('total', 0)),
+                'pedidos_entregados': int(kpis.get('entregados', 0)),
+                'pedidos_pendientes': int(kpis.get('pendientes', 0)),
                 'rutas_completadas': int(kpi_r.get('rutas_completadas', 0)),
                 'clientes_visitados': int(kpi_c.get('clientes_visitados', 0)),
             },
-            'ventas_por_dia': ventas_por_dia,
-            'ranking_vendedores': ranking,
-            'ultimas_rutas': rutas
+            'ventas_por_dia': ventas_dia,
+            'ranking_vendedores': ranking_v,
+            'ranking_productos': ranking_p,
+            'ranking_clientes': ranking_c,
+            'efectividad_entrega': eficacia,
+            'mix_cobranza': mix_c,
+            'motivos_rebote': motivos_r,
+            'ultimas_rutas': ultimas_r
         })
 
     except Exception as e:

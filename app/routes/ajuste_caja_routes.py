@@ -60,6 +60,9 @@ def get_historial_ajustes(current_user, negocio_id):
     db = get_db()
     fecha_desde = request.args.get('fecha_desde')
     fecha_hasta = request.args.get('fecha_hasta')
+    tipo = request.args.get('tipo')  # 'Ingreso' o 'Egreso'
+    limit = request.args.get('limit', type=int)
+    offset = request.args.get('offset', type=int, default=0)
 
     query = """
         SELECT 
@@ -68,23 +71,48 @@ def get_historial_ajustes(current_user, negocio_id):
             cs.fecha_cierre 
         FROM caja_ajustes ca
         JOIN usuarios u ON ca.usuario_id = u.id
-        JOIN caja_sesiones cs ON ca.caja_sesion_id = cs.id
+        LEFT JOIN caja_sesiones cs ON ca.caja_sesion_id = cs.id
         WHERE ca.negocio_id = %s
     """
     params = [negocio_id]
 
+    # Identificar tipo de base de datos para el filtro de fechas
+    try:
+        db_type = getattr(g, 'db_type', 'postgres')
+    except Exception:
+        db_type = 'postgres'
+
+    if db_type == 'sqlite':
+        date_filter_desde = " AND DATE(ca.fecha) >= %s"
+        date_filter_hasta = " AND DATE(ca.fecha) <= %s"
+    else:  # PostgreSQL
+        date_filter_desde = " AND ca.fecha::date >= %s"
+        date_filter_hasta = " AND ca.fecha::date <= %s"
+
     if fecha_desde:
-        query += " AND DATE(ca.fecha) >= %s"
+        query += date_filter_desde
         params.append(fecha_desde)
     if fecha_hasta:
-        query += " AND DATE(ca.fecha) <= %s"
+        query += date_filter_hasta
         params.append(fecha_hasta)
+    
+    if tipo:
+        query += " AND ca.tipo = %s"
+        params.append(tipo)
 
     query += " ORDER BY ca.fecha DESC"
     
+    if limit:
+        query += " LIMIT %s OFFSET %s"
+        params.append(limit)
+        params.append(offset)
+
     try:
+        print(f"🔍 [Backend] Query: {query}")
+        print(f"🔍 [Backend] Params: {params}")
         db.execute(query, tuple(params))
         ajustes = db.fetchall()
+        print(f"✅ [Backend] Found {len(ajustes)} adjustments.")
         return jsonify([dict(row) for row in ajustes])
     except Exception as e:
         print(f"Error en get_historial_ajustes: {e}")

@@ -7,6 +7,13 @@ os.environ['TZ'] = 'America/Argentina/Buenos_Aires'
 if hasattr(time, 'tzset'):
     time.tzset()
 
+# ── APScheduler ──────────────────────────────────────────────────────────────
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+import pytz
+
+scheduler = BackgroundScheduler(timezone=pytz.timezone('America/Argentina/Buenos_Aires'))
+
 
 from .routes import facturacion_routes
 from .extensions import bcrypt
@@ -43,15 +50,17 @@ def create_app():
                         price_lists_routes, unidades_medida_routes, inventory_routes, \
                         historial_inventario_routes, precios_especificos_routes, mobile_routes, \
                         payments_routes, gastos_routes, consorcio_routes, club_puntos_routes, \
-                        pedidos_routes, logistica_routes
+                        pedidos_routes, logistica_routes, eventos_routes
     from .crm_social import bp as crm_bp
     from .crm_social import leads_routes
     from .rentals import routes as rentals_routes
+    from .routes import tickets_routes
     from .routes import admin_routes
     from .routes import distribucion_routes
     from .routes import import_routes
     from .routes import empleados_routes
     from .routes import mercado_pago_routes
+    from .routes import agente_facturacion_routes
 
     blueprints = [
         (auth_routes.bp, '/api'), (product_routes.bp, '/api'), (negocios_routes.bp, '/api'),
@@ -66,7 +75,8 @@ def create_app():
         (leads_routes.bp, '/api/crm'), (rentals_routes.bp, '/api'),
         (admin_routes.bp, '/api'), (distribucion_routes.bp, '/api'), (pedidos_routes.bp, '/api'),
         (logistica_routes.bp, '/api'), (import_routes.bp, '/api'), (empleados_routes.bp, '/api'),
-        (mercado_pago_routes.bp, '/api')
+        (mercado_pago_routes.bp, '/api'), (agente_facturacion_routes.bp, '/api'),
+        (eventos_routes.bp, '/api'), (tickets_routes.bp, '/api')
     ]
     for bp, prefix in blueprints:
         app.register_blueprint(bp, url_prefix=prefix)
@@ -93,6 +103,57 @@ def create_app():
              abort(404)
         except Exception as e:
             abort(500)
+
+    # ── Agente de Facturación — Scheduler diario ─────────────────────────────
+    def _job_facturacion_diaria():
+        """
+        Job APScheduler: corre cada día a las 11:05 AM (hora argentina).
+        Procesa las facturas correspondientes al día de hoy.
+        """
+        with app.app_context():
+            try:
+                from app.agente_facturacion import ejecutar_dia, NEGOCIO_ID, TOTAL_FACTURAS, \
+                    MODO_EJECUCION, PUNTO_DE_VENTA, TIPO_FACTURA, CUIT_NEGOCIO
+                app.logger.info("[Agente Facturación] ⏰ Iniciando job diario...")
+                resultado = ejecutar_dia(
+                    negocio_id=NEGOCIO_ID,
+                    total_mensual=TOTAL_FACTURAS,
+                    modo=MODO_EJECUCION,
+                    punto_venta=PUNTO_DE_VENTA,
+                    tipo_factura=TIPO_FACTURA,
+                    cuit=CUIT_NEGOCIO,
+                )
+                app.logger.info(
+                    f"[Agente Facturación] ✅ ok={resultado['ok']} "
+                    f"errores={resultado['errores']} "
+                    f"total=${resultado['total_facturado']:,.2f} "
+                    f"modo={resultado['modo']}"
+                )
+            except Exception as e:
+                app.logger.error(f"[Agente Facturación] ❌ Error en job diario: {e}")
+
+    # Programar: todos los días a las 11:05 AM hora Argentina
+    if not scheduler.running:
+        scheduler.add_job(
+            func=_job_facturacion_diaria,
+            trigger=CronTrigger(hour=11, minute=5),
+            id='agente_facturacion_diaria',
+            name='Agente Facturación Re Pancho',
+            replace_existing=True,
+        )
+        # ─── Job SLA Tickets ─────────────────────────────────────────────────
+        from .routes.tickets_routes import job_chequeo_sla as _job_sla
+        scheduler.add_job(
+            func=_job_sla,
+            args=[app],
+            trigger='interval',
+            minutes=30,
+            id='tickets_sla_check',
+            name='Tickets SLA Checker',
+            replace_existing=True,
+        )
+        scheduler.start()
+        app.logger.info("[Agente Facturación] 🚀 Scheduler iniciado — job diario 11:05 AM ARG")
 
     # --- CLI Commands ---
     from .commands import init_crm_db_command, init_rentals_db_command

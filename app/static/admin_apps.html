@@ -11,6 +11,8 @@
             <button class="tab-btn" data-type="type" onclick="cambiarTabAdmin('consorcio')">Consorcio</button>
             <button class="tab-btn" data-type="type" onclick="cambiarTabAdmin('rentals')">Rentals</button>
             <button class="tab-btn" data-type="type" onclick="cambiarTabAdmin('distribuidora')">Distribuidora</button>
+            <button class="tab-btn" data-type="pagos" onclick="cambiarTabAdmin('pagos')"
+                style="background: #e8f5e9; color: #2e7d32; font-weight: bold;">💳 Pagos</button>
             <button class="tab-btn" data-type="business" onclick="cambiarTabAdmin('negocio')"
                 style="background: #e3f2fd; color: #1976d2; font-weight: bold;">📍 Por Negocio</button>
         </div>
@@ -46,6 +48,29 @@
                         <button type="submit" class="btn btn-primary btn-lg">Guardar Cambios</button>
                     </div>
                 </form>
+            </div>
+
+            <!-- Sección de Pagos -->
+            <div id="pagos-content" style="display: none;">
+                <h4 style="margin-bottom: 20px; color: #2e7d32;">Control de Pagos de Suscripción</h4>
+                <div class="table-responsive">
+                    <table class="table table-hover" id="tabla-suscripciones">
+                        <thead>
+                            <tr>
+                                <th>Negocio</th>
+                                <th>Cuota</th>
+                                <th>Deuda</th>
+                                <th>Último Mes Pago</th>
+                                <th>Fecha Registro</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

@@ -144,9 +144,10 @@ export async function inicializarHojaRuta() {
         buscaCliente.oninput = (e) => {
             const query = e.target.value.toLowerCase().trim();
             renderMarcadoresModal(query);
+            renderListaClientesZona(query); // ✨ ACTUALIZAR LA LISTA VIRTUAL DE LA ZONA TAMBIÉN
 
             if (query.length < 2) {
-                sugerencias.style.display = 'none';
+                if (sugerencias) sugerencias.style.display = 'none';
                 return;
             }
 
@@ -215,14 +216,8 @@ async function cargarVendedores() {
     // ✨ EVENTO: Al cambiar vendedor, recargar clientes filtrados
     select.onchange = async () => {
         const vId = select.value;
-        if (vId) {
-            // Mostrar loading o UI feedback si se desea
-            await cargarClientes(vId); // Recargar clientes filtrados
-            renderMarcadoresModal(); // Actualizar mapa con nuevos clientes
-        } else {
-            await cargarClientes(); // Cargar todos si se deselecciona (o vaciar)
-            renderMarcadoresModal();
-        }
+        const zona = document.getElementById('select-zona-hr')?.value || null;
+        await cargarClientes(vId || null, zona);
     };
 
     if (user && user.rol === 'vendedor' && user.vendedor_id) {
@@ -252,11 +247,10 @@ async function cargarChoferes() {
     }
 }
 
-async function cargarClientes(vendedorId = null) {
+async function cargarClientes(vendedorId = null, zona = null) {
     let url = `/api/negocios/${appState.negocioActivoId}/clientes?limit=10000`;
-    if (vendedorId) {
-        url += `&vendedor_id=${vendedorId}`;
-    }
+    if (vendedorId) url += `&vendedor_id=${vendedorId}`;
+    if (zona) url += `&zona=${encodeURIComponent(zona)}`;
     const response = await fetchData(url);
     clientesCache = response.data || response;
 }
@@ -273,11 +267,27 @@ async function cargarHojasRuta() {
     }
 }
 
+window.toggleFiltroEstadoHR = function () {
+    renderHojasRuta();
+};
+
 function renderHojasRuta() {
     const tbody = document.querySelector('#tabla-hr tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    hojasRuta.forEach(hr => {
+
+    const showActiva = document.getElementById('btn-check-activa')?.checked ?? true;
+    const showBorrador = document.getElementById('btn-check-borrador')?.checked ?? true;
+    const showFinalizada = document.getElementById('btn-check-finalizada')?.checked ?? false;
+
+    const hojasFiltradas = hojasRuta.filter(hr => {
+        if (hr.estado === 'activa' && showActiva) return true;
+        if (hr.estado === 'borrador' && showBorrador) return true;
+        if (hr.estado === 'finalizada' && showFinalizada) return true;
+        return false;
+    });
+
+    hojasFiltradas.forEach(hr => {
         const tr = document.createElement('tr');
         const badgeClass = {
             'borrador': 'bg-secondary',
@@ -292,6 +302,7 @@ function renderHojasRuta() {
         }
 
         const totalImporte = hr.total_pedidos || 0;
+        const porCobrar = (hr.cant_pedidos || 0) - (hr.cant_entregados || 0);
         const progresoPedidos = hr.cant_pedidos > 0
             ? Math.round((hr.cant_entregados / hr.cant_pedidos) * 100)
             : 0;
@@ -301,6 +312,7 @@ function renderHojasRuta() {
             <td class="fw-bold">${hr.id}</td>
             <td>${fechaLegible}</td>
             <td>${hr.vendedor_nombre}</td>
+            <td>${hr.vehiculo_patente ? `<span class="badge bg-dark">${hr.vehiculo_patente}</span>` : '<span class="text-muted small">—</span>'}</td>
             <td class="text-center">${hr.cant_clientes || 0}</td>
             <td class="text-center">${hr.cant_pedidos || 0}</td>
             <td class="text-end fw-bold text-primary">$${totalImporte.toLocaleString()}</td>
@@ -311,6 +323,11 @@ function renderHojasRuta() {
                         <div class="progress-bar ${progressClass}" style="width: ${progresoPedidos}%"></div>
                     </div>
                 </div>
+            </td>
+            <td class="text-center">
+                <span class="badge ${porCobrar > 0 ? 'bg-warning text-dark' : 'bg-light text-muted border'}">
+                    ${porCobrar}
+                </span>
             </td>
             <td><span class="badge ${badgeClass}">${hr.estado.toUpperCase()}</span></td>
             <td>
@@ -332,9 +349,37 @@ async function abrirModalHojaRuta() {
     selectorVendedor.disabled = false;
     selectorVendedor.value = "";
 
-    // ✨ FIX: Cargar todos los clientes al abrir el modal (ya que el selector está vacío)
-    // Esto asegura que la búsqueda funcione globalmente
+    // Cargar zonas disponibles en el select
+    const selectZona = document.getElementById('select-zona-hr');
+    if (selectZona && selectZona.options.length <= 1) {
+        try {
+            const zonas = await fetchData(`/api/negocios/${appState.negocioActivoId}/zonas`);
+            selectZona.innerHTML = '<option value="">-- Todas las Zonas --</option>';
+            zonas.forEach(z => {
+                const opt = document.createElement('option');
+                opt.value = z.id;
+                opt.textContent = z.nombre;
+                selectZona.appendChild(opt);
+            });
+        } catch (e) {
+            console.warn('No se pudieron cargar las zonas', e);
+        }
+    }
+
+    // Evento filtro zona: al cambiar zona, recargar clientes y renderizar panel
+    if (selectZona && !selectZona._zonaBindDone) {
+        selectZona._zonaBindDone = true;
+        selectZona.onchange = async () => {
+            const zona = selectZona.value || null;
+            const vendedorId = selectorVendedor.value || null;
+            await cargarClientes(vendedorId, zona);
+            renderListaClientesZona();
+        };
+    }
+
+    // ✨ FIX: Cargar todos los clientes al abrir el modal
     await cargarClientes();
+    renderListaClientesZona();
 
     document.getElementById('detalle-titulo-modal').innerText = 'Nueva Hoja de Ruta Pro';
     const tzOffset = new Date().getTimezoneOffset() * 60000;
@@ -342,23 +387,7 @@ async function abrirModalHojaRuta() {
     rutaTemporal = [];
     renderListaTemporal();
 
-    await cargarLeafletJS();
-
-    if (mapModalHR && (!document.getElementById('map-modal-hr') || !document.body.contains(mapModalHR.getContainer()))) {
-        mapModalHR.remove();
-        mapModalHR = null;
-    }
-
-    if (!mapModalHR) {
-        mapModalHR = L.map('map-modal-hr').setView([-33.3017, -66.3378], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapModalHR);
-    }
-
-    setTimeout(() => {
-        mapModalHR.invalidateSize();
-        // Solo ajustar zoom al abrir el modal
-        renderMarcadoresModal(null, true);
-    }, 300);
+    // ✨ Mapa eliminado del modal — los clientes se seleccionan por búsqueda o zona
 }
 
 // ✨ REPETIR HOJA DE RUTA: Duplica las paradas y abre el modal para editar
@@ -377,40 +406,8 @@ async function repetirHojaRuta(id) {
 }
 
 function renderMarcadoresModal(filtro = null, ajustarZoom = false) {
-    if (!filtro) filtro = ''; // normalizar
-    if (markersModalHR) markersModalHR.forEach(m => mapModalHR.removeLayer(m));
-    markersModalHR = [];
-
-    const puntos = [];
-    clientesCache.forEach(c => {
-        if (filtro && !c.nombre.toLowerCase().includes(filtro) && !(c.direccion && c.direccion.toLowerCase().includes(filtro)) && !c.id.toString().includes(filtro)) return;
-
-        if (c.latitud && c.longitud) {
-            const lat = parseFloat(c.latitud);
-            const lng = parseFloat(c.longitud);
-            puntos.push([lat, lng]);
-
-            const estaEnRuta = rutaTemporal.some(r => r.id === c.id);
-            const color = estaEnRuta ? '#28a745' : '#007bff';
-            const htmlIcon = `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.3);"></div>`;
-
-            const icon = L.divIcon({ html: htmlIcon, className: 'custom-div-icon', iconSize: [12, 12] });
-            const marker = L.marker([lat, lng], { icon }).addTo(mapModalHR);
-            marker.bindPopup(`
-                <b>${c.nombre}</b><br>
-                ${c.direccion}<br><br>
-                <button type="button" class="btn btn-xs btn-primary" onclick="window.agregarARuta(${c.id})">
-                    ${estaEnRuta ? 'Añadido' : 'Añadir a la Ruta'}
-                </button>
-            `);
-            markersModalHR.push(marker);
-        }
-    });
-
-    if (puntos.length > 0 && !filtro && ajustarZoom) {
-        const bounds = L.latLngBounds(puntos);
-        mapModalHR.fitBounds(bounds, { padding: [30, 30] });
-    }
+    // ✨ El Minimapa del Modal fue retirado para optimizar la carga
+    // Esta función se mantiene vacía para no romper otras llamadas en el código original.
 }
 
 function agregarARuta(id) {
@@ -423,11 +420,96 @@ function agregarARuta(id) {
             lat: cliente.latitud ? parseFloat(cliente.latitud) : null,
             lng: cliente.longitud ? parseFloat(cliente.longitud) : null
         });
-        window.dibujarRutaModal(); // ✨ Dibujar recorrido al añadir
-        renderMarcadoresModal(document.getElementById('buscar-cliente-hr').value, false);
         renderListaTemporal();
+
+        const q = document.getElementById('buscar-cliente-hr') ? document.getElementById('buscar-cliente-hr').value.trim() : '';
+        renderListaClientesZona(q); // refrescar estado "añadido" con el filtro actual
     }
 }
+
+// ── Panel de clientes filtrados por zona (panel izquierdo del modal) ──────────
+function renderListaClientesZona(filtroText = '') {
+    const panel = document.getElementById('lista-clientes-zona');
+    if (!panel) return;
+
+    if (!clientesCache.length) {
+        panel.innerHTML = '<p class="text-muted text-center py-4"><i class="fas fa-spinner fa-spin me-1"></i> Cargando clientes...</p>';
+        return;
+    }
+
+    const selectZona = document.getElementById('select-zona-hr');
+    const zonaId = selectZona ? selectZona.value : null;
+
+    if (!zonaId && !filtroText) {
+        panel.innerHTML = `
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-search fa-3x mb-3 text-light"></i>
+                <p>Seleccione una <b>Zona</b> o use el <b>buscador</b> para mostrar clientes.</p>
+                <small>Evitamos cargar todos los clientes de golpe.</small>
+            </div>
+        `;
+        return;
+    }
+
+    const filtrados = clientesCache.filter(c => {
+        if (filtroText) {
+            const f = filtroText.toLowerCase();
+            return c.nombre.toLowerCase().includes(f) ||
+                (c.direccion && c.direccion.toLowerCase().includes(f)) ||
+                c.id.toString().includes(f);
+        }
+        return true;
+    });
+
+    if (filtrados.length === 0) {
+        panel.innerHTML = '<p class="text-muted text-center py-4">No se encontraron clientes</p>';
+        return;
+    }
+
+    const MAX_VISIBLES = 150;
+    const limitados = filtrados.slice(0, MAX_VISIBLES);
+
+    let html = limitados.map(c => {
+        const estaEnRuta = rutaTemporal.some(r => r.id === c.id);
+        return `
+        <div class="d-flex justify-content-between align-items-center px-2 py-1 mb-1 rounded ${estaEnRuta ? 'bg-success bg-opacity-10 border border-success' : 'bg-white border'}">
+            <div class="text-truncate me-2" style="max-width:70%;">
+                <strong class="d-block text-truncate small">${c.nombre}</strong>
+                <small class="text-muted">${c.direccion || 'Sin dirección'}</small>
+            </div>
+            <button type="button" class="btn btn-sm ${estaEnRuta ? 'btn-success' : 'btn-outline-primary'}" 
+                onclick="window.agregarARuta(${c.id})" ${estaEnRuta ? 'disabled' : ''} style="min-width:70px;">
+                ${estaEnRuta ? '<i class="fas fa-check"></i> OK' : '<i class="fas fa-plus"></i> Agregar'}
+            </button>
+        </div>`;
+    }).join('');
+
+    if (filtrados.length > MAX_VISIBLES) {
+        html += `<div class="text-center text-muted small mt-2 py-2 border-top">
+                    <i class="fas fa-info-circle"></i> Hay ${filtrados.length - MAX_VISIBLES} clientes más. Refine su búsqueda.
+                 </div>`;
+    }
+
+    panel.innerHTML = html;
+}
+
+window._agregarTodosDeZona = function () {
+    clientesCache.forEach(c => {
+        if (!rutaTemporal.some(r => r.id === c.id)) {
+            rutaTemporal.push({
+                id: c.id,
+                nombre: c.nombre,
+                direccion: c.direccion,
+                lat: c.latitud ? parseFloat(c.latitud) : null,
+                lng: c.longitud ? parseFloat(c.longitud) : null
+            });
+        }
+    });
+    renderListaTemporal();
+    const q = document.getElementById('buscar-cliente-hr') ? document.getElementById('buscar-cliente-hr').value.trim() : '';
+    renderListaClientesZona(q);
+};
+
 
 function renderListaTemporal() {
     const list = document.getElementById('lista-paradas-orden');
@@ -470,25 +552,7 @@ function renderListaTemporal() {
 
 let routeLineModal = null;
 window.dibujarRutaModal = () => {
-    if (!mapModalHR) return;
-    if (routeLineModal) {
-        mapModalHR.removeLayer(routeLineModal);
-        routeLineModal = null;
-    }
-
-    const puntos = rutaTemporal
-        .filter(c => c.lat && c.lng)
-        .map(c => [c.lat, c.lng]);
-
-    if (puntos.length > 1) {
-        routeLineModal = L.polyline(puntos, {
-            color: '#2980b9',
-            weight: 4,
-            opacity: 0.6,
-            dashArray: '10, 10',
-            lineJoin: 'round'
-        }).addTo(mapModalHR);
-    }
+    // ✨ El Minimapa del Modal fue retirado.
 };
 
 function moverParada(index, dir) {
@@ -504,7 +568,10 @@ function moverParada(index, dir) {
 function quitarDeRuta(index) {
     rutaTemporal.splice(index, 1);
     renderListaTemporal();
-    renderMarcadoresModal(document.getElementById('buscar-cliente-hr').value);
+
+    const q = document.getElementById('buscar-cliente-hr') ? document.getElementById('buscar-cliente-hr').value.trim() : '';
+    renderMarcadoresModal(q);
+    renderListaClientesZona(q); // ✨ FIX: Actualizar botones de la lista
 }
 
 function limpiarRutaTemporal() {
@@ -1109,21 +1176,9 @@ window.editarHojaRuta = async function (id) {
         }));
 
         renderListaTemporal();
-        await cargarLeafletJS();
 
-        if (mapModalHR && (!document.getElementById('map-modal-hr') || !document.body.contains(mapModalHR.getContainer()))) {
-            mapModalHR.remove();
-            mapModalHR = null;
-        }
-        if (!mapModalHR) {
-            mapModalHR = L.map('map-modal-hr').setView([-33.3017, -66.3378], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapModalHR);
-        }
-
-        setTimeout(() => {
-            mapModalHR.invalidateSize();
-            renderMarcadoresModal(null, true);
-        }, 300);
+        // El Minimapa del Modal de Edición fue retirado para optimizar rendimiento/espacio.
+        // No inicializar `mapModalHR` aquí.
 
     } catch (e) {
         console.error(e);
@@ -1215,7 +1270,34 @@ async function editarHojaRuta(id) {
             document.getElementById('select-chofer-hr').value = detalle.chofer_id || "";
         }
 
-        // ✨ CARGAR CLIENTES del vendedor para que aparezcan en el mapa/búsqueda
+        // ✨ CARGAR ZONAS en el selector (igual que al crear)
+        const selectZona = document.getElementById('select-zona-hr');
+        if (selectZona) {
+            selectZona.innerHTML = '<option value="">-- Todas las Zonas --</option>';
+            try {
+                const zonas = await fetchData(`/api/negocios/${appState.negocioActivoId}/zonas`);
+                zonas.forEach(z => {
+                    const opt = document.createElement('option');
+                    opt.value = z.id;
+                    opt.textContent = z.nombre;
+                    selectZona.appendChild(opt);
+                });
+            } catch (e) {
+                console.warn('No se pudieron cargar las zonas', e);
+            }
+
+            // Bindear el evento de cambio de zona (resetear flag para que se pueda reenlazar)
+            selectZona._zonaBindDone = false;
+            selectZona._zonaBindDone = true;
+            selectZona.onchange = async () => {
+                const zona = selectZona.value || null;
+                const vendedorId = selectorVendedor.value || null;
+                await cargarClientes(vendedorId, zona);
+                renderListaClientesZona();
+            };
+        }
+
+        // ✨ CARGAR CLIENTES del vendedor para que aparezcan en la búsqueda/zona
         await cargarClientes(detalle.vendedor_id);
 
         rutaTemporal = detalle.items.map(item => ({
@@ -1227,24 +1309,7 @@ async function editarHojaRuta(id) {
         }));
 
         renderListaTemporal();
-
-        await cargarLeafletJS();
-
-        if (mapModalHR && (!document.getElementById('map-modal-hr') || !document.body.contains(mapModalHR.getContainer()))) {
-            mapModalHR.remove();
-            mapModalHR = null;
-        }
-
-        if (!mapModalHR) {
-            mapModalHR = L.map('map-modal-hr').setView([-33.3017, -66.3378], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapModalHR);
-        }
-
-        setTimeout(() => {
-            mapModalHR.invalidateSize();
-            renderMarcadoresModal(null, true);
-        }, 300);
-
+        renderListaClientesZona(); // Mostrar panel de clientes listo para filtrar
     } catch (error) {
         console.error(error);
         mostrarNotificacion(error.message || 'Error cargando hoja para editar', 'error');
@@ -1589,6 +1654,24 @@ async function abrirModalLiquidacion(id, estadoActual) {
                 </tr>
             `).join('');
         }
+
+        // --- Render Rebotes ---
+        const tbodyRebotes = document.querySelector('#tabla-liq-rebotes tbody');
+        if (tbodyRebotes) {
+            tbodyRebotes.innerHTML = '<tr><td colspan="3" class="text-center">Calculando...</td></tr>';
+            if (!resumen.rebotes || resumen.rebotes.length === 0) {
+                tbodyRebotes.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No hubo rechazos / mermas en este reparto</td></tr>';
+            } else {
+                tbodyRebotes.innerHTML = resumen.rebotes.map(r => `
+                    <tr>
+                        <td>${r.producto}</td>
+                        <td class="text-danger small">${r.motivo}</td>
+                        <td class="text-center fw-bold text-danger">${r.cantidad_total}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
     } catch (error) {
         console.error(error);
         mostrarNotificacion('Error cargando resumen de liquidación', 'error');
@@ -1741,6 +1824,15 @@ async function exportarPickingHR_PDF(id) {
             doc.text('Chofer Asignado:', 14, currentY - 2);
             doc.setFont(undefined, 'normal');
             doc.text(`${resumen.vehiculo.chofer_nombre}`, 55, currentY - 2);
+            currentY += 6;
+        }
+
+        if (resumen.vehiculo && resumen.vehiculo.vendedor_nombre) {
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.text('Vendedor Asignado:', 14, currentY - 2);
+            doc.setFont(undefined, 'normal');
+            doc.text(`${resumen.vehiculo.vendedor_nombre}`, 55, currentY - 2);
             currentY += 6;
         }
 

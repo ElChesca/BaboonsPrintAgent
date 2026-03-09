@@ -38,14 +38,27 @@
 </style>
 
 <div class="card">
-    <h2>Reporte de Ventas por Día</h2>
+    <h2 id="titulo-pagina-reportes">Reporte de Ventas y Logística</h2>
 
     <div class="filters">
         <label>Tipo:</label>
-        <select id="tipo-reporte" class="form-select" style="max-width: 200px;">
+        <select id="tipo-reporte" class="form-select" style="max-width: 250px;">
             <option value="ventas">Ventas por Día</option>
             <option value="entregas">Estado de Entregas (Logística)</option>
+            <option value="bajadas_detalle">Reporte de Bajadas Detallado</option>
         </select>
+
+        <div id="filtro-chofer-container" style="display: none; align-items: center; gap: 10px;">
+            <label>Chofer:</label>
+            <select id="filtro-chofer" class="form-select" style="max-width: 200px;">
+                <option value="">Todos</option>
+            </select>
+        </div>
+
+        <div id="filtro-hr-container" style="display: none; align-items: center; gap: 10px;">
+            <label>Nro. HR:</label>
+            <input type="number" id="filtro-hr-id" class="form-control" placeholder="Ej: 40" style="max-width: 100px;">
+        </div>
 
         <label>Desde:</label> <input type="date" id="fecha-desde">
         <label>Hasta:</label> <input type="date" id="fecha-hasta">
@@ -89,6 +102,26 @@
                     <th>Clientes (Visitas)</th>
                     <th>Efectividad</th>
                     <th>Recaudado</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- REPORTE DE ENTREGAS DETALLE -->
+    <div id="reporte-container-bajadas-detalle" style="display: none;">
+        <h4 id="reporte-titulo-bajadas">Reporte de Bajadas (Confirmaciones de Entrega)</h4>
+        <table id="tabla-reporte-bajadas-detalle" class="tabla-bonita">
+            <thead>
+                <tr>
+                    <th>Fecha/Hora Conf.</th>
+                    <th>Hoja Ruta</th>
+                    <th>Chofer</th>
+                    <th>Cliente</th>
+                    <th>Pedido ID</th>
+                    <th>Monto</th>
+                    <th>Estado</th>
+                    <th>Registrado por</th>
                 </tr>
             </thead>
             <tbody></tbody>

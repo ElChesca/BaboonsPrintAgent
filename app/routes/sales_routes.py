@@ -221,3 +221,182 @@ def get_venta_completa(current_user, venta_id):
     except Exception as e:
         print(f"Error en get_venta_completa: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
+
+
+# --- ✨ NUEVA RUTA: ANULAR VENTA DIRECTA (Nota de Crédito Interna) ---
+@bp.route('/ventas/<int:venta_id>/anular', methods=['POST'])
+@token_required
+def anular_venta(current_user, venta_id):
+    """
+    Anula una venta directa que NO ha sido facturada via ARCA.
+    Revierte:
+      - El estado de la venta a 'Anulada'.
+      - La caja (si el método de pago no es Cuenta Corriente).
+      - La cuenta corriente del cliente (si el método de pago es Cuenta Corriente).
+      - El stock de cada ítem de la venta.
+    Registra una Nota de Crédito interna en la tabla notas_credito.
+    """
+    data = request.get_json() or {}
+    motivo = data.get('motivo', 'Sin motivo indicado')
+
+    db = get_db()
+    try:
+        # 1. Obtener la venta completa
+        db.execute("SELECT * FROM ventas WHERE id = %s", (venta_id,))
+        venta = db.fetchone()
+        if not venta:
+            return jsonify({'error': 'Venta no encontrada'}), 404
+
+        # 2. Validaciones de negocio
+        if venta['estado'] == 'Anulada':
+            return jsonify({'error': 'Esta venta ya fue anulada anteriormente'}), 409
+        if venta['estado'] == 'Facturada':
+            return jsonify({'error': 'No se puede anular una venta ya facturada via ARCA. Se requiere un proceso fiscal separado.'}), 409
+
+        negocio_id = venta['negocio_id']
+        metodo_pago = venta['metodo_pago'] or ''
+        total_venta = float(venta['total'])
+        cliente_id = venta['cliente_id']
+        caja_sesion_id = venta['caja_sesion_id']
+
+        tz_ar = pytz.timezone('America/Argentina/Buenos_Aires')
+        fecha_actual = datetime.datetime.now(tz_ar)
+
+        # 3. Marcar la venta como Anulada
+        db.execute("UPDATE ventas SET estado = 'Anulada' WHERE id = %s", (venta_id,))
+
+        # 4. Revertir efecto financiero según forma de pago
+        concepto_nc = f'Nota de Crédito — Anulación Venta #{venta_id}'
+
+        if metodo_pago == 'Cuenta Corriente':
+            # Registrar crédito en la cuenta corriente del cliente (reduce la deuda)
+            if cliente_id:
+                db.execute(
+                    """
+                    INSERT INTO clientes_cuenta_corriente
+                        (cliente_id, fecha, concepto, debe, haber, venta_id)
+                    VALUES (%s, %s, %s, 0, %s, %s)
+                    """,
+                    (cliente_id, fecha_actual, concepto_nc, total_venta, venta_id)
+                )
+        else:
+            # Registrar egreso en la sesión de caja original (o la sesión activa si la original está cerrada)
+            sesion_id_para_ajuste = caja_sesion_id
+            if not sesion_id_para_ajuste:
+                # Fallback: usar la sesión activa del negocio
+                db.execute(
+                    "SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL",
+                    (negocio_id,)
+                )
+                sesion_activa = db.fetchone()
+                sesion_id_para_ajuste = sesion_activa['id'] if sesion_activa else None
+
+            if sesion_id_para_ajuste:
+                db.execute(
+                    """
+                    INSERT INTO caja_ajustes
+                        (negocio_id, usuario_id, caja_sesion_id, fecha, tipo, monto, concepto, observaciones)
+                    VALUES (%s, %s, %s, %s, 'Egreso', %s, %s, %s)
+                    """,
+                    (
+                        negocio_id, current_user['id'], sesion_id_para_ajuste,
+                        fecha_actual, total_venta, concepto_nc,
+                        f'Motivo: {motivo} | Método original: {metodo_pago}'
+                    )
+                )
+
+        # 5. Devolver el stock de cada ítem
+        db.execute(
+            """
+            SELECT vd.producto_id, vd.cantidad, p.stock
+            FROM ventas_detalle vd
+            JOIN productos p ON vd.producto_id = p.id
+            WHERE vd.venta_id = %s
+            """,
+            (venta_id,)
+        )
+        items = db.fetchall()
+
+        for item in items:
+            producto_id = item['producto_id']
+            cantidad_devuelta = item['cantidad']
+            stock_anterior = item['stock']
+            stock_nuevo = stock_anterior + cantidad_devuelta
+
+            # Actualizar stock
+            db.execute("UPDATE productos SET stock = %s WHERE id = %s", (stock_nuevo, producto_id))
+
+            # Registrar en historial de inventario
+            db.execute(
+                """
+                INSERT INTO inventario_ajustes
+                    (producto_id, usuario_id, negocio_id, cantidad_anterior, cantidad_nueva, diferencia, motivo)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    producto_id, current_user['id'], negocio_id,
+                    stock_anterior, stock_nuevo, cantidad_devuelta,
+                    f'Nota de Crédito — Anulación Venta #{venta_id}: {motivo}'
+                )
+            )
+
+        # 6. Registrar la Nota de Crédito interna
+        db.execute(
+            """
+            INSERT INTO notas_credito
+                (venta_id, negocio_id, usuario_id, fecha, motivo, total)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (venta_id, negocio_id, current_user['id'], fecha_actual, motivo, total_venta)
+        )
+        nc_id = db.fetchone()['id']
+
+        g.db_conn.commit()
+        return jsonify({
+            'message': f'Venta #{venta_id} anulada correctamente. Nota de Crédito #{nc_id} generada.',
+            'nota_credito_id': nc_id
+        }), 200
+
+    except Exception as e:
+        g.db_conn.rollback()
+        print(f"Error en anular_venta: {e}")
+        return jsonify({'error': f'Error al anular la venta: {str(e)}'}), 500
+
+
+# --- ✨ NUEVA RUTA: LISTAR NOTAS DE CRÉDITO DEL NEGOCIO ---
+@bp.route('/negocios/<int:negocio_id>/notas_credito', methods=['GET'])
+@token_required
+def get_notas_credito(current_user, negocio_id):
+    db = get_db()
+    try:
+        db.execute(
+            """
+            SELECT nc.id, nc.fecha, nc.motivo, nc.total,
+                   v.metodo_pago,
+                   c.nombre AS cliente_nombre,
+                   u.nombre AS usuario_nombre
+            FROM notas_credito nc
+            JOIN ventas v ON nc.venta_id = v.id
+            LEFT JOIN clientes c ON v.cliente_id = c.id
+            JOIN usuarios u ON nc.usuario_id = u.id
+            WHERE nc.negocio_id = %s
+            ORDER BY nc.id DESC
+            LIMIT 100
+            """,
+            (negocio_id,)
+        )
+        notas = db.fetchall()
+        resultado = []
+        for n in notas:
+            n_dict = dict(n)
+            if isinstance(n_dict.get('fecha'), datetime.datetime):
+                fecha = n_dict['fecha']
+                if fecha.tzinfo is None:
+                    tz_ar = pytz.timezone('America/Argentina/Buenos_Aires')
+                    fecha = tz_ar.localize(fecha)
+                n_dict['fecha'] = fecha.isoformat()
+            resultado.append(n_dict)
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

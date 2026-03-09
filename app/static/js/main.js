@@ -2,7 +2,11 @@
 // ✨ ARCHIVO COMPLETO (Versión 1.2.2 - CON RESTAURACIÓN DE SESIÓN) ✨
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-const APP_VERSION = "1.4.0"; // Feature: Item-level bonifications & Manual delivery
+export const APP_VERSION = "1.5.4";
+// HISTORIAL DE VERSIONES:
+// 1.5.4: Renombrado de botón "Deshacer visita" a "Deshacer bajada" para mayor claridad.
+// 1.5.3: Cambio de texto a "CONFIRMAR BAJADA" en app choferes.
+// 1.5.2: Corrección bug visual de suma string ("0.00" + 2 = "0.002") en las cantidades originales.
 window.APP_VERSION = APP_VERSION;
 const v = `?v=${APP_VERSION}`;
 
@@ -12,7 +16,7 @@ window.chequearVersionApp = () => {
 
     // Si la versión del código es nueva
     if (versionGuardada !== APP_VERSION) {
-        console.warn(`Nueva versión (${APP_VERSION}). Limpiando caché local crítica...`);
+        console.warn(`Nueva versión(${APP_VERSION}).Limpiando caché local crítica...`);
         localStorage.setItem('app_version', APP_VERSION);
 
         // Forzamos recarga si ya había entrado antes
@@ -68,8 +72,43 @@ export const appState = {
     negociosCache: [],
     userRol: null,
     filtroProveedorId: null,
-    permissions: {} // ✨ Permisos dinámicos cargados del backend
+    permissions: {}, // ✨ Permisos dinámicos cargados del backend
+    subscriptionStatus: 'ok'
 };
+window.appState = appState;
+
+export async function checkSubscriptionStatus() {
+    if (!appState.negocioActivoId || appState.negocioActivoId === '') return;
+
+    try {
+        // Usamos fetchData para que maneje el token automáticamente y sea más limpio
+        const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/suscripcion-status`, { silent: true });
+
+        const banner = document.getElementById('subscription-banner');
+        if (!banner) return;
+
+        appState.subscriptionStatus = data.status || 'ok';
+
+        if (data.status === 'overdue') {
+            banner.style.display = 'block';
+            banner.style.backgroundColor = '#ff4444';
+            banner.style.color = 'white';
+            banner.innerText = data.mensaje;
+        } else if (data.status === 'pending') {
+            banner.style.display = 'block';
+            banner.style.backgroundColor = '#ff9800';
+            banner.style.color = 'white';
+            banner.innerText = data.mensaje;
+        } else {
+            banner.style.display = 'none';
+        }
+    } catch (error) {
+        // Si hay error (ej. 401), simplemente no mostramos el banner
+        const banner = document.getElementById('subscription-banner');
+        if (banner) banner.style.display = 'none';
+        console.warn("No se pudo verificar el estado de suscripción:", error.message);
+    }
+}
 
 // --- MAPA DE RUTAS (YA NO SE USA APP_RUTAS CONSTANTE) ---
 // La constante APP_RUTAS se ha eliminado en favor de appState.permissions
@@ -86,7 +125,6 @@ const PATH_MAP = {
 // --- NUEVA FUNCIÓN UI ---
 function actualizarUIporTipoApp() {
     const tipoApp = appState.negocioActivoTipo || 'retail';
-    // console.log(`Actualizando UI para tipo de app: ${tipoApp}`);
     document.body.classList.remove('app-retail', 'app-consorcio', 'app-rentals');
     document.body.classList.add(`rol-${appState.userRol}`, `app-${tipoApp}`);
 }
@@ -99,7 +137,7 @@ function loadPageCSS(pageName) {
         link.id = 'page-specific-style';
         link.rel = 'stylesheet';
         link.type = 'text/css';
-        link.href = `static/css/${pageName}.css?v=${APP_VERSION}`; // Corrección aquí
+        link.href = `static/css/${pageName}.css?v=${APP_VERSION}`;
 
         // Caso especial para rentals si tuvieran CSS específico en su carpeta (opcional)
         // Caso especial: Evitar cargar CSS específicos si no existen
@@ -109,7 +147,7 @@ function loadPageCSS(pageName) {
 
         document.head.appendChild(link);
         link.onerror = () => {
-            // console.warn(`Advertencia: No se encontró CSS opcional en ${link.href}`);
+            // console.warn(`Advertencia: No se encontró CSS opcional en ${ link.href } `);
             link.remove();
         };
     }
@@ -133,7 +171,7 @@ function actualizarVisibilidadMenu() {
     const perms = appState.permissions[tipoAppActual] || [];
     const permsComun = appState.permissions['comun'] || ['configuracion', 'usuarios', 'negocios'];
 
-    console.log(`🔍 [Menu] Aplicando filtros para ${tipoAppActual}. Permisos:`, perms);
+    console.log(`🔍[Menu] Aplicando filtros para ${tipoAppActual}.Permisos: `, perms);
 
     // 1. Filtrar enlaces directos
     document.querySelectorAll('#main-nav > a[href^="#"]').forEach(link => {
@@ -190,7 +228,7 @@ function filtrarTarjetasDashboards() {
     const cards = document.querySelectorAll('.app-card[onclick*="loadContent"]');
     if (cards.length === 0) return;
 
-    console.log(`🔍 [Dash] Filtrando ${cards.length} tarjetas para ${tipoAppActual}`);
+    console.log(`🔍[Dash] Filtrando ${cards.length} tarjetas para ${tipoAppActual} `);
 
     cards.forEach(card => {
         const onclickAttr = card.getAttribute('onclick');
@@ -218,10 +256,10 @@ export async function checkGlobalCashRegisterState() {
 
     try {
         // Usamos el endpoint existente que devuelve el estado
-        const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/caja/estado`);
+        const data = await fetchData(`/ api / negocios / ${appState.negocioActivoId} /caja/estado`);
         if (data.estado === 'abierta' && data.sesion) {
             appState.cajaSesionIdActiva = data.sesion.id;
-            // console.log(`✅ Caja Abierta detectada. Sesión ID: ${appState.cajaSesionIdActiva}`);
+            // console.log(`✅ Caja Abierta detectada.Sesión ID: ${ appState.cajaSesionIdActiva } `);
         } else {
             appState.cajaSesionIdActiva = null;
             // console.log("ℹ️ Caja Cerrada o sin sesión activa.");
@@ -248,6 +286,10 @@ async function poblarSelectorNegocios() {
 
     try {
         const negocios = await fetchData(`/api/negocios`);
+        if (!Array.isArray(negocios)) {
+            console.error("fetchData('/api/negocios') no devolvió un array:", negocios);
+            throw new Error("Datos de negocios inválidos.");
+        }
         appState.negociosCache = negocios;
 
         let idSeleccionado = null;
@@ -290,6 +332,9 @@ async function poblarSelectorNegocios() {
                 selector.disabled = false;
             }
         });
+
+        // ✨ Verificar suscripción al cambiar de negocio
+        checkSubscriptionStatus();
 
     } catch (error) {
         console.error("Error en poblarSelectorNegocios:", error);
@@ -596,7 +641,11 @@ async function inicializarModulo(page) {
                 break;
             case 'historial_ajustes':
                 const { inicializarLogicaHistorialAjustes } = await import(`./modules/historial_ajustes.js${v}`);
-                inicializarLogicaHistorialAjustes();
+                await inicializarLogicaHistorialAjustes();
+                break;
+            case 'eventos':
+                const { inicializarEventos } = await import(`./modules/eventos_admin.js${v}`);
+                await inicializarEventos();
                 break;
             case 'ajuste_caja':
                 const { inicializarLogicaAjusteCaja } = await import(`./modules/ajuste_caja.js${v}`);
@@ -739,6 +788,14 @@ async function inicializarModulo(page) {
                 const { inicializarAdminApps } = await import(`./modules/admin_apps.js${v}`);
                 inicializarAdminApps();
                 break;
+            case 'agente_facturacion':
+                const { inicializarAgenteFacturacion } = await import(`./modules/agente_facturacion.js${v}`);
+                inicializarAgenteFacturacion();
+                break;
+            case 'tickets':
+                const { inicializarTickets } = await import(`./modules/tickets.js${v}`);
+                inicializarTickets();
+                break;
             case 'rentals_dashboard':
             case 'rentals_units':
             case 'rentals_contracts':
@@ -812,7 +869,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
 
     // (DEBUG ALERT QUITADO PARA PRODUCCIÓN)
 
-    if (tipoAppActual && pageName !== 'login' && pageName !== 'admin_apps') {
+    if (tipoAppActual && pageName !== 'login' && pageName !== 'admin_apps' && pageName !== 'agente_facturacion' && appState.userRol !== 'superadmin') {
         const rutasPermitidas = appState.permissions[tipoAppActual] || [];
         const rutasComunes = appState.permissions['comun'] || ['configuracion', 'usuarios', 'negocios']; // Fallback comun
 

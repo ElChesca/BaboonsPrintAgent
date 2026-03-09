@@ -69,3 +69,4 @@ xyzservices==2025.4.0
 # Para cargar variables de entorno desde un archivo .env en desarrollo local
 python-dotenv>=1.0.0
 Flask-Mail==0.10.0
+APScheduler>=3.10.0

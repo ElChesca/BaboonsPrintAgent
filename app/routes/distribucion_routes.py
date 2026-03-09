@@ -248,6 +248,8 @@ def get_hojas_ruta(current_user, negocio_id):
             hr.vendedor_id, 
             v.nombre as vendedor_nombre,
             hr.chofer_id,
+            hr.vehiculo_id,
+            vh.patente as vehiculo_patente,
             (SELECT nombre || ' ' || apellido FROM empleados WHERE id = hr.chofer_id) as chofer_nombre,
             (SELECT COUNT(*) FROM hoja_ruta_items WHERE hoja_ruta_id = hr.id) as cant_clientes,
             (SELECT COUNT(*) FROM pedidos WHERE hoja_ruta_id = hr.id) as cant_pedidos,
@@ -255,6 +257,7 @@ def get_hojas_ruta(current_user, negocio_id):
             (SELECT COUNT(*) FROM pedidos WHERE hoja_ruta_id = hr.id AND estado = 'entregado') as cant_entregados
         FROM hoja_ruta hr
         JOIN vendedores v ON hr.vendedor_id = v.id
+        LEFT JOIN vehiculos vh ON hr.vehiculo_id = vh.id
         WHERE hr.negocio_id = %s
     """
     params = [negocio_id]
@@ -475,14 +478,23 @@ def update_hoja_ruta(current_user, id):
         # The instruction provided a malformed block. Reconstructing based on intent to include chofer_id.
         # Assuming the intent is to update all fields if provided, otherwise keep existing.
         # The original code had an 'if vehiculo_id in data' block, which is now simplified.
+        # ✨ Solo actualizamos vehiculo_id/chofer_id si vienen explícitamente en el payload.
+        # Evitamos pisar con NULL si no fue enviado (lo que causaría inconsistencia con carga_confirmada).
+        import psycopg2.extras
+        fields = {
+            'vendedor_id': data.get('vendedor_id', hr['vendedor_id']),
+            'fecha': data.get('fecha', hr['fecha']),
+            'observaciones': data.get('observaciones', hr['observaciones']),
+        }
+        if 'vehiculo_id' in data:
+            fields['vehiculo_id'] = data['vehiculo_id']
+        if 'chofer_id' in data:
+            fields['chofer_id'] = data['chofer_id']
+
+        set_clause = ', '.join(f'{k} = %s' for k in fields)
         db.execute(
-            "UPDATE hoja_ruta SET vendedor_id = %s, vehiculo_id = %s, chofer_id = %s, fecha = %s, observaciones = %s WHERE id = %s",
-            (data.get('vendedor_id', hr['vendedor_id']), 
-             data.get('vehiculo_id', None), # If not provided, set to None (or existing if that's the intent)
-             data.get('chofer_id', None),   # If not provided, set to None (or existing if that's the intent)
-             data.get('fecha', hr['fecha']), 
-             data.get('observaciones', hr['observaciones']), 
-             id)
+            f"UPDATE hoja_ruta SET {set_clause} WHERE id = %s",
+            list(fields.values()) + [id]
         )
         
         # 3. Reemplazar Items (SOLO si se proporcionan en la petición)
@@ -563,8 +575,19 @@ def update_hoja_ruta_estado(current_user, id):
                     cant = float(item['cantidad'])
 
                     if cant != 0:
+                        # Obtener stock actual antes de actualizar para el log
+                        db.execute("SELECT stock FROM productos WHERE id = %s", (p_id,))
+                        stock_anterior = float(db.fetchone()['stock'])
+                        stock_nuevo = stock_anterior + cant
+
                         # A. Devolver al Depósito Central (cant puede ser negativa si hubo sobreventa móvil)
-                        db.execute("UPDATE productos SET stock = stock + %s WHERE id = %s", (cant, p_id))
+                        db.execute("UPDATE productos SET stock = %s WHERE id = %s", (stock_nuevo, p_id))
+                        
+                        # Guardar en log de ajustes de inventario
+                        db.execute("""
+                            INSERT INTO inventario_ajustes (producto_id, usuario_id, negocio_id, cantidad_anterior, cantidad_nueva, diferencia, motivo)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """, (p_id, current_user['id'], hr_info['negocio_id'], stock_anterior, stock_nuevo, cant, f"Retorno stock camión (Liquidación HR {id})"))
                     
                     # B. Limpiar el stock del camión para este producto
                     db.execute("DELETE FROM vehiculos_stock WHERE vehiculo_id = %s AND producto_id = %s", (v_id, p_id))
@@ -616,13 +639,29 @@ def get_resumen_liquidacion(current_user, id):
         """, (id,))
         items_entregados = db.fetchall()
 
+        # 4. Resumen de Mercadería Rebotada (Rechazos parciales o totales de clientes)
+        db.execute("""
+            SELECT 
+                pr.nombre as producto,
+                mr.descripcion as motivo,
+                SUM(pr_reb.cantidad) as cantidad_total
+            FROM pedidos_rebotes pr_reb
+            JOIN productos pr ON pr_reb.producto_id = pr.id
+            JOIN motivos_rebote mr ON pr_reb.motivo_rebote_id = mr.id
+            WHERE pr_reb.hoja_ruta_id = %s
+            GROUP BY pr.nombre, mr.descripcion
+            ORDER BY pr.nombre ASC
+        """, (id,))
+        items_rebotados = db.fetchall()
+
         return jsonify({
             'visitas': dict(stats_visitas),
             'ventas': {
                 'cantidad': stats_ventas['cant_pedidos_entregados'] or 0,
                 'total_moneda': float(stats_ventas['total_venta_cc']) if stats_ventas['total_venta_cc'] else 0
             },
-            'productos': [dict(i) for i in items_entregados]
+            'productos': [dict(i) for i in items_entregados],
+            'rebotes': [dict(i) for i in items_rebotados]
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -640,9 +679,11 @@ def get_picking_list(current_user, id):
                 v.modelo,
                 v.capacidad_kg,
                 v.capacidad_volumen_m3,
+                vend.nombre as vendedor_nombre,
                 (SELECT nombre || ' ' || apellido FROM empleados WHERE id = COALESCE(hr.chofer_id, v.chofer_default_id)) as chofer_nombre
             FROM hoja_ruta hr
             LEFT JOIN vehiculos v ON hr.vehiculo_id = v.id
+            LEFT JOIN vendedores vend ON hr.vendedor_id = vend.id
             WHERE hr.id = %s
         """, (id,))
         vehicle_row = db.fetchone()
@@ -726,6 +767,58 @@ def update_hoja_ruta_item(current_user, id, item_id):
                 (visitado, obs, item_id)
             )
         elif visitado is False:
+            # ✨ Lógica de reversión de entregas:
+            db.execute("SELECT cliente_id, hoja_ruta_id FROM hoja_ruta_items WHERE id = %s", (item_id,))
+            hr_item = db.fetchone()
+            if hr_item:
+                cliente_id = hr_item['cliente_id']
+                hr_id = hr_item['hoja_ruta_id']
+                
+                # Buscar pedidos entregados en esta parada
+                db.execute("SELECT id, venta_id FROM pedidos WHERE hoja_ruta_id = %s AND cliente_id = %s AND estado = 'entregado'", (hr_id, cliente_id))
+                pedidos = db.fetchall()
+                for p in pedidos:
+                    if p['venta_id']:
+                         # Ya fue cobrado, no podemos deshacer
+                         return jsonify({'error': 'No se puede deshacer la visita porque el pedido ya fue cobrado por el administrador.'}), 400
+                         
+                    p_id = p['id']
+                    
+                    # 1. Recuperar cantidad entregada (para devolver stock al camión)
+                    db.execute("SELECT producto_id, cantidad FROM pedidos_detalle WHERE pedido_id = %s", (p_id,))
+                    detalles_entregados = db.fetchall()
+                    
+                    db.execute("SELECT vehiculo_id FROM hoja_ruta WHERE id = %s", (hr_id,))
+                    hr_info = db.fetchone()
+                    v_id = hr_info['vehiculo_id'] if hr_info else None
+                    if v_id:
+                         for d in detalles_entregados:
+                              if float(d['cantidad']) > 0:
+                                   db.execute("""
+                                       UPDATE vehiculos_stock SET cantidad = cantidad + %s WHERE vehiculo_id = %s AND producto_id = %s
+                                   """, (d['cantidad'], v_id, d['producto_id']))
+                                   
+                    # 2. Restaurar cantidades originales en pedidos_detalle sumando los rebotes
+                    db.execute("SELECT producto_id, cantidad FROM pedidos_rebotes WHERE pedido_id = %s", (p_id,))
+                    rebotes = db.fetchall()
+                    for r in rebotes:
+                        db.execute("""
+                            UPDATE pedidos_detalle SET cantidad = cantidad + %s WHERE pedido_id = %s AND producto_id = %s
+                        """, (r['cantidad'], p_id, r['producto_id']))
+                        # Restaurar subtotal (cantidad * precio_unitario - bonificacion)
+                        # Nota: En rebotes se perdió la nocion de bonif, pero asumimos precios estándar y sin bonif para simplificar
+                        db.execute("""
+                            UPDATE pedidos_detalle SET subtotal = GREATEST(0, (cantidad - bonificacion) * precio_unitario) WHERE pedido_id = %s AND producto_id = %s
+                        """, (p_id, r['producto_id']))
+                    
+                    # 3. Borrar rebotes
+                    db.execute("DELETE FROM pedidos_rebotes WHERE pedido_id = %s", (p_id,))
+                    
+                    # 4. Volver a en_camino y recalcular total
+                    db.execute("""
+                        UPDATE pedidos SET estado = 'en_camino', total = (SELECT COALESCE(sum(subtotal), 0) FROM pedidos_detalle WHERE pedido_id = %s) WHERE id = %s
+                    """, (p_id, p_id))
+
             db.execute(
                 "UPDATE hoja_ruta_items SET visitado=%s, observaciones=%s, fecha_visita=NULL WHERE id=%s",
                 (visitado, obs, item_id)
@@ -759,12 +852,23 @@ def asignar_carga_vehiculo(current_user):
         if not vehiculo:
             return jsonify({'error': 'Vehículo no encontrado'}), 404
             
-        # ✨ Validar si alguna de las rutas ya fue cargada para evitar doble descuento
-        db.execute("SELECT id FROM hoja_ruta WHERE id = ANY(%s) AND carga_confirmada = TRUE", (hoja_ruta_ids,))
+        # ✨ Validar si alguna de las rutas ya fue cargada para evitar doble descuento de stock.
+        # SOLO bloqueamos si ya tiene vehículo asignado Y carga confirmada.
+        # Si carga_confirmada=TRUE pero vehiculo_id=NULL (datos inconsistentes), permitimos re-asignar.
+        db.execute(
+            "SELECT id FROM hoja_ruta WHERE id = ANY(%s) AND carga_confirmada = TRUE AND vehiculo_id IS NOT NULL",
+            (hoja_ruta_ids,)
+        )
         ya_cargadas = db.fetchall()
         if ya_cargadas:
             ids_str = ", ".join([str(r['id']) for r in ya_cargadas])
             return jsonify({'error': f'Las Hojas de Ruta {ids_str} ya han sido confirmadas como cargadas anteriormente.'}), 409
+
+        # Si hay rutas con carga_confirmada=TRUE pero vehiculo_id=NULL, reseteamos el flag para poder re-asignar
+        db.execute(
+            "UPDATE hoja_ruta SET carga_confirmada = FALSE WHERE id = ANY(%s) AND carga_confirmada = TRUE AND vehiculo_id IS NULL",
+            (hoja_ruta_ids,)
+        )
 
         cap_kg = float(vehiculo['capacidad_kg'] or 0)
         cap_m3 = float(vehiculo['capacidad_volumen_m3'] or 0)
@@ -924,17 +1028,29 @@ def entregar_pedido(current_user, pedido_id):
         if not pedido:
             return jsonify({'error': 'Pedido no encontrado'}), 404
             
-        if pedido['estado'] not in ['en_camino', 'preparado', 'pendiente']:
-            return jsonify({'error': f"El pedido no está en estado válido para entrega (Estado actual: {pedido['estado']})"}), 400
+        if pedido['estado'] not in ['en_camino', 'preparado', 'pendiente', 'entregado']:
+            return jsonify({'error': f"El pedido no está en estado válido para esta acción (Estado actual: {pedido['estado']})"}), 400
             
         negocio_id = pedido['negocio_id']
         cliente_id = pedido['cliente_id']
         
-        # 2. Verificar Caja Abierta (Obligatorio para registrar venta)
-        db.execute('SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL', (negocio_id,))
-        sesion_abierta = db.fetchone()
-        if not sesion_abierta:
-            return jsonify({'error': 'La caja está cerrada. No se pueden registrar entregas/ventas.'}), 409
+        solo_bajada = data.get('solo_bajada') is True
+        solo_cobro = data.get('solo_cobro') is True
+
+        if solo_cobro and pedido['estado'] != 'entregado':
+            return jsonify({'error': 'Solo se puede registrar el cobro si el pedido ya fue entregado (bajada confirmada).'}), 400
+
+        # Si el pedido ya está cobrado (tiene venta_id), no permitir volver a cobrar
+        if pedido.get('venta_id'):
+             return jsonify({'error': 'Este pedido ya fue cobrado (tiene venta registrada)'}), 400
+
+        # 2. Verificar Caja Abierta (Solo obligatorio para registrar venta / cobrar)
+        sesion_abierta = None
+        if not solo_bajada:
+            db.execute('SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL', (negocio_id,))
+            sesion_abierta = db.fetchone()
+            if not sesion_abierta:
+                return jsonify({'error': 'La caja está cerrada. Debe abrir la caja para cobrar pedidos.'}), 409
             
         # 3. Obtener Detalles del Pedido
         db.execute("""
@@ -951,9 +1067,12 @@ def entregar_pedido(current_user, pedido_id):
              g.db_conn.commit()
              return jsonify({'message': 'Pedido entregado (sin items que cobrar)'})
 
-        # --- LÓGICA DE RECHAZO PARCIAL Y BONIFICACIONES ---
-        items_ajustados = data.get('items_ajustados', {}) # {producto_id: cantidad_real}
-        bonificaciones_ajustadas = data.get('bonificaciones_ajustadas', {}) # {producto_id: bonif_real}
+        # --- LÓGICA DE RECHAZO PARCIAL Y BONIFICACIONES (Solo si NO es solo_cobro) ---
+        items_ajustados = data.get('items_ajustados', {}) if not solo_cobro else {}
+        bonificaciones_ajustadas = data.get('bonificaciones_ajustadas', {}) if not solo_cobro else {}
+        motivos_ajustados = data.get('motivos_ajustados', {}) if not solo_cobro else {}
+        hr_id = pedido.get('hoja_ruta_id') or pedido.get('ho_ruta_id')
+        
         tiene_ajustes = len(items_ajustados) > 0 or len(bonificaciones_ajustadas) > 0
         total_devuelto = 0
         detalles_devolucion = []
@@ -962,21 +1081,32 @@ def entregar_pedido(current_user, pedido_id):
         total_venta_calculado = 0
         notificaciones = []
 
-        # 5. Crear Venta (Primero creamos la venta para tener el ID)
+        # 5. Iterar Detalles (Ajustar cantidades, guardar rebotes, calcular nuevo total)
         from datetime import datetime
         descuento_general = float(data.get('descuento', 0))
         
-        # Necesitamos el total_final para crear la venta, así que iteramos detalles primero
         items_para_venta = []
         for item in detalles_originales:
             producto_id = str(item['producto_id'])
             cantidad_original = float(item['cantidad'])
-            # Si viene en items_ajustados, usamos esa cantidad, sino la original.
-            cantidad_entregada = float(items_ajustados.get(producto_id, cantidad_original))
             
-            # Si hubo rechazo parcial
-            if cantidad_entregada < cantidad_original:
+            # Si solo estamos cobrando, la cantidad original grabada en pd ya es la final ajustada
+            if solo_cobro:
+                cantidad_entregada = cantidad_original
+            else:
+                cantidad_entregada = float(items_ajustados.get(producto_id, cantidad_original))
+            
+            # Si hubo rechazo parcial (y no estamos solo cobrando)
+            if not solo_cobro and cantidad_entregada < cantidad_original:
                 cantidad_rechazada = cantidad_original - cantidad_entregada
+                
+                motivo_id = motivos_ajustados.get(producto_id)
+                if motivo_id and hr_id:
+                    db.execute("""
+                        INSERT INTO pedidos_rebotes (negocio_id, pedido_id, hoja_ruta_id, producto_id, cantidad, motivo_rebote_id)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (negocio_id, pedido_id, hr_id, item['producto_id'], cantidad_rechazada, motivo_id))
+
                 precio_u = float(item['precio'])
                 subtotal_rechazo = cantidad_rechazada * precio_u
                 total_devuelto += subtotal_rechazo
@@ -986,10 +1116,24 @@ def entregar_pedido(current_user, pedido_id):
                     'precio_unitario': precio_u,
                     'subtotal': subtotal_rechazo
                 })
+                
+                # Actualizamos la cantidad en el pedido detalle para que cuando lo cobren después ya esté bien
+                subt_nuevo = cantidad_entregada * precio_u
+                db.execute("""
+                    UPDATE pedidos_detalle SET cantidad = %s, subtotal = %s WHERE pedido_id = %s AND producto_id = %s
+                """, (cantidad_entregada, subt_nuevo, pedido_id, item['producto_id']))
 
             precio_unitario = float(item['precio'])
-            # Priorizamos bonificación enviada desde el front (ajustada en el momento), sino la original
-            bonif_item = float(bonificaciones_ajustadas.get(producto_id, item.get('bonificacion', 0)))
+            
+            if solo_cobro:
+                bonif_item = float(item.get('bonificacion', 0))
+            else:
+                bonif_item = float(bonificaciones_ajustadas.get(producto_id, item.get('bonificacion', 0)))
+                # Actualizar bonificacion
+                if bonif_item != float(item.get('bonificacion', 0)):
+                     db.execute("UPDATE pedidos_detalle SET bonificacion = %s WHERE pedido_id = %s AND producto_id = %s", 
+                                (bonif_item, pedido_id, item['producto_id']))
+
             # La bonificación se aplica sobre la cantidad entregada
             subtotal_item = max(0, (cantidad_entregada - bonif_item) * precio_unitario)
             
@@ -1003,82 +1147,171 @@ def entregar_pedido(current_user, pedido_id):
             })
 
         total_final = max(0, total_venta_calculado - descuento_general)
+        
+        # Si NO es solo cobranza, actualizamos el total del pedido por los ajustes
+        if not solo_cobro:
+            db.execute("UPDATE pedidos SET total = %s WHERE id = %s", (total_final, pedido_id))
 
-        # Registrar Venta
-        db.execute(
-            'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
-            (negocio_id, cliente_id, current_user['id'], total_final, metodo_pago, datetime.now(), sesion_abierta['id'], descuento_general)
-        )
-        venta_id = db.fetchone()['id']
+        # --- FLUJO DE COBRANZA (Venta) ---
+        venta_id = None
+        monto_cta_cte = 0
+        
+        # SI ES SOLO BAJADA (ENTREGA SIN COBRO), NO REGISTRAMOS VENTA
+        if solo_bajada:
+            metodo_pago = None # Evitar procesamiento de pagos
+            
+        if not solo_bajada and metodo_pago:
+            # Registrar Venta(s)
+            if metodo_pago == 'Mixto':
+                monto_ef = float(data.get('monto_efectivo', 0))
+                monto_mp = float(data.get('monto_mp', 0))
+                monto_cta_cte = max(0, total_final - (monto_ef + monto_mp))
+                
+                # DETERMINAR MÉTODO PRINCIPAL PARA LOS DETALLES
+                # Si hay efectivo, la venta principal es Efectivo. Si no hay pero hay MP, es MP. Si solo hay Cta Cte, es Cta Cte.
+                metodo_principal = 'Efectivo' if monto_ef > 0 else ('Mercado Pago' if monto_mp > 0 else 'Cuenta Corriente')
+                monto_principal = monto_ef if metodo_principal == 'Efectivo' else (monto_mp if metodo_principal == 'Mercado Pago' else monto_cta_cte)
 
-        # 6. Registrar Detalles de Venta y Ajustar Stock
-        for p_venta in items_para_venta:
-            db.execute('INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal, bonificacion) VALUES (%s, %s, %s, %s, %s, %s)',
-                       (venta_id, p_venta['item']['producto_id'], p_venta['cantidad_entregada'], p_venta['precio_unitario'], p_venta['subtotal'], p_venta['bonif']))
+                # 1. Venta Principal (Lleva los detalles para el stock/auditoría)
+                db.execute(
+                    'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
+                    (negocio_id, cliente_id, current_user['id'], monto_principal, metodo_principal, datetime.now(), sesion_abierta['id'], descuento_general, pedido['vendedor_id'])
+                )
+                venta_id = db.fetchone()['id']
+                
+                # 2. Registrar Otras Partes como Ventas adicionales (sin detalles para no duplicar stock)
+                if metodo_principal != 'Efectivo' and monto_ef > 0:
+                    db.execute(
+                        'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)',
+                        (negocio_id, cliente_id, current_user['id'], monto_ef, 'Efectivo', datetime.now(), sesion_abierta['id'], 0, pedido['vendedor_id'])
+                    )
+                
+                if metodo_principal != 'Mercado Pago' and monto_mp > 0:
+                    db.execute(
+                        'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)',
+                        (negocio_id, cliente_id, current_user['id'], monto_mp, 'Mercado Pago', datetime.now(), sesion_abierta['id'], 0, pedido['vendedor_id'])
+                    )
 
-            # LÓGICA DE STOCK MÓVIL: Descontar del Camión
-            if p_venta['cantidad_entregada'] > 0:
-                # Obtener vehiculo_id de la HR
-                hr_id = pedido.get('hoja_ruta_id') or pedido.get('ho_ruta_id')
-                db.execute("SELECT vehiculo_id FROM hoja_ruta WHERE id = %s", (hr_id,))
-                hr_info = db.fetchone()
-                v_id = hr_info['vehiculo_id'] if hr_info else None
+                if metodo_principal != 'Cuenta Corriente' and monto_cta_cte > 0:
+                    db.execute(
+                        'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
+                        (negocio_id, cliente_id, current_user['id'], monto_cta_cte, 'Cuenta Corriente', datetime.now(), sesion_abierta['id'], 0, pedido['vendedor_id'])
+                    )
+                    v_cta_cte_id = db.fetchone()['id']
+                    # Registrar Deuda en Cuenta Corriente
+                    db.execute(
+                        "INSERT INTO clientes_cuenta_corriente (cliente_id, concepto, debe, haber, fecha, venta_id) VALUES (%s, %s, %s, %s, %s, %s)",
+                        (cliente_id, f"Venta Mixta (Parte Cta Cte) - Pedido #{pedido_id}", monto_cta_cte, 0, datetime.now(), v_cta_cte_id)
+                    )
+                elif metodo_principal == 'Cuenta Corriente' and monto_cta_cte > 0:
+                    # Si el principal es Cta Cte, ya tenemos la venta_id
+                    db.execute(
+                        "INSERT INTO clientes_cuenta_corriente (cliente_id, concepto, debe, haber, fecha, venta_id) VALUES (%s, %s, %s, %s, %s, %s)",
+                        (cliente_id, f"Venta Mixta (Principal Cta Cte) - Pedido #{pedido_id}", monto_cta_cte, 0, datetime.now(), venta_id)
+                    )
 
-                if v_id:
-                    # A. Descontar del CAMIÓN
-                    db.execute("""
-                        UPDATE vehiculos_stock 
-                        SET cantidad = cantidad - %s 
-                        WHERE vehiculo_id = %s AND producto_id = %s
-                    """, (p_venta['cantidad_entregada'], v_id, p_venta['item']['producto_id']))
-                    
-                    # Log/Check (Opcional: Verificar si quedó en negativo para alertar)
-                else:
-                    # B. Fallback (Depósito Central) - Si por alguna razón no tiene vehículo asignado
-                    db.execute('SELECT nombre, stock, stock_minimo FROM productos WHERE id = %s', (p_venta['item']['producto_id'],))
-                    producto_info = db.fetchone()
-                    stock_anterior = float(producto_info['stock'])
-                    nuevo_stock = stock_anterior - p_venta['cantidad_entregada']
-                    db.execute('UPDATE productos SET stock = %s WHERE id = %s', (nuevo_stock, p_venta['item']['producto_id']))
-                    
-                    if stock_anterior > producto_info['stock_minimo'] and nuevo_stock <= producto_info['stock_minimo']:
-                        notificaciones.append(f"¡Bajo stock! {producto_info['nombre']} ({nuevo_stock} u.)")
+            else:
+                # Venta Normal (Único método)
+                db.execute(
+                    'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
+                    (negocio_id, cliente_id, current_user['id'], total_final, metodo_pago, datetime.now(), sesion_abierta['id'], descuento_general, pedido['vendedor_id'])
+                )
+                venta_id = db.fetchone()['id']
+                
+                # Si el método es Cuenta Corriente, registrar en movimientos
+                if metodo_pago == 'Cuenta Corriente':
+                    db.execute(
+                        "INSERT INTO clientes_cuenta_corriente (cliente_id, concepto, debe, haber, fecha, venta_id) VALUES (%s, %s, %s, %s, %s, %s)",
+                        (cliente_id, f"Venta - Pedido #{pedido_id}", total_final, 0, datetime.now(), venta_id)
+                    )
 
-        # 7. Registrar Devolución si hubo rechazos
-        if detalles_devolucion:
-            db.execute("""
-                INSERT INTO devoluciones (negocio_id, cliente_id, venta_id, pedido_id, motivo, total_devuelto)
-                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
-            """, (negocio_id, cliente_id, venta_id, pedido_id, data.get('motivo_devolucion', 'Rechazo Parcial en Entrega'), total_devuelto))
-            devolucion_id = db.fetchone()['id']
+            # Registrar Detalles de Venta (Solo a la venta principal para no triplicar stock/items)
+            for p_venta in items_para_venta:
+                db.execute('INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal, bonificacion) VALUES (%s, %s, %s, %s, %s, %s)',
+                           (venta_id, p_venta['item']['producto_id'], p_venta['cantidad_entregada'], p_venta['precio_unitario'], p_venta['subtotal'], p_venta['bonif']))
 
-            for dev in detalles_devolucion:
+        # --- FLUJO DE STOCK Y REBOTES (Se hace en bajada, NO en solo_cobro) ---
+        if not solo_cobro:
+            for p_venta in items_para_venta:
+                # LÓGICA DE STOCK MÓVIL: Descontar del Camión
+                if p_venta['cantidad_entregada'] > 0:
+                    # Obtener vehiculo_id de la HR
+                    db.execute("SELECT vehiculo_id FROM hoja_ruta WHERE id = %s", (hr_id,))
+                    hr_info = db.fetchone()
+                    v_id = hr_info['vehiculo_id'] if hr_info else None
+
+                    if v_id:
+                        # A. Descontar del CAMIÓN
+                        db.execute("""
+                            UPDATE vehiculos_stock 
+                            SET cantidad = cantidad - %s 
+                            WHERE vehiculo_id = %s AND producto_id = %s
+                        """, (p_venta['cantidad_entregada'], v_id, p_venta['item']['producto_id']))
+                        
+                    else:
+                        # B. Fallback (Depósito Central) - Si por alguna razón no tiene vehículo asignado
+                        db.execute('SELECT nombre, stock, stock_minimo FROM productos WHERE id = %s', (p_venta['item']['producto_id'],))
+                        producto_info = db.fetchone()
+                        stock_anterior = float(producto_info['stock'])
+                        nuevo_stock = stock_anterior - p_venta['cantidad_entregada']
+                        db.execute('UPDATE productos SET stock = %s WHERE id = %s', (nuevo_stock, p_venta['item']['producto_id']))
+                        
+                        if stock_anterior > producto_info['stock_minimo'] and nuevo_stock <= producto_info['stock_minimo']:
+                            notificaciones.append(f"¡Bajo stock! {producto_info['nombre']} ({nuevo_stock} u.)")
+
+            # 7. Registrar Devolución si hubo rechazos (Solo en bajada, sin id_venta para desacoplar)
+            # Como devoluciones exige venta_id, registramos sin venta_id o con null si la DB lo permite
+            # Ajuste de regla de negocio: Para Option 2, devoluciones debería permitir venta_id nulo
+            # Pero en devolucion está como required? Verificaremos.
+            if detalles_devolucion:
                 db.execute("""
-                    INSERT INTO devoluciones_detalle (devolucion_id, producto_id, cantidad_devuelta, precio_unitario, subtotal)
-                    VALUES (%s, %s, %s, %s, %s)
-                """, (devolucion_id, dev['producto_id'], dev['cantidad_devuelta'], dev['precio_unitario'], dev['subtotal']))
+                    INSERT INTO devoluciones (negocio_id, cliente_id, venta_id, pedido_id, motivo, total_devuelto)
+                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+                """, (negocio_id, cliente_id, venta_id, pedido_id, data.get('motivo_devolucion', 'Rechazo Parcial en Entrega'), total_devuelto))
+                devolucion_id = db.fetchone()['id']
+
+                for dev in detalles_devolucion:
+                    db.execute("""
+        INSERT INTO devoluciones_detalle (devolucion_id, producto_id, cantidad_devuelta, precio_unitario, subtotal)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (devolucion_id, dev['producto_id'], dev['cantidad_devuelta'], dev['precio_unitario'], dev['subtotal']))
 
         # 8. Actualizar Pedido
-        db.execute(
-            "UPDATE pedidos SET estado = 'entregado', venta_id = %s WHERE id = %s", 
-            (venta_id, pedido_id)
-        )
+        if solo_bajada:
+             # Si solo bajamos mercadería, queda en 'entregado' pero sin venta_id
+             db.execute("""
+                UPDATE pedidos 
+                SET estado = 'entregado', venta_id = NULL, fecha_entrega = CURRENT_TIMESTAMP, usuario_entrega_id = %s 
+                WHERE id = %s
+             """, (current_user['id'], pedido_id))
+        else:
+             # Si hubo cobro, enlazamos la venta
+             db.execute("""
+                UPDATE pedidos 
+                SET estado = 'entregado', venta_id = %s, fecha_entrega = CURRENT_TIMESTAMP, usuario_entrega_id = %s 
+                WHERE id = %s
+             """, (venta_id, current_user['id'], pedido_id))
         
-        # 9. Marcar visita en Hoja de Ruta
-        if pedido['ho_ruta_id'] if 'ho_ruta_id' in pedido else pedido.get('hoja_ruta_id'):
-             hr_id = pedido.get('hoja_ruta_id') or pedido.get('ho_ruta_id')
-             db.execute(
-                "UPDATE hoja_ruta_items SET visitado = TRUE, fecha_visita = CURRENT_TIMESTAMP WHERE hoja_ruta_id = %s AND cliente_id = %s",
-                (hr_id, cliente_id)
-             )
+        # 9. Marcar visita en Hoja de Ruta (Solo en bajada)
+        if not solo_cobro:
+            if pedido.get('ho_ruta_id') or pedido.get('hoja_ruta_id'):
+                hr_id = pedido.get('ho_ruta_id') or pedido.get('hoja_ruta_id')
+                db.execute(
+                    "UPDATE hoja_ruta_items SET visitado = TRUE, fecha_visita = CURRENT_TIMESTAMP WHERE hoja_ruta_id = %s AND cliente_id = %s",
+                    (hr_id, cliente_id)
+                )
 
         g.db_conn.commit()
         
-        return jsonify({
-            'message': 'Pedido entregado y venta registrada correctamente' + (' con devoluciones' if detalles_devolucion else ''),
-            'venta_id': venta_id,
-            'notificaciones': notificaciones
-        })
+        respuesta = {'message': 'Pago registrado con éxito' if solo_cobro else 'Entrega registrada con éxito'}
+        if notificaciones:
+            respuesta['notificaciones'] = notificaciones
+        if venta_id:
+            respuesta['venta_id'] = venta_id
+        if detalles_devolucion:
+            respuesta['message'] += ' con devoluciones'
+            
+        return jsonify(respuesta)
         
     except Exception as e:
         g.db_conn.rollback()
@@ -1221,7 +1454,7 @@ def get_hoja_ruta_chofer(current_user, id):
     
     # Cabecera
     db.execute("""
-        SELECT hr.id, hr.estado, TO_CHAR(hr.fecha, 'YYYY-MM-DD') as fecha, v.nombre as vendedor_nombre
+        SELECT hr.id, hr.negocio_id, hr.estado, TO_CHAR(hr.fecha, 'YYYY-MM-DD') as fecha, v.nombre as vendedor_nombre
         FROM hoja_ruta hr
         JOIN vendedores v ON hr.vendedor_id = v.id
         WHERE hr.id = %s
@@ -1245,8 +1478,8 @@ def get_hoja_ruta_chofer(current_user, id):
     
     # Traer todos los pedidos de la HR para adjuntar a cada parada los productos exactos a bajar
     db.execute("""
-        SELECT p.id as pedido_id, p.cliente_id, p.estado, p.total,
-               pr.nombre as producto_nombre, pd.cantidad
+        SELECT p.id as pedido_id, p.cliente_id, p.negocio_id, p.estado, p.total, p.venta_id,
+               pr.id as producto_id, pr.nombre as producto_nombre, pr.precio_venta as precio_unitario, pd.cantidad
         FROM pedidos p
         JOIN pedidos_detalle pd ON p.id = pd.pedido_id
         JOIN productos pr ON pd.producto_id = pr.id
@@ -1260,14 +1493,19 @@ def get_hoja_ruta_chofer(current_user, id):
         cid = prod['cliente_id']
         if cid not in pedidos_por_cliente:
             pedidos_por_cliente[cid] = {
+                'id': prod['pedido_id'],
                 'pedido_id': prod['pedido_id'],
+                'negocio_id': prod['negocio_id'],
                 'estado': prod['estado'],
                 'total': float(prod['total']),
+                'venta_id': prod['venta_id'],
                 'productos': []
             }
         pedidos_por_cliente[cid]['productos'].append({
+            'producto_id': prod['producto_id'],
             'nombre': prod['producto_nombre'],
-            'cantidad': float(prod['cantidad'])
+            'cantidad': float(prod['cantidad']),
+            'precio_unitario': float(prod['precio_unitario'])
         })
 
     # Armar lista final
@@ -1294,7 +1532,7 @@ def get_recorrido_unificado(current_user):
 
     db = get_db()
     
-    # 1. Obtener todas las HRs activas/borrador del chofer
+    # 1. Obtener todas las HRs activas/borrador del chofer (para validar pertenencia)
     db.execute("""
         SELECT hr.id 
         FROM hoja_ruta hr
@@ -1302,12 +1540,27 @@ def get_recorrido_unificado(current_user):
         WHERE (hr.chofer_id = %s OR (hr.chofer_id IS NULL AND vh.chofer_default_id = %s))
         AND hr.estado IN ('activa', 'borrador')
     """, (empleado_id, empleado_id))
-    hr_ids = [r['id'] for r in db.fetchall()]
+    todas_hr_ids = set(r['id'] for r in db.fetchall())
     
-    if not hr_ids:
+    if not todas_hr_ids:
         return jsonify({'items': []})
 
-    # 2. Traer todos los items de esas HRs
+    # 2. Filtrar por hr_ids del query string (si se proporcionan)
+    requested_ids_raw = request.args.getlist('hr_ids')
+    if requested_ids_raw:
+        try:
+            requested_ids = set(int(i) for i in requested_ids_raw)
+        except ValueError:
+            return jsonify({'error': 'hr_ids inválidos'}), 400
+        # Validar que los IDs pedidos pertenezcan a este chofer (seguridad)
+        hr_ids = list(todas_hr_ids & requested_ids)
+        if not hr_ids:
+            return jsonify({'items': []})
+    else:
+        # Sin filtro: usar todas las HRs del chofer (comportamiento original)
+        hr_ids = list(todas_hr_ids)
+
+    # 3. Traer todos los items de esas HRs
     placeholders = ','.join(['%s'] * len(hr_ids))
     query_items = f"""
         SELECT hri.id as hoja_ruta_item_id, hri.hoja_ruta_id, hri.orden, hri.visitado,
@@ -1325,10 +1578,10 @@ def get_recorrido_unificado(current_user):
     db.execute(query_items, tuple(hr_ids))
     items_raw = db.fetchall()
 
-    # 3. Traer pedidos asociados
+    # 4. Traer pedidos asociados
     query_pedidos = f"""
-        SELECT p.id as pedido_id, p.cliente_id, p.hoja_ruta_id, p.estado, p.total,
-               pr.nombre as producto_nombre, pd.cantidad
+        SELECT p.id as pedido_id, p.cliente_id, p.negocio_id, p.hoja_ruta_id, p.estado, p.total, p.venta_id,
+               pr.id as producto_id, pr.nombre as producto_nombre, pr.precio_venta as precio_unitario, pd.cantidad
         FROM pedidos p
         JOIN pedidos_detalle pd ON p.id = pd.pedido_id
         JOIN productos pr ON pd.producto_id = pr.id
@@ -1343,15 +1596,20 @@ def get_recorrido_unificado(current_user):
         key = f"{prod['cliente_id']}_{prod['hoja_ruta_id']}"
         if key not in pedidos_por_cliente_hr:
             pedidos_por_cliente_hr[key] = {
+                'id': prod['pedido_id'],
                 'pedido_id': prod['pedido_id'],
+                'negocio_id': prod['negocio_id'],
                 'hoja_ruta_id': prod['hoja_ruta_id'],
                 'estado': prod['estado'],
                 'total': float(prod['total']),
+                'venta_id': prod['venta_id'],
                 'productos': []
             }
         pedidos_por_cliente_hr[key]['productos'].append({
+            'producto_id': prod['producto_id'],
             'nombre': prod['producto_nombre'],
-            'cantidad': float(prod['cantidad'])
+            'cantidad': float(prod['cantidad']),
+            'precio_unitario': float(prod['precio_unitario'])
         })
 
     items = []
@@ -1361,3 +1619,19 @@ def get_recorrido_unificado(current_user):
         items.append(r)
 
     return jsonify({'items': items})
+
+# --- MOTIVOS DE REBOTE ---
+
+@bp.route('/negocios/<int:negocio_id>/motivos_rebote', methods=['GET'])
+@token_required
+def get_motivos_rebote(current_user, negocio_id):
+    db = get_db()
+    db.execute("""
+        SELECT id, descripcion 
+        FROM motivos_rebote 
+        WHERE negocio_id = %s AND activo = TRUE
+        ORDER BY id ASC
+    """, (negocio_id,))
+    motivos = db.fetchall()
+    return jsonify([dict(m) for m in motivos])
+

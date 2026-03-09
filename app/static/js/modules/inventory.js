@@ -34,12 +34,12 @@ function renderProductos() {
     if (!listaProductos || !headerRow) return;
 
     // 1. Renderizar cabecera
-    headerRow.innerHTML = `<th class="col-check"><input type="checkbox" id="check-all-products"></th><th>Foto</th><th>Nombre</th><th>SKU</th><th>Categoría</th><th>Stock</th><th>Precio Venta</th>`;
+    headerRow.innerHTML = `<th class="col-check"><input type="checkbox" id="check-all-products"></th><th>Foto</th><th>Nombre</th><th>SKU</th><th>Categoría</th><th>Ubicación</th><th>Stock</th><th>Precio Venta</th>`;
     if (isAdmin) {
         headerRow.innerHTML += `<th>Costo</th>`;
     }
     headerRow.innerHTML += `<th>Acciones</th>`;
-    const colspan = isAdmin ? 9 : 8;
+    const colspan = isAdmin ? 10 : 9;
 
     if (!appState.negocioActivoId) {
         listaProductos.innerHTML = `<tr><td colspan="${colspan}">Seleccione un negocio para ver su inventario.</td></tr>`;
@@ -47,14 +47,20 @@ function renderProductos() {
     }
 
     // ✨ 2. FILTRO CORREGIDO (Maneja valores NULL) ✨
+    const filtroUbicacion = document.getElementById('filtro-ubicacion')?.value || 'all';
     const productosFiltrados = productosCache.filter(p => {
         const nombre = String(p.nombre || '').toLowerCase();
         const sku = String(p.sku || '').toLowerCase();
         const codigoBarras = String(p.codigo_barras || '').toLowerCase();
 
-        return nombre.includes(filtro) ||
+        const matchTexto = nombre.includes(filtro) ||
             sku.includes(filtro) ||
             codigoBarras.includes(filtro);
+
+        const matchUbicacion = filtroUbicacion === 'all' || (p.ubicacion || 'Depósito 1') === filtroUbicacion;
+
+        // El filtrado por estado ya se hace en el fetch, pero podemos asegurar aquí si queremos
+        return matchTexto && matchUbicacion;
     });
 
     // 3. Renderizar resumen
@@ -79,10 +85,13 @@ function renderProductos() {
     const endIndex = startIndex + itemsPerPage;
     const productosPaginados = productosFiltrados.slice(startIndex, endIndex);
 
+    const filtroEstado = document.getElementById('filtro-estado')?.value || 'activos';
+
     // 5. Renderizar filas de la tabla
     listaProductos.innerHTML = '';
     productosPaginados.forEach(p => {
         const stockClass = (p.stock > 0 && p.stock <= p.stock_minimo) ? 'stock-bajo' : '';
+        const inactiveClass = p.activo === false ? 'producto-inactivo' : ''; // Clase para estilo visual
         const aliasHtml = p.alias ? `<small class="text-muted d-block">${p.alias}</small>` : '';
         const isChecked = selectedProductIds.has(p.id) ? 'checked' : '';
         const imgHtml = p.imagen_url
@@ -92,21 +101,34 @@ function renderProductos() {
         let rowHTML = `
             <td><input type="checkbox" class="product-check" data-id="${p.id}" ${isChecked}></td>
             <td>${imgHtml}</td>
-            <td>${p.nombre}${aliasHtml}</td>
+            <td>
+                ${p.nombre}${aliasHtml}
+                ${p.activo === false ? '<span class="badge bg-secondary ms-1" style="font-size: 0.7rem;">Inactivo</span>' : ''}
+            </td>
             <td>${p.sku || '-'}</td>
             <td>${p.categoria_nombre || 'Sin categoría'}</td>
+            <td>${p.ubicacion || 'Depósito 1'}</td>
             <td class="${stockClass}">${p.stock} ${p.unidad_medida || 'un'}</td>
             <td>${(p.precio_venta || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>
         `;
         if (isAdmin) {
             rowHTML += `<td>${(p.precio_costo || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>`;
         }
+
+        // Botones de acción dinámicos
+        let btnBorrarOReactivar = p.activo === false
+            ? `<button class="btn-success btn-sm" onclick="window.reactivarProducto(${p.id})">Reactivar</button>`
+            : `<button class="btn-danger btn-sm" onclick="window.borrarProducto(${p.id})">Borrar</button>`;
+
         rowHTML += `<td class="acciones">
             <button class="btn-secondary btn-sm" onclick="window.abrirModalEditarProducto(${p.id})">Editar</button>
-            <button class="btn-danger btn-sm" onclick="window.borrarProducto(${p.id})">Borrar</button>
+            ${btnBorrarOReactivar}
             <button class="btn-info btn-sm" onclick="window.verBitacoraProducto(${p.id}, '${(p.nombre || '').replace(/'/g, "\\'")}')" title="Ver historial de cambios">📋</button>
         </td>`;
-        listaProductos.innerHTML += `<tr>${rowHTML}</tr>`;
+        const tr = document.createElement('tr');
+        if (p.activo === false) tr.style.opacity = '0.6';
+        tr.innerHTML = rowHTML;
+        listaProductos.appendChild(tr);
     });
 
     if (productosPaginados.length === 0) {
@@ -155,7 +177,22 @@ async function fetchProductos() {
         return;
     }
     try {
-        productosCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/productos`);
+        const filtroEstado = document.getElementById('filtro-estado')?.value || 'activos';
+        let url = `/api/negocios/${appState.negocioActivoId}/productos`;
+
+        if (filtroEstado === 'inactivos') {
+            url += '?mostrar_inactivos=true';
+        } else if (filtroEstado === 'todos') {
+            url += '?mostrar_inactivos=true';
+        }
+
+        productosCache = await fetchData(url);
+
+        // Si el filtro es "inactivos" por UI pero traemos "todos" de la API, filtramos en cache
+        if (filtroEstado === 'inactivos') {
+            productosCache = productosCache.filter(p => p.activo === false);
+        }
+
         currentPage = 1; // Resetear a la página 1
         renderProductos(); // Renderizar después de cargar
     } catch (error) {
@@ -224,13 +261,13 @@ async function bulkDeleteProductos() {
     if (count === 0) return;
 
     const result = await Swal.fire({
-        title: '¿Eliminar productos?',
-        text: `Estás por eliminar ${count} productos permanentemente. Esta acción no se puede deshacer.`,
+        title: '¿Desactivar productos?',
+        text: `Estás por desactivar ${count} productos. Podrás reactivarlos luego desde el filtro de inactivos.`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',
         cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Sí, eliminar',
+        confirmButtonText: 'Sí, desactivar',
         cancelButtonText: 'Cancelar'
     });
 
@@ -354,6 +391,7 @@ function abrirModal(producto = null) {
         document.getElementById('producto-alias').value = producto.alias || '';
         document.getElementById('producto-sku').value = producto.sku || '';
         document.getElementById('producto-categoria').value = producto.categoria_id || '';
+        document.getElementById('producto-ubicacion').value = producto.ubicacion || 'Depósito 1';
         document.getElementById('producto-proveedor').value = producto.proveedor_id || '';
         document.getElementById('producto-stock').value = producto.stock || 0;
         document.getElementById('producto-stock-minimo').value = producto.stock_minimo || 0;
@@ -399,6 +437,7 @@ async function guardarProducto(e) {
         alias: document.getElementById('producto-alias').value || null,
         sku: document.getElementById('producto-sku').value || null,
         categoria_id: document.getElementById('producto-categoria').value || null,
+        ubicacion: document.getElementById('producto-ubicacion').value || 'Depósito 1',
         proveedor_id: document.getElementById('producto-proveedor').value || null,
         stock: parseFloat(document.getElementById('producto-stock').value),
         stock: parseFloat(document.getElementById('producto-stock').value),
@@ -548,15 +587,37 @@ export async function abrirModalEditarProducto(productoId) {
 };
 
 export async function borrarProducto(productoId) {
-    if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
-    try {
-        await sendData(`/api/productos/${productoId}`, {}, 'DELETE');
-        mostrarNotificacion('Producto eliminado con éxito.', 'success');
-        await fetchProductos(); // Recarga la lista
-    } catch (error) {
-        mostrarNotificacion('Error al eliminar el producto.', 'error');
+    const result = await Swal.fire({
+        title: '¿Desactivar producto?',
+        text: 'El producto no aparecerá en ventas ni en el buscador, pero se mantendrá en registros históricos.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, desactivar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            await sendData(`/api/productos/${productoId}`, {}, 'DELETE');
+            mostrarNotificacion('Producto desactivado con éxito.', 'success');
+            await fetchProductos(); // Recarga la lista
+        } catch (error) {
+            mostrarNotificacion('Error al desactivar el producto.', 'error');
+        }
     }
 };
+
+export async function reactivarProducto(productoId) {
+    try {
+        await sendData(`/api/productos/${productoId}/reactivar`, {}, 'PUT');
+        mostrarNotificacion('Producto reactivado con éxito.', 'success');
+        await fetchProductos();
+    } catch (error) {
+        mostrarNotificacion('Error al reactivar el producto.', 'error');
+    }
+}
 
 export async function verBitacoraProducto(productoId, nombre) {
     const modal = document.getElementById('modal-bitacora-producto');
@@ -864,11 +925,26 @@ export async function inicializarLogicaInventario() {
     });
     formProducto.addEventListener('submit', guardarProducto);
 
-    // Lógica del buscador (resetea paginación)
+    // Lógica del buscador y filtro (resetea paginación)
     buscador.addEventListener('keyup', () => {
         currentPage = 1;
         renderProductos();
     });
+    const filtroUbicacion = document.getElementById('filtro-ubicacion');
+    if (filtroUbicacion) {
+        filtroUbicacion.addEventListener('change', () => {
+            currentPage = 1;
+            renderProductos();
+        });
+    }
+
+    const filtroEstado = document.getElementById('filtro-estado');
+    if (filtroEstado) {
+        filtroEstado.addEventListener('change', () => {
+            currentPage = 1;
+            fetchProductos(); // Recarga desde API según el estado
+        });
+    }
 
     // Lógica del modal de importación (con reseteo corregido)
     const modalImportar = document.getElementById('modal-importar-producto');

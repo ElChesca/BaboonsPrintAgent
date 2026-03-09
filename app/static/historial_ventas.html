@@ -5,12 +5,11 @@
         <label>Hasta:</label> <input type="date" id="fecha-hasta">
         <button id="btn-filtrar-ventas">Filtrar</button>
     </div>
-    
+
     <div class="tabla-contenedor">
         <table id="tabla-historial-ventas" class="tabla-bonita">
             <thead>
                 <tr>
-                    <!-- ✨ CORRECCIÓN: Unificamos las columnas a 7 -->
                     <th>ID</th>
                     <th>Fecha</th>
                     <th>Cliente</th>
@@ -25,17 +24,16 @@
             </tbody>
             <tfoot>
                 <tr>
-                    <!-- ✨ CORRECCIÓN: Ajustamos el colspan para que coincida -->
                     <th colspan="4" style="text-align: right;">TOTAL GENERAL:</th>
                     <td id="total-historial-ventas">$0.00</td>
-                    <td colspan="2"></td> <!-- Celdas vacías para alinear correctamente -->
+                    <td colspan="2"></td>
                 </tr>
             </tfoot>
         </table>
     </div>
 </div>
 
-<!-- ✨ MEJORA: El modal ahora está fuera de la estructura de la tabla, más limpio y seguro -->
+<!-- Modal Facturar (existente) -->
 <div id="modal-facturar" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -46,6 +44,42 @@
         <div class="form-actions" style="justify-content: center; gap: 20px;">
             <button id="btn-facturar-oficial" class="btn-primary">Factura Oficial (AFIP)</button>
             <button id="btn-facturar-negro" class="btn-secondary">Factura "X" (No Fiscal)</button>
+        </div>
+    </div>
+</div>
+
+<!-- ✨ NUEVO Modal: Confirmación de Anulación (Nota de Crédito) -->
+<div id="modal-anular-venta" class="baboons-modal">
+    <div class="baboons-modal-content" style="max-width: 480px;">
+        <div class="baboons-modal-header">
+            <h2 style="color: #e74c3c; margin: 0;">🚫 Anular Venta</h2>
+            <span class="close-button" id="close-modal-anular">&times;</span>
+        </div>
+        <div class="modal-body" style="padding: 16px 0;">
+            <p id="modal-anular-texto" style="margin-bottom: 16px; color: var(--text-secondary);">
+                ¿Está seguro que desea anular la <strong>Venta #<span id="modal-anular-venta-id"></span></strong>?
+            </p>
+            <div
+                style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 0.875rem;">
+                <strong>⚠️ Esta acción:</strong><br>
+                • Marcará la venta como <strong>Anulada</strong><br>
+                • Revertirá el efecto en <strong>Caja</strong> o <strong>Cuenta Corriente</strong><br>
+                • Devolverá la <strong>mercadería al Stock</strong>
+            </div>
+            <div class="form-group">
+                <label for="motivo-anulacion"><strong>Motivo de anulación</strong> <span
+                        style="color: #e74c3c;">*</span></label>
+                <textarea id="motivo-anulacion" rows="3"
+                    placeholder="Ej: Producto devuelto por el cliente, error en la carga, etc."
+                    style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+            </div>
+        </div>
+        <div class="form-actions" style="justify-content: flex-end; gap: 12px;">
+            <button id="btn-cancelar-anulacion" class="btn-secondary">Cancelar</button>
+            <button id="btn-confirmar-anulacion" class="btn-danger"
+                style="background: #e74c3c; color: white; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                ✅ Confirmar Anulación
+            </button>
         </div>
     </div>
 </div>

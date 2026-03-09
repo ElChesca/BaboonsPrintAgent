@@ -28,6 +28,28 @@
                 <option value="">-- Todos los Productos --</option>
             </select>
         </div>
+        <div class="form-group">
+            <label for="filtro-tipo">Tipo Movimiento</label>
+            <select id="filtro-tipo">
+                <option value="">-- Todos --</option>
+                <option value="Venta">Venta</option>
+                <option value="Ingreso">Ingreso</option>
+                <option value="Ajuste">Ajuste</option>
+                <option value="Reserva Pedido">Reserva Pedido</option>
+                <option value="Rebote">Rebote</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="filtro-tipo">Tipo Movimiento</label>
+            <select id="filtro-tipo">
+                <option value="">-- Todos --</option>
+                <option value="Venta">Venta</option>
+                <option value="Ingreso">Ingreso</option>
+                <option value="Ajuste">Ajuste</option>
+                <option value="Reserva Pedido">Reserva Pedido</option>
+                <option value="Rebote">Rebote</option>
+            </select>
+        </div>
         <div>
             <button id="btn-filtrar-historial" class="btn-icon btn-filter">
                 <i class="fas fa-filter"></i> Filtrar
@@ -53,9 +75,15 @@
                 <!-- Se puebla dinámicamente -->
             </tbody>
         </table>
-    </div>
-</div>
+        <div id="loading-indicator" style="display: none; text-align: center; padding: 20px;">
+            <i class="fas fa-spinner fa-spin"></i> Cargando...
+        </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.autotable.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+        <div style="text-align: center; margin-top: 20px;">
+            <button id="btn-cargar-mas" class="btn btn-primary" style="display: none;">Cargar más</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>

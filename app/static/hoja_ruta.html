@@ -1,7 +1,21 @@
 <div class="container-fluid fade-in" style="padding: 20px;">
     <div class="page-header">
         <h2>Hoja de Ruta</h2>
-        <div class="actions">
+        <div class="actions d-flex align-items-center gap-2">
+            <div class="btn-group btn-group-sm" role="group">
+                <input type="checkbox" class="btn-check" id="btn-check-borrador" autocomplete="off" checked
+                    onchange="toggleFiltroEstadoHR()">
+                <label class="btn btn-outline-secondary" for="btn-check-borrador">Borrador</label>
+
+                <input type="checkbox" class="btn-check" id="btn-check-activa" autocomplete="off" checked
+                    onchange="toggleFiltroEstadoHR()">
+                <label class="btn btn-outline-primary" for="btn-check-activa">Activas</label>
+
+                <input type="checkbox" class="btn-check" id="btn-check-finalizada" autocomplete="off"
+                    onchange="toggleFiltroEstadoHR()">
+                <label class="btn btn-outline-success" for="btn-check-finalizada">Finalizada</label>
+            </div>
+
             <input type="date" id="filtro-fecha-hr" class="form-control" style="display:inline-block; width:auto;">
             <button class="btn btn-outline-secondary"
                 onclick="document.getElementById('filtro-fecha-hr').value=''; window.cargarHojasRuta();"
@@ -41,10 +55,12 @@
                             <th style="width: 50px;">#</th>
                             <th>Fecha</th>
                             <th>Vendedor</th>
+                            <th>Vehículo</th>
                             <th class="text-center">Clientes</th>
                             <th class="text-center">Pedidos</th>
                             <th class="text-end">Monto total</th>
                             <th class="text-center">Estado Ped.</th>
+                            <th class="text-center">Por Cobrar</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
@@ -278,22 +294,28 @@
             style="flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 15px;">
             <form id="form-hoja-ruta" style="height: 100%; display: flex; flex-direction: column;">
                 <!-- Cabecera del Formulario -->
-                <div class="row mb-3">
+                <div class="row mb-2 g-2">
                     <div class="col-md-3">
-                        <label class="form-label fw-bold">Vendedor Responsable:</label>
+                        <label class="form-label fw-bold">Vendedor:</label>
                         <select id="select-vendedor-hr" class="form-select border-primary" required></select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label fw-bold">Chofer del Día (Opcional):</label>
+                        <label class="form-label fw-bold">Chofer (Opcional):</label>
                         <select id="select-chofer-hr" class="form-select border-info">
                             <option value="">-- Por defecto del vehículo --</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label fw-bold">Fecha de Reparto:</label>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Fecha:</label>
                         <input type="date" id="fecha-hr" class="form-control" required>
                     </div>
-                    <div class="col-md-3 position-relative">
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Filtrar por Zona:</label>
+                        <select id="select-zona-hr" class="form-select border-warning">
+                            <option value="">-- Todas las Zonas --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 position-relative">
                         <label class="form-label fw-bold">Buscar Cliente:</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-search"></i></span>
@@ -309,16 +331,21 @@
 
                 <!-- Panel Split Pro -->
                 <div class="row" style="flex: 1; min-height: 0;">
-                    <!-- Mapa de Selección (Izquierda) -->
+                    <!-- Panel Zona / Clientes (Izquierda) -->
                     <div class="col-md-7 d-flex flex-column" style="height: 100%;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h5 class="mb-0"><i class="fas fa-map-marked-alt text-info"></i> Seleccionar desde el
-                                Mapa
-                            </h5>
-                            <small class="text-muted">Haz click en los marcadores para añadir paradas</small>
+                            <h5 class="mb-0"><i class="fas fa-layer-group text-warning"></i> Clientes de la Zona</h5>
+                            <button type="button" class="btn btn-sm btn-outline-success" id="btn-agregar-todos-zona"
+                                onclick="window._agregarTodosDeZona && window._agregarTodosDeZona()"
+                                title="Agrega todos los clientes filtrados a la ruta">
+                                <i class="fas fa-plus-circle me-1"></i> Agregar todos
+                            </button>
                         </div>
-                        <div id="map-modal-hr"
-                            style="flex:1; border: 2px solid #ddd; border-radius: 12px; background: #f8f9fa;"></div>
+                        <div id="lista-clientes-zona"
+                            style="flex:1; border: 2px solid #f0c040; border-radius: 12px; background: #fffdf0; overflow-y:auto; padding:8px;">
+                            <p class="text-muted text-center py-4"><i class="fas fa-filter me-1"></i> Seleccioná una
+                                Zona o buscá un cliente para comenzar</p>
+                        </div>
                     </div>
 
                     <!-- Lista de Paradas y Orden (Derecha) -->
@@ -541,7 +568,7 @@
                 </div>
 
                 <h5 class="border-bottom pb-2 mb-3">Mercadería Entregada</h5>
-                <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                <div class="table-responsive mb-4" style="max-height: 200px; overflow-y: auto;">
                     <table class="table table-sm" id="tabla-liq-productos">
                         <thead>
                             <tr>
@@ -553,10 +580,28 @@
                     </table>
                 </div>
 
+                <!-- ✨ NUEVO: Tabla de Rebotes -->
+                <h5 class="border-bottom text-danger pb-2 mb-3"><i class="fas fa-exclamation-circle"></i> Mermas /
+                    Devoluciones</h5>
+                <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                    <table class="table table-sm table-hover" id="tabla-liq-rebotes">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Motivo Rechazo</th>
+                                <th class="text-center">Cant.</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
                 <div class="alert alert-info mt-3 small">
                     <i class="fas fa-info-circle"></i> Al finalizar, la hoja de ruta pasará a estado
                     <b>FINALIZADA</b> y
                     ya no podrá ser editada.
+                    <br><b class="text-danger mt-1 d-block"><i class="fas fa-box-open"></i> El stock devuelto ajustará
+                        al Almacén automáticamente.</b>
                 </div>
             </div>
         </div>
@@ -777,57 +822,104 @@
 <!-- Modal Confirmar Entrega y Cobro -->
 <div id="modal-confirmar-entrega" class="modal-overlay" style="display:none; z-index: 3100;">
     <div class="modal-content shadow-lg animate__animated animate__fadeInUp"
-        style="max-width: 400px; width: 95%; border-radius: 15px;">
+        style="max-width: 850px; width: 95%; border-radius: 15px;">
         <div class="modal-header bg-success text-white" style="border-radius: 15px 15px 0 0;">
-            <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Confirmar Entrega</h5>
+            <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Confirmar Entrega y Registrar Cobro</h5>
             <button class="btn-close-modal text-white" onclick="cerrarModalEntrega()">×</button>
         </div>
         <div class="modal-body p-4">
             <input type="hidden" id="entrega-pedido-id">
 
-            <div class="text-center mb-4">
-                <h6 class="text-muted text-uppercase small ls-1">Total a Cobrar</h6>
-                <h1 class="display-4 fw-bold text-dark mb-0" id="entrega-monto-total">$0</h1>
-            </div>
+            <div class="row">
+                <!-- Columna Izquierda: Detalle del Pedido -->
+                <div class="col-md-6 border-end pe-4">
+                    <h6 class="text-muted text-uppercase small ls-1 mb-3"><i class="fas fa-box-open me-1"></i> Detalle
+                        de Mercadería</h6>
+                    <div id="entrega-resumen-items" class="bg-light p-3 rounded text-muted mb-3"
+                        style="max-height:400px; overflow-y:auto; border: 1px solid #e9ecef;">
+                        <!-- Lista de items breve -->
+                    </div>
+                </div>
 
-            <div class="mb-3">
-                <label class="form-label fw-bold text-secondary text-uppercase small">Método de Pago</label>
-                <div class="d-grid gap-2">
-                    <input type="radio" class="btn-check" name="metodoPago" id="pago-efectivo" value="Efectivo" checked>
-                    <label
-                        class="btn btn-outline-success btn-lg text-start d-flex justify-content-between align-items-center"
-                        for="pago-efectivo">
-                        <span><i class="fas fa-money-bill-wave me-2"></i>Efectivo</span>
-                        <i class="fas fa-check-circle opacity-0"></i>
-                    </label>
+                <!-- Columna Derecha: Cobro -->
+                <div class="col-md-6 ps-4 d-flex flex-column">
+                    <div class="text-center mb-4 bg-light p-3 rounded border">
+                        <h6 class="text-muted text-uppercase small ls-1 mb-1">Total a Cobrar</h6>
+                        <h1 class="display-5 fw-bold text-success mb-0" id="entrega-monto-total">$0</h1>
+                    </div>
 
-                    <input type="radio" class="btn-check" name="metodoPago" id="pago-mp" value="Mercado Pago">
-                    <label
-                        class="btn btn-outline-primary btn-lg text-start d-flex justify-content-between align-items-center"
-                        for="pago-mp">
-                        <span><i class="fas fa-qrcode me-2"></i>Mercado Pago</span>
-                        <i class="fas fa-check-circle opacity-0"></i>
-                    </label>
+                    <div class="mb-3 flex-grow-1">
+                        <label class="form-label fw-bold text-secondary text-uppercase small mb-2">Método de
+                            Pago</label>
+                        <div class="d-grid gap-2">
+                            <input type="radio" class="btn-check" name="metodoPago" id="pago-efectivo" value="Efectivo"
+                                checked>
+                            <label
+                                class="btn btn-outline-success text-start d-flex justify-content-between align-items-center p-2"
+                                for="pago-efectivo">
+                                <span><i class="fas fa-money-bill-wave me-2"></i>Efectivo</span>
+                                <i class="fas fa-check-circle opacity-0"></i>
+                            </label>
 
-                    <input type="radio" class="btn-check" name="metodoPago" id="pago-cc" value="Cuenta Corriente">
-                    <label
-                        class="btn btn-outline-secondary btn-lg text-start d-flex justify-content-between align-items-center"
-                        for="pago-cc">
-                        <span><i class="fas fa-file-invoice me-2"></i>Cuenta Corriente</span>
-                        <i class="fas fa-check-circle opacity-0"></i>
-                    </label>
+                            <input type="radio" class="btn-check" name="metodoPago" id="pago-mp" value="Mercado Pago">
+                            <label
+                                class="btn btn-outline-primary text-start d-flex justify-content-between align-items-center p-2"
+                                for="pago-mp">
+                                <span><i class="fas fa-qrcode me-2"></i>Mercado Pago</span>
+                                <i class="fas fa-check-circle opacity-0"></i>
+                            </label>
+
+                            <input type="radio" class="btn-check" name="metodoPago" id="pago-cc"
+                                value="Cuenta Corriente">
+                            <label
+                                class="btn btn-outline-secondary text-start d-flex justify-content-between align-items-center p-2"
+                                for="pago-cc">
+                                <span><i class="fas fa-file-invoice me-2"></i>Cuenta Corriente</span>
+                                <i class="fas fa-check-circle opacity-0"></i>
+                            </label>
+
+                            <input type="radio" class="btn-check" name="metodoPago" id="pago-mixto" value="Mixto">
+                            <label
+                                class="btn btn-outline-info text-start d-flex justify-content-between align-items-center p-2"
+                                for="pago-mixto">
+                                <span><i class="fas fa-layer-group me-2"></i>Pago Mixto + Cta Cte</span>
+                                <i class="fas fa-check-circle opacity-0"></i>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Panel Pago Mixto (Oculto por defecto) -->
+                    <div id="panel-pago-mixto" class="bg-light p-3 rounded border mb-3" style="display: none;">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="small fw-bold text-muted">EFECTIVO</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" id="monto-efectivo-mixto" class="form-control" placeholder="0"
+                                        step="0.01">
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <label class="small fw-bold text-muted">MERCADO PAGO</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" id="monto-mp-mixto" class="form-control" placeholder="0"
+                                        step="0.01">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-2 pt-2 border-top d-flex justify-content-between">
+                            <span class="small fw-bold text-secondary text-uppercase">A Cta Cte:</span>
+                            <span class="small fw-bold text-primary" id="mixto-saldo-ctacte">$0.00</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-success btn-lg w-100 py-3 fw-bold shadow-sm hover-scale mt-auto"
+                        onclick="confirmarEntregaBackend()">
+                        <i class="fas fa-save me-2"></i> CONFIRMAR COBRO
+                    </button>
                 </div>
             </div>
-
-            <div id="entrega-resumen-items" class="bg-light p-2 rounded small text-muted mb-3"
-                style="max-height:100px; overflow-y:auto;">
-                <!-- Lista de items breve -->
-            </div>
-
-            <button class="btn btn-success btn-lg w-100 py-3 fw-bold shadow-sm hover-scale"
-                onclick="confirmarEntregaBackend()">
-                CONFIRMAR ENTREGA
-            </button>
         </div>
     </div>
 </div>

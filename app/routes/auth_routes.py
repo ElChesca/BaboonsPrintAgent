@@ -61,6 +61,11 @@ def login():
         if vendedor_row:
             vendedor_id = vendedor_row['id']
             negocio_id = vendedor_row['negocio_id']
+    elif user['rol'] == 'chofer':
+        db.execute('SELECT id, negocio_id FROM empleados WHERE email = %s AND negocio_id IS NOT NULL', (user['email'],))
+        empleado_row = db.fetchone()
+        if empleado_row:
+            negocio_id = empleado_row['negocio_id']
 
     # If not vendedor but the usuario mismo tiene negocio asociado (admin, etc) o empleado_id
     empleado_id = user.get('empleado_id')

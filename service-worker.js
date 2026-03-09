@@ -4,7 +4,12 @@
 // ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
 // ✨ ¡DEBE SER IDÉNTICA a la de tu main.js!
 // ✨ ========================================================================
-const APP_VERSION = "1.3.5"; // ✨ Mismo que main.js
+const APP_VERSION = "1.4.5";
+// HISTORIAL DE VERSIONES:
+// 1.4.5: Force Refresh Historial Ajustes
+// 1.4.4: Reportes Premium y Paginación Historial
+// 1.4.3: Fix de CORS Leaflet y Búsqueda Pedidos
+// 1.4.2: Agregando eventos.css
 // ==========================================================================
 
 const v = `?v=${APP_VERSION}`;
@@ -35,6 +40,8 @@ const urlsToCache = [
     `/static/home_distribuidora.html${v}`,
     `/static/pedidos.html${v}`,
     `/static/hoja_ruta.html${v}`,
+    `/static/historial_ajustes.html${v}`,
+    `/static/js/modules/historial_ajustes.js${v}`,
 
     // --- Recursos estáticos (no cambian) ---
     '/static/img/logo.png',
@@ -86,6 +93,15 @@ self.addEventListener('fetch', (event) => {
     // No cachear POSTs ni llamadas a la API
     if (event.request.method !== 'GET' || event.request.url.includes('/api/')) {
         return;
+    }
+
+    // ✨ FIX CORS: No cachear recursos externos que no estén en urlsToCache
+    // para evitar errores de respuestas "opaque" en elementos que requieren CORS (como Leaflet)
+    const isExternal = !event.request.url.startsWith(self.location.origin);
+    const isPrecached = urlsToCache.some(url => event.request.url.endsWith(url));
+
+    if (isExternal && !isPrecached) {
+        return; // Dejar que el navegador maneje la petición normalmente sin pasar por el SW
     }
 
     // Estrategia: "Cache first, falling back to network"

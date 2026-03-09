@@ -9,21 +9,56 @@ from werkzeug.utils import secure_filename
 
 bp = Blueprint('products', __name__)
 
+@bp.route('/productos', methods=['GET'])
+@token_required
+def buscar_productos_compat(current_user):
+    """Ruta de compatibilidad para el buscador antiguo de pedidos."""
+    query_term = request.args.get('search', '')
+    negocio_id = request.args.get('negocio_id')
+    
+    if not negocio_id:
+        return jsonify({'error': 'Falta negocio_id'}), 400
+
+    db = get_db()
+    db.execute(
+        """
+        SELECT id, nombre, alias, precio_venta, stock, sku, imagen_url, ubicacion
+        FROM productos
+        WHERE negocio_id = %s AND activo = TRUE AND (
+            nombre ILIKE %s OR
+            sku ILIKE %s OR
+            codigo_barras = %s
+        )
+        LIMIT 20
+        """,
+        (negocio_id, f"%{query_term}%", f"%{query_term}%", query_term)
+    )
+    productos = db.fetchall()
+    return jsonify([dict(p) for p in productos])
+
 @bp.route('/negocios/<int:negocio_id>/productos', methods=['GET'])
 @token_required
 def get_productos(current_user, negocio_id):
     lista_id = request.args.get('lista_id', type=int)
+    mostrar_inactivos = request.args.get('mostrar_inactivos', 'false').lower() == 'true'
+    
     db = get_db()
-    db.execute(
-        """
+    
+    query = """
         SELECT p.*, c.nombre as categoria_nombre, prov.nombre as proveedor_nombre
         FROM productos p
         LEFT JOIN productos_categoria c ON p.categoria_id = c.id
         LEFT JOIN proveedores prov ON p.proveedor_id = prov.id
-        WHERE p.negocio_id = %s ORDER BY p.nombre
-        """,
-        (negocio_id,)
-    )
+        WHERE p.negocio_id = %s
+    """
+    params = [negocio_id]
+    
+    if not mostrar_inactivos:
+        query += " AND p.activo = TRUE"
+        
+    query += " ORDER BY p.nombre"
+    
+    db.execute(query, tuple(params))
     productos = db.fetchall()
     
     if lista_id:
@@ -73,14 +108,14 @@ def add_producto(current_user, negocio_id):
             """
             INSERT INTO productos (negocio_id, nombre, stock, precio_venta, precio_costo, unidad_medida,
                                    categoria_id, stock_minimo, sku, codigo_barras, proveedor_id, alias,
-                                   peso_kg, volumen_m3, imagen_url)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                                   peso_kg, volumen_m3, imagen_url, ubicacion)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """ ,
             (
                 negocio_id, data.get('nombre'), data.get('stock'), data.get('precio_venta'), data.get('precio_costo'),
                 data.get('unidad_medida'), data.get('categoria_id'), data.get('stock_minimo'), sku,
                 data.get('codigo_barras'), data.get('proveedor_id'), data.get('alias'),
-                data.get('peso_kg', 0), data.get('volumen_m3', 0), data.get('imagen_url')
+                data.get('peso_kg', 0), data.get('volumen_m3', 0), data.get('imagen_url'), data.get('ubicacion', 'Depósito 1')
             )
         )
         nuevo_id = db.fetchone()['id']
@@ -103,7 +138,7 @@ def update_producto(current_user, producto_id):
     campos_validos = [
         'nombre', 'stock', 'precio_venta', 'precio_costo', 'unidad_medida',
         'categoria_id', 'stock_minimo', 'sku', 'codigo_barras', 'proveedor_id', 'alias',
-        'peso_kg', 'volumen_m3', 'imagen_url'
+        'peso_kg', 'volumen_m3', 'imagen_url', 'ubicacion'
     ]
     fields = [f"{key} = %s" for key in update_data.keys() if key in campos_validos]
     values = [value for key, value in update_data.items() if key in campos_validos]
@@ -196,9 +231,21 @@ def delete_producto(current_user, producto_id):
         return jsonify({'message': 'Acción no permitida'}), 403
 
     db = get_db()
-    db.execute('DELETE FROM productos WHERE id = %s', (producto_id,))
+    # Cambio a desactivación lógica
+    db.execute('UPDATE productos SET activo = FALSE WHERE id = %s', (producto_id,))
     g.db_conn.commit()
-    return jsonify({'mensaje': 'Producto eliminado con éxito'})
+    return jsonify({'mensaje': 'Producto desactivado con éxito'})
+
+@bp.route('/productos/<int:producto_id>/reactivar', methods=['PUT'])
+@token_required
+def reactivar_producto(current_user, producto_id):
+    if current_user['rol'] not in ['admin', 'superadmin']:
+        return jsonify({'message': 'Acción no permitida'}), 403
+
+    db = get_db()
+    db.execute('UPDATE productos SET activo = TRUE WHERE id = %s', (producto_id,))
+    g.db_conn.commit()
+    return jsonify({'mensaje': 'Producto reactivado con éxito'})
 
 
 # --- ✨ NUEVO ENDPOINT PARA PRODUCTOS TOP (POS) ✨ ---
@@ -227,7 +274,8 @@ def get_top_productos(current_user, negocio_id):
             GROUP BY vd.producto_id
             ORDER BY total_ventas DESC
             LIMIT %s
-        ) as top_productos ON p.id = top_productos.producto_id;
+        ) as top_productos ON p.id = top_productos.producto_id
+        WHERE p.activo = TRUE;
     """
     
     db.execute(query, (negocio_id, limit))
@@ -250,9 +298,9 @@ def buscar_productos_con_precio(current_user, negocio_id):
     # Buscamos productos que coincidan con el término de búsqueda
     db.execute(
         """
-        SELECT id, nombre, alias, precio_venta, stock, sku, imagen_url
+        SELECT id, nombre, alias, precio_venta, stock, sku, imagen_url, ubicacion
         FROM productos
-        WHERE negocio_id = %s AND (
+        WHERE negocio_id = %s AND activo = TRUE AND (
             nombre ILIKE %s OR
             sku ILIKE %s OR
             codigo_barras = %s
@@ -366,7 +414,7 @@ def get_producto_por_codigo(current_user, negocio_id):
         query = """
             SELECT id, nombre, stock, precio_venta, sku, codigo_barras
             FROM productos
-            WHERE negocio_id = %s AND (TRIM(LOWER(codigo_barras)) LIKE %s OR TRIM(LOWER(sku)) LIKE %s)
+            WHERE negocio_id = %s AND activo = TRUE AND (TRIM(LOWER(codigo_barras)) LIKE %s OR TRIM(LOWER(sku)) LIKE %s)
             LIMIT 1
             """
         # Normalizamos el código y lo envolvemos con '%' para la búsqueda de 'contiene'
@@ -404,10 +452,10 @@ def bulk_delete_productos(current_user):
 
     db = get_db()
     try:
-        # Usamos ANY para una sola ejecución eficiente
-        db.execute("DELETE FROM productos WHERE id = ANY(%s)", (product_ids,))
+        # Cambio a desactivación masiva lógica
+        db.execute("UPDATE productos SET activo = FALSE WHERE id = ANY(%s)", (product_ids,))
         g.db_conn.commit()
-        return jsonify({'mensaje': f'{len(product_ids)} productos eliminados con éxito'})
+        return jsonify({'mensaje': f'{len(product_ids)} productos desactivados con éxito'})
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500

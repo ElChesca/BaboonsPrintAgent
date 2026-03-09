@@ -9,10 +9,20 @@
     <div class="container pb-5 pt-3" id="chofer-main-content">
         <!-- Lista de rutas -->
         <div id="chofer-rutas-list">
-            <div class="text-center mt-5 text-muted" id="chofer-loading-rutas">
+            <!-- Filtro de Rutas -->
+            <div class="mb-3 px-1">
+                <label class="small text-muted fw-bold mb-1"><i class="fas fa-filter me-1"></i> Filtrar
+                    Recorridos</label>
+                <select id="filtro-rutas-pedidos" class="form-select border-0 shadow-sm rounded-3">
+                    <option value="todas">Todas las Hojas de Ruta</option>
+                    <option value="con_pedidos">Solo con Pedidos Pendientes</option>
+                </select>
+            </div>
+
+            <div class="text-center mt-4 text-muted" id="chofer-loading-rutas">
                 <i class="fas fa-truck-loading fa-3x mb-3 text-secondary"></i><br>Buscando tus recorridos...
             </div>
-            <div id="chofer-rutas-container" class="mt-3"></div>
+            <div id="chofer-rutas-container" class="mt-2"></div>
         </div>
 
         <!-- Vista de Paradas de una Ruta (Oculto por defecto) -->
@@ -31,6 +41,77 @@
             <div id="chofer-paradas-list">
                 <!-- Se inyectan las paradas -->
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CONFIRMAR ENTREGA (Adaptado de seller.html) -->
+<div id="chofer-modal-entrega" class="modal-fullscreen-custom" style="display:none;">
+    <div class="d-flex flex-column h-100 bg-white">
+        <!-- Header Modal -->
+        <div class="px-3 py-3 border-bottom d-flex align-items-center justify-content-between bg-white shadow-sm">
+            <button class="btn btn-link text-dark p-0" onclick="cerrarModalEntregaChofer()"><i
+                    class="fas fa-arrow-left fa-lg"></i></button>
+            <h6 class="mb-0 fw-bold" id="entrega-cliente-nombre">Confirmar Entrega</h6>
+            <div style="width: 20px;"></div>
+        </div>
+
+        <!-- Body Modal -->
+        <div class="flex-grow-1 overflow-auto p-3 text-center">
+            <input type="hidden" id="entrega-pedido-id">
+            <input type="hidden" id="entrega-hr-id">
+            <input type="hidden" id="entrega-item-id">
+
+            <div class="mb-3">
+                <h6 class="text-muted text-uppercase small fw-bold mb-1">Monto de la Entrega</h6>
+                <h2 class="fw-bold text-dark mb-0" id="entrega-monto-total" data-original="0">$0</h2>
+                <small class="text-muted">(Sujeto a rendición final en base)</small>
+            </div>
+
+            <div id="entrega-lista-items" class="mb-4 text-start">
+                <h6 class="text-start fw-bold mb-2 text-secondary border-bottom pb-1 small">Ajustar Cantidades / Rebotes
+                </h6>
+                <div id="entrega-items-container" class="d-flex flex-column gap-2">
+                    <!-- Items cargados dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Método de Pago (Oculto para choferes por ahora) -->
+            <div class="d-none">
+                <h6 class="text-start fw-bold mb-2 text-secondary border-bottom pb-1 small">Método de Pago</h6>
+                <div class="d-flex flex-column gap-2 mb-4">
+                    <label
+                        class="btn btn-outline-dark text-start d-flex align-items-center p-2 rounded-3 border-2 shadow-sm active">
+                        <input type="radio" name="metodoPagoChofer" value="Efectivo" checked
+                            class="form-check-input me-3">
+                        <div class="fw-bold small"><i class="fas fa-money-bill-wave me-2 text-success"></i>Efectivo
+                        </div>
+                    </label>
+
+                    <label
+                        class="btn btn-outline-dark text-start d-flex align-items-center p-2 rounded-3 border-2 shadow-sm">
+                        <input type="radio" name="metodoPagoChofer" value="Mercado Pago" class="form-check-input me-3">
+                        <div class="fw-bold small"><i class="fas fa-qrcode me-2 text-primary"></i>Mercado Pago</div>
+                    </label>
+
+                    <label
+                        class="btn btn-outline-dark text-start d-flex align-items-center p-2 rounded-3 border-2 shadow-sm">
+                        <input type="radio" name="metodoPagoChofer" value="Cuenta Corriente"
+                            class="form-check-input me-3">
+                        <div class="fw-bold small"><i class="fas fa-file-invoice-dollar me-2 text-warning"></i>Cta.
+                            Corriente
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Modal -->
+        <div class="p-3 bg-white border-top shadow-lg">
+            <button class="btn btn-success w-100 py-3 fw-bold rounded-pill shadow-sm"
+                onclick="confirmarEntregaChoferBackend()">
+                CONFIRMAR BAJADA
+            </button>
         </div>
     </div>
 </div>
@@ -115,5 +196,18 @@
         border-radius: 5px;
         padding: 2px 8px;
         font-weight: bold;
+    }
+
+    /* Modal Fullscreen Chofer */
+    .modal-fullscreen-custom {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        z-index: 3000;
+        display: none;
+        flex-direction: column;
     }
 </style>

@@ -163,8 +163,18 @@ def get_pedido_detail(current_user, id):
     """, (id,))
     detalles = db.fetchall()
     
+    db.execute("""
+        SELECT prb.*, pr.nombre as producto_nombre, mr.descripcion as motivo
+        FROM pedidos_rebotes prb
+        JOIN productos pr ON prb.producto_id = pr.id
+        LEFT JOIN motivos_rebote mr ON prb.motivo_rebote_id = mr.id
+        WHERE prb.pedido_id = %s
+    """, (id,))
+    rebotes = db.fetchall()
+    
     res = dict(pedido)
     res['detalles'] = [dict(d) for d in detalles]
+    res['rebotes'] = [dict(r) for r in rebotes]
     return jsonify(res)
 
 @bp.route('/pedidos/<int:id>', methods=['PUT'])

@@ -240,6 +240,7 @@ function poblarFormulario(cliente) {
     const lat = cliente.latitud;
     const lng = cliente.longitud;
     document.getElementById('cliente-lat').value = lat || '';
+    document.getElementById('cliente-lng').value = lng || '';
     // ✨ Reset Tabs
     document.querySelector('.tab-btn[onclick*="tab-general"]').click();
 

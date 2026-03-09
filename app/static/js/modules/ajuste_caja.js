@@ -1,4 +1,4 @@
-import { fetchData } from '../api.js';
+import { fetchData, sendData } from '../api.js';
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
 
@@ -17,14 +17,11 @@ export function inicializarLogicaAjusteCaja() {
         };
 
         try {
-            const response = await fetchData(`/api/negocios/${appState.negocioActivoId}/caja/ajustes`, {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            });
+            const response = await sendData(`/api/negocios/${appState.negocioActivoId}/caja/ajustes`, payload);
             mostrarNotificacion(response.message, 'success');
             form.reset();
         } catch (error) {
-            const mensajeError = error.message || "Error de red o del servidor. Intente de nuevo.";           
+            const mensajeError = error.message || "Error de red o del servidor. Intente de nuevo.";
             mostrarNotificacion(error.message, 'error');
         }
     });

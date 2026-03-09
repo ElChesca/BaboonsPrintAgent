@@ -148,3 +148,48 @@ class MercadoPagoService:
             return response.json()
         except Exception as e:
             return {"error": str(e)}
+
+    # --- NUEVOS MÉTODOS PARA CHECKOUT PRO (PAGOS ONLINE) ---
+
+    def create_preference(self, title, unit_price, quantity=1, external_reference=None, notification_url=None):
+        """
+        Crea una preferencia de pago para que el cliente pague online.
+        API: POST https://api.mercadopago.com/checkout/preferences
+        """
+        if not self.access_token:
+            return {"error": "Falta Access Token"}
+
+        url = "https://api.mercadopago.com/checkout/preferences"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "items": [
+                {
+                    "title": title,
+                    "quantity": quantity,
+                    "unit_price": float(unit_price),
+                    "currency_id": "ARS"
+                }
+            ],
+            "external_reference": external_reference,
+            "back_urls": {
+                "success": "https://multinegociobaboons-fly.fly.dev/evento/status?status=success",
+                "pending": "https://multinegociobaboons-fly.fly.dev/evento/status?status=pending",
+                "failure": "https://multinegociobaboons-fly.fly.dev/evento/status?status=failure"
+            },
+            "auto_return": "approved",
+            "binary_mode": True # Solo acepta pagos aprobados o rechazados (sin estados intermedios como 'in_process')
+        }
+
+        if notification_url:
+            payload["notification_url"] = notification_url
+
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            return response.json()
+        except Exception as e:
+            return {"error": f"Error al crear preferencia MP: {str(e)}"}
+

@@ -12,38 +12,41 @@
     <div id="seccion-cerrar-caja" class="card" style="display: none;">
         <h2>Gestión de Caja Activa</h2>
         <div id="info-sesion-actual" style="margin-bottom: 20px; border-left: 3px solid #007bff; padding-left: 15px;">
-            </div>
-        
+        </div>
+
         <hr>
         <h3>Resumen de Caja (Tiempo Real)</h3>
-        
+
         <div class="resumen-caja-activa">
-            <p class="admin-only"><strong>Monto en Efectivo:</strong> <span id="resumen-efectivo">$ 0.00</span></p> 
+            <p class="admin-only"><strong>Monto en Efectivo:</strong> <span id="resumen-efectivo">$ 0.00</span></p>
             <p><strong>Ventas (Mercado Pago):</strong> <span id="resumen-mp">$ 0.00</span></p>
             <p><strong>Ventas (Tarjeta):</strong> <span id="resumen-tarjeta">$ 0.00</span></p>
             <p><strong>Ventas (Transferencia):</strong> <span id="resumen-transferencia">$ 0.00</span></p>
             <hr>
-            <p style="color: #c0392b;"><strong>(-) Gastos Operativos (Efectivo):</strong> <span id="resumen-gastos">$ 0.00</span></p>
-            <p style="color: #c0392b;"><strong>(-) Pagos a Proveedores (Efectivo):</strong> <span id="resumen-pagos-prov">$ 0.00</span></p>
+            <p style="color: #c0392b;"><strong>(-) Gastos Operativos (Efectivo):</strong> <span id="resumen-gastos">$
+                    0.00</span></p>
+            <p style="color: #c0392b;"><strong>(-) Pagos a Proveedores (Efectivo):</strong> <span
+                    id="resumen-pagos-prov">$ 0.00</span></p>
         </div>
-        
+
         <hr>
 
         <form id="form-cerrar-caja">
             <h3>Cerrar Caja</h3>
             <p>Al final del día, cuenta el dinero en efectivo y regístralo aquí para cerrar la sesión actual.</p>
             <label for="monto-final-contado">Monto Final Contado (Efectivo):</label>
-            <input type="number" id="monto-final-contado" name="monto_final_contado" step="0.01" required placeholder="Dinero contado en caja">
+            <input type="number" id="monto-final-contado" name="monto_final_contado" step="0.01" required
+                placeholder="Dinero contado en caja">
             <button type="submit" class="btn-delete">Cerrar Caja y Ver Resumen</button>
         </form>
     </div>
 </div>
 
-<div id="modal-resumen-cierre" class="modal">
-    <div class="modal-content">
+<div id="modal-resumen-cierre" class="baboons-modal">
+    <div class="baboons-modal-content">
         <span class="close-button">&times;</span>
         <h2>Resumen de Cierre de Caja</h2>
         <div id="contenido-resumen">
-            </div>
+        </div>
     </div>
 </div>

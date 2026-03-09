@@ -49,9 +49,8 @@ def get_clientes(current_user, negocio_id):
         where_clause += " AND (c.revisado = FALSE OR c.revisado IS NULL)"
 
     if zona_filter:
-        where_clause += " AND c.ref_interna = %s"
+        where_clause += " AND c.zona_id = %s"
         params_count.append(zona_filter)
-
 
     # 2. Contar total
     count_sql = f"SELECT COUNT(*) FROM clientes c {where_clause}"

@@ -10,8 +10,21 @@
         </div>
     </div>
 
-    <div class="form-group" style="margin-top: 15px;">
-        <input type="text" id="buscador-productos" placeholder="Buscar por nombre, SKU o código de barras...">
+    <div class="form-group" style="margin-top: 15px; display: flex; gap: 10px;">
+        <input type="text" id="buscador-productos" placeholder="Buscar por nombre, SKU o código de barras..."
+            style="flex: 1;">
+        <select id="filtro-ubicacion" class="form-select"
+            style="width: auto; padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
+            <option value="all">Todas las Ubicaciones</option>
+            <option value="Depósito 1">Depósito 1</option>
+            <option value="Depósito 2">Depósito 2</option>
+        </select>
+        <select id="filtro-estado" class="form-select"
+            style="width: auto; padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
+            <option value="activos" selected>Activos</option>
+            <option value="inactivos">Inactivos</option>
+            <option value="todos">Todos</option>
+        </select>
     </div>
     <div id="productos-summary" class="productos-summary">
         Cargando resumen...
@@ -43,9 +56,9 @@
     </div>
 </div>
 
-<div id="modal-producto" class="modal">
-    <div class="modal-content large">
-        <div class="modal-header">
+<div id="modal-producto" class="baboons-modal">
+    <div class="baboons-modal-content large">
+        <div class="baboons-modal-header">
             <h3 id="modal-producto-titulo">Añadir Nuevo Producto</h3>
             <span id="close-modal-producto" class="close-button">&times;</span>
         </div>
@@ -69,6 +82,13 @@
                 <div class="form-group">
                     <label for="producto-categoria">Categoría:</label>
                     <select id="producto-categoria"></select>
+                </div>
+                <div class="form-group">
+                    <label for="producto-ubicacion">Ubicación (Depósito):</label>
+                    <select id="producto-ubicacion">
+                        <option value="Depósito 1">Depósito 1</option>
+                        <option value="Depósito 2">Depósito 2</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="producto-proveedor">Proveedor:</label>
@@ -124,9 +144,9 @@
     </div>
 </div>
 
-<div id="modal-importar-producto" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
+<div id="modal-importar-producto" class="baboons-modal">
+    <div class="baboons-modal-content">
+        <div class="baboons-modal-header">
             <h3>Importar Productos</h3>
             <span id="close-modal-importar" class="close-button">&times;</span>
         </div>
@@ -166,9 +186,9 @@
 </div>
 
 <!-- Modal Exportar Productos con Lista de Precios -->
-<div id="modal-exportar-producto" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
+<div id="modal-exportar-producto" class="baboons-modal">
+    <div class="baboons-modal-content">
+        <div class="baboons-modal-header">
             <h3>Exportar Productos con Precio</h3>
             <span id="close-modal-exportar" class="close-button">&times;</span>
         </div>
@@ -195,9 +215,9 @@
 </div>
 
 <!-- Modal Bitácora de Cambios de Producto -->
-<div id="modal-bitacora-producto" class="modal" style="display:none;">
-    <div class="modal-content large">
-        <div class="modal-header">
+<div id="modal-bitacora-producto" class="baboons-modal" style="display:none;">
+    <div class="baboons-modal-content large">
+        <div class="baboons-modal-header">
             <div>
                 <h3>📋 Historial de Cambios</h3>
                 <small class="text-muted" id="bitacora-producto-nombre" style="font-size:0.9rem;"></small>
@@ -233,9 +253,9 @@
 </div>
 
 <!-- Modal para Cambio de Categoría Masivo -->
-<div id="modal-bulk-categoria" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
+<div id="modal-bulk-categoria" class="baboons-modal">
+    <div class="baboons-modal-content">
+        <div class="baboons-modal-header">
             <h3>Cambiar Categoría en Lote</h3>
             <span id="close-modal-bulk-cat" class="close-button">&times;</span>
         </div>

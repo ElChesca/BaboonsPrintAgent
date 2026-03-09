@@ -381,21 +381,24 @@ async function buscarProductosPedidoEdit(termino) {
     }
 
     try {
-        const productos = await fetchData(`/api/productos?search=${termino}&negocio_id=${appState.negocioActivoId}`);
+        const url = `/api/negocios/${appState.negocioActivoId}/productos/buscar?query=${encodeURIComponent(termino)}`;
+        const productos = await fetchData(url);
         if (productos.length === 0) {
             sugg.style.display = 'none';
             return;
         }
 
-        sugg.innerHTML = productos.map(p => `
-            <div class="p-2 border-bottom suggestion-item" style="cursor:pointer;" onclick="agregarAlPedidoEdit(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+        sugg.innerHTML = productos.map(p => {
+            const precio = p.precio_final || p.precio_venta || 0;
+            return `
+            <div class="p-2 border-bottom suggestion-item" style="cursor:pointer;" onclick="agregarAlPedidoEdit(${JSON.stringify({ ...p, precio_venta: precio }).replace(/"/g, '&quot;')})">
                 <div class="d-flex justify-content-between">
                     <span>${p.nombre}</span>
-                    <span class="fw-bold">$${p.precio_venta}</span>
+                    <span class="fw-bold">$${precio.toLocaleString()}</span>
                 </div>
                 <small class="text-muted">Stock: ${p.stock}</small>
             </div>
-        `).join('');
+        `}).join('');
         sugg.style.display = 'block';
     } catch (error) {
         console.error(error);
@@ -531,133 +534,142 @@ async function imprimirRemitoPDF(id) {
         const doc = new jsPDF();
         const negocio = appState.negociosCache.find(n => n.id == appState.negocioActivoId) || { nombre: 'Mi Negocio', direccion: '' };
 
-        // Cabecera: Negocio
-        doc.setFontSize(20);
-        doc.setFont("helvetica", "bold");
-        doc.text(negocio.nombre, 105, 20, { align: 'center' });
+        dibujarRemitoEnPDF(doc, p, negocio);
 
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(negocio.direccion || '', 105, 26, { align: 'center' });
-
-        doc.setLineWidth(0.5);
-        doc.line(14, 32, 196, 32);
-
-        // Sub-cabecera: Tipo de Documento y Número
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        doc.text("REMITO DE ENTREGA", 14, 45);
-        doc.setFontSize(14);
-        doc.text(`#${p.id}`, 196, 45, { align: 'right' });
-
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Fecha: ${new Date(p.fecha).toLocaleDateString()}`, 14, 52);
-        doc.text(`Vendedor: ${p.vendedor_nombre || 'N/A'}`, 196, 52, { align: 'right' });
-
-        // Datos del Cliente
-        doc.setFillColor(245, 245, 245);
-        doc.rect(14, 61, 182, 26, 'F');
-        doc.setDrawColor(200, 200, 200);
-        doc.rect(14, 61, 182, 26, 'D');
-
-        doc.setFont("helvetica", "bold");
-        doc.text("DESTINATARIO:", 18, 68);
-        doc.setFont("helvetica", "normal");
-        doc.text(String(p.cliente_nombre || 'N/A'), 52, 68);
-
-        doc.setFont("helvetica", "bold");
-        doc.text("DIRECCIÓN:", 18, 75);
-        doc.setFont("helvetica", "normal");
-        doc.text(String(p.cliente_direccion || 'Sin dirección'), 52, 75);
-
-        doc.setFont("helvetica", "bold");
-        doc.text("TELÉFONO:", 18, 82);
-        doc.setFont("helvetica", "normal");
-        doc.text(String(p.telefono || 'Sin teléfono'), 52, 82);
-
-        // Tabla de Items
-        const headers = [["Cant.", "Producto", "Precio Unit.", "Bonif.", "Subtotal"]];
-        const data = p.detalles.map(d => {
-            const bonif = parseFloat(d.bonificacion || 0);
-            return [
-                formatearNumero(d.cantidad),
-                d.producto_nombre,
-                formatearMoneda(d.precio_unitario),
-                bonif > 0 ? formatearNumero(bonif) : '-',
-                formatearMoneda(d.subtotal)
-            ];
-        });
-
-        doc.autoTable({
-            startY: 94,
-            head: headers,
-            body: data,
-            theme: 'grid',
-            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-            styles: { fontSize: 9 },
-            columnStyles: {
-                0: { cellWidth: 20, halign: 'center' },
-                2: { cellWidth: 35, halign: 'right' },
-                3: { cellWidth: 20, halign: 'center' },
-                4: { cellWidth: 35, halign: 'right' }
-            }
-        });
-
-        // Totales Finales
-        let currentY = doc.lastAutoTable.finalY + 10;
-
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text("Subtotal:", 140, currentY);
-        doc.text(formatearMoneda(p.total), 196, currentY, { align: 'right' });
-        currentY += 6;
-
-        if (p.descuento_pago_contado > 0) {
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(16, 185, 129); // Success color
-            doc.text("Bonif. Pago Contado:", 140, currentY);
-            doc.text(`- ${formatearMoneda(p.descuento_pago_contado)}`, 196, currentY, { align: 'right' });
-            doc.setTextColor(0, 0, 0);
-            currentY += 6;
-        }
-
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("TOTAL FINAL:", 140, currentY);
-        doc.text(formatearMoneda(p.total - (p.descuento_pago_contado || 0)), 196, currentY, { align: 'right' });
-        currentY += 15;
-
-        // Observaciones
-        const obs = (p.observaciones || "").trim();
-        if (obs) {
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "bold");
-            doc.text("Observaciones:", 14, currentY);
-            doc.setFont("helvetica", "normal");
-            const splitObs = doc.splitTextToSize(obs, 182);
-            doc.text(splitObs, 14, currentY + 6);
-            currentY += (splitObs.length * 5) + 5;
-        }
-
-        // Sección de Firma
-        const startSignatureY = 250;
-        doc.setLineWidth(0.3);
-        doc.line(70, startSignatureY, 140, startSignatureY);
-        doc.setFontSize(9);
-        doc.text("Firma y Aclaración del Cliente", 105, startSignatureY + 5, { align: 'center' });
-        doc.text("Recibí conforme mercadería y valor", 105, startSignatureY + 10, { align: 'center' });
-
-        // Pie de página
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text(`Generado por Multinegocio - v${APP_VERSION || ''} el ${new Date().toLocaleString()}`, 105, 285, { align: 'center' });
-
-        doc.save(`Remito_Pedido_${p.id}_${p.cliente_nombre.replace(/\s+/g, '_')}.pdf`);
+        doc.save(`Remito_Pedido_${p.id}_${(p.cliente_nombre || '').replace(/\\s+/g, '_')}.pdf`);
     } catch (error) {
         console.error(error);
         mostrarNotificacion('Error al generar el Remito: ' + error.message, 'error');
     }
+}
+
+function dibujarRemitoEnPDF(doc, p, negocio) {
+    // Cabecera: Negocio
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text(negocio.nombre, 105, 20, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(negocio.direccion || '', 105, 26, { align: 'center' });
+
+    doc.setLineWidth(0.5);
+    doc.line(14, 32, 196, 32);
+
+    // Sub-cabecera: Tipo de Documento y Número
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("REMITO DE ENTREGA", 14, 45);
+    doc.setFontSize(14);
+    doc.text(`#${p.id}`, 196, 45, { align: 'right' });
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Fecha: ${new Date(p.fecha).toLocaleDateString()}`, 14, 52);
+    doc.text(`Vendedor: ${p.vendedor_nombre || 'N/A'}`, 196, 52, { align: 'right' });
+
+    // Datos del Cliente
+    doc.setFillColor(245, 245, 245);
+    doc.rect(14, 61, 182, 26, 'F');
+    doc.setDrawColor(200, 200, 200);
+    doc.rect(14, 61, 182, 26, 'D');
+
+    doc.setFont("helvetica", "bold");
+    doc.text("DESTINATARIO:", 18, 68);
+    doc.setFont("helvetica", "normal");
+    doc.text(String(p.cliente_nombre || 'N/A'), 52, 68);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("DIRECCIÓN:", 18, 75);
+    doc.setFont("helvetica", "normal");
+    doc.text(String(p.cliente_direccion || 'Sin dirección'), 52, 75);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("TELÉFONO:", 18, 82);
+    doc.setFont("helvetica", "normal");
+    doc.text(String(p.telefono || 'Sin teléfono'), 52, 82);
+
+    // Tabla de Items
+    const headers = [["Cant.", "Producto", "Precio Unit.", "Bonif.", "Subtotal"]];
+    const data = (p.detalles || []).map(d => {
+        const bonif = parseFloat(d.bonificacion || 0);
+        return [
+            formatearNumero(d.cantidad),
+            d.producto_nombre,
+            formatearMoneda(d.precio_unitario),
+            bonif > 0 ? formatearNumero(bonif) : '-',
+            formatearMoneda(d.subtotal)
+        ];
+    });
+
+    doc.autoTable({
+        startY: 94,
+        head: headers,
+        body: data,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+        styles: { fontSize: 9 },
+        columnStyles: {
+            0: { cellWidth: 20, halign: 'center' },
+            2: { cellWidth: 35, halign: 'right' },
+            3: { cellWidth: 20, halign: 'center' },
+            4: { cellWidth: 35, halign: 'right' }
+        }
+    });
+
+    // Totales Finales
+    let currentY = doc.lastAutoTable.finalY + 10;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Subtotal:", 140, currentY);
+    doc.text(formatearMoneda(p.total), 196, currentY, { align: 'right' });
+    currentY += 6;
+
+    if (p.descuento_pago_contado > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(16, 185, 129); // Success color
+        doc.text("Bonif. Pago Contado:", 140, currentY);
+        doc.text(`- ${formatearMoneda(p.descuento_pago_contado)}`, 196, currentY, { align: 'right' });
+        doc.setTextColor(0, 0, 0);
+        currentY += 6;
+    }
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL FINAL:", 140, currentY);
+    doc.text(formatearMoneda(p.total - (p.descuento_pago_contado || 0)), 196, currentY, { align: 'right' });
+    currentY += 15;
+
+    // Observaciones
+    const obs = (p.observaciones || "").trim();
+    if (obs) {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text("Observaciones:", 14, currentY);
+        doc.setFont("helvetica", "normal");
+        const splitObs = doc.splitTextToSize(obs, 182);
+        doc.text(splitObs, 14, currentY + 6);
+        currentY += (splitObs.length * 5) + 5;
+    }
+
+    // Sección de Firma
+    let startSignatureY = Math.max(currentY + 20, 250); // Empujar hacia abajo si hay observaciones, pero sin pasar 297 (A4 height)
+    if (startSignatureY > 275) {
+        doc.addPage();
+        startSignatureY = 40;
+    }
+
+    doc.setLineWidth(0.3);
+    doc.line(70, startSignatureY, 140, startSignatureY);
+    doc.setFontSize(9);
+    doc.text("Firma y Aclaración del Cliente", 105, startSignatureY + 5, { align: 'center' });
+    doc.text("Recibí conforme mercadería y valor", 105, startSignatureY + 10, { align: 'center' });
+
+    // Pie de página
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Generado por Multinegocio - v${window.APP_VERSION || ''} el ${new Date().toLocaleString()}`, 105, 285, { align: 'center' });
 }
 
 window.imprimirRemitoPDF = imprimirRemitoPDF;
@@ -746,4 +758,49 @@ async function cambiarEstadoMasivo(nuevoEstado) {
 window.actualizarBarraAcciones = actualizarBarraAcciones;
 window.deseleccionarTodo = deseleccionarTodo;
 window.cambiarEstadoMasivo = cambiarEstadoMasivo;
+
+async function imprimirRemitosMasivos() {
+    const checks = document.querySelectorAll('.pedido-check:checked');
+    const ids = Array.from(checks).map(c => c.value);
+
+    if (ids.length === 0) return;
+
+    if (!confirm(`¿Imprimir ${ids.length} remitos seleccionados en un solo PDF?`)) {
+        return;
+    }
+
+    try {
+        const { jsPDF } = window.jspdf;
+        if (!jsPDF) {
+            mostrarNotificacion('Librería PDF no cargada', 'error');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const negocio = appState.negociosCache.find(n => n.id == appState.negocioActivoId) || { nombre: 'Mi Negocio', direccion: '' };
+
+        mostrarNotificacion(`Generando PDF para ${ids.length} pedidos...`, 'info');
+
+        for (let i = 0; i < ids.length; i++) {
+            const id = ids[i];
+            const p = await fetchData(`/api/pedidos/${id}`);
+
+            dibujarRemitoEnPDF(doc, p, negocio);
+
+            // Add new page if it is not the last order 
+            if (i < ids.length - 1) {
+                doc.addPage();
+            }
+        }
+
+        // Finalize and save
+        doc.save(`Remitos_Masivos_${new Date().toISOString().split('T')[0]}.pdf`);
+        mostrarNotificacion(`Descarga completada de PDF con ${ids.length} remitos.`, 'success');
+
+    } catch (error) {
+        console.error(error);
+        mostrarNotificacion('Error al generar los Remitos Masivos: ' + error.message, 'error');
+    }
+}
+window.imprimirRemitosMasivos = imprimirRemitosMasivos;
 
