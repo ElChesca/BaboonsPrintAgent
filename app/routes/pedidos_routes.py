@@ -39,10 +39,10 @@ def create_pedido(current_user, negocio_id):
         # 1. Crear cabecera del pedido
         db.execute(
             """
-            INSERT INTO pedidos (negocio_id, cliente_id, vendedor_id, usuario_id, hoja_ruta_id, observaciones, total)
-            VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+            INSERT INTO pedidos (negocio_id, cliente_id, vendedor_id, usuario_id, hoja_ruta_id, observaciones, total, fecha_estado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """,
-            (negocio_id, cliente_id, vendedor_id, current_user['id'], hoja_ruta_id, data.get('observaciones'), data.get('total', 0))
+            (negocio_id, cliente_id, vendedor_id, current_user['id'], hoja_ruta_id, data.get('observaciones'), data.get('total', 0), datetime.datetime.now())
         )
         pedido_id = db.fetchone()['id']
 
@@ -82,6 +82,7 @@ def get_pedidos(current_user, negocio_id):
     hoja_ruta_id = request.args.get('hoja_ruta_id')
     fecha = request.args.get('fecha')
     cliente_id = request.args.get('cliente_id')
+    estado = request.args.get('estado')
     
     db = get_db()
     
@@ -128,11 +129,36 @@ def get_pedidos(current_user, negocio_id):
         query += " AND p.cliente_id = %s"
         params.append(cliente_id)
         
+    if estado:
+        query += " AND p.estado = %s"
+        params.append(estado)
+        
     query += " ORDER BY p.fecha DESC"
     
     db.execute(query, tuple(params))
     rows = db.fetchall()
-    return jsonify([dict(r) for r in rows])
+    
+    ahora = datetime.datetime.now()
+    resultado = []
+    for r in rows:
+        d = dict(r)
+        fecha_ref = d.get('fecha_estado') or d.get('fecha')
+        if isinstance(fecha_ref, str):
+            try:
+                fecha_ref = datetime.datetime.fromisoformat(fecha_ref.replace('Z', '+00:00'))
+            except Exception:
+                fecha_ref = ahora
+                
+        if isinstance(fecha_ref, datetime.datetime):
+            fecha_ref_naive = fecha_ref.replace(tzinfo=None)
+            delta = ahora - fecha_ref_naive
+            d['dias_en_estado'] = delta.days
+        else:
+            d['dias_en_estado'] = 0
+            
+        resultado.append(d)
+        
+    return jsonify(resultado)
 
 @bp.route('/pedidos/<int:id>', methods=['GET'])
 @token_required
@@ -376,7 +402,7 @@ def update_pedido_estado(current_user, id):
                 db.execute("UPDATE pedidos SET venta_id = NULL WHERE id = %s", (id,))
 
         # 5. Actualizar estado final
-        db.execute("UPDATE pedidos SET estado = %s WHERE id = %s", (nuevo_estado, id))
+        db.execute("UPDATE pedidos SET estado = %s, fecha_estado = %s WHERE id = %s", (nuevo_estado, datetime.datetime.now(), id))
         
         g.db_conn.commit()
         return jsonify({'message': f'Estado actualizado a {nuevo_estado} con éxito'})

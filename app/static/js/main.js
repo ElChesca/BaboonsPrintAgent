@@ -87,9 +87,12 @@ export async function checkSubscriptionStatus() {
         const banner = document.getElementById('subscription-banner');
         if (!banner) return;
 
-        appState.subscriptionStatus = data.status || 'ok';
-
-        if (data.status === 'overdue') {
+        if (data.status === 'blocked') {
+            appState.subscriptionStatus = 'blocked';
+            // Bloqueo total, el checkSubscriptionStatus se llama después de fetchAppPermissions
+            // pero podemos limpiar la UI ahora.
+            aplicarBloqueoPorMora(data.mensaje);
+        } else if (data.status === 'overdue') {
             banner.style.display = 'block';
             banner.style.backgroundColor = '#ff4444';
             banner.style.color = 'white';
@@ -107,6 +110,43 @@ export async function checkSubscriptionStatus() {
         const banner = document.getElementById('subscription-banner');
         if (banner) banner.style.display = 'none';
         console.warn("No se pudo verificar el estado de suscripción:", error.message);
+    }
+}
+
+// ✨ NUEVA FUNCIÓN: Ocultar todo el ERP si está bloqueado
+function aplicarBloqueoPorMora(mensajeLocal) {
+    if (appState.userRol === 'superadmin') {
+        const banner = document.getElementById('subscription-banner');
+        if (banner) {
+            banner.style.display = 'block';
+            banner.style.backgroundColor = '#dc3545';
+            banner.style.color = 'white';
+            banner.innerHTML = `<strong>⚠️ ESTE NEGOCIO ESTÁ BLOQUEADO POR MORA.</strong> (Tú puedes verlo por ser Superadmin)`;
+        }
+        return;
+    }
+
+    // Ocultar elementos de navegación
+    const header = document.querySelector('header');
+    const mainNav = document.getElementById('main-nav');
+    const businessSelectorBar = document.getElementById('business-selector-bar');
+    const contentArea = document.getElementById('content-area');
+
+    if (mainNav) mainNav.style.display = 'none';
+
+    // Inyectar pantalla de bloqueo
+    if (contentArea) {
+        contentArea.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; text-align: center; font-family: sans-serif; padding: 20px;">
+                <h1 style="color: #dc3545; font-size: 3rem; margin-bottom: 20px;">⚠️ Acceso Suspendido</h1>
+                <p style="font-size: 1.5rem; color: #333; max-width: 600px;">
+                    ${mensajeLocal || 'El acceso a este sistema ha sido suspendido por falta de pago.'}
+                </p>
+                <p style="font-size: 1.2rem; color: #666; margin-top: 20px;">
+                    Por favor, comuníquese con la administración para regularizar su situación.
+                </p>
+            </div>
+        `;
     }
 }
 
@@ -458,6 +498,11 @@ export async function actualizarUIAutenticacion() {
 
             actualizarUIporTipoApp();
             actualizarVisibilidadMenu(); // ✨ Filtrar navbar según permisos
+
+            // ✨ BLOQUEO POR MORA
+            if (appState.subscriptionStatus === 'blocked' && appState.userRol !== 'superadmin') {
+                return; // La función aplicarBloqueoPorMora ya se encargó de dibujar la pantalla
+            }
 
             const requestedPage = window.location.hash.substring(1).split('?')[0];
 

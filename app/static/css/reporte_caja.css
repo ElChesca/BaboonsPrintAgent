@@ -1,0 +1,59 @@
+/* --- reporte_caja.css --- */
+
+.filtros-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-end;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.filtros-container .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 0;
+}
+
+.filtros-container label {
+    font-size: 0.85em;
+    font-weight: bold;
+    color: #495057;
+}
+
+.filtros-container input[type="date"],
+.filtros-container select {
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    font-size: 0.95em;
+    min-width: 150px;
+}
+
+.filtros-container .form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 0;
+}
+
+.table-container {
+    margin-top: 20px;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Clases para resaltar la diferencia en la caja */
+.diferencia-negativa {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.diferencia-positiva {
+    color: #28a745;
+    font-weight: bold;
+}

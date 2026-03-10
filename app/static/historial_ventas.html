@@ -1,5 +1,29 @@
 <div class="card">
     <h2>Historial de Ventas</h2>
+
+    <!-- ✨ NUEVO DASHBOARD -->
+    <div class="dashboard-resumen">
+        <div class="metric-card">
+            <div class="metric-icon"><i class="fas fa-hand-holding-usd"></i></div>
+            <div class="metric-title">Ingresos Totales</div>
+            <div class="metric-value" id="kpi-ingresos">$0.00</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon"><i class="fas fa-shopping-cart"></i></div>
+            <div class="metric-title">Operaciones</div>
+            <div class="metric-value" id="kpi-operaciones">0</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon"><i class="fas fa-receipt"></i></div>
+            <div class="metric-title">Ticket Promedio</div>
+            <div class="metric-value" id="kpi-ticket-promedio">$0.00</div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="ventasChart"></canvas>
+    </div>
+
     <div class="filters">
         <label>Desde:</label> <input type="date" id="fecha-desde">
         <label>Hasta:</label> <input type="date" id="fecha-hasta">

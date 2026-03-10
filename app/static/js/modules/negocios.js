@@ -26,6 +26,7 @@ function renderizarTabla() {
                     <span class="badge ${n.suscripcion_activa ? 'bg-success' : 'bg-secondary'}" style="padding: 5px 10px; border-radius: 15px; color: white; font-size: 11px;">
                         ${n.suscripcion_activa ? 'Suscripción Activa' : 'Sin Suscripción'}
                     </span>
+                    ${n.acceso_bloqueado ? '<br><span class="badge bg-danger mt-1" style="padding: 5px 10px; border-radius: 15px; color: white; font-size: 11px;">Bloqueado</span>' : ''}
                 </td>
                 <td class="acciones">
                     <button class="btn-secondary" onclick="window.editarNegocio(${n.id})">Editar</button>
@@ -60,6 +61,7 @@ function resetFormulario() {
     document.getElementById('fecha-alta-negocio').value = '';
     document.getElementById('cuota-mensual-negocio').value = '0';
     document.getElementById('suscripcion-activa-negocio').checked = false;
+    document.getElementById('acceso-bloqueado-negocio').checked = false;
     if (btnCancelar) btnCancelar.style.display = 'none';
 }
 
@@ -79,6 +81,7 @@ window.editarNegocio = (id) => {
     document.getElementById('fecha-alta-negocio').value = negocio.fecha_alta || '';
     document.getElementById('cuota-mensual-negocio').value = negocio.cuota_mensual || 0;
     document.getElementById('suscripcion-activa-negocio').checked = !!negocio.suscripcion_activa;
+    document.getElementById('acceso-bloqueado-negocio').checked = !!negocio.acceso_bloqueado;
 
     const btnCancelar = document.getElementById('btn-cancelar-edicion-negocio');
     if (btnCancelar) btnCancelar.style.display = 'inline-block';
@@ -108,7 +111,8 @@ async function guardarNegocio(e) {
         logo_url: logoInput,
         fecha_alta: document.getElementById('fecha-alta-negocio').value || null,
         cuota_mensual: parseFloat(document.getElementById('cuota-mensual-negocio').value) || 0,
-        suscripcion_activa: document.getElementById('suscripcion-activa-negocio').checked
+        suscripcion_activa: document.getElementById('suscripcion-activa-negocio').checked,
+        acceso_bloqueado: document.getElementById('acceso-bloqueado-negocio').checked
     };
 
     const esEdicion = !!id;

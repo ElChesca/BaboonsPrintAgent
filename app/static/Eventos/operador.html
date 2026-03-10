@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operador de Asistencia | Baboons</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Instascan o Html5-QRCode -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <style>
+        :root {
+            --primary: #10b981;
+            --bg: #f8fafc;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            background: #fff;
+            padding: 15px 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .container {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        #reader {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            border: none !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background: #000;
+        }
+
+        .status-card {
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            display: none;
+        }
+
+        .btn-scan {
+            margin-top: 20px;
+            padding: 15px 30px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 100px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .log-section {
+            margin-top: 30px;
+            width: 100%;
+        }
+
+        .log-item {
+            padding: 12px;
+            background: white;
+            border-bottom: 1px solid #edf2f7;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
+        .log-item:first-child {
+            border-radius: 8px 8px 0 0;
+        }
+
+        .log-item:last-child {
+            border-radius: 0 0 8px 8px;
+            border-bottom: none;
+        }
+
+        .badge-success {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 2px 8px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div style="font-weight: 700; font-size: 1.2rem;">
+            <i class="fas fa-qrcode text-primary"></i> Scanner <span style="color:var(--primary)">Eventos</span>
+        </div>
+        <div id="operator-name" style="font-size: 0.9rem; color: #64748b;">Operador: ---</div>
+    </header>
+
+    <div class="container">
+        <div id="reader"></div>
+
+        <div id="result-card" class="status-card">
+            <div id="result-icon" style="font-size: 3rem; margin-bottom: 10px;"></div>
+            <h2 id="result-title"></h2>
+            <p id="result-msg"></p>
+        </div>
+
+        <div class="log-section">
+            <h3 style="font-size: 1rem; margin-bottom: 10px; color: #64748b;">Recientes</h3>
+            <div id="scan-log">
+                <!-- Items del log -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let html5QrCode;
+
+        window.onload = () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                Swal.fire({
+                    title: 'Acceso Denegado',
+                    text: 'Debes iniciar sesión como operador.',
+                    icon: 'warning'
+                }).then(() => window.location.href = '/');
+                return;
+            }
+
+            // Simular nombre de usuario del token
+            document.getElementById('operator-name').innerText = "Personal Autorizado";
+            startScanner();
+        };
+
+        function startScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
+        }
+
+        async function onScanSuccess(decodedText) {
+            // El QR contiene una URL como: https://.../asistencia?token=UUID
+            const url = new URL(decodedText);
+            const token = url.searchParams.get('token');
+
+            if (!token) {
+                showError("Código QR no reconocido.");
+                return;
+            }
+
+            // Detener scanner temporalmente para procesar
+            await html5QrCode.pause();
+
+            try {
+                const res = await fetch('/api/eventos/asistencia', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ token })
+                });
+                const result = await res.json();
+
+                if (res.status === 200) {
+                    showSuccess(result.nombre, result.message);
+                    addToLog(result.nombre, "success");
+                } else {
+                    showError(result.error, result.nombre);
+                    addToLog(result.nombre || "Ticket Inválido", "error");
+                }
+            } catch (e) {
+                showError("Error de conexión con el servidor.");
+            }
+
+            // Reanudar scanner después de 3 segundos
+            setTimeout(() => {
+                document.getElementById('result-card').style.display = 'none';
+                html5QrCode.resume();
+            }, 3000);
+        }
+
+        function showSuccess(nombre, msg) {
+            const card = document.getElementById('result-card');
+            card.style.display = 'block';
+            card.style.borderLeft = '6px solid #10b981';
+            document.getElementById('result-icon').innerHTML = '<i class="fas fa-check-circle" style="color: #10b981;"></i>';
+            document.getElementById('result-title').innerText = nombre;
+            document.getElementById('result-msg').innerText = msg;
+
+            // Sonido de éxito (opcional)
+            // new Audio('/static/sounds/success.mp3').play();
+        }
+
+        function showError(msg, nombre = "Error") {
+            const card = document.getElementById('result-card');
+            card.style.display = 'block';
+            card.style.borderLeft = '6px solid #ef4444';
+            document.getElementById('result-icon').innerHTML = '<i class="fas fa-times-circle" style="color: #ef4444;"></i>';
+            document.getElementById('result-title').innerText = nombre;
+            document.getElementById('result-msg').innerText = msg;
+        }
+
+        function addToLog(nombre, type) {
+            const log = document.getElementById('scan-log');
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            const time = new Date().toLocaleTimeString();
+            item.innerHTML = `
+            <span>${nombre}</span>
+            <div>
+                <span class="badge-${type}">${type === 'success' ? 'ACEPTADO' : 'RECHAZADO'}</span>
+                <span style="font-size: 0.7rem; color: #94a3b8; margin-left: 10px;">${time}</span>
+            </div>
+        `;
+            log.prepend(item);
+        }
+    </script>
+
+</body>
+
+</html>

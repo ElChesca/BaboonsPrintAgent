@@ -14,10 +14,10 @@ def get_negocios(current_user):
     db = get_db()
     try:
         if current_user['rol'] == 'superadmin':
-            db.execute("SELECT id, nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa FROM negocios ORDER BY nombre")
+            db.execute("SELECT id, nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa, acceso_bloqueado FROM negocios ORDER BY nombre")
         else: # Admin u Operador
              db.execute("""
-                 SELECT n.id, n.nombre, n.direccion, n.tipo_app, n.logo_url
+                 SELECT n.id, n.nombre, n.direccion, n.tipo_app, n.logo_url, n.acceso_bloqueado
                  FROM negocios n
                  JOIN usuarios_negocios un ON n.id = un.negocio_id
                  WHERE un.usuario_id = %s
@@ -61,12 +61,13 @@ def add_negocio(current_user):
     fecha_alta = data.get('fecha_alta')
     cuota_mensual = data.get('cuota_mensual', 0)
     suscripcion_activa = data.get('suscripcion_activa', False)
+    acceso_bloqueado = data.get('acceso_bloqueado', False)
     
     db = get_db()
     try:
         db.execute(
-            'INSERT INTO negocios (nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id',
-            (nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa)
+            'INSERT INTO negocios (nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa, acceso_bloqueado) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
+            (nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa, acceso_bloqueado)
         )
         nuevo_id = db.fetchone()['id']
 
@@ -80,7 +81,8 @@ def add_negocio(current_user):
             'id': nuevo_id, 'nombre': nombre, 'direccion': direccion,
             'tipo_app': tipo_app, 'logo_url': logo_url,
             'fecha_alta': fecha_alta, 'cuota_mensual': cuota_mensual,
-            'suscripcion_activa': suscripcion_activa
+            'suscripcion_activa': suscripcion_activa,
+            'acceso_bloqueado': acceso_bloqueado
         }), 201
 
     except Exception as e:
@@ -102,11 +104,12 @@ def actualizar_negocio(current_user, id):
         fecha_alta = datos.get('fecha_alta')
         cuota_mensual = datos.get('cuota_mensual', 0)
         suscripcion_activa = datos.get('suscripcion_activa', False)
+        acceso_bloqueado = datos.get('acceso_bloqueado', False)
 
         db = get_db()
         db.execute(
-            'UPDATE negocios SET nombre = %s, direccion = %s, tipo_app = %s, logo_url = %s, fecha_alta = %s, cuota_mensual = %s, suscripcion_activa = %s WHERE id = %s', 
-            (nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa, id)
+            'UPDATE negocios SET nombre = %s, direccion = %s, tipo_app = %s, logo_url = %s, fecha_alta = %s, cuota_mensual = %s, suscripcion_activa = %s, acceso_bloqueado = %s WHERE id = %s', 
+            (nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa, acceso_bloqueado, id)
         )
         g.db_conn.commit()
         return jsonify({'message': 'Negocio actualizado con éxito'})
@@ -128,10 +131,19 @@ def get_subscription_status(current_user, id):
         hoy = datetime.date.today()
         
         # Verificar si la suscripción está activa para este negocio
-        db.execute("SELECT suscripcion_activa, fecha_alta FROM negocios WHERE id = %s", (id,))
+        db.execute("SELECT suscripcion_activa, fecha_alta, acceso_bloqueado FROM negocios WHERE id = %s", (id,))
         negocio = db.fetchone()
         
-        if not negocio or not negocio['suscripcion_activa']:
+        if not negocio:
+             return jsonify({'status': 'ok', 'mensaje': ''})
+
+        if negocio['acceso_bloqueado']:
+             return jsonify({
+                 'status': 'blocked',
+                 'mensaje': 'Acceso Suspendido por Falta de Pago. Comuníquese con la administración.'
+             })
+
+        if not negocio['suscripcion_activa']:
             return jsonify({'status': 'ok', 'mensaje': ''})
 
         fecha_alta = negocio['fecha_alta']

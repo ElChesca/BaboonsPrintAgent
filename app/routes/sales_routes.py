@@ -138,7 +138,11 @@ def get_historial_ventas(current_user, negocio_id):
         query += " AND v.fecha < %s"
         params.append(fecha_hasta_dt.strftime('%Y-%m-%d'))
         
-    query += " ORDER BY v.id DESC LIMIT 50" # Ordenar por ID descendente es más común para historiales
+    # Si hay filtro de fechas enviamos todo el mes (con un límite sano alto). Si no hay filtro fecha, mandamos últimos 50.
+    if fecha_desde or fecha_hasta:
+        query += " ORDER BY v.id DESC LIMIT 1000"
+    else:
+        query += " ORDER BY v.id DESC LIMIT 50"
 
     db.execute(query, tuple(params))
     ventas = db.fetchall()
@@ -259,6 +263,28 @@ def anular_venta(current_user, venta_id):
         cliente_id = venta['cliente_id']
         caja_sesion_id = venta['caja_sesion_id']
 
+        # 2.5 Validación estricta de Caja para devoluciones
+        sesion_id_para_ajuste = None
+        if metodo_pago != 'Cuenta Corriente':
+            # Verificar si la sesión original AÚN está abierta
+            if caja_sesion_id:
+                db.execute("SELECT id FROM caja_sesiones WHERE id = %s AND fecha_cierre IS NULL", (caja_sesion_id,))
+                if db.fetchone():
+                    sesion_id_para_ajuste = caja_sesion_id
+            
+            # Si la original está cerrada (o no tenía), buscar la sesión activa de HOY
+            if not sesion_id_para_ajuste:
+                db.execute("SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL", (negocio_id,))
+                sesion_activa = db.fetchone()
+                if sesion_activa:
+                    sesion_id_para_ajuste = sesion_activa['id']
+                    
+            # Si no hay NINGUNA caja abierta, impedir la anulación
+            if not sesion_id_para_ajuste:
+                return jsonify({
+                    'error': 'Para anular esta venta y registrar la devolución de dinero física, primero debes Abrir la Caja.'
+                }), 400
+
         tz_ar = pytz.timezone('America/Argentina/Buenos_Aires')
         fecha_actual = datetime.datetime.now(tz_ar)
 
@@ -280,19 +306,8 @@ def anular_venta(current_user, venta_id):
                     (cliente_id, fecha_actual, concepto_nc, total_venta, venta_id)
                 )
         else:
-            # Registrar egreso en la sesión de caja original (o la sesión activa si la original está cerrada)
-            sesion_id_para_ajuste = caja_sesion_id
-            if not sesion_id_para_ajuste:
-                # Fallback: usar la sesión activa del negocio
-                db.execute(
-                    "SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL",
-                    (negocio_id,)
-                )
-                sesion_activa = db.fetchone()
-                sesion_id_para_ajuste = sesion_activa['id'] if sesion_activa else None
-
-            if sesion_id_para_ajuste:
-                db.execute(
+            # Registrar egreso en la sesión abierta identificada
+            db.execute(
                     """
                     INSERT INTO caja_ajustes
                         (negocio_id, usuario_id, caja_sesion_id, fecha, tipo, monto, concepto, observaciones)

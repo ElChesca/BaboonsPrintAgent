@@ -8,6 +8,7 @@ const formatCurrency = (n) => (n || 0).toLocaleString('es-AR', { style: 'currenc
 
 // Variable para almacenar el ID de venta que se va a anular
 let ventaIdParaAnular = null;
+let ventasChartInstance = null; // ✨ Instancia local para Chart.js
 
 async function cargarHistorialVentas() {
     if (!appState.negocioActivoId) return;
@@ -30,6 +31,7 @@ async function cargarHistorialVentas() {
         const historial = await fetchData(url);
         tbody.innerHTML = '';
         let totalGeneral = 0;
+        let cantidadValidas = 0; // Para los KPI
 
         if (historial.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay ventas para el período seleccionado.</td></tr>';
@@ -48,6 +50,7 @@ async function cargarHistorialVentas() {
                 // Solo sumar al total las ventas NO anuladas
                 if (venta.estado !== 'Anulada') {
                     totalGeneral += venta.total;
+                    cantidadValidas++;
                 }
 
                 // ✨ Botón Anular: solo si la venta no está Anulada ni Facturada
@@ -84,6 +87,16 @@ async function cargarHistorialVentas() {
             }
         }
         totalEl.textContent = formatCurrency(totalGeneral);
+
+        // ✨ ACTUALIZAR KPI DASHBOARD
+        const ticketPromedio = cantidadValidas > 0 ? (totalGeneral / cantidadValidas) : 0;
+        document.getElementById('kpi-ingresos').textContent = formatCurrency(totalGeneral);
+        document.getElementById('kpi-operaciones').textContent = cantidadValidas;
+        document.getElementById('kpi-ticket-promedio').textContent = formatCurrency(ticketPromedio);
+
+        // ✨ ACTUALIZAR GRÁFICO (AGRUPANDO POR FECHA SOLAMENTE LAS VÁLIDAS)
+        actualizarGraficoVentas(historial.filter(v => v.estado !== 'Anulada'));
+
     } catch (error) {
         console.error("Error en cargarHistorialVentas:", error);
         mostrarNotificacion(error.message, 'error');
@@ -180,6 +193,79 @@ async function confirmarAnulacion() {
     }
 }
 
+// ✨ NUEVA FUNCIÓN: Agrupa y dibuja el gráfico Chart.js
+function actualizarGraficoVentas(ventasValidas) {
+    const ctx = document.getElementById('ventasChart');
+    if (!ctx) return;
+
+    // 1. Agrupar por fecha ("YYYY-MM-DD")
+    const agrupado = {};
+    ventasValidas.forEach(v => {
+        // Asumiendo que v.fecha viene en ISO string o SQL date
+        const f = new Date(v.fecha);
+        const dia = f.toLocaleDateString('es-AR'); // Ej: "15/08/2023"
+
+        if (!agrupado[dia]) agrupado[dia] = 0;
+        agrupado[dia] += v.total;
+    });
+
+    // 2. Ordenamos cronológicamente si hay fechas
+    const fechasLimpia = Object.keys(agrupado).sort((a, b) => {
+        const partsA = a.split('/');
+        const partsB = b.split('/');
+        // Parse "dd/mm/yyyy" a date para comparar bien
+        const dA = new Date(partsA[2], partsA[1] - 1, partsA[0]);
+        const dB = new Date(partsB[2], partsB[1] - 1, partsB[0]);
+        return dA - dB;
+    });
+
+    const datos = fechasLimpia.map(fecha => agrupado[fecha]);
+
+    // 3. Crear o actualizar Chart
+    if (ventasChartInstance) {
+        ventasChartInstance.destroy(); // Destruimos inst. anterior
+    }
+
+    ventasChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: fechasLimpia,
+            datasets: [{
+                label: 'Ingresos por Día ($)',
+                data: datos,
+                backgroundColor: '#2196F3',
+                borderColor: '#1976D2',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            return ' ' + formatCurrency(context.raw);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function (value) {
+                            return '$' + value.toLocaleString('es-AR');
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 export function inicializarLogicaHistorialVentas() {
     const tablaBody = document.querySelector('#tabla-historial-ventas tbody');
     const btnFiltrar = document.getElementById('btn-filtrar-ventas');
@@ -222,6 +308,19 @@ export function inicializarLogicaHistorialVentas() {
             abrirModalAnulacion(ventaId);
         }
     });
+
+    // ✨ Establecer fechas por defecto al mes en curso (desde el día 1 hasta hoy)
+    const inputDesde = document.getElementById('fecha-desde');
+    const inputHasta = document.getElementById('fecha-hasta');
+    if (inputDesde && inputHasta && !inputDesde.value && !inputHasta.value) {
+        const hoy = new Date();
+        const year = hoy.getFullYear();
+        const month = String(hoy.getMonth() + 1).padStart(2, '0');
+        const day = String(hoy.getDate()).padStart(2, '0');
+
+        inputDesde.value = `${year}-${month}-01`;
+        inputHasta.value = `${year}-${month}-${day}`; // Podría ser el último día del mes, pero 'hoy' es más lógico para un dashboard hasta la fecha
+    }
 
     cargarHistorialVentas();
 }

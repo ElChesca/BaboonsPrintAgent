@@ -1,0 +1,281 @@
+<!-- app/static/tickets.html -->
+<div class="card fade-in">
+
+    <!-- HEADER -->
+    <div class="tickets-header">
+        <h2>🎫 Tickets de Soporte</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="btn-config-alertas" class="btn-secondary" style="font-size:13px;">⚙️ Alertas Email</button>
+            <button id="btn-nuevo-ticket" class="btn-primary">➕ Nuevo Ticket</button>
+        </div>
+    </div>
+
+    <!-- KPI BAR -->
+    <div class="tickets-stats-bar" id="tickets-stats-bar">
+        <div class="ticket-stat-card">
+            <div class="stat-numero" id="stat-abiertos">-</div>
+            <div class="stat-label">Abiertos</div>
+        </div>
+        <div class="ticket-stat-card progreso">
+            <div class="stat-numero" id="stat-en-progreso">-</div>
+            <div class="stat-label">En Progreso</div>
+        </div>
+        <div class="ticket-stat-card urgente">
+            <div class="stat-numero" id="stat-urgentes">-</div>
+            <div class="stat-label">Urgentes</div>
+        </div>
+        <div class="ticket-stat-card vencido">
+            <div class="stat-numero" id="stat-vencidos">-</div>
+            <div class="stat-label">SLA Vencidos</div>
+        </div>
+        <div class="ticket-stat-card resuelto">
+            <div class="stat-numero" id="stat-resueltos">-</div>
+            <div class="stat-label">Resueltos</div>
+        </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="tickets-filtros">
+        <input type="text" id="tickets-busqueda" placeholder="🔍 Buscar tickets..." style="min-width:200px;">
+        <select id="filtro-tickets-estado">
+            <option value="">Todos los estados</option>
+            <option value="abierto">Abierto</option>
+            <option value="en_progreso">En Progreso</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="resuelto">Resuelto</option>
+            <option value="cerrado">Cerrado</option>
+        </select>
+        <select id="filtro-tickets-prioridad">
+            <option value="">Todas las prioridades</option>
+            <option value="urgente">🔴 Urgente</option>
+            <option value="alta">🟠 Alta</option>
+            <option value="media">🔵 Media</option>
+            <option value="baja">⚪ Baja</option>
+        </select>
+        <select id="filtro-tickets-asignado">
+            <option value="">Todos los asignados</option>
+        </select>
+        <div class="view-switcher">
+            <button id="btn-vista-tabla-tickets" class="btn-secondary active">📋 Tabla</button>
+            <button id="btn-vista-kanban-tickets" class="btn-secondary">🗂️ Kanban</button>
+        </div>
+    </div>
+
+    <!-- VISTA TABLA -->
+    <div id="tickets-vista-tabla">
+        <div class="tabla-contenedor">
+            <table class="tabla-bonita" id="tabla-tickets">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Prioridad</th>
+                        <th>Título</th>
+                        <th>Categoría</th>
+                        <th>Estado</th>
+                        <th>Asignado</th>
+                        <th>Creado</th>
+                        <th>Fecha Límite</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-tickets">
+                    <tr>
+                        <td colspan="9" style="text-align:center;padding:40px;">Cargando tickets...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- VISTA KANBAN -->
+    <div id="tickets-vista-kanban" style="display:none;">
+        <div class="kanban-board">
+            <div class="kanban-col">
+                <div class="kanban-col-header">
+                    Abierto <span class="col-count" id="kcount-abierto">0</span>
+                </div>
+                <div id="kcards-abierto"></div>
+            </div>
+            <div class="kanban-col">
+                <div class="kanban-col-header">
+                    En Progreso <span class="col-count" id="kcount-en_progreso">0</span>
+                </div>
+                <div id="kcards-en_progreso"></div>
+            </div>
+            <div class="kanban-col">
+                <div class="kanban-col-header">
+                    Pendiente <span class="col-count" id="kcount-pendiente">0</span>
+                </div>
+                <div id="kcards-pendiente"></div>
+            </div>
+            <div class="kanban-col">
+                <div class="kanban-col-header">
+                    Resuelto <span class="col-count" id="kcount-resuelto">0</span>
+                </div>
+                <div id="kcards-resuelto"></div>
+            </div>
+            <div class="kanban-col">
+                <div class="kanban-col-header">
+                    Cerrado <span class="col-count" id="kcount-cerrado">0</span>
+                </div>
+                <div id="kcards-cerrado"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: TICKET (Crear / Editar / Ver) -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="modal-ticket" class="baboons-modal">
+    <div class="baboons-modal-content large">
+        <div class="modal-header">
+            <h3 id="modal-ticket-titulo">Nuevo Ticket</h3>
+            <span id="close-modal-ticket" class="close-button">&times;</span>
+        </div>
+
+        <div class="modal-body">
+
+            <!-- COLUMNA IZQUIERDA: Formulario -->
+            <div>
+                <form id="form-ticket">
+                    <input type="hidden" id="ticket-id">
+
+                    <div class="ticket-form-grid">
+                        <div class="form-group full-width">
+                            <label for="ticket-titulo">Título <span style="color:red">*</span></label>
+                            <input type="text" id="ticket-titulo" required
+                                placeholder="Describir el problema brevemente...">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ticket-categoria">Categoría</label>
+                            <select id="ticket-categoria">
+                                <option value="General">General</option>
+                                <option value="IT / Sistema">IT / Sistema</option>
+                                <option value="Facturación">Facturación</option>
+                                <option value="Logística">Logística</option>
+                                <option value="Contabilidad">Contabilidad</option>
+                                <option value="RRHH">RRHH</option>
+                                <option value="Infraestructura">Infraestructura</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ticket-prioridad">Prioridad</label>
+                            <select id="ticket-prioridad">
+                                <option value="baja">⚪ Baja</option>
+                                <option value="media" selected>🔵 Media</option>
+                                <option value="alta">🟠 Alta</option>
+                                <option value="urgente">🔴 Urgente</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group admin-only">
+                            <label for="ticket-estado">Estado</label>
+                            <select id="ticket-estado">
+                                <option value="abierto">Abierto</option>
+                                <option value="en_progreso">En Progreso</option>
+                                <option value="pendiente">Pendiente</option>
+                                <option value="resuelto">Resuelto</option>
+                                <option value="cerrado">Cerrado</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group admin-only">
+                            <label for="ticket-asignado">Asignar a</label>
+                            <select id="ticket-asignado">
+                                <option value="">— Sin asignar —</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group admin-only">
+                            <label for="ticket-horas-estimadas">Horas estimadas</label>
+                            <input type="number" id="ticket-horas-estimadas" min="0" step="0.5" placeholder="ej: 2.5">
+                        </div>
+
+                        <div class="form-group admin-only">
+                            <label for="ticket-horas-reales">Horas reales</label>
+                            <input type="number" id="ticket-horas-reales" min="0" step="0.5" placeholder="ej: 3">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ticket-fecha-limite">Fecha límite manual (opcional)</label>
+                            <input type="datetime-local" id="ticket-fecha-limite">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ticket-email-contacto">Email de contacto (opcional)</label>
+                            <input type="email" id="ticket-email-contacto" placeholder="usuario@empresa.com">
+                        </div>
+
+                        <div class="form-group full-width" style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="ticket-notificaciones" checked style="width: auto;">
+                            <label for="ticket-notificaciones" style="margin: 0; cursor: pointer;">Recibir
+                                notificaciones por email sobre cambios de estado</label>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="ticket-descripcion">Descripción</label>
+                            <textarea id="ticket-descripcion" rows="4"
+                                placeholder="Detallá el problema, pasos para reproducir, impacto..."></textarea>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <div id="ticket-sla-info"
+                                style="display:none; padding:10px 14px; border-radius:8px; background:#fff7ed; border:1px solid #fed7aa; font-size:13px; color:#9a3412;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions" style="margin-top:16px;">
+                        <button type="button" id="btn-delete-ticket" class="btn-danger"
+                            style="display:none; margin-right:auto;">🗑️ Eliminar</button>
+                        <button type="submit" class="btn-primary">💾 Guardar</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- COLUMNA DERECHA: Actividad y comentarios -->
+            <div id="panel-actividad" style="display:none;">
+                <h4 style="margin-bottom:12px; font-size:14px; color:#475569;">📋 Actividad</h4>
+                <div class="ticket-actividad" id="ticket-actividad-lista">
+                    <p style="color:#94a3b8; font-size:13px;">Cargando actividad...</p>
+                </div>
+                <form id="form-comentario" style="margin-top:14px;">
+                    <div class="form-group">
+                        <textarea id="nuevo-comentario" rows="2" placeholder="Agregar un comentario..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary btn-sm">💬 Comentar</button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: CONFIGURACIÓN DE ALERTAS EMAIL -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="modal-alertas" class="baboons-modal">
+    <div class="baboons-modal-content">
+        <div class="modal-header">
+            <h3>⚙️ Alertas por Email</h3>
+            <span id="close-modal-alertas" class="close-button">&times;</span>
+        </div>
+        <p style="font-size:13px; color:#64748b; margin-bottom:16px;">
+            Estos emails recibirán una notificación al crearse un ticket y cuando un SLA venza.
+        </p>
+        <ul class="alertas-email-lista" id="alertas-email-lista">
+            <li>Cargando...</li>
+        </ul>
+        <div style="margin-top:16px; display:flex; gap:8px;">
+            <input type="email" id="nuevo-email-alerta" placeholder="nuevo@email.com"
+                style="flex:1; padding:8px 10px; border:1px solid #ddd; border-radius:8px;">
+            <button id="btn-agregar-email" class="btn-primary btn-sm">Agregar</button>
+        </div>
+    </div>
+</div>

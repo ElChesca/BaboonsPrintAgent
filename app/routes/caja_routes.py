@@ -78,7 +78,9 @@ def get_estado_caja(current_user, negocio_id):
             'tarjeta': desglose_pagos.get('Tarjeta', 0.0),
             'transferencia': desglose_pagos.get('Transferencia', 0.0),
             'total_gastos': total_gastos_efectivo,
-            'total_pagos_proveedores': total_pagos_prov_efectivo # ✨ Se envía el nuevo dato
+            'total_pagos_proveedores': total_pagos_prov_efectivo, # ✨ Se envía el nuevo dato
+            'total_ingresos_ajuste': total_ingresos_ajuste,
+            'total_egresos_ajuste': total_egresos_ajuste
         }
         
         return jsonify({

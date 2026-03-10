@@ -1,0 +1,69 @@
+<div class="card">
+    <!-- ── ENCABEZADO ── -->
+    <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <div>
+            <h2 style="margin:0; display:flex; align-items:center; gap:10px;">
+                🤖 Agente de Facturación
+                <span id="agente-badge-modo" class="badge-modo">Cargando...</span>
+            </h2>
+            <p style="margin:4px 0 0; color:var(--text-muted); font-size:0.85rem;">
+                Facturación automática ARCA — Re Pancho (Factura C)
+            </p>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <input type="date" id="agente-fecha-filtro" class="form-control" style="max-width:170px;">
+            <button id="btn-agente-reporte" class="btn-secondary">
+                🔄 Actualizar Reporte
+            </button>
+            <button id="btn-agente-ejecutar" class="btn-primary" title="Solo superadmin">
+                ▶ Ejecutar Hoy (Manual)
+            </button>
+        </div>
+    </div>
+
+    <!-- ── RESUMEN KPIs ── -->
+    <div id="agente-kpis" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; padding:20px 20px 0;">
+        <div class="kpi-card kpi-green">
+            <div class="kpi-valor" id="kpi-ok">—</div>
+            <div class="kpi-label">✅ Emitidas OK</div>
+        </div>
+        <div class="kpi-card kpi-red">
+            <div class="kpi-valor" id="kpi-error">—</div>
+            <div class="kpi-label">❌ Con Error</div>
+        </div>
+        <div class="kpi-card kpi-blue">
+            <div class="kpi-valor" id="kpi-monto">—</div>
+            <div class="kpi-label">💰 Total Facturado</div>
+        </div>
+        <div class="kpi-card kpi-purple">
+            <div class="kpi-valor" id="kpi-fecha">—</div>
+            <div class="kpi-label">📅 Fecha</div>
+        </div>
+    </div>
+
+    <!-- ── TABLA DE FACTURAS ── -->
+    <div class="tabla-contenedor" style="padding:20px;">
+        <table class="tabla-bonita">
+            <thead>
+                <tr>
+                    <th>Hora</th>
+                    <th>Nro. Factura</th>
+                    <th>CAE</th>
+                    <th>Vto. CAE</th>
+                    <th>Ítems</th>
+                    <th style="text-align:right;">Total</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody id="agente-tabla-body">
+                <tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Seleccioná una fecha y presioná Actualizar</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ── VISTA PREVIA CALENDARIO ── -->
+    <div style="padding:0 20px 20px;">
+        <h4 style="margin-bottom:12px;">📆 Distribución del Mes</h4>
+        <div id="agente-calendario" style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px; font-size:0.78rem;"></div>
+    </div>
+</div>

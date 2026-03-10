@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ og_title }} | Reservar Cupo</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- SDK Mercado Pago -->
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
+
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text: #f8fafc;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.15) 0, transparent 50%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            object-fit: cover;
+            border: 2px solid var(--primary);
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #818cf8, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .event-details {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+        }
+
+        .detail-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
+            color: #94a3b8;
+        }
+
+        .detail-item i {
+            color: var(--primary);
+            width: 20px;
+        }
+
+        .price-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            background: rgba(99, 102, 241, 0.2);
+            color: #818cf8;
+            border-radius: 100px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: white;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+        }
+
+        .payment-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .payment-btn {
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+
+        .payment-btn i {
+            font-size: 1.2rem;
+        }
+
+        .payment-btn.active {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+            color: white;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(to right, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 25px;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="header">
+            <img id="negocio-logo" src="{{ og_image }}" alt="Logo" class="logo">
+            <h1 id="event-title">Cargando evento...</h1>
+            <p id="event-desc" style="color: #94a3b8; font-size: 0.95rem;">Estamos preparando todo para vos.</p>
+        </div>
+
+        <div class="event-details">
+            <div class="detail-item">
+                <i class="fas fa-calendar-alt"></i>
+                <span id="event-date">---</span>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-map-marker-alt"></i>
+                <span id="event-location">---</span>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-users"></i>
+                <span id="event-spots">Buscando cupos...</span>
+            </div>
+            <div class="price-badge" id="event-price">$ --</div>
+        </div>
+
+        <form id="form-inscripcion">
+            <div class="form-group">
+                <label for="nombre">Nombre Completo</label>
+                <input type="text" id="nombre" placeholder="Ej: Juan Pérez" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" placeholder="ejemplo@correo.com" required>
+            </div>
+            <div class="form-group">
+                <label for="telefono">WhatsApp (opcional)</label>
+                <input type="tel" id="telefono" placeholder="+54 266 4000000">
+            </div>
+
+            <label>Método de Pago</label>
+            <div class="payment-options">
+                <button type="button" class="payment-btn active" onclick="setMetodo('Mercado Pago')">
+                    <i class="fas fa-credit-card"></i>
+                    Online (Tarjeta/MP)
+                </button>
+                <button type="button" class="payment-btn" onclick="setMetodo('Transferencia')">
+                    <i class="fas fa-university"></i>
+                    Transferencia
+                </button>
+            </div>
+
+            <button type="submit" class="btn-submit" id="btn-submit">
+                Confirmar Inscripción
+            </button>
+        </form>
+
+        <p class="footer-note">
+            <i class="fas fa-shield-check"></i> Pago seguro procesado por Mercado Pago & Baboons
+        </p>
+    </div>
+
+    <script>
+        const eventoId = "{{ evento_id }}";
+        let metodoPago = 'Mercado Pago';
+
+        window.onload = async () => {
+            if (!eventoId) {
+                Swal.fire('Error', 'No se pudo identificar el evento', 'error');
+                return;
+            }
+            await cargarDatosEvento();
+        };
+
+        async function cargarDatosEvento() {
+            try {
+                const res = await fetch(`/api/public/eventos/${eventoId}`);
+                const evento = await res.json();
+
+                if (res.status !== 200) throw new Error(evento.error);
+
+                document.getElementById('event-title').innerText = evento.titulo;
+                document.getElementById('event-desc').innerText = evento.descripcion || 'Inscribite ahora para asegurar tu lugar.';
+                document.getElementById('event-date').innerText = new Date(evento.fecha_evento).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' });
+                document.getElementById('event-location').innerText = evento.ubicacion || 'A definir';
+                document.getElementById('event-spots').innerText = `Cupos disponibles: ${evento.cupos_disponibles}`;
+                document.getElementById('event-price').innerText = `$ ${parseFloat(evento.precio).toLocaleString()}`;
+
+                if (evento.cupos_disponibles <= 0) {
+                    document.getElementById('btn-submit').disabled = true;
+                    document.getElementById('btn-submit').innerText = 'Cupos Agotados';
+                }
+            } catch (e) {
+                Swal.fire('Error', e.message, 'error');
+            }
+        }
+
+        function setMetodo(metodo) {
+            metodoPago = metodo;
+            document.querySelectorAll('.payment-btn').forEach(b => {
+                const text = b.innerText.toLowerCase();
+                const search = metodo.split(' ')[0].toLowerCase();
+                b.classList.toggle('active', text.includes(search));
+            });
+        }
+
+        document.getElementById('form-inscripcion').onsubmit = async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+
+            const data = {
+                nombre: document.getElementById('nombre').value,
+                email: document.getElementById('email').value,
+                telefono: document.getElementById('telefono').value,
+                metodo_pago: metodoPago
+            };
+
+            try {
+                const res = await fetch(`/api/public/eventos/${eventoId}/inscribir`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+
+                if (res.status !== 201) throw new Error(result.error);
+
+                if (result.payment_url) {
+                    // Redirigir a Mercado Pago
+                    window.location.href = result.payment_url;
+                } else {
+                    Swal.fire({
+                        title: '¡Inscripción Registrada!',
+                        text: 'Te enviamos un correo con los pasos para confirmar tu lugar.',
+                        icon: 'success'
+                    });
+                    btn.innerText = 'Inscripción Exitosa';
+                }
+            } catch (e) {
+                Swal.fire('Error', e.message, 'error');
+                btn.disabled = false;
+                btn.innerText = 'Confirmar Inscripción';
+            }
+        };
+    </script>
+
+</body>
+
+</html>

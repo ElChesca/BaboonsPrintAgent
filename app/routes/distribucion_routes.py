@@ -1317,6 +1317,83 @@ def entregar_pedido(current_user, pedido_id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
+# --- CORRECCIÓN DE PAGOS ---
+
+@bp.route('/pedidos/<int:pedido_id>/corregir_pago', methods=['POST'])
+@token_required
+def corregir_pago_pedido(current_user, pedido_id):
+    data = request.get_json()
+    nuevo_metodo = data.get('nuevo_metodo_pago')
+    motivo = data.get('motivo', '').strip()
+    
+    if not nuevo_metodo:
+        return jsonify({'error': 'El nuevo método de pago es requerido'}), 400
+        
+    if not motivo:
+        return jsonify({'error': 'El motivo de la corrección es obligatorio'}), 400
+
+    db = get_db()
+    try:
+        # 1. Obtener pedido
+        db.execute("SELECT * FROM pedidos WHERE id = %s", (pedido_id,))
+        pedido = db.fetchone()
+        
+        if not pedido or not pedido['venta_id']:
+            return jsonify({'error': 'El pedido no existe o no tiene una venta cobrada asignada'}), 404
+
+        venta_id = pedido['venta_id']
+        cliente_id = pedido['cliente_id']
+        negocio_id = pedido['negocio_id']
+
+        # 2. Obtener venta original
+        db.execute("SELECT * FROM ventas WHERE id = %s", (venta_id,))
+        venta = db.fetchone()
+        
+        if not venta:
+            return jsonify({'error': 'Venta asociada no encontrada'}), 404
+            
+        metodo_actual = venta['metodo_pago']
+        
+        if metodo_actual == nuevo_metodo:
+            return jsonify({'error': 'El pedido ya tiene ese método de pago registrado'}), 400
+
+        # Validación Estricta: Si involucra Efectivo, MP, etc (no solo Cuenta Corriente) la caja debe estar abierta
+        if metodo_actual != 'Cuenta Corriente' or nuevo_metodo != 'Cuenta Corriente':
+            db.execute("SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL", (negocio_id,))
+            sesion_activa = db.fetchone()
+            if not sesion_activa:
+                return jsonify({'error': 'Para realizar esta corrección financiera debes tener la Caja Abierta.'}), 400
+
+        from datetime import datetime
+        
+        # 3. Revertir efecto del método anterior (Cuenta Corriente)
+        if metodo_actual == 'Cuenta Corriente':
+            # Borramos el registro que generaba la deuda original vinculado a esta venta
+            db.execute("DELETE FROM clientes_cuenta_corriente WHERE venta_id = %s AND debe > 0", (venta_id,))
+
+        # 4. Aplicar el nuevo efecto
+        if nuevo_metodo == 'Cuenta Corriente':
+            # Generar la deuda en la cuenta corriente del cliente
+            db.execute(
+                "INSERT INTO clientes_cuenta_corriente (cliente_id, concepto, debe, haber, fecha, venta_id) VALUES (%s, %s, %s, %s, %s, %s)",
+                (cliente_id, f"Corrección a Cta Cte - Pedido #{pedido_id}", venta['total'], 0, datetime.now(), venta_id)
+            )
+
+        # 5. Actualizar el registro de venta para que las estadísticas y la caja se acomoden solas
+        db.execute("UPDATE ventas SET metodo_pago = %s WHERE id = %s", (nuevo_metodo, venta_id))
+        
+        # 6. Guardar historial de corrección en observaciones del pedido (opcional pero útil)
+        nota_auditoria = f"\\n[Corrección Administrativa] Pago cambiado de {metodo_actual} a {nuevo_metodo}. Motivo: {motivo}"
+        db.execute("UPDATE pedidos SET observaciones = CONCAT(COALESCE(observaciones, ''), %s) WHERE id = %s",
+                   (nota_auditoria, pedido_id))
+
+        g.db_conn.commit()
+        return jsonify({'message': f'Pago corregido exitosamente a {nuevo_metodo}'})
+        
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
 # --- STOCK MÓVIL / AJUSTES MANUALES ---
 
 @bp.route('/vehiculos/<int:id>/stock/ajustar', methods=['POST'])

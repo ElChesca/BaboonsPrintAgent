@@ -23,6 +23,11 @@ export async function inicializarPedidos() {
         cargarHojasRutaFiltro();
     }
 
+    const filtroEstado = document.getElementById('filtro-estado-pedidos');
+    if (filtroEstado) {
+        filtroEstado.onchange = cargarPedidos;
+    }
+
     cargarPedidos();
 
     // Eventos para selección masiva
@@ -116,11 +121,13 @@ export async function inicializarPedidos() {
 async function cargarPedidos() {
     const fecha = document.getElementById('filtro-fecha-pedidos').value;
     const hr_id = document.getElementById('filtro-hr-pedidos').value;
+    const estado = document.getElementById('filtro-estado-pedidos') ? document.getElementById('filtro-estado-pedidos').value : '';
     try {
         let url = `/api/negocios/${appState.negocioActivoId}/pedidos`;
         const params = [];
         if (fecha) params.push(`fecha=${fecha}`);
         if (hr_id) params.push(`hoja_ruta_id=${hr_id}`);
+        if (estado) params.push(`estado=${estado}`);
 
         if (params.length > 0) url += `?${params.join('&')}`;
 
@@ -152,6 +159,8 @@ function renderPedidos(pedidos) {
             'anulado': 'bg-danger'
         }[p.estado] || 'bg-secondary';
 
+        const diasStr = p.dias_en_estado === 0 ? '(Hoy)' : `(${p.dias_en_estado} d.)`;
+
         // Solo se puede editar si está PENDIENTE y la HR es BORRADOR
         const esEditable = p.estado === 'pendiente' && (!p.hoja_ruta_id || p.hoja_ruta_estado === 'borrador');
 
@@ -164,7 +173,7 @@ function renderPedidos(pedidos) {
             <td><strong>${p.cliente_nombre}</strong></td>
             <td>${p.vendedor_nombre}</td>
             <td class="fw-bold">${formatearMoneda(p.total)}</td>
-            <td><span class="badge ${badgeClass}">${p.estado.toUpperCase()}</span></td>
+            <td><span class="badge ${badgeClass}">${p.estado.toUpperCase()} ${diasStr}</span></td>
             <td>${p.pagado ? '<span class="badge bg-success">Si</span>' : '<span class="badge bg-secondary">No</span>'}</td>
             <td><small>${p.metodo_pago || '-'}</small></td>
             <td>${p.caja_sesion_id ? `<span class="badge bg-light text-dark border">#${p.caja_sesion_id}</span>` : '-'}</td>
@@ -176,6 +185,11 @@ function renderPedidos(pedidos) {
                     ${esEditable ? `
                         <button class="btn btn-sm btn-outline-secondary" onclick="abrirModalEditarPedido(${p.id})">
                             <i class="fas fa-edit"></i> Editar
+                        </button>
+                    ` : ''}
+                    ${p.estado === 'entregado' && p.venta_id ? `
+                        <button class="btn btn-sm btn-outline-warning" onclick="abrirModalCorreccionPago(${p.id}, '${p.metodo_pago || ''}')" title="Corregir Método de Pago">
+                            <i class="fas fa-money-check-alt"></i>
                         </button>
                     ` : ''}
                 </div>
@@ -257,6 +271,8 @@ async function verDetallePedido(id) {
             btns += `<button class="btn btn-info text-white" onclick="cambiarEstadoPedido(${id}, 'en_camino')">Pasar a Reparto (En Camino)</button>`;
         } else if (p.estado === 'en_camino') {
             btns += `<button class="btn btn-success" onclick="cambiarEstadoPedido(${id}, 'entregado')">Confirmar Entrega</button>`;
+        } else if (p.estado === 'entregado' && p.venta_id) {
+            btns += `<button class="btn btn-warning" onclick="abrirModalCorreccionPago(${id}, '${p.metodo_pago || ''}')"><i class="fas fa-edit"></i> Corregir Pago</button>`;
         }
 
         btns += `<button class="btn btn-secondary" onclick="document.getElementById('modal-detalle-pedido').style.display='none'">Cerrar</button>`;
@@ -758,6 +774,51 @@ async function cambiarEstadoMasivo(nuevoEstado) {
 window.actualizarBarraAcciones = actualizarBarraAcciones;
 window.deseleccionarTodo = deseleccionarTodo;
 window.cambiarEstadoMasivo = cambiarEstadoMasivo;
+
+// Lógica de Modal de Corrección de Pagos
+window.abrirModalCorreccionPago = (id, metodoActual) => {
+    document.getElementById('corregir-pago-pedido-id').value = id;
+    const select = document.getElementById('nuevo-metodo-pago-select');
+    document.getElementById('motivo-correccion-pago').value = ''; // Limpiar motivo
+
+    if (metodoActual) {
+        // Seleccionar la opción si existe, sino lo deja en Efectivo por default
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === metodoActual) {
+                select.options[i].selected = true;
+                break;
+            }
+        }
+    }
+    document.getElementById('modal-corregir-pago').style.display = 'flex';
+};
+
+window.confirmarCorreccionPago = async () => {
+    const id = document.getElementById('corregir-pago-pedido-id').value;
+    const nuevoMetodo = document.getElementById('nuevo-metodo-pago-select').value;
+    const motivo = document.getElementById('motivo-correccion-pago').value.trim();
+
+    if (!nuevoMetodo) {
+        mostrarNotificacion('Selecciona un método de pago', 'warning');
+        return;
+    }
+
+    if (!motivo) {
+        mostrarNotificacion('El motivo de la corrección es obligatorio', 'warning');
+        return;
+    }
+
+    try {
+        await sendData(`/api/pedidos/${id}/corregir_pago`, { nuevo_metodo_pago: nuevoMetodo, motivo: motivo }, 'POST');
+        mostrarNotificacion(`Método de pago corregido exitosamente a ${nuevoMetodo}`, 'success');
+        document.getElementById('modal-corregir-pago').style.display = 'none';
+        document.getElementById('modal-detalle-pedido').style.display = 'none'; // cerrar si estaba abierto
+        cargarPedidos();
+    } catch (error) {
+        console.error(error);
+        mostrarNotificacion(error.message || 'Error al corregir pago', 'error');
+    }
+};
 
 async function imprimirRemitosMasivos() {
     const checks = document.querySelectorAll('.pedido-check:checked');
