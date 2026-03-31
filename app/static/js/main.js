@@ -963,6 +963,11 @@ async function inicializarModulo(page) {
                 inicializarRentals(pageName);
                 break;
 
+            case 'bancos':
+                const { Bancos } = await import(`./modules/bancos.js${v}`);
+                Bancos.init(appState.negocioActivoId, localStorage.getItem('token'));
+                break;
+
             default:
                 console.warn(`No se encontró lógica de inicialización para: ${pageName}`);
         }

@@ -3,7 +3,7 @@
  * Multinegocio Baboons
  */
 
-const Bancos = (() => {
+export const Bancos = (() => {
     // ── Estado interno ────────────────────────────────────────────────────────
     let negocioId = null;
     let token = null;
@@ -542,6 +542,5 @@ const Bancos = (() => {
     return { init, cerrarModal, cargarKPIs };
 })();
 
-// Exponer globalmente para que main.js pueda llamar Bancos.init()
-window.Bancos = Bancos;
+// Exportado para que main.js pueda llamar Bancos.init()
 
