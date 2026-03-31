@@ -965,7 +965,7 @@ async function inicializarModulo(page) {
 
             case 'bancos':
                 const { Bancos } = await import(`./modules/bancos.js${v}`);
-                Bancos.init(appState.negocioActivoId, localStorage.getItem('token'));
+                Bancos.init(appState.negocioActivoId);
                 break;
 
             default:

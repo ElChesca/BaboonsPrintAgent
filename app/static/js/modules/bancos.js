@@ -1,18 +1,17 @@
-/**
- * bancos.js — Módulo Bancos: Cheques & Echeqs
- * Multinegocio Baboons
- */
+import { fetchData } from '../api.js';
 
 export const Bancos = (() => {
     // ── Estado interno ────────────────────────────────────────────────────────
     let negocioId = null;
-    let token = null;
     let chequeActivoId = null;  // ID del cheque sobre el que se está operando
 
     // ── Init ──────────────────────────────────────────────────────────────────
-    function init(nid, tok) {
+    function init(nid) {
+        if (!nid) {
+            console.error("[Bancos] Error: No hay negocioId activo.");
+            return;
+        }
         negocioId = nid;
-        token = tok;
 
         _initTabs();
         _initBotones();
@@ -23,14 +22,7 @@ export const Bancos = (() => {
         _cargarListasApoyo();
     }
 
-    // ── Helpers de fetch ──────────────────────────────────────────────────────
-    async function _fetch(url, options = {}) {
-        const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...(options.headers || {}) };
-        const res = await fetch(url, { ...options, headers });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
-        return data;
-    }
+
 
     // ── Tabs ──────────────────────────────────────────────────────────────────
     function _initTabs() {
@@ -82,7 +74,7 @@ export const Bancos = (() => {
     // ── KPIs ──────────────────────────────────────────────────────────────────
     async function cargarKPIs() {
         try {
-            const data = await _fetch(`/api/negocios/${negocioId}/cheques/resumen`);
+            const data = await fetchData(`/api/negocios/${negocioId}/cheques/resumen`);
             const fmt = n => '$' + formatNum(n);
             document.getElementById('kpi-cartera').textContent = fmt(data.total_cartera);
             document.getElementById('kpi-prox-valor').textContent = fmt(data.proximos_vencer.monto);
@@ -113,7 +105,7 @@ export const Bancos = (() => {
         if (v.hasta) params.set('fecha_hasta', v.hasta);
 
         try {
-            const cheques = await _fetch(`/api/negocios/${negocioId}/cheques?${params}`);
+            const cheques = await fetchData(`/api/negocios/${negocioId}/cheques?${params}`);
             if (!cheques.length) {
                 tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted">No hay cheques con esos filtros.</td></tr>`;
                 return;
@@ -171,7 +163,7 @@ export const Bancos = (() => {
         if (v.hasta) params.set('fecha_hasta', v.hasta);
 
         try {
-            const cheques = await _fetch(`/api/negocios/${negocioId}/cheques?${params}`);
+            const cheques = await fetchData(`/api/negocios/${negocioId}/cheques?${params}`);
             if (!cheques.length) {
                 tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No hay cheques propios con esos filtros.</td></tr>`;
                 return;
@@ -216,7 +208,7 @@ export const Bancos = (() => {
         if (v.hasta) params.set('fecha_hasta', v.hasta);
 
         try {
-            const cheques = await _fetch(`/api/negocios/${negocioId}/cheques?${params}`);
+            const cheques = await fetchData(`/api/negocios/${negocioId}/cheques?${params}`);
             if (!cheques.length) {
                 tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted">No se encontraron cheques.</td></tr>`;
                 return;
@@ -257,8 +249,8 @@ export const Bancos = (() => {
     async function _cargarListasApoyo() {
         try {
             const [clientes, proveedores] = await Promise.all([
-                _fetch(`/api/negocios/${negocioId}/clientes/lista`),
-                _fetch(`/api/negocios/${negocioId}/proveedores/lista`),
+                fetchData(`/api/negocios/${negocioId}/clientes/lista`),
+                fetchData(`/api/negocios/${negocioId}/proveedores/lista`),
             ]);
             _poblarSelect('cr-cliente', clientes, '— Sin cliente —');
             _poblarSelect('ce-proveedor', proveedores, '— Seleccionar proveedor —');
@@ -327,7 +319,7 @@ export const Bancos = (() => {
         document.getElementById('hist-timeline').innerHTML = '';
 
         try {
-            const data = await _fetch(`/api/negocios/${negocioId}/cheques/${chequeId}`);
+            const data = await fetchData(`/api/negocios/${negocioId}/cheques/${chequeId}`);
             const c = data.cheque;
 
             document.getElementById('hist-cheque-grid').innerHTML = `
@@ -395,7 +387,7 @@ export const Bancos = (() => {
         const btn = document.getElementById('btn-guardar-cheque-recibido');
         btn.disabled = true; btn.textContent = 'Guardando...';
         try {
-            await _fetch(`/api/negocios/${negocioId}/cheques`, { method: 'POST', body: JSON.stringify(payload) });
+            await fetchData(`/api/negocios/${negocioId}/cheques`, { method: 'POST', body: JSON.stringify(payload) });
             showToast('Cheque registrado con éxito.', 'success');
             cerrarModal('modal-cheque-recibido');
             cargarKPIs();
@@ -431,7 +423,7 @@ export const Bancos = (() => {
         const btn = document.getElementById('btn-guardar-cheque-emitido');
         btn.disabled = true; btn.textContent = 'Guardando...';
         try {
-            await _fetch(`/api/negocios/${negocioId}/cheques`, { method: 'POST', body: JSON.stringify(payload) });
+            await fetchData(`/api/negocios/${negocioId}/cheques`, { method: 'POST', body: JSON.stringify(payload) });
             showToast('Cheque emitido registrado con éxito.', 'success');
             cerrarModal('modal-cheque-emitido');
             cargarKPIs();
@@ -448,7 +440,7 @@ export const Bancos = (() => {
         if (!chequeActivoId) return;
         const obs = document.getElementById('depositar-observaciones').value.trim();
         try {
-            await _fetch(`/api/negocios/${negocioId}/cheques/${chequeActivoId}/depositar`, {
+            await fetchData(`/api/negocios/${negocioId}/cheques/${chequeActivoId}/depositar`, {
                 method: 'PUT', body: JSON.stringify({ observaciones: obs })
             });
             showToast('Cheque marcado como depositado.', 'success');
@@ -469,7 +461,7 @@ export const Bancos = (() => {
             observaciones: document.getElementById('endosar-observaciones').value.trim(),
         };
         try {
-            await _fetch(`/api/negocios/${negocioId}/cheques/${chequeActivoId}/endosar`, {
+            await fetchData(`/api/negocios/${negocioId}/cheques/${chequeActivoId}/endosar`, {
                 method: 'PUT', body: JSON.stringify(payload)
             });
             showToast('Cheque endosado con éxito.', 'success');
@@ -484,7 +476,7 @@ export const Bancos = (() => {
         if (!obs) return showToast('Ingresá el motivo del rechazo.', 'warning');
 
         try {
-            await _fetch(`/api/negocios/${negocioId}/cheques/${chequeActivoId}/rechazar`, {
+            await fetchData(`/api/negocios/${negocioId}/cheques/${chequeActivoId}/rechazar`, {
                 method: 'PUT', body: JSON.stringify({ observaciones: obs })
             });
             showToast('Rechazo registrado.', 'warning');
