@@ -9,6 +9,7 @@ const formatCurrency = (n) => (n || 0).toLocaleString('es-AR', { style: 'currenc
 // Variable para almacenar el ID de venta que se va a anular
 let ventaIdParaAnular = null;
 let ventasChartInstance = null; // ✨ Instancia local para Chart.js
+let historialVentasCache = []; // ✨ Caché local para búsquedas sin re-fetch
 
 async function cargarHistorialVentas() {
     if (!appState.negocioActivoId) return;
@@ -29,12 +30,13 @@ async function cargarHistorialVentas() {
 
     try {
         const historial = await fetchData(url);
+        historialVentasCache = historial; // Guardar en caché
         tbody.innerHTML = '';
         let totalGeneral = 0;
         let cantidadValidas = 0; // Para los KPI
 
         if (historial.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay ventas para el período seleccionado.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No hay ventas para el período seleccionado.</td></tr>';
         } else {
             const rows = historial.map(venta => {
                 // ✨ Badge de estado mejorado con soporte para Anulada
@@ -61,6 +63,7 @@ async function cargarHistorialVentas() {
                         <i class="fas fa-file-pdf"></i>
                     </button>
                     ${puedeAnular ? `<button class="btn-facturar" title="Facturar" style="font-size:0.75rem;">Facturar</button>` : ''}
+                    ${puedeAnular ? `<button class="btn-corregir-pago" title="Corregir Pago" style="background:var(--primary-color);color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.75rem;">💸 Pago</button>` : ''}
                     ${puedeAnular ? `<button class="btn-anular-venta" title="Anular venta (Nota de Crédito)" style="background:#e74c3c;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.75rem;">🚫 Anular</button>` : ''}
                 `;
 
@@ -69,12 +72,13 @@ async function cargarHistorialVentas() {
 
                 return `
                     <tr class="master-row" data-id="${venta.id}" style="${rowStyle}">
-                        <td>${venta.id}</td>
+                        <td><strong>#${venta.numero_interno}</strong></td>
                         <td>${new Date(venta.fecha).toLocaleString('es-AR')}</td>
                         <td>${venta.cliente_nombre || 'Consumidor Final'}</td>
                         <td>${venta.metodo_pago}</td>
                         <td>${formatCurrency(venta.total)}</td>
                         <td>${estadoHtml}</td>
+                        <td>${venta.pedido_id ? `<span class="badge bg-light text-dark">#${venta.pedido_id}</span> ${venta.hoja_ruta_id ? `<small class="text-muted">(HR #${venta.hoja_ruta_id})</small>` : '<small class="text-muted">(Directa)</small>'}` : '-'}</td>
                         <td class="acciones">${accionesHtml}</td>
                     </tr>
                 `;
@@ -118,7 +122,7 @@ async function mostrarDetalleVenta(ventaId, masterRow) {
 
     try {
         const detalles = await fetchData(`/api/ventas/${ventaId}/detalles`);
-        let detailHtml = '<td colspan="7"><table class="tabla-bonita" style="width:100%"><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio Unit.</th></tr></thead><tbody>';
+        let detailHtml = '<td colspan="8"><table class="tabla-bonita" style="width:100%"><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio Unit.</th></tr></thead><tbody>';
         detalles.forEach(d => {
             detailHtml += `<tr><td>${d.nombre}</td><td>${d.cantidad}</td><td>${formatCurrency(d.precio_unitario)}</td></tr>`;
         });
@@ -136,12 +140,13 @@ async function mostrarDetalleVenta(ventaId, masterRow) {
 // ✨ NUEVA FUNCIÓN: Muestra el modal de anulación
 function abrirModalAnulacion(ventaId) {
     ventaIdParaAnular = ventaId;
+    const p = historialVentasCache.find(x => x.id == ventaId);
     const modal = document.getElementById('modal-anular-venta');
-    const spanId = document.getElementById('modal-anular-venta-id');
+    const spanNro = document.getElementById('modal-anular-venta-nro');
     const textarea = document.getElementById('motivo-anulacion');
     if (!modal) return;
 
-    spanId.textContent = ventaId;
+    spanNro.textContent = p ? p.numero_interno : ventaId;
     textarea.value = '';
     modal.style.display = 'flex';
     setTimeout(() => textarea.focus(), 100);
@@ -266,6 +271,98 @@ function actualizarGraficoVentas(ventasValidas) {
     });
 }
 
+// ==========================================
+// 💸 LÓGICA DE CORRECCIÓN DE PAGO (NUEVO)
+// ==========================================
+
+let ventaIdParaCorregir = null;
+let ventaTotalParaCorregir = 0;
+
+function abrirModalCorreccionPagoVenta(ventaId, metodoActual, total) {
+    ventaIdParaCorregir = ventaId;
+    ventaTotalParaCorregir = total;
+
+    const v = historialVentasCache.find(x => x.id == ventaId);
+    const modal = document.getElementById('modal-corregir-pago-venta');
+    document.getElementById('corregir-venta-nro').textContent = v ? v.numero_interno : ventaId;
+    document.getElementById('corregir-venta-total').textContent = formatCurrency(total);
+    document.getElementById('nuevo-metodo-pago-venta').value = metodoActual;
+    document.getElementById('motivo-correccion-pago').value = '';
+    
+    // Reset Mixto panel
+    document.getElementById('panel-mixto-venta').style.display = (metodoActual === 'Mixto') ? 'block' : 'none';
+    document.getElementById('mixto-efectivo-venta').value = 0;
+    document.getElementById('mixto-mp-venta').value = 0;
+    document.getElementById('mixto-cta-cte-venta').value = 0;
+    document.getElementById('mixto-error-venta').style.display = 'none';
+
+    if (modal) modal.style.display = 'block';
+}
+
+function cerrarModalCorreccionPagoVenta() {
+    const modal = document.getElementById('modal-corregir-pago-venta');
+    if (modal) modal.style.display = 'none';
+    ventaIdParaCorregir = null;
+}
+
+async function confirmarCorreccionPagoVenta() {
+    if (!ventaIdParaCorregir) return;
+
+    const nuevoMetodo = document.getElementById('nuevo-metodo-pago-venta').value;
+    const motivo = document.getElementById('motivo-correccion-pago').value.trim();
+
+    if (!motivo) {
+        mostrarNotificacion('El motivo de la corrección es obligatorio para la auditoría.', 'warning');
+        return;
+    }
+
+    const payload = {
+        nuevo_metodo_pago: nuevoMetodo,
+        motivo: motivo
+    };
+
+    if (nuevoMetodo === 'Mixto') {
+        const ef = parseFloat(document.getElementById('mixto-efectivo-venta').value) || 0;
+        const mp = parseFloat(document.getElementById('mixto-mp-venta').value) || 0;
+        const cc = parseFloat(document.getElementById('mixto-cta-cte-venta').value) || 0;
+        const totalIngresado = ef + mp + cc;
+
+        if (Math.abs(totalIngresado - ventaTotalParaCorregir) > 0.01) {
+            const errorEl = document.getElementById('mixto-error-venta');
+            errorEl.textContent = `La suma (${formatCurrency(totalIngresado)}) debe coincidir con el total de la venta (${formatCurrency(ventaTotalParaCorregir)})`;
+            errorEl.style.display = 'block';
+            return;
+        }
+        payload.monto_efectivo = ef;
+        payload.monto_mp = mp;
+        payload.monto_cta_cte = cc;
+    }
+
+    const btn = document.getElementById('btn-confirmar-correccion-pago');
+    btn.disabled = true;
+    btn.textContent = 'Procesando...';
+
+    try {
+        const response = await fetch(`/api/ventas/${ventaIdParaCorregir}/corregir_pago`, {
+            method: 'POST',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error || 'Error al corregir el pago');
+
+        mostrarNotificacion(data.message, 'success');
+        cerrarModalCorreccionPagoVenta();
+        await cargarHistorialVentas();
+    } catch (error) {
+        mostrarNotificacion(error.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Guardar Cambios';
+    }
+}
+
 export function inicializarLogicaHistorialVentas() {
     const tablaBody = document.querySelector('#tabla-historial-ventas tbody');
     const btnFiltrar = document.getElementById('btn-filtrar-ventas');
@@ -306,8 +403,26 @@ export function inicializarLogicaHistorialVentas() {
         } else if (e.target.classList.contains('btn-anular-venta')) {
             // ✨ Abrir modal de anulación
             abrirModalAnulacion(ventaId);
+        } else if (e.target.classList.contains('btn-corregir-pago')) {
+            const v = historialVentasCache.find(x => x.id == ventaId);
+            if (v) abrirModalCorreccionPagoVenta(v.id, v.metodo_pago, v.total);
         }
     });
+
+    // ── Eventos del modal de corrección de pago ──────────────────────────
+    const btnCancelCorr = document.getElementById('btn-cancelar-correccion');
+    const btnConfCorr = document.getElementById('btn-confirmar-correccion-pago');
+    const btnCloseCorr = document.getElementById('close-modal-corregir-pago');
+    const selectMetodo = document.getElementById('nuevo-metodo-pago-venta');
+
+    if (btnCancelCorr) btnCancelCorr.addEventListener('click', cerrarModalCorreccionPagoVenta);
+    if (btnConfCorr) btnConfCorr.addEventListener('click', confirmarCorreccionPagoVenta);
+    if (btnCloseCorr) btnCloseCorr.addEventListener('click', cerrarModalCorreccionPagoVenta);
+    if (selectMetodo) {
+        selectMetodo.addEventListener('change', (e) => {
+            document.getElementById('panel-mixto-venta').style.display = (e.target.value === 'Mixto') ? 'block' : 'none';
+        });
+    }
 
     // ✨ Establecer fechas por defecto al mes en curso (desde el día 1 hasta hoy)
     const inputDesde = document.getElementById('fecha-desde');

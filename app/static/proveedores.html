@@ -27,7 +27,8 @@
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Guardar</button>
-                    <button type="button" id="btn-cancelar-edicion" class="btn btn-secondary" style="display: none;">Cancelar</button>
+                    <button type="button" id="btn-cancelar-edicion" class="btn btn-secondary"
+                        style="display: none;">Cancelar</button>
                 </div>
             </form>
         </div>
@@ -61,21 +62,22 @@
                 <span id="close-modal-cta-cte" class="close-button">&times;</span>
             </div>
 
-            <div class="filtros-cta-cte" style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; align-items: flex-end;">
-                 <input type="hidden" id="cta-cte-proveedor-id">
-                 <div class="form-group" style="margin-bottom: 0; flex-grow: 1;">
-                     <label for="cta-cte-fecha-desde">Desde:</label>
-                     <input type="date" id="cta-cte-fecha-desde" class="form-control">
-                 </div>
-                 <div class="form-group" style="margin-bottom: 0; flex-grow: 1;">
-                     <label for="cta-cte-fecha-hasta">Hasta:</label>
-                     <input type="date" id="cta-cte-fecha-hasta" class="form-control">
-                 </div>
-                 <button id="btn-generar-cta-cte" class="btn btn-primary">Generar</button>
+            <div class="filtros-cta-cte"
+                style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; align-items: flex-end;">
+                <input type="hidden" id="cta-cte-proveedor-id">
+                <div class="form-group" style="margin-bottom: 0; flex-grow: 1;">
+                    <label for="cta-cte-fecha-desde">Desde:</label>
+                    <input type="date" id="cta-cte-fecha-desde" class="form-control">
+                </div>
+                <div class="form-group" style="margin-bottom: 0; flex-grow: 1;">
+                    <label for="cta-cte-fecha-hasta">Hasta:</label>
+                    <input type="date" id="cta-cte-fecha-hasta" class="form-control">
+                </div>
+                <button id="btn-generar-cta-cte" class="btn btn-primary">Generar</button>
             </div>
 
             <div id="reporte-cta-cte-container" class="tabla-contenedor">
-                 <p style="text-align: center;">Seleccione un rango de fechas y presione 'Generar'.</p>
+                <p style="text-align: center;">Seleccione un rango de fechas y presione 'Generar'.</p>
             </div>
 
             <div class="form-actions" style="margin-top: 20px;">
@@ -84,4 +86,187 @@
             </div>
         </div>
     </div>
-</div>
+
+    <!-- Modal para Cargar Comprobante (Factura/Remito) - NO afecta stock -->
+    <div id="modal-cargar-comprobante" class="modal">
+        <div class="modal-content"
+            style="max-width: 600px; border-radius: 16px; overflow: hidden; border: none; box-shadow: 0 20px 50px rgba(0,0,0,0.3);">
+            <div class="modal-header"
+                style="background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d); color: white; padding: 20px; border: none;">
+                <h3 style="margin: 0; font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px;">
+                    <i class="fas fa-file-invoice-dollar"></i> Cargar Comprobante (Deuda)
+                </h3>
+                <span id="close-modal-comprobante" class="close-button"
+                    style="color: rgba(255,255,255,0.8);">&times;</span>
+            </div>
+
+            <div style="padding: 25px; background: #fff;">
+                <!-- Importación Inteligente -->
+                <div id="intelligent-import-area"
+                    style="background: #f8f9fa; padding: 18px; border-radius: 12px; margin-bottom: 25px; border: 2px dashed #6fcf97; position: relative;">
+                    <label
+                        style="display: block; margin-bottom: 12px; font-weight: bold; color: #2d3436; font-size: 0.95em;">
+                        <i class="fas fa-magic" style="color: #6fcf97;"></i> Importación Inteligente (PDF AFIP)
+                    </label>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <input type="file" id="comp-pdf-import" class="form-control" accept="application/pdf"
+                            style="border-radius: 8px; font-size: 0.9em;">
+                        <button type="button" id="btn-parse-pdf" class="btn btn-info"
+                            style="border-radius: 8px; height: 42px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-search"></i> Escanear
+                        </button>
+                    </div>
+                </div>
+
+                <form id="form-comprobante">
+                    <input type="hidden" id="comp-proveedor-id">
+
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label for="comp-fecha"
+                            style="color: #2d3436; font-size: 0.9em; font-weight: 600;">Fecha:</label>
+                        <input type="date" id="comp-fecha" class="form-control" style="border-radius: 8px;" required>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1.5fr; gap: 15px; margin-bottom: 20px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label for="comp-tipo"
+                                style="color: #2d3436; font-size: 0.9em; font-weight: 600;">Tipo:</label>
+                            <select id="comp-tipo" class="form-control" style="border-radius: 8px;" required>
+                                <option value="Factura A">Factura A</option>
+                                <option value="Factura B">Factura B</option>
+                                <option value="Factura C">Factura C</option>
+                                <option value="Remito">Remito</option>
+                                <option value="Nota de Crédito">Nota de Crédito</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="comp-prefijo" style="color: #2d3436; font-size: 0.9em; font-weight: 600;">PV
+                                (5):</label>
+                            <input type="text" id="comp-prefijo" class="form-control" placeholder="00001" maxlength="5"
+                                style="border-radius: 8px;" required>
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="comp-numero" style="color: #2d3436; font-size: 0.9em; font-weight: 600;">Número
+                                (8):</label>
+                            <input type="text" id="comp-numero" class="form-control" placeholder="00000001"
+                                maxlength="8" style="border-radius: 8px;" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label for="comp-total" style="color: #2d3436; font-size: 0.9em; font-weight: bold;">Monto Total
+                            ($):</label>
+                        <input type="number" id="comp-total" class="form-control" step="0.01"
+                            style="border-radius: 8px; font-weight: bold; font-size: 1.2em;" required>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 25px;">
+                        <label for="comp-referencia"
+                            style="color: #2d3436; font-size: 0.9em; font-weight: 600;">Observación:</label>
+                        <input type="text" id="comp-referencia" class="form-control"
+                            placeholder="Ej: Factura luz o mercadería" style="border-radius: 8px;">
+                    </div>
+
+                    <div class="form-actions"
+                        style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; display: flex; justify-content: flex-end; gap: 12px;">
+                        <button type="button" id="btn-cancelar-comprobante" class="btn btn-secondary"
+                            style="background: #dfe6e9; color: #636e72; border: none; padding: 10px 20px; border-radius: 8px;">Cancelar</button>
+                        <button type="submit" class="btn btn-primary"
+                            style="background: #1a2a6c; border: none; padding: 10px 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(26, 42, 108, 0.3);">
+                            <i class="fas fa-save"></i> Registrar en Cta. Cte.
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Registrar Pago (Salida de dinero / Mixto) -->
+    <div id="modal-pago-proveedor" class="modal">
+        <div class="modal-content large" style="max-width: 900px; border-radius: 16px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #11998e, #38ef7d); color: white;">
+                <h3><i class="fas fa-hand-holding-usd"></i> Registrar Pago a Proveedor</h3>
+                <span id="close-modal-pago-proveedor" class="close-button" style="color: white;">&times;</span>
+            </div>
+            
+            <div style="padding: 20px;">
+                <form id="form-pago-proveedor">
+                    <input type="hidden" id="pago-proveedor-id-hidden">
+                    
+                    <div class="main-grid" style="grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <!-- Columna Izquierda: Facturas Pendientes -->
+                        <div class="card" style="margin-bottom: 0; box-shadow: none; border: 1px solid #eee;">
+                            <h4 style="margin-top: 0;"><i class="fas fa-list"></i> 1. Seleccionar Facturas</h4>
+                            <div id="facturas-pendientes-container" style="max-height: 300px; overflow-y: auto; margin-bottom: 10px;">
+                                <p style="text-align: center; color: #666;">Cargando facturas...</p>
+                            </div>
+                            <div style="border-top: 1px solid #eee; padding-top: 10px; font-weight: bold; text-align: right;">
+                                Total Seleccionado: <span id="total-seleccionado-pago" style="color: var(--primary-color); font-size: 1.2em;">$ 0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Columna Derecha: Métodos de Pago -->
+                        <div class="card" style="margin-bottom: 0; box-shadow: none; border: 1px solid #eee;">
+                            <h4 style="margin-top: 0;"><i class="fas fa-wallet"></i> 2. Métodos de Pago</h4>
+                            <div id="metodos-pago-container" style="margin-bottom: 15px;">
+                                <!-- Filas de pagos se agregan aquí -->
+                            </div>
+                            <button type="button" id="btn-agregar-metodo-pago" class="btn btn-outline-info btn-sm" style="width: 100%;">
+                                <i class="fas fa-plus"></i> Agregar Otro Método
+                            </button>
+                            
+                            <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                    <span>Total a Pagar:</span>
+                                    <span id="pago-total-esperado" style="font-weight: bold;">$ 0.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                    <span>Ingresado:</span>
+                                    <span id="pago-total-ingresado" style="font-weight: bold; color: #11998e;">$ 0.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 1.1em; border-top: 1px solid #ddd; padding-top: 5px; margin-top: 5px;">
+                                    <span style="font-weight: bold;">Diferencia:</span>
+                                    <span id="pago-diferencia" style="font-weight: bold; color: #e74c3c;">$ 0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label for="pago-fecha">Fecha del Pago:</label>
+                        <input type="date" id="pago-fecha" class="form-control" style="max-width: 200px;">
+                    </div>
+
+                    <div class="form-actions" style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" id="btn-cancelar-pago-proveedor" class="btn btn-secondary">Cancelar</button>
+                        <button type="submit" id="btn-confirmar-pago-proveedor" class="btn btn-success" style="padding: 10px 30px;">
+                            <i class="fas fa-check-circle"></i> Confirmar y Registrar Pago
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template para fila de método de pago -->
+    <template id="tpl-pago-fila">
+        <div class="pago-metodo-fila" style="display: grid; grid-template-columns: 1.5fr 1.5fr 0.5fr; gap: 10px; margin-bottom: 10px; padding: 10px; border: 1px solid #f0f0f0; border-radius: 8px; position: relative;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <select class="form-control select-metodo" required>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Cheque Tercero">Cheque Tercero</option>
+                    <option value="Cheque Propio">Cheque Propio</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <input type="number" class="form-control input-monto" placeholder="Monto" step="0.01" required>
+            </div>
+            <button type="button" class="btn btn-danger btn-sm btn-remover-metodo" style="height: 38px;">&times;</button>
+            
+            <!-- Campos extra que aparecen según el método (se manejan vía JS) -->
+            <div class="extra-fields" style="grid-column: 1 / span 3; display: none; margin-top: 5px;"></div>
+        </div>
+    </template>
+</div>

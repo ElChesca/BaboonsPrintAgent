@@ -39,10 +39,16 @@ def save_configuraciones(current_user, negocio_id):
                 """,
                 (negocio_id, clave, valor)
             )
-        g.db_conn.commit() # Usamos g.db_conn para confirmar la transacción
+        # Usamos la conexión del cursor si está disponible para asegurar el commit
+        if hasattr(db, 'connection'):
+            db.connection.commit()
+        else:
+            g.db_conn.commit()
+
         return jsonify({'message': 'Configuración guardada con éxito'}), 200
     except Exception as e:
-        g.db_conn.rollback() # Si algo falla, revertimos todos los cambios
+        if hasattr(g, 'db_conn'):
+            g.db_conn.rollback() # Si algo falla, revertimos todos los cambios
         return jsonify({'error': str(e)}), 500
     
 

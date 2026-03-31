@@ -62,6 +62,11 @@ function resetFormulario() {
     document.getElementById('cuota-mensual-negocio').value = '0';
     document.getElementById('suscripcion-activa-negocio').checked = false;
     document.getElementById('acceso-bloqueado-negocio').checked = false;
+    document.getElementById('anuncio-texto').value = '';
+    document.getElementById('anuncio-version').value = 'v1';
+    const btnEliminar = document.getElementById('btn-eliminar-negocio');
+    if (btnEliminar) btnEliminar.style.display = 'none';
+
     if (btnCancelar) btnCancelar.style.display = 'none';
 }
 
@@ -82,13 +87,65 @@ window.editarNegocio = (id) => {
     document.getElementById('cuota-mensual-negocio').value = negocio.cuota_mensual || 0;
     document.getElementById('suscripcion-activa-negocio').checked = !!negocio.suscripcion_activa;
     document.getElementById('acceso-bloqueado-negocio').checked = !!negocio.acceso_bloqueado;
+    document.getElementById('anuncio-texto').value = negocio.anuncio_texto || '';
+    document.getElementById('anuncio-version').value = negocio.anuncio_version || 'v1';
 
     const btnCancelar = document.getElementById('btn-cancelar-edicion-negocio');
     if (btnCancelar) btnCancelar.style.display = 'inline-block';
 
+    // Mostrar botón eliminar solo si es superadmin
+    const btnEliminar = document.getElementById('btn-eliminar-negocio');
+    if (btnEliminar && window.appState && window.appState.userRol === 'superadmin') {
+        btnEliminar.style.display = 'inline-block';
+    }
+
     // Scroll suave hacia arriba para ver el form
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
+
+// Función para eliminar negocio con doble advertencia
+async function eliminarNegocioActual() {
+    const id = document.getElementById('negocio-id').value;
+    const nombre = document.getElementById('nombre-negocio').value;
+    if (!id) return;
+
+    // PRIMERA ADVERTENCIA
+    const result1 = await Swal.fire({
+        title: '¿Estás seguro?',
+        text: `Vas a eliminar el negocio "${nombre}". Esta acción es IRREVERSIBLE.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, continuar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (!result1.isConfirmed) return;
+
+    // SEGUNDA ADVERTENCIA (DOBLE CONFIRMACIÓN)
+    const result2 = await Swal.fire({
+        title: 'CONFIRMACIÓN FINAL',
+        text: `PARA CONFIRMAR: Esta acción borrará el negocio y sus configuraciones. ¿Realmente deseas proceder?`,
+        icon: 'error',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'SÍ, BORRAR DEFINITIVAMENTE',
+        cancelButtonText: 'Me arrepentí'
+    });
+
+    if (!result2.isConfirmed) return;
+
+    try {
+        const response = await sendData(`/api/negocios/${id}`, {}, 'DELETE');
+        mostrarNotificacion(response.message || 'Negocio eliminado.', 'success');
+        resetFormulario();
+        await cargarNegocios();
+    } catch (error) {
+        mostrarNotificacion(error.message || 'No se pudo eliminar el negocio.', 'error');
+    }
+}
 
 // En static/js/modules/negocios.js
 
@@ -112,7 +169,9 @@ async function guardarNegocio(e) {
         fecha_alta: document.getElementById('fecha-alta-negocio').value || null,
         cuota_mensual: parseFloat(document.getElementById('cuota-mensual-negocio').value) || 0,
         suscripcion_activa: document.getElementById('suscripcion-activa-negocio').checked,
-        acceso_bloqueado: document.getElementById('acceso-bloqueado-negocio').checked
+        acceso_bloqueado: document.getElementById('acceso-bloqueado-negocio').checked,
+        anuncio_texto: document.getElementById('anuncio-texto').value.trim(),
+        anuncio_version: document.getElementById('anuncio-version').value.trim() || 'v1'
     };
 
     const esEdicion = !!id;
@@ -136,6 +195,7 @@ async function guardarNegocio(e) {
 export function inicializarLogicaNegocios() {
     const form = document.getElementById('form-negocio');
     const btnCancelar = document.getElementById('btn-cancelar-edicion-negocio');
+    const btnEliminar = document.getElementById('btn-eliminar-negocio');
 
     if (!form) return;
 
@@ -143,6 +203,10 @@ export function inicializarLogicaNegocios() {
 
     if (btnCancelar) {
         btnCancelar.addEventListener('click', resetFormulario);
+    }
+
+    if (btnEliminar) {
+        btnEliminar.addEventListener('click', eliminarNegocioActual);
     }
 
     cargarNegocios(); // Ahora sí, esta función existe arriba

@@ -65,4 +65,19 @@ def check_producto(current_user, negocio_id, codigo_barras):
 
     except Exception as e:
         # Es un GET, no necesitamos rollback
-        return jsonify({'error': f'Ocurrió un error: {str(e)}'}), 500
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/mobile/hojas-ruta-activas', methods=['GET'])
+@token_required
+def get_hojas_ruta_activas(current_user, negocio_id):
+    try:
+        db = get_db()
+        vendedor_id = current_user.get('vendedor_id')
+        db.execute("""
+            SELECT id, estado, fecha::text, vendedor_id
+            FROM hoja_ruta 
+            WHERE negocio_id = %s AND vendedor_id = %s AND estado = 'activa'
+        """, (negocio_id, vendedor_id))
+        return jsonify(db.fetchall())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

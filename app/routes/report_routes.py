@@ -46,6 +46,7 @@ def get_reporte_caja(current_user, negocio_id):
     query = """
         SELECT 
             cs.id, 
+            cs.numero,
             cs.fecha_apertura, 
             cs.fecha_cierre, 
             cs.monto_inicial, 
@@ -114,6 +115,10 @@ def get_reporte_caja(current_user, negocio_id):
             if key in row_dict and isinstance(row_dict[key], (datetime.datetime, datetime.date)):
                 row_dict[key] = row_dict[key].isoformat()
         
+        # 3. Fallback para Numero
+        if row_dict.get('numero') is None:
+            row_dict['numero'] = f"ID:{row_dict['id']}"
+        
         sesiones_list.append(row_dict)
     
     return jsonify(sesiones_list)
@@ -181,7 +186,9 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
         # --- Obtener Movimientos (sin cambios) ---
         params_movimientos = { 'negocio_id': negocio_id, 'proveedor_id': proveedor_id, 'fecha_desde': fecha_desde, 'fecha_hasta': fecha_hasta }
         query_movimientos = """
-            SELECT fecha, 'Ingreso Factura' as tipo, id, total_factura as debe, 0 as haber, factura_tipo, factura_prefijo, factura_numero, referencia
+            SELECT fecha, 
+                   CASE WHEN afecta_stock THEN 'Ingreso Mercadería' ELSE 'Comprobante' END as tipo, 
+                   id, total_factura as debe, 0 as haber, factura_tipo, factura_prefijo, factura_numero, referencia
             FROM ingresos_mercaderia WHERE negocio_id = %(negocio_id)s AND proveedor_id = %(proveedor_id)s AND DATE(fecha) >= %(fecha_desde)s AND DATE(fecha) <= %(fecha_hasta)s AND total_factura IS NOT NULL
             UNION ALL
             SELECT fecha, 'Pago Realizado' as tipo, id, 0 as debe, monto_total as haber, NULL, NULL, NULL, referencia
@@ -201,9 +208,9 @@ def get_cta_cte_proveedor(current_user, negocio_id, proveedor_id):
             haber = mov['haber'] or Decimal(0)
             saldo_actual += debe - haber
             concepto = ""
-            if mov['tipo'] == 'Ingreso Factura':
+            if mov['tipo'] in ('Ingreso Factura', 'Ingreso Mercadería', 'Comprobante'):
                  nro_factura = f"{mov['factura_tipo'] or 'FC'} {str(mov['factura_prefijo']).zfill(4)}-{str(mov['factura_numero']).zfill(8)}" if mov['factura_prefijo'] and mov['factura_numero'] else f"ID:{mov['id']}"
-                 concepto = f"Factura {nro_factura}"
+                 concepto = f"{mov['tipo']} {nro_factura}"
                  if mov['referencia']: concepto += f" ({mov['referencia']})"
             elif mov['tipo'] == 'Pago Realizado':
                  # --- ✨ ALTERNATIVA MÁS SIMPLE ✨ ---
@@ -489,6 +496,77 @@ def get_reporte_bajadas_detalle(current_user, negocio_id):
                 r['fecha_confirmacion'] = r['fecha_confirmacion'].isoformat()
             if isinstance(r['monto_pedido'], Decimal):
                 r['monto_pedido'] = float(r['monto_pedido'])
+            reporte_list.append(r)
+            
+        return jsonify(reporte_list)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+@bp.route('/negocios/<int:negocio_id>/reportes/hojas-ruta-ejecutivo', methods=['GET'])
+@token_required
+def get_reporte_hr_ejecutivo(current_user, negocio_id):
+    db = get_db()
+    
+    if not check_user_negocio_permission(current_user, negocio_id):
+        return jsonify({'error': 'No tiene permisos sobre este negocio'}), 403
+
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+    
+    # Consulta que trae el detalle de pedidos agrupados por HR
+    # Incluye cálculo manual de importe BRUTO (sin bonificaciones)
+    query = """
+        SELECT 
+            p.id as pedido_id,
+            hr.id as hr_id,
+            hr.fecha as hr_fecha,
+            c.nombre as cliente_nombre,
+            p.total as importe_neto,
+            COALESCE((SELECT SUM(cantidad * precio_unitario) FROM pedidos_detalle WHERE pedido_id = p.id), 0) as importe_bruto,
+            v.metodo_pago,
+            vend.nombre as chofer_nombre,
+            p.estado as estado_pedido,
+            p.fecha_entrega
+        FROM pedidos p
+        JOIN hoja_ruta hr ON p.hoja_ruta_id = hr.id
+        JOIN clientes c ON p.cliente_id = c.id
+        LEFT JOIN ventas v ON p.venta_id = v.id
+        LEFT JOIN vendedores vend ON hr.vendedor_id = vend.id
+        WHERE p.negocio_id = %s
+    """
+    params = [negocio_id]
+
+    if fecha_desde:
+        query += " AND hr.fecha >= %s"
+        params.append(fecha_desde)
+    if fecha_hasta:
+        query += " AND hr.fecha <= %s"
+        params.append(fecha_hasta)
+
+    query += " ORDER BY hr.id DESC, p.id ASC"
+
+    try:
+        db.execute(query, tuple(params))
+        rows = db.fetchall()
+        
+        reporte_list = []
+        for row in rows:
+            r = dict(row)
+            # Formatear fechas
+            if r['hr_fecha']:
+                r['hr_fecha'] = r['hr_fecha'].isoformat()
+            if r['fecha_entrega']:
+                r['fecha_entrega'] = r['fecha_entrega'].isoformat()
+            
+            # Decimal a float
+            if isinstance(r['importe_neto'], Decimal):
+                r['importe_neto'] = float(r['importe_neto'])
+            if isinstance(r['importe_bruto'], Decimal):
+                r['importe_bruto'] = float(r['importe_bruto'])
+                
+            # Calcular bonificación en dinero
+            r['bonificacion_monto'] = round(r['importe_bruto'] - r['importe_neto'], 2)
+            
             reporte_list.append(r)
             
         return jsonify(reporte_list)

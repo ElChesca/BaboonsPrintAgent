@@ -1,0 +1,229 @@
+<!-- app/static/home_resto.html -->
+<div class="app-dashboard fade-in">
+    <h2 class="dashboard-title">Operaciones de Restó</h2>
+    <div class="app-grid">
+        <div class="app-card" onclick="loadContent(event, 'static/resto_mozo.html', this)">
+            <div class="app-icon-wrapper"
+                style="background: rgba(255, 107, 107, 0.1); border-radius: 12px; padding: 10px; margin-bottom: 8px;">
+                <img src="static/img/icons/camarero.png" alt="Mozo" class="app-icon"
+                    style="filter: drop-shadow(0 4px 6px rgba(255,107,107,0.3));"
+                    onerror="this.onerror=null; this.src='static/img/icons/camarero.png'">
+            </div>
+            <span class="app-name" style="font-weight: 600;">Mozo / Salón</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/resto_caja.html', this)">
+            <div class="app-icon-wrapper"
+                style="background: rgba(16, 185, 129, 0.1); border-radius: 12px; padding: 10px; margin-bottom: 8px;">
+                <img src="static/img/icons/caja.png" alt="Caja" class="app-icon"
+                    style="filter: drop-shadow(0 4px 6px rgba(16, 185, 129, 0.3));"
+                    onerror="this.onerror=null; this.src='static/img/icons/caja.png'">
+            </div>
+            <span class="app-name" style="font-weight: 600;">Caja / Adición</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/resto_cocina.html', this)">
+            <div class="app-icon-wrapper"
+                style="background: rgba(78, 205, 196, 0.1); border-radius: 12px; padding: 10px; margin-bottom: 8px;">
+                <img src="static/img/icons/cocina.png" alt="Cocina" class="app-icon"
+                    style="filter: hue-rotate(180deg) drop-shadow(0 4px 6px rgba(78, 205, 196, 0.3));"
+                    onerror="this.onerror=null; this.src='static/img/icons/cocina.png'">
+            </div>
+            <span class="app-name" style="font-weight: 600;">Cocina / Barra</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/mesas.html', this)">
+            <div class="app-icon-wrapper"
+                style="background: rgba(255, 230, 109, 0.1); border-radius: 12px; padding: 10px; margin-bottom: 8px;">
+                <img src="static/img/icons/mesa.png" alt="Mesas" class="app-icon"
+                    style="filter: hue-rotate(90deg) drop-shadow(0 4px 6px rgba(255, 230, 109, 0.3));"
+                    onerror="this.onerror=null; this.src='static/img/icons/mesa.png'">
+            </div>
+            <span class="app-name" style="font-weight: 600;">Gestión de Mesas</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/reservas.html', this)" style="position:relative;">
+            <div class="app-icon-wrapper"
+                style="background: rgba(99, 102, 241, 0.12); border-radius: 12px; padding: 10px; margin-bottom: 8px;">
+                <img src="static/img/icons/reservas.png" alt="Reservas" class="app-icon"
+                    style="filter: hue-rotate(220deg) drop-shadow(0 4px 6px rgba(99, 102, 241, 0.4));"
+                    onerror="this.onerror=null; this.src='static/img/icons/reservas.png'">
+            </div>
+            <span class="app-name" style="font-weight: 600;">Reservas</span>
+            <span id="badge-reservas-home" style="display:none; position:absolute; top:8px; right:8px;
+                background:#f59e0b; color:white; font-size:0.65rem; font-weight:900;
+                padding:2px 7px; border-radius:10px; line-height:1.4;"></span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/resto_menu.html', this)">
+            <div class="app-icon-wrapper"
+                style="background: rgba(162, 155, 254, 0.1); border-radius: 12px; padding: 10px; margin-bottom: 8px;">
+                <img src="static/img/icons/menu.png" alt="Carta" class="app-icon"
+                    style="filter: hue-rotate(240deg) drop-shadow(0 4px 6px rgba(162, 155, 254, 0.3));"
+                    onerror="this.onerror=null; this.src='static/img/icons/menu.png'">
+            </div>
+            <span class="app-name" style="font-weight: 600;">Gestión de Carta</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/resto_stats.html', this)">
+            <div class="app-icon-wrapper"
+                style="background: rgba(255, 159, 67, 0.1); border-radius: 12px; padding: 10px; margin-bottom: 8px;">
+                <img src="static/img/icons/reportes.png" alt="Reportes Resto" class="app-icon"
+                    style="filter: hue-rotate(45deg) drop-shadow(0 4px 6px rgba(255, 159, 67, 0.3));"
+                    onerror="this.onerror=null; this.src='static/img/icons/reportes.png'">
+            </div>
+            <span class="app-name" style="font-weight: 600;">Reportes Restó</span>
+        </div>
+    </div>
+</div>
+
+<div class="app-dashboard" style="padding-top: 15px;">
+    <h2 class="dashboard-title">Módulos Administrativos</h2>
+    <div class="app-grid">
+        <!-- Ventas y Caja -->
+        <div class="app-card" onclick="loadContent(event, 'static/ventas.html', this)">
+            <img src="static/img/icons/ventas.png" alt="Ventas" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Ventas / Pedidos</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/historial_ventas.html', this)">
+            <img src="static/img/icons/historial_ventas.png" alt="Historial Ventas" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Historial Ventas</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/caja.html', this)">
+            <img src="static/img/icons/caja.png" alt="Caja" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Caja</span>
+        </div>
+
+        <!-- Inventario -->
+        <div class="app-card" onclick="loadContent(event, 'static/inventario.html', this)">
+            <img src="static/img/icons/inventario.png" alt="Inventario" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Inventario / Stock</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/ingresos.html', this)">
+            <img src="static/img/icons/ingresos.png" alt="Ingresos" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Ingresos de Stock</span>
+        </div>
+
+        <!-- Entidades -->
+        <div class="app-card" onclick="loadContent(event, 'static/clientes.html', this)">
+            <img src="static/img/icons/clientes.png" alt="Clientes" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Cartera Clientes</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/proveedores.html', this)">
+            <img src="static/img/icons/proveedor.png" alt="Proveedores" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Proveedores</span>
+        </div>
+
+        <!-- Finanzas -->
+        <div class="app-card" onclick="loadContent(event, 'static/gastos.html', this)">
+            <img src="static/img/icons/gastos.png" alt="Gastos" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Gastos Operativos</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/bancos.html', this)">
+            <img src="static/img/icons/bancos.png" alt="Bancos" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">🏦 Bancos / Cheques</span>
+        </div>
+
+        <!-- Presupuestos (✨ Ref. Solicitud Usuario) -->
+        <div class="app-card" onclick="loadContent(event, 'static/presupuestos.html', this)">
+            <img src="static/img/icons/presupuesto.png" alt="Presupuestos" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Presupuestos</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/historial_presupuestos.html', this)">
+            <img src="static/img/icons/presupuesto.png" alt="Historial Presupuestos" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Historial Presup.</span>
+        </div>
+    </div>
+</div>
+
+<div class="app-dashboard" style="padding-top: 15px;">
+    <h2 class="dashboard-title">Historiales y Reportes</h2>
+    <div class="app-grid">
+        <div class="app-card" onclick="loadContent(event, 'static/reportes.html', this)">
+            <img src="static/img/icons/reportes.png" alt="Reportes" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/reportes.png'">
+            <span class="app-name">Reportes de Ventas</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/reporte_caja.html', this)">
+            <img src="static/img/icons/caja.png" alt="Reporte Caja" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Reporte de Caja</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/reporte_ganancias.html', this)">
+            <img src="static/img/icons/dashboard.png" alt="Reporte Ganancias" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Reporte Ganancias</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/historial_inventario.html', this)">
+            <img src="static/img/icons/historial_inventario.png" alt="Historial INV" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Historial Inventario</span>
+        </div>
+    </div>
+</div>
+
+<div class="app-dashboard" style="padding-top: 15px;">
+    <h2 class="dashboard-title">Administración y Reglas</h2>
+    <div class="app-grid">
+        <div class="app-card" onclick="loadContent(event, 'static/configuracion.html', this)">
+            <img src="static/img/icons/configuracion.png" alt="Configuración" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Conf. y Reglas</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/categorias.html', this)">
+            <img src="static/img/icons/categorias.png" alt="Categorías de Productos" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Categorias Prod.</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/usuarios.html', this)">
+            <img src="static/img/icons/usuarios.png" alt="Usuarios" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Usuarios</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/eventos.html', this)">
+            <img src="static/img/icons/club.png" alt="Eventos" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Eventos / Reservas</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/mozos.html', this)">
+            <img src="static/img/icons/vendedores.png" alt="Mozos" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/vendedores.png'">
+            <span class="app-name">Mozos / Personal</span>
+        </div>
+        <div class="app-card" onclick="loadContent(event, 'static/unidades_medida.html', this)">
+            <img src="static/img/icons/medicion.png" alt="Unidades" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Unidades de Medida</span>
+        </div>
+        <div class="app-card superadmin-only" onclick="loadContent(event, 'static/negocios.html', this)">
+            <img src="static/img/icons/negocios.png" alt="Negocios" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name">Negocios</span>
+        </div>
+        <div class="app-card superadmin-only" onclick="loadContent(event, 'static/admin_mp_dashboard.html', this)"
+            style="border: 1px solid rgba(13, 110, 253, 0.3);">
+            <img src="static/img/icons/payments.png" alt="Reporte MP" class="app-icon"
+                onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            <span class="app-name text-primary fw-bold">MP: Reportes</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    setTimeout(() => {
+        if (typeof filtrarTarjetasDashboards === 'function') {
+            filtrarTarjetasDashboards();
+        }
+    }, 100);
+</script>

@@ -1,4 +1,5 @@
 import click
+import os
 from flask.cli import with_appcontext
 from app.database import get_db, close_db
 from flask import current_app
@@ -67,3 +68,35 @@ def init_rentals_db_command():
                 click.echo('Rentals tables created successfully (Execute fallback).')
         except Exception as e2:
             click.echo(f'Error creating tables: {e2}')
+
+@click.command('migrate-db')
+@with_appcontext
+def migrate_db_command():
+    """Migrates the database to include new announcement columns."""
+    db = get_db()
+    click.echo('Running database migrations...')
+    try:
+        # Postgres supports ADD COLUMN IF NOT EXISTS (v9.6+)
+        # For SQLite, we might need a catch-all try/except per column if not supported
+        db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS anuncio_texto TEXT;")
+        db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS anuncio_version TEXT DEFAULT 'v1';")
+        
+        from flask import g
+        if hasattr(g, 'db_conn'):
+             g.db_conn.commit()
+             click.echo('Migrations applied successfully (anuncio_texto, anuncio_version).')
+        else:
+             click.echo('Warning: Could not commit transaction. g.db_conn not found.')
+    except Exception as e:
+        # Fallback for older DBs or SQLite that don't support IF NOT EXISTS in ALTER
+        click.echo(f'Attempting fallback migration due to: {e}')
+        try:
+            db.execute("ALTER TABLE negocios ADD COLUMN anuncio_texto TEXT;")
+        except: pass
+        try:
+            db.execute("ALTER TABLE negocios ADD COLUMN anuncio_version TEXT DEFAULT 'v1';")
+        except: pass
+        
+        from flask import g
+        if hasattr(g, 'db_conn'): g.db_conn.commit()
+        click.echo('Fallback migration attempt finished.')

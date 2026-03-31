@@ -45,13 +45,27 @@ def get_productos(current_user, negocio_id):
     db = get_db()
     
     query = """
-        SELECT p.*, c.nombre as categoria_nombre, prov.nombre as proveedor_nombre
+        SELECT 
+            p.*, 
+            c.nombre as categoria_nombre, 
+            prov.nombre as proveedor_nombre,
+            (SELECT COALESCE(SUM(cantidad), 0) FROM vehiculos_stock WHERE producto_id = p.id) as stock_movil,
+            (
+                SELECT COALESCE(SUM(pd_inner.cantidad), 0)
+                FROM pedidos p_inner
+                JOIN pedidos_detalle pd_inner ON p_inner.id = pd_inner.pedido_id
+                LEFT JOIN hoja_ruta hr ON p_inner.hoja_ruta_id = hr.id
+                WHERE pd_inner.producto_id = p.id
+                  AND p_inner.estado IN ('pendiente', 'preparado')
+                  AND (hr.id IS NULL OR hr.carga_confirmada IS FALSE)
+                  AND p_inner.negocio_id = %s
+            ) as stock_comprometido
         FROM productos p
         LEFT JOIN productos_categoria c ON p.categoria_id = c.id
         LEFT JOIN proveedores prov ON p.proveedor_id = prov.id
         WHERE p.negocio_id = %s
     """
-    params = [negocio_id]
+    params = [negocio_id, negocio_id]
     
     if not mostrar_inactivos:
         query += " AND p.activo = TRUE"
@@ -60,11 +74,31 @@ def get_productos(current_user, negocio_id):
     
     db.execute(query, tuple(params))
     productos = db.fetchall()
+
+    # Obtener patentes de vehículos con stock para los productos listados
+    # Lo hacemos en Python para garantizar compatibilidad total SQLite/Postgres (evitar STRING_AGG vs GROUP_CONCAT)
+    db.execute("""
+        SELECT vs.producto_id, v.patente
+        FROM vehiculos_stock vs
+        JOIN vehiculos v ON vs.vehiculo_id = v.id
+        WHERE vs.cantidad != 0 AND v.negocio_id = %s
+    """, (negocio_id,))
+    stock_movil_data = db.fetchall()
     
-    if lista_id:
-        productos_lista = []
-        for p in productos:
-            p_dict = dict(p)
+    patentes_map = {}
+    for row in stock_movil_data:
+        pid = row['producto_id']
+        patente = row['patente']
+        if pid not in patentes_map:
+            patentes_map[pid] = []
+        patentes_map[pid].append(patente)
+
+    result_list = []
+    for p in productos:
+        p_dict = dict(p)
+        p_dict['patentes_movil'] = ", ".join(patentes_map.get(p['id'], []))
+        
+        if lista_id:
             # Calcular el precio para esta lista
             p_dict['precio_venta'] = get_precio_producto(
                 db_cursor=db,
@@ -72,10 +106,9 @@ def get_productos(current_user, negocio_id):
                 negocio_id=negocio_id,
                 lista_de_precio_id_override=lista_id
             )
-            productos_lista.append(p_dict)
-        return jsonify(productos_lista)
+        result_list.append(p_dict)
         
-    return jsonify([dict(row) for row in productos])
+    return jsonify(result_list)
 
 @bp.route('/productos/<int:producto_id>', methods=['GET'])
 @token_required
@@ -108,14 +141,15 @@ def add_producto(current_user, negocio_id):
             """
             INSERT INTO productos (negocio_id, nombre, stock, precio_venta, precio_costo, unidad_medida,
                                    categoria_id, stock_minimo, sku, codigo_barras, proveedor_id, alias,
-                                   peso_kg, volumen_m3, imagen_url, ubicacion)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                                   peso_kg, volumen_m3, imagen_url, ubicacion, tipo_producto)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """ ,
             (
                 negocio_id, data.get('nombre'), data.get('stock'), data.get('precio_venta'), data.get('precio_costo'),
                 data.get('unidad_medida'), data.get('categoria_id'), data.get('stock_minimo'), sku,
                 data.get('codigo_barras'), data.get('proveedor_id'), data.get('alias'),
-                data.get('peso_kg', 0), data.get('volumen_m3', 0), data.get('imagen_url'), data.get('ubicacion', 'Depósito 1')
+                data.get('peso_kg', 0), data.get('volumen_m3', 0), data.get('imagen_url'), data.get('ubicacion', 'Depósito 1'),
+                data.get('tipo_producto', 'final')
             )
         )
         nuevo_id = db.fetchone()['id']
@@ -138,7 +172,7 @@ def update_producto(current_user, producto_id):
     campos_validos = [
         'nombre', 'stock', 'precio_venta', 'precio_costo', 'unidad_medida',
         'categoria_id', 'stock_minimo', 'sku', 'codigo_barras', 'proveedor_id', 'alias',
-        'peso_kg', 'volumen_m3', 'imagen_url', 'ubicacion'
+        'peso_kg', 'volumen_m3', 'imagen_url', 'ubicacion', 'tipo_producto'
     ]
     fields = [f"{key} = %s" for key in update_data.keys() if key in campos_validos]
     values = [value for key, value in update_data.items() if key in campos_validos]
@@ -535,3 +569,77 @@ def upload_product_image(current_user, producto_id):
     except Exception as e:
         print(f"Error procesando imagen: {e}")
         return jsonify({'error': 'Error al procesar la imagen'}), 500
+@bp.route('/productos/<int:producto_id>/image', methods=['DELETE'])
+@token_required
+def delete_product_image(current_user, producto_id):
+    if current_user['rol'] not in ['admin', 'superadmin']:
+        return jsonify({'message': 'Solo Admin o Superadmin pueden modificar'}), 403
+
+    db = get_db()
+    # 1. Buscar la URL de la imagen actual
+    db.execute("SELECT imagen_url FROM productos WHERE id = %s", (producto_id,))
+    producto = db.fetchone()
+    if not producto:
+        return jsonify({'error': 'Producto no encontrado'}), 404
+
+    imagen_url = producto.get('imagen_url')
+    if not imagen_url:
+        return jsonify({'message': 'El producto no tiene imagen'}), 200
+
+    try:
+        # 2. Eliminar archivo físico si existe
+        # Asumimos que la URL empieza con /static/...
+        if imagen_url.startswith('/static/'):
+            relative_path = imagen_url[1:] # quitar la primera barra
+            filepath = os.path.join(current_app.root_path, relative_path)
+            if os.path.exists(filepath):
+                os.remove(filepath)
+
+        # 3. Actualizar DB
+        db.execute("UPDATE productos SET imagen_url = NULL WHERE id = %s", (producto_id,))
+        g.db_conn.commit()
+
+        return jsonify({'message': 'Imagen eliminada con éxito'})
+
+    except Exception as e:
+        print(f"Error borrando imagen: {e}")
+        return jsonify({'error': 'Error al eliminar la imagen'}), 500
+@bp.route('/productos/<int:producto_id>/comprometido', methods=['GET'])
+@token_required
+def get_comprometido_detalle(current_user, producto_id):
+    """Retorna el detalle de pedidos y HR que tienen este producto comprometido."""
+    db = get_db()
+    
+    # Primero buscamos el nombre del producto
+    db.execute("SELECT nombre, unidad_medida FROM productos WHERE id = %s", (producto_id,))
+    prod = db.fetchone()
+    if not prod:
+        return jsonify({'error': 'Producto no encontrado'}), 404
+        
+    query = """
+        SELECT 
+            p.id as pedido_id,
+            c.nombre as cliente_nombre,
+            p.estado as pedido_estado,
+            p.hoja_ruta_id,
+            v.nombre as hr_vendedor,
+            hr.fecha as hr_fecha,
+            pd.cantidad
+        FROM pedidos p
+        JOIN clientes c ON p.cliente_id = c.id
+        JOIN pedidos_detalle pd ON p.id = pd.pedido_id
+        LEFT JOIN hoja_ruta hr ON p.hoja_ruta_id = hr.id
+        LEFT JOIN vendedores v ON hr.vendedor_id = v.id
+        WHERE pd.producto_id = %s 
+          AND p.estado IN ('pendiente', 'preparado')
+          AND (hr.id IS NULL OR hr.carga_confirmada IS FALSE)
+        ORDER BY hr.fecha DESC NULLS LAST, p.id DESC
+    """
+    db.execute(query, (producto_id,))
+    detalles = db.fetchall()
+    
+    return jsonify({
+        'producto_nombre': prod['nombre'],
+        'unidad_medida': prod['unidad_medida'],
+        'detalles': [dict(d) for d in detalles]
+    })

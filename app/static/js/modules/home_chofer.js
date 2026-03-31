@@ -9,6 +9,7 @@ let todasLasRutas = [];
 let mapChofer = null;
 let markersChofer = [];
 let routeLineChofer = null;
+let isRouteLineVisible = true; // Estado de visibilidad de las líneas azules
 
 // Variables para el tracking GPS
 let isUnifiedMode = false;
@@ -21,7 +22,8 @@ let currentEntregaItems = []; // Items actuales en el modal de entrega
 
 export function inicializarHomeChofer() {
     console.log("Inicializando App Chofer...");
-    cargarLeafletJS(); // Precargar mapa
+    // cargarLeafletJS ya no es necesario, síncrono en index.html
+
     cargarRutasChofer();
     cargarMotivosRebote();
 
@@ -39,21 +41,8 @@ export function inicializarHomeChofer() {
     }
 }
 
-async function cargarLeafletJS() {
-    if (window.L) return;
-    return new Promise((resolve, reject) => {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
+// Leaflet ya se carga en index.html de forma síncrona con el plugin de rotación
 
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-}
 
 async function cargarRutasChofer() {
     const listContainer = document.getElementById('chofer-rutas-container');
@@ -427,8 +416,17 @@ function inicializarMapaChofer() {
         }
     }
 
-    if (!mapChofer && window.L) {
-        mapChofer = L.map('map-chofer-ruta').setView([-33.3017, -66.3378], 13);
+    if (!mapChofer && window.L && window.L.Map) {
+        mapChofer = L.map('map-chofer-ruta', {
+            rotate: true,
+            touchRotate: true,
+            shiftKeyRotate: true,
+            boxZoom: false,
+            rotateControl: {
+                closeOnZeroBearing: false
+            },
+            bearing: 0
+        }).setView([-33.3017, -66.3378], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(mapChofer);
@@ -500,13 +498,33 @@ function dibujarMapaChofer(items) {
             weight: 4,
             opacity: 0.8,
             dashArray: '10, 10'
-        }).addTo(mapChofer);
+        });
+
+        if (isRouteLineVisible) {
+            routeLineChofer.addTo(mapChofer);
+        }
     }
 
     if (puntos.length > 0) {
         mapChofer.fitBounds(bounds, { padding: [30, 30] });
     }
 }
+
+// Función global para alternar la visibilidad de la ruta (línea azul)
+window.toggleLineasChofer = function () {
+    isRouteLineVisible = !isRouteLineVisible;
+    const btn = document.getElementById('btn-toggle-lineas');
+
+    if (isRouteLineVisible) {
+        if (routeLineChofer) routeLineChofer.addTo(mapChofer);
+        if (btn) btn.innerHTML = '<i class="fas fa-eye-slash"></i> Ocultar Líneas';
+    } else {
+        if (routeLineChofer) mapChofer.removeLayer(routeLineChofer);
+        if (btn) btn.innerHTML = '<i class="fas fa-eye"></i> Mostrar Líneas';
+    }
+
+    mostrarNotificacion(isRouteLineVisible ? "Líneas de ruta activadas" : "Líneas de ruta ocultas", "info");
+};
 
 function renderParadas(hrId, items) {
     const container = document.getElementById('chofer-paradas-list');

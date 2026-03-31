@@ -153,6 +153,11 @@
             font-size: 0.75rem;
             color: var(--text-muted);
         }
+
+        /* ✨ Fix SweetAlert z-index behind fullscreen modals */
+        .swal2-container {
+            z-index: 4000 !important;
+        }
     </style>
 </head>
 

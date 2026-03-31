@@ -2,9 +2,11 @@
 // ✨ ARCHIVO COMPLETO (Versión 1.2.2 - CON RESTAURACIÓN DE SESIÓN) ✨
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-export const APP_VERSION = "1.5.4";
+export const APP_VERSION = "1.6.0";
 // HISTORIAL DE VERSIONES:
-// 1.5.4: Renombrado de botón "Deshacer visita" a "Deshacer bajada" para mayor claridad.
+// 1.6.0: Fix fetchData global and SW auto-update.
+// 1.5.9: Fix cache-busting and enrollment security.
+// 1.5.8: Renombrado de botón "Deshacer visita" a "Deshacer bajada" para mayor claridad.
 // 1.5.3: Cambio de texto a "CONFIRMAR BAJADA" en app choferes.
 // 1.5.2: Corrección bug visual de suma string ("0.00" + 2 = "0.002") en las cantidades originales.
 window.APP_VERSION = APP_VERSION;
@@ -28,11 +30,40 @@ window.chequearVersionApp = () => {
 
 chequearVersionApp();
 
+// --- 1.5. SANEAMIENTO DE SEGURIDAD (CRÍTICO) ---
+// Si por algún motivo el formulario se envió por GET, limpiamos la URL de inmediato
+// para que las credenciales no queden en el historial del navegador.
+(function sanearUrlSeguridad() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('password') || urlParams.has('email')) {
+        console.error("⚠️ [SEGURIDAD] Credenciales detectadas en la URL. Limpiando...");
+        urlParams.delete('password');
+        urlParams.delete('email');
+        
+        const newSearch = urlParams.toString();
+        const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+        
+        // Reemplazamos el historial para que no quede rastro de la contraseña
+        window.history.replaceState({}, '', newUrl);
+        
+        // Opcional: Mostrar aviso si el login.js ya cargó
+        setTimeout(() => {
+            if (window.mostrarNotificacion) {
+                window.mostrarNotificacion("Seguridad: Las credenciales en la URL fueron eliminadas.", "warning");
+            }
+        }, 1000);
+    }
+})();
+
 // --- 2. IMPORTACIONES ESTÁTICAS ---
 import { showGlobalLoader, hideGlobalLoader } from '/static/js/uiHelpers.js';
 import { fetchData, sendData } from './api.js';
 import { getCurrentUser, logout } from './modules/auth.js';
 import { mostrarNotificacion } from './modules/notifications.js';
+
+// --- 2.5 EXPOSICIÓN GLOBAL (CRÍTICO PARA MÓDULOS LEGACY) ---
+window.fetchData = fetchData;
+window.sendData = sendData;
 
 // --- 3. FUNCIONES GLOBALES (para onclick) ---
 import { borrarProveedor } from './modules/proveedores.js';
@@ -49,6 +80,7 @@ window.mostrarDetalleIngreso = mostrarDetalleIngreso;
 window.mostrarDetallesCaja = mostrarDetallesCaja;
 window.abrirModalNuevoCliente = abrirModalNuevoCliente;
 window.logout = logout;
+window.mostrarNotificacion = mostrarNotificacion;
 export function toggleMenu() {
     const navContainer = document.querySelector('.nav-container');
     if (navContainer) {
@@ -155,6 +187,7 @@ function aplicarBloqueoPorMora(mensajeLocal) {
 
 // Mapa de excepciones para rutas que no están en la raíz de static/
 const PATH_MAP = {
+    'login': 'static/login_secure.html', // ✨ Redirigir login estándar a la versión segura
     'rentals_dashboard': 'static/rentals/rentals_dashboard.html',
     'rentals_units': 'static/rentals/rentals_units.html',
     'rentals_contracts': 'static/rentals/rentals_contracts.html',
@@ -165,7 +198,7 @@ const PATH_MAP = {
 // --- NUEVA FUNCIÓN UI ---
 function actualizarUIporTipoApp() {
     const tipoApp = appState.negocioActivoTipo || 'retail';
-    document.body.classList.remove('app-retail', 'app-consorcio', 'app-rentals');
+    document.body.classList.remove('app-retail', 'app-consorcio', 'app-rentals', 'app-distribuidora', 'app-resto');
     document.body.classList.add(`rol-${appState.userRol}`, `app-${tipoApp}`);
 }
 
@@ -177,7 +210,10 @@ function loadPageCSS(pageName) {
         link.id = 'page-specific-style';
         link.rel = 'stylesheet';
         link.type = 'text/css';
-        link.href = `static/css/${pageName}.css?v=${APP_VERSION}`;
+        let cssPath = pageName;
+        if (pageName === 'login') cssPath = 'login_secure'; // ✨ Evitar 404 si el hash es #login
+        
+        link.href = `static/css/${cssPath}.css?v=${APP_VERSION}`;
 
         // Caso especial para rentals si tuvieran CSS específico en su carpeta (opcional)
         // Caso especial: Evitar cargar CSS específicos si no existen
@@ -296,7 +332,7 @@ export async function checkGlobalCashRegisterState() {
 
     try {
         // Usamos el endpoint existente que devuelve el estado
-        const data = await fetchData(`/ api / negocios / ${appState.negocioActivoId} /caja/estado`);
+        const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/caja/estado`);
         if (data.estado === 'abierta' && data.sesion) {
             appState.cajaSesionIdActiva = data.sesion.id;
             // console.log(`✅ Caja Abierta detectada.Sesión ID: ${ appState.cajaSesionIdActiva } `);
@@ -347,8 +383,10 @@ async function poblarSelectorNegocios() {
 
         if (appState.negocioActivoId) {
             localStorage.setItem('negocioActivoId', appState.negocioActivoId);
+            localStorage.setItem('negocioActivoTipo', appState.negocioActivoTipo);
         } else {
             localStorage.removeItem('negocioActivoId');
+            localStorage.removeItem('negocioActivoTipo');
         }
 
         selectors.forEach(selector => {
@@ -368,6 +406,7 @@ async function poblarSelectorNegocios() {
                     appState.negocioActivoId = String(negocios[0].id);
                     appState.negocioActivoTipo = negocios[0].tipo_app;
                     localStorage.setItem('negocioActivoId', appState.negocioActivoId);
+                    localStorage.setItem('negocioActivoTipo', appState.negocioActivoTipo);
                 }
                 selector.disabled = false;
             }
@@ -384,8 +423,27 @@ async function poblarSelectorNegocios() {
 
 // --- fetchAppPermissions ---
 export async function fetchAppPermissions() {
+    const topBar = document.getElementById('top-bar');
+    const body = document.body;
+    const navContainer = document.getElementById('main-nav');
+    const mainContent = document.getElementById('content-area');
+    const header = document.querySelector('header');
+    const businessSelectorBar = document.getElementById('business-selector-bar');
+
     try {
         const user = getCurrentUser();
+
+        if (user) {
+            // El usuario está logueado
+            if (body) body.classList.remove('login-page'); // <--- REQUISITO VITAL PARA CENTRADO
+            navContainer?.classList.remove('hidden');
+            topBar?.classList.remove('hidden');
+            mainContent?.classList.remove('full-width');
+            
+            if (navContainer) navContainer.style.display = 'flex';
+            if (header) header.style.display = 'flex';
+            if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
+        }
 
         // 1. Cargar permisos globales por tipo de negocio
         const perms = await fetchData('/api/admin/permissions');
@@ -394,7 +452,7 @@ export async function fetchAppPermissions() {
         // 2. Cargar configuración específica del negocio activo (exclusiones)
         if (appState.negocioActivoId) {
             try {
-                const businessConfigs = await fetchData(`/api/negocios/${appState.negocioActivoId}/modulos-config`);
+                const businessConfigs = await fetchData(`/api/admin/negocios/${appState.negocioActivoId}/modulos-config`);
                 const inactiveModules = (businessConfigs || [])
                     .filter(c => c.is_active === false)
                     .map(c => c.module_code);
@@ -466,11 +524,15 @@ export async function actualizarUIAutenticacion() {
         }
 
         if (user && user.nombre && user.rol) {
+            // ✅ USUARIO LOGUEADO: Limpiar estado de login
+            document.body.classList.remove('login-page');
+            document.body.style.overflow = 'auto'; // Restaurar scroll
+            
             appState.userRol = user.rol;
-
-            header.style.display = 'flex';
-            mainNav.style.display = 'flex';
-            businessSelectorBar.style.display = 'flex';
+            
+            if (header) header.style.display = 'flex';
+            if (mainNav) mainNav.style.display = 'flex';
+            if (businessSelectorBar) businessSelectorBar.style.display = 'flex';
 
             const newAuthLink = authLink.cloneNode(true);
             newAuthLink.textContent = `Salir (${user.nombre})`;
@@ -511,6 +573,7 @@ export async function actualizarUIAutenticacion() {
             if (appState.negocioActivoTipo === 'consorcio') defaultHomePage = 'home_consorcio';
             if (appState.negocioActivoTipo === 'rentals') defaultHomePage = 'rentals_dashboard';
             if (appState.negocioActivoTipo === 'distribuidora') defaultHomePage = 'home_distribuidora';
+            if (appState.negocioActivoTipo === 'resto') defaultHomePage = 'home_resto';
 
             // ✨ LÓGICA CHOFER
             if (appState.userRol === 'chofer') {
@@ -528,7 +591,7 @@ export async function actualizarUIAutenticacion() {
             }
 
             // ✨ REDIRECCIÓN FORZADA: Si está en una home de otro tipo de negocio, mandarlo a la suya
-            const esCualquierHome = (pageToLoad === 'home_retail' || pageToLoad === 'home_consorcio' || pageToLoad === 'home_distribuidora' || pageToLoad === 'rentals_dashboard' || pageToLoad === 'home_chofer');
+            const esCualquierHome = (pageToLoad === 'home_retail' || pageToLoad === 'home_consorcio' || pageToLoad === 'home_distribuidora' || pageToLoad === 'rentals_dashboard' || pageToLoad === 'home_chofer' || pageToLoad === 'home_resto');
             if (esCualquierHome && pageToLoad !== defaultHomePage) {
                 console.warn(`Redirigiendo de ${pageToLoad} a ${defaultHomePage} por inconsistencia de tipo de negocio o rol.`);
                 pageToLoad = defaultHomePage;
@@ -572,11 +635,22 @@ export async function actualizarUIAutenticacion() {
             appState.negocioActivoId = null;
             appState.negocioActivoTipo = null;
             appState.permissions = {}; // Clear permissions
-
+            
+            // 🔒 SEGURIDAD: SI ESTAMOS EN EL LOGIN, CERRAR SESIÓN SIEMPRE
+            if (window.location.hash === '#login' || window.location.hash === '') {
+                // No llamamos a logout() recursivamente para evitar bucles si logout redirige a #login
+                // Solo limpiamos el token si existe.
+                if (localStorage.getItem('jwt_token')) {
+                    console.warn("Sesión activa detectada en página de login. Limpiando para seguridad.");
+                    localStorage.removeItem('jwt_token');
+                }
+            }
+            
             // 2. Ocultar Header inmediatamente
             if (header) header.style.display = 'none';
             mainNav.style.display = 'none';
             businessSelectorBar.style.display = 'none';
+            document.body.classList.add('login-page');
 
             // 3. LIMPIEZA VISUAL FORZADA (Esto arregla que se queden los iconos)
             const contentArea = document.getElementById('content-area');
@@ -589,7 +663,9 @@ export async function actualizarUIAutenticacion() {
             setTimeout(() => {
                 // Pasamos true en el 4to argumento para forzar la carga del HTML
                 // aunque el hash ya sea #login
-                loadContent(null, 'static/login.html', null, true)
+                // ✨ CACHE BUSTER RENAMED: Agregamos timestamp para asegurar que cargue la versión sin el link inseguro
+                const loginUrlWithCacheBuster = `static/login_secure.html?v=${Date.now()}`;
+                loadContent(null, loginUrlWithCacheBuster, null, true)
                     .catch(err => console.error("Error cargando login:", err));
             }, 100);
         }
@@ -629,6 +705,7 @@ async function inicializarModulo(page) {
                 inicializarLogicaCategorias();
                 break;
             case 'login':
+            case 'login_secure':
                 const { inicializarLogicaLogin } = await import(`./modules/auth.js${v}`);
                 inicializarLogicaLogin();
                 break;
@@ -800,6 +877,7 @@ async function inicializarModulo(page) {
                 inicializarCRM();
                 break;
             case 'home_retail':
+            case 'home_resto':
             case 'home_consorcio':
             case 'home_distribuidora':
             case 'rentals_dashboard':
@@ -828,6 +906,43 @@ async function inicializarModulo(page) {
             case 'mapa_clientes':
                 const { inicializarMapaClientes } = await import(`./modules/mapa_clientes.js${v}`);
                 inicializarMapaClientes();
+                break;
+            case 'reservas':
+                const { inicializarReservas } = await import(`./modules/reservas.js${v}`);
+                inicializarReservas();
+                break;
+            case 'mesas':
+                const { inicializarMesas, abrirModalMesa, cerrarModalMesa, editarMesa, eliminarMesa } = await import(`./modules/mesas.js${v}`);
+                window.abrirModalMesa = abrirModalMesa;
+                window.cerrarModalMesa = cerrarModalMesa;
+                window.editarMesa = editarMesa;
+                window.eliminarMesa = eliminarMesa;
+                inicializarMesas();
+                break;
+
+            case 'resto_menu':
+                const { inicializarRestoMenu } = await import(`./modules/resto_menu.js${v}`);
+                inicializarRestoMenu();
+                break;
+
+            case 'resto_mozo':
+                const { inicializarRestoMozo } = await import(`./modules/resto_mozo.js${v}`);
+                inicializarRestoMozo();
+                break;
+
+            case 'resto_cocina':
+                const { inicializarRestoCocina } = await import(`./modules/resto_cocina.js${v}`);
+                inicializarRestoCocina();
+                break;
+
+            case 'resto_caja':
+                const { inicializarRestoCaja } = await import(`./modules/resto_caja.js${v}`);
+                inicializarRestoCaja();
+                break;
+
+            case 'resto_stats':
+                const { inicializarRestoStats } = await import(`./modules/resto_stats.js${v}`);
+                inicializarRestoStats();
                 break;
             case 'admin_apps':
                 const { inicializarAdminApps } = await import(`./modules/admin_apps.js${v}`);
@@ -918,7 +1033,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
         const rutasPermitidas = appState.permissions[tipoAppActual] || [];
         const rutasComunes = appState.permissions['comun'] || ['configuracion', 'usuarios', 'negocios']; // Fallback comun
 
-        const esHomeDelNegocio = (pageName === 'home_retail' || pageName === 'home_consorcio' || pageName === 'home_distribuidora' || pageName === 'rentals_dashboard' || pageName === 'home_chofer');
+        const esHomeDelNegocio = (pageName === 'home_retail' || pageName === 'home_consorcio' || pageName === 'home_distribuidora' || pageName === 'rentals_dashboard' || pageName === 'home_chofer' || pageName === 'home_resto');
 
         // Si es superadmin tiene acceso a todo, pero igual respetamos la UI del negocio
         // Pero admin_apps fue excluido arriba. Choferes solo acceden a home_chofer.
@@ -936,7 +1051,8 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
             if (contentArea) {
                 const defaultHome = (tipoAppActual === 'consorcio' ? 'home_consorcio' :
                     tipoAppActual === 'rentals' ? 'rentals_dashboard' :
-                        tipoAppActual === 'distribuidora' ? 'home_distribuidora' : 'home_retail');
+                        tipoAppActual === 'distribuidora' ? 'home_distribuidora' : 
+                            tipoAppActual === 'resto' ? 'home_resto' : 'home_retail');
 
                 contentArea.innerHTML = `
                     <div class="container text-center" style="margin-top: 50px;">
@@ -988,7 +1104,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     loadPageCSS(pageName);
 
     const header = document.querySelector('header');
-    const isLoginPage = pageName === 'login';
+    const isLoginPage = pageName === 'login' || pageName === 'login_secure';
     if (header) header.style.display = isLoginPage ? 'none' : 'flex';
 
     let pageToFetch = `${pagePath}?v=${APP_VERSION}`;
@@ -1044,6 +1160,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
             if (appState.negocioActivoTipo === 'consorcio') defaultHomePage = 'home_consorcio';
             if (appState.negocioActivoTipo === 'rentals') defaultHomePage = 'rentals_dashboard';
             if (appState.negocioActivoTipo === 'distribuidora') defaultHomePage = 'home_distribuidora';
+            if (appState.negocioActivoTipo === 'resto') defaultHomePage = 'home_resto';
             if (appState.userRol === 'chofer') defaultHomePage = 'home_chofer';
 
             // SI LA PAGINA QUE FALLO FUE EL HOME PROPIO, NO REDIRIGIR A EL (Break loop)
@@ -1153,6 +1270,7 @@ document.body.addEventListener('change', async (e) => {
             localStorage.setItem('negocioActivoId', nuevoNegocioId);
             const negocioSeleccionado = appState.negociosCache.find(n => String(n.id) === nuevoNegocioId);
             appState.negocioActivoTipo = negocioSeleccionado ? negocioSeleccionado.tipo_app : 'retail';
+            localStorage.setItem('negocioActivoTipo', appState.negocioActivoTipo);
 
             // Re-fetch permisos si es un rol con permisos dinámicos (Vendedor)
             const user = getCurrentUser();
@@ -1166,6 +1284,7 @@ document.body.addEventListener('change', async (e) => {
             if (appState.negocioActivoTipo === 'consorcio') homePage = 'home_consorcio';
             if (appState.negocioActivoTipo === 'rentals') homePage = 'rentals_dashboard';
             if (appState.negocioActivoTipo === 'distribuidora') homePage = 'home_distribuidora';
+            if (appState.negocioActivoTipo === 'resto') homePage = 'home_resto';
 
             const homePageUrl = PATH_MAP[homePage] || `static/${homePage}.html`;
             loadContent(null, homePageUrl);
@@ -1185,6 +1304,7 @@ window.addEventListener('popstate', (e) => {
     if (appState.negocioActivoTipo === 'consorcio') defaultHomePage = 'home_consorcio';
     if (appState.negocioActivoTipo === 'rentals') defaultHomePage = 'rentals_dashboard';
     if (appState.negocioActivoTipo === 'distribuidora') defaultHomePage = 'home_distribuidora';
+    if (appState.negocioActivoTipo === 'resto') defaultHomePage = 'home_resto';
     if (appState.userRol === 'chofer') defaultHomePage = 'home_chofer';
 
     const pageToLoad = cleanHash || defaultHomePage;
@@ -1226,6 +1346,21 @@ actualizarUIAutenticacion();
 // --- SERVICE WORKER ---
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register(`/service-worker.js${v}`).catch(() => { });
+        navigator.serviceWorker.register(`/service-worker.js${v}`).then(reg => {
+            // ✨ Escuchar si hay una actualización de SW
+            reg.onupdatefound = () => {
+                const newWorker = reg.installing;
+                newWorker.onstatechange = () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        // Nuevo SW instalado y listo. Recargar.
+                        console.log("🚀 Nueva versión detectada. Recargando...");
+                        if (window.mostrarNotificacion) {
+                            window.mostrarNotificacion("Actualizando sistema...", "info");
+                        }
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                };
+            };
+        }).catch(() => { });
     });
 }

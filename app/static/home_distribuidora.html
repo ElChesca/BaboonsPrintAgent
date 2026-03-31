@@ -32,6 +32,11 @@
             <span class="app-name">Cartera de Clientes</span>
         </div>
 
+        <div class="app-card" onclick="loadContent(event, 'static/cobro_ctacte.html', this)">
+            <img src="/static/img/icons/ctacte.png" alt="Cobranza" class="app-icon" style="filter: hue-rotate(120deg);">
+            <span class="app-name">Cobranza Cta Cte</span>
+        </div>
+
         <div class="app-card" onclick="loadContent(event, 'static/inventario.html', this)">
             <img src="/static/img/icons/inventario.png" alt="Inventario" class="app-icon">
             <span class="app-name">Inventario</span>
@@ -50,6 +55,12 @@
         <div class="app-card" onclick="loadContent(event, 'static/gastos.html', this)">
             <img src="/static/img/icons/gastos.png" alt="Gastos Operativos" class="app-icon">
             <span class="app-name">Gastos Operativos</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/bancos.html', this)">
+            <img src="/static/img/icons/bancos.png" alt="Bancos y Cheques" class="app-icon"
+                onerror="this.src='/static/img/icons/payments.png'">
+            <span class="app-name">🏦 Bancos / Cheques</span>
         </div>
 
         <div class="app-card" onclick="loadContent(event, 'static/ingresos.html', this)">
@@ -108,14 +119,14 @@
         </div>
 
         <div class="app-card" onclick="loadContent(event, 'static/empleados.html', this)">
-            <img src="/static/img/icons/usuarios.png" alt="Empleados" class="app-icon"
-                onerror="this.src='/static/img/icons/configuracion.png'">
+            <img src="/static/img/icons/empleados.png" alt="Empleados" class="app-icon"
+                onerror="this.src='/static/img/icons/empleados.png'">
             <span class="app-name">Gestión Empleados</span>
         </div>
 
         <div class="app-card" onclick="loadContent(event, 'static/vendedores.html', this)">
-            <img src="/static/img/icons/usuarios.png" alt="Vendedores" class="app-icon"
-                onerror="this.src='/static/img/icons/configuracion.png'">
+            <img src="/static/img/icons/vendedores.png" alt="Vendedores" class="app-icon"
+                onerror="this.src='/static/img/icons/vendedores.png'">
             <span class="app-name">Gestión Vendedores</span>
         </div>
 
@@ -146,13 +157,25 @@
         </div>
 
         <div class="app-card" onclick="loadContent(event, 'static/unidades_medida.html', this)">
-            <img src="/static/img/icons/unidadesdemedida.png" alt="Unidades de Medida" class="app-icon">
+            <img src="/static/img/icons/medicion.png" alt="Unidades de Medida" class="app-icon">
             <span class="app-name">Unidades de Medida</span>
         </div>
 
+        <div class="app-card admin-only" onclick="loadContent(event, 'static/comisiones_admin.html', this)">
+            <img src="/static/img/icons/comisiones.png" alt="Comisiones" class="app-icon"
+                onerror="this.src='/static/img/icons/comisiones.png'">
+            <span class="app-name">Liquidación Comisiones</span>
+        </div>
+
         <div class="app-card superadmin-only" onclick="loadContent(event, 'static/negocios.html', this)">
-            <img src="/static/img/icons/negocios.png" alt="Negocios" class="app-icon">
+            <img src="/static/img/icons/negocios.png" alt="Negocios" class="app-icon"
+                onerror="this.src='/static/img/icons/configuracion.png'">
             <span class="app-name">Negocios</span>
+        </div>
+        <div class="app-card superadmin-only" onclick="loadContent(event, 'static/admin_mp_dashboard.html', this)" style="border: 1px solid rgba(13, 110, 253, 0.3);">
+            <img src="/static/img/icons/payments.png" alt="Reporte MP" class="app-icon"
+                onerror="this.src='/static/img/icons/configuracion.png'">
+            <span class="app-name text-primary fw-bold">MP: Reportes</span>
         </div>
     </div>
 </div>

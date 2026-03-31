@@ -1,0 +1,130 @@
+    <div class="page-header d-flex justify-content-between align-items-center mb-3">
+        <h2 style="color: var(--primary-color); margin: 0;">
+            <i class="fas fa-table me-2"></i> Gestión de Mesas
+        </h2>
+        <div class="d-flex gap-2">
+            <button id="btn-nueva-mesa" type="button" class="btn btn-primary shadow-sm">
+                <i class="fas fa-plus me-1"></i> Nueva Mesa
+            </button>
+        </div>
+    </div>
+
+    <!-- Barra de Acciones Masivas (Premium Baboons) -->
+    <div id="bulk-actions-bar-mesas" class="baboons-bulk-bar">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <div class="selected-count-badge" id="selected-mesas-count">0</div>
+                <span class="fw-bold text-primary">Mesas Seleccionadas</span>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-light border" onclick="asignarSectorMasivo()">
+                    <i class="fas fa-layer-group text-primary"></i> Asignar Sector
+                </button>
+                <button class="btn btn-sm btn-light border" onclick="asignarMozoMasivo()">
+                    <i class="fas fa-user-tie text-primary"></i> Asignar Mozo
+                </button>
+                <button class="btn btn-sm btn-link text-muted text-decoration-none" onclick="deseleccionarTodasMesas()">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm" style="border-radius: 12px; border: none; overflow: hidden;">
+        <div class="card-body p-0">
+            <div class="tabla-contenedor">
+                <table class="tabla-bonita mb-0" id="tabla-mesas">
+                    <thead style="background: #f8f9fa;">
+                        <tr>
+                            <th width="40" style="padding-left: 20px;">
+                                <input type="checkbox" id="select-all-mesas" class="form-check-input">
+                            </th>
+                            <th># Número</th>
+                            <th>Nombre / Alias</th>
+                            <th>Capacidad</th>
+                            <th>Sector / Zona</th>
+                            <th>Mozo Asignado</th>
+                            <th>Estado Actual</th>
+                            <th style="text-align: right; padding-right: 25px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Se llena dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="loading-mesas" style="display: none; text-align: center; padding: 40px;">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted">Cargando mesas...</p>
+            </div>
+            <div id="no-mesas" style="display: none; text-align: center; padding: 60px;">
+                <i class="fas fa-search-minus fa-3x text-muted mb-3"></i>
+                <p class="text-muted fs-5">No hay mesas configuradas aún.</p>
+                <button id="btn-nueva-mesa-empty" type="button" class="btn btn-outline-primary btn-sm">Crear mi primera
+                    mesa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Crear/Editar Mesa -->
+<div id="modal-mesa" class="premium-modal-overlay">
+    <div class="premium-modal-content" style="max-width: 500px; width: 95%;">
+        <div class="premium-modal-header">
+            <h4 class="mb-0 fw-bold" id="modal-mesa-titulo">Nueva Mesa</h4>
+            <button class="btn-close-modal" id="btn-cerrar-modal-mesa" type="button">×</button>
+        </div>
+
+        <form id="form-mesa">
+            <div class="premium-modal-body">
+                <input type="hidden" id="mesa-id">
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="mesa-numero" class="form-label fw-bold">Número de Mesa:</label>
+                            <input type="number" id="mesa-numero" class="form-control" required placeholder="Ej: 1">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="mesa-capacidad" class="form-label fw-bold">Capacidad (Pax):</label>
+                            <input type="number" id="mesa-capacidad" class="form-control" value="2" min="1" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="mesa-nombre" class="form-label fw-bold">Nombre / Alias (Opcional):</label>
+                    <input type="text" id="mesa-nombre" class="form-control" placeholder="Ej: Mesa ventana">
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="mesa-zona" class="form-label fw-bold">Sector / Zona:</label>
+                    <select id="mesa-zona" class="form-select" required style="height: 45px;">
+                        <option value="Salon">Salón Principal</option>
+                        <option value="Terraza">Terraza / Exterior</option>
+                        <option value="VIP">Sector VIP</option>
+                        <option value="Barra">Barra</option>
+                        <option value="Patio">Patio</option>
+                        <option value="Entrepiso">Entrepiso</option>
+                    </select>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="mesa-mozo-id" class="form-label fw-bold">Mozo Responsable:</label>
+                    <select id="mesa-mozo-id" class="form-select" style="height: 45px;">
+                        <option value="">Sin mozo pre-asignado</option>
+                        <!-- Se llena vía JS -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="premium-modal-footer">
+                <button type="button" id="btn-cancelar-mesa" class="btn btn-secondary"
+                    style="border: none; background: #eee; color: #555;">Cancelar</button>
+                <button type="submit" class="btn btn-primary px-4" style="border-radius: 8px;">Guardar Mesa</button>
+            </div>
+        </form>
+    </div>
+</div>

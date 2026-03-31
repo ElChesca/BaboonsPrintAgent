@@ -3,18 +3,52 @@
     <form id="form-configuracion">
 
         <div class="config-item">
-            <label for="config-vender-stock-negativo">Permitir vender con stock negativo:</label>
+            <label for="config-vender-stock-negativo">Permitir venta directa con stock insuficiente:</label>
             <select id="config-vender-stock-negativo" data-clave="vender_stock_negativo">
                 <option value="No">No (Recomendado)</option>
                 <option value="Si">Sí</option>
             </select>
-            <small>Permite que el stock de un producto se vuelva negativo al vender.</small>
+            <small>Aplica para ventas directas por mostrador.</small>
         </div>
 
         <div class="config-item">
-            <label for="config-cliente-defecto">Cliente por defecto en ventas:</label>
-            <select id="config-cliente-defecto" data-clave="cliente_defecto_id">
+            <label for="config-pedidos-stock-negativo">Permitir pedidos con stock insuficiente (Salida):</label>
+            <select id="config-pedidos-stock-negativo" data-clave="pedidos_stock_negativo">
+                <option value="No">No (Recomendado)</option>
+                <option value="Si">Sí</option>
             </select>
+            <small>Aplica para validación al preparar y cargar camiones.</small>
+        </div>
+
+        <div class="config-item">
+            <label for="config-bloquear-pedido-sin-stock">Bloquear creación de pedidos si no hay stock
+                (Captura):</label>
+            <select id="config-bloquear-pedido-sin-stock" data-clave="bloquear_pedido_sin_stock">
+                <option value="No">No (Preventa)</option>
+                <option value="Si">Sí (Venta Directa)</option>
+            </select>
+            <small>Si es 'Sí', el sistema no permitirá tomar un pedido si el producto no tiene stock.</small>
+        </div>
+
+        <div class="config-item">
+            <label for="config-vendedor-cobra">Vendedor puede realizar cobros:</label>
+            <select id="config-vendedor-cobra" data-clave="vendedor_cobra">
+                <option value="Si">Sí (Por defecto)</option>
+                <option value="No">No (Solo toma pedidos)</option>
+            </select>
+            <small>Si es 'No', en la App de Vendedores solo se podrán ver detalles y tomar pedidos, no registrar
+                pagos.</small>
+        </div>
+
+        <div class="config-item">
+            <label for="config-cliente-defecto-nombre">Cliente por defecto en ventas:</label>
+            <div class="d-flex gap-2">
+                <input type="text" id="config-cliente-defecto-nombre" class="form-control" readonly placeholder="Consumidor Final (General)" style="flex: 1;">
+                <input type="hidden" id="config-cliente-defecto" data-clave="cliente_defecto_id">
+                <button type="button" id="btn-buscar-cliente-defecto" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-search"></i> Buscar
+                </button>
+            </div>
             <small>Cliente que se seleccionará automáticamente al iniciar una nueva venta.</small>
         </div>
         <div class="config-item">
@@ -50,10 +84,22 @@
         </div>
 
         <div class="config-item">
-            <label for="config-mp-device-id">Device ID (Serial):</label>
-            <input type="text" id="config-mp-device-id" data-clave="mp_device_id"
-                placeholder="ID Serial del dispositivo">
-            <small>El número de serie único de tu dispositivo Point.</small>
+            <label for="config-mp-device-id">Device ID (Serial/ID):</label>
+            <div class="d-flex flex-wrap gap-2">
+                <input type="text" id="config-mp-device-id" data-clave="mp_device_id"
+                    placeholder="S/N o ID de Terminal" class="form-control" style="flex: 1; min-width: 200px;">
+                <button type="button" id="btn-search-mp" class="btn btn-outline-info btn-sm">
+                    <i class="fas fa-search me-1"></i> Buscar Points
+                </button>
+                <button type="button" id="btn-test-mp" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-plug me-1"></i> Probar Conexión
+                </button>
+                <button type="button" id="btn-cancel-mp" class="btn btn-outline-warning btn-sm ml-2" title="Cancelar Intento Pendiente"><i class="fas fa-times-circle"></i> Cancelar</button>
+                <button type="button" id="btn-clear-mp" class="btn btn-outline-danger btn-sm">
+                    <i class="fas fa-trash-alt me-1"></i> Limpiar
+                </button>
+            </div>
+            <small>Usa el botón "Buscar" para obtener el ID correcto de tu terminal si es un Point Smart/Plus.</small>
         </div>
 
         <div class="form-actions">

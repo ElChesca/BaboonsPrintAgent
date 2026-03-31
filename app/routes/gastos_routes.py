@@ -155,41 +155,134 @@ def update_categoria_gasto(current_user, negocio_id, id):
 @token_required
 def get_gastos(current_user, negocio_id):
     """
-    Obtiene la lista de gastos (join con categorías) para un negocio.
+    Obtiene la lista de gastos para un negocio con paginación y filtros de fecha.
     """
-    # ✨ --- VALIDACIÓN DE PERMISO --- ✨
     if not check_user_negocio_permission(current_user, negocio_id):
         return jsonify({'error': 'No tiene permisos sobre este negocio'}), 403
-    # --- FIN VALIDACIÓN ---
+    
+    limit = request.args.get('limit')
+    offset = request.args.get('offset')
+    fecha_desde = request.args.get('desde')
+    fecha_hasta = request.args.get('hasta')
     
     db = get_db()
     try:
-        db.execute(
-            """
+        where_parts = ["g.negocio_id = %s"]
+        params = [negocio_id]
+        
+        if fecha_desde:
+            where_parts.append("g.fecha >= %s")
+            params.append(fecha_desde)
+        if fecha_hasta:
+            where_parts.append("g.fecha <= %s")
+            params.append(f"{fecha_hasta} 23:59:59")
+
+        where_clause = "WHERE " + " AND ".join(where_parts)
+
+        # 1. Conteo total (Filtrado)
+        db.execute(f"SELECT COUNT(*) as total FROM gastos_operativos g {where_clause}", tuple(params))
+        total_count = db.fetchone()['total']
+
+        # 2. Query de datos paginados
+        query = f"""
             SELECT 
                 g.id, g.fecha, g.monto, g.descripcion, g.metodo_pago, g.estado,
                 c.descripcion AS categoria,
                 g.categoria_gasto_id
             FROM gastos_operativos g
             LEFT JOIN categorias_gasto c ON g.categoria_gasto_id = c.id
-            WHERE g.negocio_id = %s
+            {where_clause}
             ORDER BY g.fecha DESC
-            LIMIT 100
-            """, 
-            (negocio_id,)
-        )
-        gastos_rows = [dict(row) for row in db.fetchall()]
-        gastos_list = []
-        for row in gastos_rows:
-            row_dict = dict(row)
-            if isinstance(row_dict['monto'],Decimal):
-                row_dict['monto'] = float(row_dict['monto'])
-            gastos_list.append(row_dict)
+        """
         
-        return jsonify(gastos_list)
+        if limit and offset:
+            query += " LIMIT %s OFFSET %s"
+            params.extend([int(limit), int(offset)])
+        else:
+            query += " LIMIT 100"
+
+        db.execute(query, tuple(params))
+        rows = db.fetchall()
+        
+        gastos_list = []
+        for r in rows:
+            d = dict(r)
+            if isinstance(d['monto'], Decimal):
+                d['monto'] = float(d['monto'])
+            gastos_list.append(d)
+        
+        return jsonify({
+            'gastos': gastos_list,
+            'total': total_count
+        })
     
     except Exception as e:
         print(f"!!! DATABASE ERROR in get_gastos: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/gastos/stats', methods=['GET'])
+@token_required
+def get_gastos_stats(current_user, negocio_id):
+    """
+    Retorna datos para los gráficos de gastos filtrados por fecha.
+    """
+    if not check_user_negocio_permission(current_user, negocio_id):
+        return jsonify({'error': 'No tiene permisos sobre este negocio'}), 403
+
+    fecha_desde = request.args.get('desde')
+    fecha_hasta = request.args.get('hasta')
+    
+    db = get_db()
+    try:
+        where_parts = ["g.negocio_id = %s", "g.estado != 'Anulado'"]
+        params = [negocio_id]
+        
+        if fecha_desde:
+            where_parts.append("g.fecha >= %s")
+            params.append(fecha_desde)
+        if fecha_hasta:
+            where_parts.append("g.fecha <= %s")
+            params.append(f"{fecha_hasta} 23:59:59")
+        
+        if not fecha_desde and not fecha_hasta:
+             where_parts.append("g.fecha >= date_trunc('month', current_date)")
+
+        where_clause = "WHERE " + " AND ".join(where_parts)
+
+        db.execute(f"""
+            SELECT c.descripcion as label, SUM(g.monto) as value
+            FROM gastos_operativos g
+            JOIN categorias_gasto c ON g.categoria_gasto_id = c.id
+            {where_clause}
+            GROUP BY c.descripcion
+            ORDER BY value DESC
+        """, tuple(params))
+        por_categoria = [dict(r) for r in db.fetchall()]
+        for item in por_categoria: item['value'] = float(item['value'])
+
+        fmt = 'YYYY-MM'
+        if fecha_desde and fecha_hasta:
+            try:
+                d_diff = (datetime.datetime.strptime(fecha_hasta, '%Y-%m-%d') - datetime.datetime.strptime(fecha_desde, '%Y-%m-%d')).days
+                if d_diff <= 45: fmt = 'YYYY-MM-DD'
+            except: pass
+
+        db.execute(f"""
+            SELECT to_char(g.fecha, '{fmt}') as mes, SUM(g.monto) as total
+            FROM gastos_operativos g
+            {where_clause}
+            GROUP BY mes ORDER BY mes ASC
+        """, tuple(params))
+        evolucion = [dict(r) for r in db.fetchall()]
+        for item in evolucion: item['total'] = float(item['total'])
+        
+        return jsonify({
+            'por_categoria': por_categoria,
+            'evolucion': evolucion,
+            'agrupacion': 'dia' if fmt == 'YYYY-MM-DD' else 'mes'
+        })
+    except Exception as e:
+        print(f"!!! ERROR: {e}")
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/negocios/<int:negocio_id>/gastos', methods=['POST'])

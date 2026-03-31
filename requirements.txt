@@ -70,3 +70,5 @@ xyzservices==2025.4.0
 python-dotenv>=1.0.0
 Flask-Mail==0.10.0
 APScheduler>=3.10.0
+mkdocs-material>=9.0.0
+mkdocs-awesome-pages-plugin>=2.9.0

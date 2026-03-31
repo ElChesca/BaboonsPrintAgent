@@ -11,6 +11,10 @@ let modalCtaCte, closeModalCtaCte, tituloModalCtaCte, proveedorIdInputCtaCte,
     fechaDesdeInputCtaCte, fechaHastaInputCtaCte, btnGenerarCtaCte,
     reporteContainerCtaCte, btnImprimirCtaCte, btnExportarCtaCte;
 
+let modalComprobante, closeModalComprobante, formComprobante, btnCancelarComprobante,
+    compProveedorId, compFecha, compTipo, compPrefijo, compNumero, compTotal, compReferencia,
+    inputPdfImport, btnParsePdf;
+
 // --- Helpers ---
 const formatCurrency = (value, showSign = true) => {
     const numberValue = Number(value);
@@ -27,7 +31,7 @@ const formatDate = (dateString, includeTime = false) => {
     try {
         const date = new Date(dateString);
         const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
-        if(includeTime) {
+        if (includeTime) {
             options.hour = '2-digit';
             options.minute = '2-digit';
         }
@@ -35,7 +39,7 @@ const formatDate = (dateString, includeTime = false) => {
     } catch (e) {
         console.warn("Error formateando fecha:", dateString, e);
         return dateString;
-     }
+    }
 };
 
 // --- Carga y Renderizado Tabla Principal ---
@@ -72,11 +76,14 @@ function renderizarTabla() {
                 <td>${p.email || '-'}</td>
                 <td>${formatCurrency(p.saldo_cta_cte)}</td>
                 <td>
-                    <button class="btn btn-warning btn-sm btn-cta-cte" data-id="${p.id}" title="Ver Cuenta Corriente">Cta. Cte.</button>
-                    <button class="btn btn-info btn-sm btn-ver-ingresos" data-id="${p.id}" title="Ver Ingresos">Ingresos</button>
-                    <button class="btn btn-success btn-sm btn-ver-pagos" data-id="${p.id}" title="Ver Pagos">Pagos</button>
-                    <button class="btn btn-secondary btn-sm btn-edit" data-id="${p.id}" title="Editar">Editar</button>
-                    <button class="btn btn-danger btn-sm btn-delete" data-id="${p.id}" title="Borrar">Borrar</button>
+                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                        <button class="btn btn-warning btn-sm btn-cta-cte" data-id="${p.id}" title="Ver Cuenta Corriente">Cta. Cte.</button>
+                        <button class="btn btn-success btn-sm btn-registrar-pago" data-id="${p.id}" title="Registrar Pago"><i class="fas fa-hand-holding-usd"></i> Pagar</button>
+                        <button class="btn btn-dark btn-sm btn-cargar-comprobante" data-id="${p.id}" title="Cargar Comprobante">Comp.</button>
+                        <button class="btn btn-info btn-sm btn-ver-ingresos" data-id="${p.id}" title="Ver Ingresos">Ingresos</button>
+                        <button class="btn btn-secondary btn-sm btn-edit" data-id="${p.id}" title="Editar"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-danger btn-sm btn-delete" data-id="${p.id}" title="Borrar"><i class="fas fa-trash"></i></button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -86,10 +93,10 @@ function renderizarTabla() {
 // --- Lógica Formulario Proveedor ---
 function resetFormulario() {
     if (!form) return;
-    if(tituloForm) tituloForm.textContent = 'Añadir Nuevo Proveedor';
+    if (tituloForm) tituloForm.textContent = 'Añadir Nuevo Proveedor';
     form.reset();
-    if(idInput) idInput.value = '';
-    if(btnCancelar) btnCancelar.style.display = 'none';
+    if (idInput) idInput.value = '';
+    if (btnCancelar) btnCancelar.style.display = 'none';
 }
 async function guardarProveedor(e) {
     e.preventDefault();
@@ -109,7 +116,7 @@ async function guardarProveedor(e) {
     const submitButton = form.querySelector('button[type="submit"]');
     if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Guardando...'; }
     try {
-        await fetchData(url, { method, body: JSON.stringify(data), headers: {'Content-Type': 'application/json'} });
+        await fetchData(url, { method, body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } });
         mostrarNotificacion(`Proveedor ${esEdicion ? 'actualizado' : 'creado'}.`, 'success');
         resetFormulario();
         await cargarProveedores();
@@ -161,15 +168,15 @@ function abrirModalCtaCte(proveedorId) {
     const hoy = new Date();
     const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     try {
-      fechaDesdeInputCtaCte.valueAsDate = inicioMes;
-      fechaHastaInputCtaCte.valueAsDate = hoy;
-    } catch(e) {
-      console.error("Error setting default dates:", e);
-      const yyyy = hoy.getFullYear();
-      const mm = String(hoy.getMonth() + 1).padStart(2, '0');
-      const dd = String(hoy.getDate()).padStart(2, '0');
-      fechaDesdeInputCtaCte.value = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
-      fechaHastaInputCtaCte.value = `${yyyy}-${mm}-${dd}`;
+        fechaDesdeInputCtaCte.valueAsDate = inicioMes;
+        fechaHastaInputCtaCte.valueAsDate = hoy;
+    } catch (e) {
+        console.error("Error setting default dates:", e);
+        const yyyy = hoy.getFullYear();
+        const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+        const dd = String(hoy.getDate()).padStart(2, '0');
+        fechaDesdeInputCtaCte.value = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+        fechaHastaInputCtaCte.value = `${yyyy}-${mm}-${dd}`;
     }
     reporteContainerCtaCte.innerHTML = '<p style="text-align: center;">Seleccione un rango de fechas y presione \'Generar\'.</p>';
     btnImprimirCtaCte.disabled = true;
@@ -178,7 +185,7 @@ function abrirModalCtaCte(proveedorId) {
 }
 
 async function generarReporteCtaCte() {
-     if (!proveedorIdInputCtaCte || !fechaDesdeInputCtaCte || !fechaHastaInputCtaCte || !reporteContainerCtaCte || !btnGenerarCtaCte || !btnImprimirCtaCte || !btnExportarCtaCte) return;
+    if (!proveedorIdInputCtaCte || !fechaDesdeInputCtaCte || !fechaHastaInputCtaCte || !reporteContainerCtaCte || !btnGenerarCtaCte || !btnImprimirCtaCte || !btnExportarCtaCte) return;
     const proveedorId = proveedorIdInputCtaCte.value;
     const fechaDesde = fechaDesdeInputCtaCte.value;
     const fechaHasta = fechaHastaInputCtaCte.value;
@@ -238,7 +245,7 @@ function imprimirReporteCtaCte() {
     printWindow.document.write('</body></html>');
     printWindow.document.close();
     printWindow.focus();
-    printWindow.onload = function() { printWindow.print(); };
+    printWindow.onload = function () { printWindow.print(); };
 }
 
 function exportarReporteCtaCteExcel() {
@@ -259,6 +266,384 @@ function exportarReporteCtaCteExcel() {
     }
 }
 
+
+// --- Lógica Carga de Comprobantes ---
+function abrirModalComprobante(proveedorId) {
+    if (!modalComprobante || !compProveedorId || !compFecha) return;
+    compProveedorId.value = proveedorId;
+    compFecha.valueAsDate = new Date();
+    formComprobante.reset();
+    compProveedorId.value = proveedorId; // Reset borra el hidden id
+    compFecha.valueAsDate = new Date();
+    modalComprobante.style.display = 'flex';
+}
+
+function cerrarModalComprobante() {
+    if (modalComprobante) modalComprobante.style.display = 'none';
+}
+
+async function guardarComprobante(e) {
+    e.preventDefault();
+    if (!appState.negocioActivoId) return mostrarNotificacion("No hay negocio activo.", "error");
+
+    const data = {
+        fecha: compFecha.value,
+        factura_tipo: compTipo.value,
+        factura_prefijo: compPrefijo.value,
+        factura_numero: compNumero.value,
+        total: parseFloat(compTotal.value),
+        referencia: compReferencia.value.trim()
+    };
+
+    if (isNaN(data.total) || data.total <= 0) {
+        return mostrarNotificacion("Ingrese un monto válido.", "warning");
+    }
+
+    const proveedorId = compProveedorId.value;
+    const url = `/api/negocios/${appState.negocioActivoId}/proveedores/${proveedorId}/comprobante`;
+
+    try {
+        const btn = formComprobante.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = 'Guardando...';
+
+        await fetchData(url, {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        mostrarNotificacion("Comprobante registrado con éxito.", "success");
+        cerrarModalComprobante();
+        await cargarProveedores(); // Refrescar para ver nuevo saldo
+    } catch (error) {
+        mostrarNotificacion("Error al registrar comprobante: " + error.message, "error");
+    } finally {
+        const btn = formComprobante.querySelector('button[type="submit"]');
+        btn.disabled = false;
+        btn.textContent = 'Registrar en Cta. Cte.';
+    }
+}
+
+// --- Lógica de Importación Inteligente (PDF) ---
+async function handlePdfImport() {
+    const file = inputPdfImport.files[0];
+    if (!file) return mostrarNotificacion("Seleccione un archivo PDF primero.", "warning");
+
+    try {
+        btnParsePdf.disabled = true;
+        btnParsePdf.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = "";
+
+        for (let i = 1; i <= Math.min(pdf.numPages, 2); i++) { // Revisamos solo las primeras 2 páginas
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            fullText += textContent.items.map(item => item.str).join(" ") + "\n";
+        }
+
+        console.log("Texto extraído del PDF:", fullText);
+        const data = extractVoucherData(fullText);
+
+        if (data.fecha) {
+            // Convertir dd/mm/aaaa a aaaa-mm-dd
+            const parts = data.fecha.split('/');
+            compFecha.value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+        if (data.tipo) compTipo.value = data.tipo;
+        if (data.prefijo) compPrefijo.value = data.prefijo.padStart(4, '0');
+        if (data.numero) compNumero.value = data.numero.padStart(8, '0');
+        if (data.total) compTotal.value = data.total;
+
+        mostrarNotificacion("Datos extraídos con éxito.", "success");
+    } catch (error) {
+        console.error("Error al procesar PDF:", error);
+        mostrarNotificacion("No se pudo leer el PDF. Asegúrese de que sea una Factura AFIP original.", "error");
+    } finally {
+        btnParsePdf.disabled = false;
+        btnParsePdf.innerHTML = '<i class="fas fa-search"></i> Escanear';
+    }
+}
+
+// --- Lógica de Registro de Pago (Mixto) ---
+let modalPago, formPago, btnAgregarMetodo, metodosContainer, tplPagoFila,
+    facturasContainer, totalSelPago, totalEspPago, totalIngPago, difPago, datePago;
+
+let facturasPendientesArr = [];
+let chequesCarteraArr = [];
+
+async function abrirModalPagoProveedor(proveedorId) {
+    if (!modalPago) return;
+    const fila = document.querySelector(`#tabla-proveedores tbody tr[data-proveedor-id="${proveedorId}"]`);
+    const nombre = fila ? fila.dataset.proveedorNombre : `ID ${proveedorId}`;
+    
+    document.getElementById('pago-proveedor-id-hidden').value = proveedorId;
+    modalPago.querySelector('h3').innerHTML = `<i class="fas fa-hand-holding-usd"></i> Registrar Pago: ${nombre}`;
+    
+    facturasContainer.innerHTML = '<p style="text-align: center;">Cargando facturas...</p>';
+    metodosContainer.innerHTML = '';
+    datePago.valueAsDate = new Date();
+    totalSelPago.textContent = '$ 0.00';
+    actualizarTotalesPago();
+
+    modalPago.style.display = 'flex';
+
+    try {
+        // Cargar facturas pendientes y cheques en cartera en paralelo
+        const [facturas, cheques] = await Promise.all([
+            fetchData(`/api/negocios/${appState.negocioActivoId}/proveedores/${proveedorId}/facturas-pendientes`),
+            fetchData(`/api/negocios/${appState.negocioActivoId}/cheques?tipo=tercero&estado=en_cartera`)
+        ]);
+        
+        facturasPendientesArr = facturas || [];
+        chequesCarteraArr = cheques || [];
+        
+        renderizarFacturasPendientes();
+        agregarFilaMetodoPago(); // Agregar primera fila por defecto (Efectivo)
+    } catch (error) {
+        console.error("Error al cargar datos de pago:", error);
+        mostrarNotificacion("No se pudieron cargar las facturas o cheques.", "error");
+    }
+}
+
+function renderizarFacturasPendientes() {
+    if (facturasPendientesArr.length === 0) {
+        facturasContainer.innerHTML = '<p style="text-align: center; color: #666; padding: 10px;">No hay facturas pendientes para este proveedor.</p>';
+        return;
+    }
+
+    let html = '<table class="table-sm" style="width: 100%; font-size: 0.85em;">';
+    html += '<thead><tr><th></th><th>Factura</th><th>Vence</th><th>Saldo</th><th style="width: 80px;">A Pagar</th></tr></thead><tbody>';
+    facturasPendientesArr.forEach(f => {
+        html += `
+            <tr>
+                <td><input type="checkbox" class="chk-factura" data-id="${f.id}" data-saldo="${f.saldo_pendiente}"></td>
+                <td>${f.factura_type} ${f.factura_prefijo}-${f.factura_numero}</td>
+                <td style="white-space: nowrap;">${formatDate(f.fecha)}</td>
+                <td style="text-align: right;">${formatCurrency(f.saldo_pendiente)}</td>
+                <td>
+                    <input type="number" class="input-aplicar" data-id="${f.id}" step="0.01" min="0" max="${f.saldo_pendiente}" 
+                           value="${f.saldo_pendiente}" style="width: 100%; padding: 2px; text-align: right;" disabled>
+                </td>
+            </tr>
+        `;
+    });
+    html += '</tbody></table>';
+    facturasContainer.innerHTML = html;
+
+    // Listeners para los checkboxes e inputs
+    facturasContainer.querySelectorAll('.chk-factura').forEach(chk => {
+        chk.addEventListener('change', (e) => {
+            const row = e.target.closest('tr');
+            const input = row.querySelector('.input-aplicar');
+            input.disabled = !e.target.checked;
+            if (e.target.checked) input.value = e.target.dataset.saldo;
+            actualizarTotalesPago();
+        });
+    });
+
+    facturasContainer.querySelectorAll('.input-aplicar').forEach(input => {
+        input.addEventListener('input', () => {
+             const max = parseFloat(input.getAttribute('max'));
+             let val = parseFloat(input.value) || 0;
+             if (val > max) input.value = max;
+             if (val < 0) input.value = 0;
+             actualizarTotalesPago();
+        });
+    });
+}
+
+function agregarFilaMetodoPago() {
+    const clone = tplPagoFila.content.cloneNode(true);
+    const row = clone.querySelector('.pago-metodo-fila');
+    const select = row.querySelector('.select-metodo');
+    const input = row.querySelector('.input-monto');
+    const btnRemover = row.querySelector('.btn-remover-metodo');
+    const extraFields = row.querySelector('.extra-fields');
+
+    select.addEventListener('change', () => handleMetodoChange(select, extraFields));
+    input.addEventListener('input', actualizarTotalesPago);
+    btnRemover.addEventListener('click', () => {
+        row.remove();
+        actualizarTotalesPago();
+    });
+
+    metodosContainer.appendChild(clone);
+    actualizarTotalesPago();
+}
+
+function handleMetodoChange(select, extraContainer) {
+    const metodo = select.value;
+    extraContainer.innerHTML = '';
+    extraContainer.style.display = 'grid';
+    extraContainer.style.gridTemplateColumns = '1fr 1fr';
+    extraContainer.style.gap = '10px';
+
+    if (metodo === 'Transferencia') {
+        extraContainer.innerHTML = `
+            <input type="text" class="form-control input-banco" placeholder="Banco" required>
+            <input type="text" class="form-control input-ref" placeholder="Nro Transacción" required>
+        `;
+    } else if (metodo === 'Cheque Tercero') {
+        let options = '<option value="">-- Seleccionar Cheque --</option>';
+        chequesCarteraArr.forEach(c => {
+            options += `<option value="${c.id}" data-monto="${c.monto}">${c.banco} #${c.numero_cheque} (${formatCurrency(c.monto)})</option>`;
+        });
+        extraContainer.innerHTML = `
+            <select class="form-control select-cheque-id" style="grid-column: 1 / span 2;" required>${options}</select>
+        `;
+        const selCheque = extraContainer.querySelector('.select-cheque-id');
+        selCheque.addEventListener('change', () => {
+            const opt = selCheque.selectedOptions[0];
+            const monto = opt?.dataset.monto || 0;
+            const row = select.closest('.pago-metodo-fila');
+            row.querySelector('.input-monto').value = monto;
+            actualizarTotalesPago();
+        });
+    } else if (metodo === 'Cheque Propio') {
+        extraContainer.innerHTML = `
+            <input type="text" class="form-control input-banco" placeholder="Banco" required>
+            <input type="text" class="form-control input-ref" placeholder="Nro Cheque" required>
+            <div style="grid-column: 1 / span 2;">
+                <label style="font-size: 0.8em; color: #666;">Vencimiento Cheque:</label>
+                <input type="date" class="form-control input-venc-cheque" required>
+            </div>
+        `;
+    } else {
+        extraContainer.style.display = 'none';
+    }
+}
+
+function actualizarTotalesPago() {
+    // 1. Total seleccionado de facturas
+    let totalSel = 0;
+    if (facturasContainer) {
+        facturasContainer.querySelectorAll('.chk-factura:checked').forEach(chk => {
+            const row = chk.closest('tr');
+            const input = row.querySelector('.input-aplicar');
+            totalSel += parseFloat(input.value || 0);
+        });
+    }
+    totalSelPago.textContent = formatCurrency(totalSel);
+    totalEspPago.textContent = formatCurrency(totalSel);
+
+    // 2. Total ingresado en métodos de pago
+    let totalIng = 0;
+    if (metodosContainer) {
+        metodosContainer.querySelectorAll('.input-monto').forEach(inp => {
+            totalIng += parseFloat(inp.value || 0);
+        });
+    }
+    totalIngPago.textContent = formatCurrency(totalIng);
+
+    // 3. Diferencia
+    const diff = totalSel - totalIng;
+    difPago.textContent = formatCurrency(Math.abs(diff));
+    difPago.style.color = Math.abs(diff) < 0.01 ? '#11998e' : '#e74c3c';
+}
+
+async function handleConfirmarPago(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    const proveedorId = document.getElementById('pago-proveedor-id-hidden').value;
+    
+    // 1. Recopilar aplicaciones (pueden ser parciales)
+    const aplicaciones = [];
+    facturasContainer.querySelectorAll('.chk-factura:checked').forEach(chk => {
+        const row = chk.closest('tr');
+        const input = row.querySelector('.input-aplicar');
+        aplicaciones.push({
+            ingreso_id: parseInt(chk.dataset.id),
+            monto_aplicado: parseFloat(input.value) || 0
+        });
+    });
+
+    // 2. Recopilar detalles de pago
+    const detalles = [];
+    let errorMonto = false;
+    metodosContainer.querySelectorAll('.pago-metodo-fila').forEach(row => {
+        const metodo = row.querySelector('.select-metodo').value;
+        const monto = parseFloat(row.querySelector('.input-monto').value);
+        if (isNaN(monto) || monto <= 0) {
+            errorMonto = true;
+            return;
+        }
+
+        const det = { metodo_pago: metodo, monto: monto };
+        
+        if (metodo === 'Transferencia') {
+            det.banco = row.querySelector('.input-banco').value;
+            det.referencia = row.querySelector('.input-ref').value;
+        } else if (metodo === 'Cheque Tercero') {
+            const chkId = row.querySelector('.select-cheque-id').value;
+            if (!chkId) errorMonto = true;
+            det.cheque_id = parseInt(chkId);
+        } else if (metodo === 'Cheque Propio') {
+            det.banco = row.querySelector('.input-banco').value;
+            det.referencia = row.querySelector('.input-ref').value;
+            det.fecha_vencimiento = row.querySelector('.input-venc-cheque').value;
+        }
+        detalles.push(det);
+    });
+
+    if (errorMonto) return mostrarNotificacion("Revise los métodos de pago y montos.", "warning");
+    if (detalles.length === 0) return mostrarNotificacion("Debe ingresar al menos un método de pago.", "warning");
+
+    const totalIng = detalles.reduce((acc, d) => acc + d.monto, 0);
+    const totalAplicado = aplicaciones.reduce((acc, a) => acc + a.monto_aplicado, 0);
+
+    // 3. Validaciones de negocio
+    if (totalIng < totalAplicado - 0.01) {
+        return mostrarNotificacion(`El monto total ingresado (${formatCurrency(totalIng)}) no es suficiente para cubrir lo que intenta aplicar (${formatCurrency(totalAplicado)}).`, "warning");
+    }
+
+    let confirmMsg = "¿Está seguro de registrar este pago?";
+    if (aplicaciones.length === 0) {
+        confirmMsg = `Está registrando un pago de ${formatCurrency(totalIng)} COMPLETAMENTE A CUENTA. El saldo del proveedor bajará pero no se aplicará a facturas específicas. ¿Continuar?`;
+    } else if (totalIng > totalAplicado + 0.01) {
+        const diferencia = totalIng - totalAplicado;
+        confirmMsg = `El total ingresado (${formatCurrency(totalIng)}) es mayor al total aplicado (${formatCurrency(totalAplicado)}). La diferencia de ${formatCurrency(diferencia)} quedará como PAGO A CUENTA. ¿Continuar?`;
+    }
+
+    if (!confirm(confirmMsg)) return;
+
+    // 4. Envío al servidor
+    try {
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+        }
+
+        const payload = {
+            proveedor_id: parseInt(proveedorId),
+            monto_total: totalIng,
+            aplicaciones: aplicaciones,
+            detalles: detalles,
+            fecha: document.getElementById('pago-fecha').value,
+            caja_sesion_id: appState.cajaSesionIdActiva
+        };
+
+        await fetchData(`/api/negocios/${appState.negocioActivoId}/pagos-proveedores`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        mostrarNotificacion("Pago registrado correctamente.", "success");
+        modalPago.style.display = 'none';
+        cargarProveedores();
+    } catch (error) {
+        mostrarNotificacion("Error al registrar pago: " + error.message, "error");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check-circle"></i> Confirmar y Registrar Pago';
+        }
+    }
+}
+
 // --- Lógica de Inicialización ---
 function handleTablaClick(e) {
     const target = e.target;
@@ -271,6 +656,8 @@ function handleTablaClick(e) {
     else if (target.classList.contains('btn-ver-ingresos')) window.location.hash = `#historial_ingresos?proveedor=${id}`;
     else if (target.classList.contains('btn-ver-pagos')) window.location.hash = `#historial_pagos_proveedores?proveedor=${id}`;
     else if (target.classList.contains('btn-cta-cte')) abrirModalCtaCte(id);
+    else if (target.classList.contains('btn-cargar-comprobante')) abrirModalComprobante(id);
+    else if (target.classList.contains('btn-registrar-pago')) abrirModalPagoProveedor(id);
 }
 function closeModalCtaCteHandler() { if (modalCtaCte) modalCtaCte.style.display = 'none'; }
 
@@ -289,6 +676,21 @@ export function inicializarLogicaProveedores() {
     btnImprimirCtaCte = document.getElementById('btn-imprimir-cta-cte');
     btnExportarCtaCte = document.getElementById('btn-exportar-cta-cte');
 
+    // Elementos Carga Comprobante
+    modalComprobante = document.getElementById('modal-cargar-comprobante');
+    closeModalComprobante = document.getElementById('close-modal-comprobante');
+    formComprobante = document.getElementById('form-comprobante');
+    btnCancelarComprobante = document.getElementById('btn-cancelar-comprobante');
+    compProveedorId = document.getElementById('comp-proveedor-id');
+    compFecha = document.getElementById('comp-fecha');
+    compTipo = document.getElementById('comp-tipo');
+    compPrefijo = document.getElementById('comp-prefijo');
+    compNumero = document.getElementById('comp-numero');
+    compTotal = document.getElementById('comp-total');
+    compReferencia = document.getElementById('comp-referencia');
+    inputPdfImport = document.getElementById('comp-pdf-import');
+    btnParsePdf = document.getElementById('btn-parse-pdf');
+
     if (!form || !tablaBody || !modalCtaCte || !closeModalCtaCte || !tituloModalCtaCte || !proveedorIdInputCtaCte || !fechaDesdeInputCtaCte || !fechaHastaInputCtaCte || !btnGenerarCtaCte || !reporteContainerCtaCte || !btnImprimirCtaCte || !btnExportarCtaCte) {
         console.error("Error Crítico: Faltan elementos HTML en proveedores.html.");
         return mostrarNotificacion("Error al cargar página proveedores.", "error");
@@ -302,7 +704,7 @@ export function inicializarLogicaProveedores() {
     emailInput = document.getElementById('proveedor-email');
     btnCancelar = document.getElementById('btn-cancelar-edicion');
     if (!tituloForm || !idInput || !nombreInput || !contactoInput || !telefonoInput || !emailInput || !btnCancelar) {
-         console.error("Faltan elementos internos en el formulario.");
+        console.error("Faltan elementos internos en el formulario.");
     }
 
     // Limpiar listeners
@@ -313,17 +715,51 @@ export function inicializarLogicaProveedores() {
     btnGenerarCtaCte.removeEventListener('click', generarReporteCtaCte);
     btnImprimirCtaCte.removeEventListener('click', imprimirReporteCtaCte);
     btnExportarCtaCte.removeEventListener('click', exportarReporteCtaCteExcel);
+
+    if (closeModalComprobante) closeModalComprobante.removeEventListener('click', cerrarModalComprobante);
+    if (btnCancelarComprobante) btnCancelarComprobante.removeEventListener('click', cerrarModalComprobante);
+    if (formComprobante) formComprobante.removeEventListener('submit', guardarComprobante);
+    if (btnParsePdf) btnParsePdf.removeEventListener('click', handlePdfImport);
+
     console.log("Listeners de proveedores limpiados.");
 
     // Añadir listeners
-    if(form) form.addEventListener('submit', guardarProveedor);
-    if(btnCancelar) btnCancelar.addEventListener('click', resetFormulario);
-    if(tablaBody) tablaBody.addEventListener('click', handleTablaClick);
-    if(closeModalCtaCte) closeModalCtaCte.addEventListener('click', closeModalCtaCteHandler);
-    if(btnGenerarCtaCte) btnGenerarCtaCte.addEventListener('click', generarReporteCtaCte);
-    if(btnImprimirCtaCte) btnImprimirCtaCte.addEventListener('click', imprimirReporteCtaCte);
-    if(btnExportarCtaCte) btnExportarCtaCte.addEventListener('click', exportarReporteCtaCteExcel);
+    if (form) form.addEventListener('submit', guardarProveedor);
+    if (btnCancelar) btnCancelar.addEventListener('click', resetFormulario);
+    if (tablaBody) tablaBody.addEventListener('click', handleTablaClick);
+    if (closeModalCtaCte) closeModalCtaCte.addEventListener('click', closeModalCtaCteHandler);
+    if (btnGenerarCtaCte) btnGenerarCtaCte.addEventListener('click', generarReporteCtaCte);
+    if (btnImprimirCtaCte) btnImprimirCtaCte.addEventListener('click', imprimirReporteCtaCte);
+    if (btnExportarCtaCte) btnExportarCtaCte.addEventListener('click', exportarReporteCtaCteExcel);
+
+    if (closeModalComprobante) closeModalComprobante.addEventListener('click', cerrarModalComprobante);
+    if (btnCancelarComprobante) btnCancelarComprobante.addEventListener('click', cerrarModalComprobante);
+    if (formComprobante) formComprobante.addEventListener('submit', guardarComprobante);
+    if (btnParsePdf) btnParsePdf.addEventListener('click', handlePdfImport);
+
     console.log("Listeners de proveedores añadidos.");
+
+    // Elementos Pago Proveedor
+    modalPago = document.getElementById('modal-pago-proveedor');
+    formPago = document.getElementById('form-pago-proveedor');
+    btnAgregarMetodo = document.getElementById('btn-agregar-metodo-pago');
+    metodosContainer = document.getElementById('metodos-pago-container');
+    tplPagoFila = document.getElementById('tpl-pago-fila');
+    facturasContainer = document.getElementById('facturas-pendientes-container');
+    totalSelPago = document.getElementById('total-seleccionado-pago');
+    totalEspPago = document.getElementById('pago-total-esperado');
+    totalIngPago = document.getElementById('pago-total-ingresado');
+    difPago = document.getElementById('pago-diferencia');
+    datePago = document.getElementById('pago-fecha');
+
+    if (modalPago) {
+        const closeBtn = document.getElementById('close-modal-pago-proveedor');
+        const cancelBtn = document.getElementById('btn-cancelar-pago-proveedor');
+        if (closeBtn) closeBtn.onclick = () => modalPago.style.display = 'none';
+        if (cancelBtn) cancelBtn.onclick = () => modalPago.style.display = 'none';
+        if (btnAgregarMetodo) btnAgregarMetodo.onclick = agregarFilaMetodoPago;
+        if (formPago) formPago.onsubmit = handleConfirmarPago;
+    }
 
     cargarProveedores();
     resetFormulario();

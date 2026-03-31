@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cobranza Cta Cte - Baboons</title>
+    <link rel="stylesheet" href="/static/css/global.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/all.min.css">
+</head>
+
+<body class="bg-light">
+    <div class="container-fluid py-4">
+        <!-- Encabezado -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3 mb-0">Cobranza Cuenta Corriente</h1>
+                <p class="text-muted">Registro de pagos y entregas a cuenta</p>
+            </div>
+            <a href="/" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Volver al Menú
+            </a>
+        </div>
+
+        <div class="row g-4">
+            <!-- Panel de Selección de Cliente -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-user-search me-2 text-primary"></i>Seleccionar Cliente
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3 position-relative">
+                            <label class="form-label">Buscar por nombre o dirección</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0">
+                                    <i class="fas fa-search text-muted"></i>
+                                </span>
+                                <input type="text" id="buscar-cliente" class="form-control border-start-0"
+                                    placeholder="Escriba para buscar...">
+                            </div>
+                            <!-- Resultados de búsqueda -->
+                            <div id="resultados-busqueda" class="list-group position-absolute w-100 shadow-lg d-none"
+                                style="z-index: 1000; max-height: 300px; overflow-y: auto;">
+                            </div>
+                        </div>
+
+                        <div id="cliente-seleccionado-info" class="d-none animate__animated animate__fadeIn">
+                            <hr>
+                            <div class="p-3 bg-light rounded-3 mb-3 text-center">
+                                <h6 id="info-cliente-nombre" class="fw-bold mb-1">Nombre del Cliente</h6>
+                                <p id="info-cliente-direccion" class="small text-muted mb-3">Dirección del Cliente</p>
+                                <div class="text-muted small mb-1">Deuda Actual</div>
+                                <div id="info-cliente-deuda" class="monto-grande">$0.00</div>
+                            </div>
+                            <button id="btn-limpiar-cliente" class="btn btn-outline-danger btn-sm w-100">
+                                <i class="fas fa-times me-2"></i>Cambiar Cliente
+                            </button>
+                        </div>
+
+                        <div id="msg-sin-cliente" class="text-center py-5">
+                            <i class="fas fa-user-circle fa-4x text-light mb-3"></i>
+                            <p class="text-muted">Busque un cliente para comenzar</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Cobro -->
+            <div class="col-lg-8">
+                <div id="panel-cobro" class="card shadow-sm border-0 h-100 d-none">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-money-bill-wave me-2 text-success"></i>Detalles del Pago
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <!-- Métodos de Pago -->
+                            <div class="col-md-5 border-end">
+                                <label class="form-label fw-bold mb-3">Método de Pago</label>
+                                <div class="list-group list-group-flush" id="metodos-pago-lista">
+                                    <div class="list-group-item list-group-item-action pago-metodo-card p-3 active"
+                                        data-metodo="Efectivo">
+                                        <div class="d-flex w-100 justify-content-between align-items-center">
+                                            <h6 class="mb-0"><i
+                                                    class="fas fa-cash-register me-3 text-success"></i>Efectivo</h6>
+                                            <i class="fas fa-check-circle text-primary check-icon"></i>
+                                        </div>
+                                    </div>
+                                    <div class="list-group-item list-group-item-action pago-metodo-card p-3"
+                                        data-metodo="Mercado Pago">
+                                        <div class="d-flex w-100 justify-content-between align-items-center">
+                                            <h6 class="mb-0"><i class="fas fa-mobile-alt me-3 text-info"></i>Mercado
+                                                Pago</h6>
+                                            <i class="fas fa-check-circle text-primary check-icon d-none"></i>
+                                        </div>
+                                    </div>
+                                    <div class="list-group-item list-group-item-action pago-metodo-card p-3"
+                                        data-metodo="Transferencia">
+                                        <div class="d-flex w-100 justify-content-between align-items-center">
+                                            <h6 class="mb-0"><i
+                                                    class="fas fa-university me-3 text-primary"></i>Transferencia</h6>
+                                            <i class="fas fa-check-circle text-primary check-icon d-none"></i>
+                                        </div>
+                                    </div>
+                                    <div class="list-group-item list-group-item-action pago-metodo-card p-3"
+                                        data-metodo="Tarjeta">
+                                        <div class="d-flex w-100 justify-content-between align-items-center">
+                                            <h6 class="mb-0"><i class="fas fa-credit-card me-3 text-warning"></i>Tarjeta
+                                                / Débito</h6>
+                                            <i class="fas fa-check-circle text-primary check-icon d-none"></i>
+                                        </div>
+                                    </div>
+                                    <div class="list-group-item list-group-item-action pago-metodo-card p-3"
+                                        data-metodo="Mixto">
+                                        <div class="d-flex w-100 justify-content-between align-items-center">
+                                            <h6 class="mb-0"><i class="fas fa-layer-group me-3 text-purple"></i>Pago
+                                                Mixto</h6>
+                                            <i class="fas fa-check-circle text-primary check-icon d-none"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Monto y Confirmación -->
+                            <div class="col-md-7">
+                                <div id="form-cobro">
+                                    <!-- Monto Total -->
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold">Monto a Cobrar</label>
+                                        <div class="input-group input-group-lg">
+                                            <span class="input-group-text bg-white">$</span>
+                                            <input type="number" id="monto-cobro" class="form-control" step="0.01"
+                                                min="0.01" placeholder="0.00">
+                                        </div>
+                                        <div class="form-text mt-2">
+                                            <button type="button" id="btn-cobro-total"
+                                                class="btn btn-link btn-sm p-0 text-decoration-none">Cobrar deuda
+                                                total</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Campos Pago Mixto (Ocultos por defecto) -->
+                                    <div id="campos-mixtos" class="d-none bg-light p-3 rounded-3 mb-4">
+                                        <h6 class="small fw-bold text-muted mb-3 text-uppercase">Desglose Pago Mixto
+                                        </h6>
+                                        <div class="row g-2">
+                                            <div class="col-6 mb-2">
+                                                <label class="small text-muted">Efectivo</label>
+                                                <input type="number" class="form-control form-control-sm input-mixto"
+                                                    data-metodo="Efectivo" placeholder="0.00">
+                                            </div>
+                                            <div class="col-6 mb-2">
+                                                <label class="small text-muted">Mercado Pago</label>
+                                                <input type="number" class="form-control form-control-sm input-mixto"
+                                                    data-metodo="Mercado Pago" placeholder="0.00">
+                                            </div>
+                                            <div class="col-6 mb-2">
+                                                <label class="small text-muted">Transferencia</label>
+                                                <input type="number" class="form-control form-control-sm input-mixto"
+                                                    data-metodo="Transferencia" placeholder="0.00">
+                                            </div>
+                                            <div class="col-6 mb-2">
+                                                <label class="small text-muted">Tarjeta / Débito</label>
+                                                <input type="number" class="form-control form-control-sm input-mixto"
+                                                    data-metodo="Tarjeta" placeholder="0.00">
+                                            </div>
+                                        </div>
+                                        <div class="d-flex justify-content-between mt-2 pt-2 border-top">
+                                            <span class="small fw-bold">Suma:</span>
+                                            <span id="suma-mixta" class="small fw-bold text-primary">$0.00</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Observaciones -->
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold">Observaciones (Opcional)</label>
+                                        <textarea id="observaciones" class="form-control" rows="2"
+                                            placeholder="Ej: Pago de cuota enero, entrega a cuenta..."></textarea>
+                                    </div>
+
+                                    <div class="d-grid">
+                                        <button id="btn-registrar-cobro" class="btn btn-success btn-lg py-3 shadow">
+                                            <i class="fas fa-save me-2"></i>Registrar Cobro
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="panel-instrucciones" class="card shadow-sm border-0 border-start border-4 border-info h-100">
+                    <div
+                        class="card-body d-flex flex-column justify-content-center align-items-center text-center py-5">
+                        <div class="mb-4">
+                            <span class="fa-stack fa-2x">
+                                <i class="fas fa-circle fa-stack-2x text-info opacity-10"></i>
+                                <i class="fas fa-info fa-stack-1x text-info"></i>
+                            </span>
+                        </div>
+                        <h5>Instrucciones</h5>
+                        <p class="text-muted w-75 mx-auto">
+                            Primero seleccione un cliente de la lista de la izquierda para visualizar su deuda actual y
+                            habilitar el formulario de cobro.
+                        </p>
+                        <div class="mt-3 text-start bg-light p-3 rounded-3 small">
+                            <ul class="mb-0">
+                                <li>Se requiere **Caja Abierta** para cobros en efectivo.</li>
+                                <li>El cobro impactará inmediatamente en el saldo del cliente.</li>
+                                <li>Puede registrar cobros parciales (entregas a cuenta).</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- El modal de éxito ahora se maneja dinámicamente con SweetAlert2 en cobro_ctacte.js -->
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/modules/cobro_ctacte.js"></script>
+</body>
+
+</html>

@@ -6,38 +6,69 @@ from app.services.mercado_pago_service import MercadoPagoService
 from app.services.eventos_notifications import EventosNotificationsService
 import datetime
 import traceback
+import io
+import csv
+from flask import make_response
 
 bp = Blueprint('eventos', __name__)
 
 # --- RUTAS PÚBLICAS (LANDING) ---
 
-@bp.route('/public/eventos/<int:evento_id>', methods=['GET'])
-def get_public_evento(evento_id):
+# --- UTILERÍA DE SEGURIDAD PARA SLUGS VIRTUALES ---
+import hashlib
+SLUG_SALT = "baboons_event_security_2024"
+
+def generate_virtual_slug(evento_id):
+    """Genera un hash determinista a partir del ID para evitar enumeración."""
+    return hashlib.sha256(f"{evento_id}{SLUG_SALT}".encode()).hexdigest()[:12]
+
+@bp.route('/api/public/eventos/<string:identifier>', methods=['GET'])
+def get_public_evento(identifier):
+    """Busca evento por ID (vendedor) o por SLUG (público)."""
     db = get_db()
     try:
-        db.execute("SELECT * FROM eventos WHERE id = %s AND estado = 'activo'", (evento_id,))
+        # Intentamos buscar por ID numérico primero
+        if identifier.isdigit():
+            db.execute("SELECT * FROM eventos WHERE id = %s AND estado = 'activo'", (int(identifier),))
+        else:
+            # Buscamos por slug (recorriendo activos, es eficiente para pocos eventos)
+            db.execute("SELECT * FROM eventos WHERE estado = 'activo'")
+            all_events = db.fetchall()
+            evento = next((e for e in all_events if generate_virtual_slug(e['id']) == identifier), None)
+            if not evento:
+                 return jsonify({'error': 'Evento no encontrado'}), 404
+            return jsonify_evento(evento)
+
         evento = db.fetchone()
         if not evento:
             return jsonify({'error': 'Evento no encontrado o no disponible'}), 404
         
-        # Convertir a tipos serializables
-        evento['precio'] = float(evento['precio'])
-        evento['fecha_evento'] = evento['fecha_evento'].isoformat() if evento['fecha_evento'] else None
-        
-        return jsonify(evento)
+        return jsonify_evento(evento)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+def jsonify_evento(evento):
+    evento['precio'] = float(evento['precio'])
+    evento['fecha_evento'] = evento['fecha_evento'].isoformat() if evento['fecha_evento'] else None
+    evento['virtual_slug'] = generate_virtual_slug(evento['id'])
+    return jsonify(evento)
+
 # --- RUTA PARA SERVIR LA LANDING (Jinja2) ---
 
-@bp.route('/landing/<int:evento_id>')
-def serve_event_landing(evento_id):
+@bp.route('/landing/<string:identifier>')
+def serve_event_landing(identifier):
     from flask import render_template
     db = get_db()
     try:
-        # 1. Obtener datos del evento
-        db.execute("SELECT * FROM eventos WHERE id = %s", (evento_id,))
-        evento = db.fetchone()
+        # Buscamos el evento
+        if identifier.isdigit():
+            db.execute("SELECT * FROM eventos WHERE id = %s", (int(identifier),))
+            evento = db.fetchone()
+        else:
+            db.execute("SELECT * FROM eventos WHERE estado = 'activo'")
+            all_events = db.fetchall()
+            evento = next((e for e in all_events if generate_virtual_slug(e['id']) == identifier), None)
+
         if not evento:
             return "Evento no encontrado", 404
         
@@ -60,26 +91,39 @@ def serve_event_landing(evento_id):
         return render_template('eventos_landing.html', 
                              og_title=og_title, 
                              og_image=og_image, 
-                             evento_id=evento_id)
+                             evento_id=evento['id'],
+                             virtual_slug=generate_virtual_slug(evento['id']))
     except Exception as e:
-        current_app.logger.error(f"Error sirviendo landing de evento {evento_id}: {e}")
+        current_app.logger.error(f"Error sirviendo landing de evento {identifier}: {e}")
         return f"Error en el servidor: {e}", 500
 
-@bp.route('/public/eventos/<int:evento_id>/inscribir', methods=['POST'])
+@bp.route('/api/public/eventos/<int:evento_id>/inscribir', methods=['POST'])
 def inscribir_public_evento(evento_id):
     db = get_db()
     data = request.get_json()
     
-    nombre = data.get('nombre')
-    email = data.get('email')
-    telefono = data.get('telefono')
-    metodo_pago = data.get('metodo_pago') # 'Mercado Pago' o 'Transferencia'
+    nombre = data.get('nombre', '').strip()
+    email = data.get('email', '').strip()
+    telefono = data.get('telefono', '').strip()
+    metodo_pago = data.get('metodo_pago')
+    honeypot = data.get('website') # Trampa para bots
+
+    # 1. 🛡️ VERIFICACIÓN HONEYPOT
+    if honeypot:
+        current_app.logger.warning(f"Intento de bot detectado (Honeypot activado): {email}")
+        return jsonify({'error': 'Registro rechazado por política de seguridad'}), 400
 
     if not nombre or not email:
         return jsonify({'error': 'Nombre y Email son obligatorios'}), 400
 
+    # 2. 🛡️ VALIDACIÓN DE DATOS
+    import re
+    email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    if not re.match(email_regex, email):
+        return jsonify({'error': 'Formato de email inválido'}), 400
+
     try:
-        # 1. Validar Cupo
+        # 3. Validar Cupo
         db.execute("SELECT * FROM eventos WHERE id = %s FOR UPDATE", (evento_id,))
         evento = db.fetchone()
         
@@ -162,7 +206,7 @@ def mp_webhook():
 
 # --- RUTAS ADMIN (TOKEN REQUERIDO) ---
 
-@bp.route('/negocios/<int:negocio_id>/eventos', methods=['GET'])
+@bp.route('/api/negocios/<int:negocio_id>/eventos', methods=['GET'])
 @token_required
 def list_eventos(current_user, negocio_id):
     db = get_db()
@@ -171,9 +215,10 @@ def list_eventos(current_user, negocio_id):
     for e in eventos:
         e['precio'] = float(e['precio'])
         e['fecha_evento'] = e['fecha_evento'].isoformat() if e['fecha_evento'] else None
+        e['virtual_slug'] = generate_virtual_slug(e['id'])
     return jsonify(eventos)
 
-@bp.route('/negocios/<int:negocio_id>/eventos', methods=['POST'])
+@bp.route('/api/negocios/<int:negocio_id>/eventos', methods=['POST'])
 @token_required
 def create_evento(current_user, negocio_id):
     db = get_db()
@@ -192,7 +237,7 @@ def create_evento(current_user, negocio_id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/eventos/asistencia', methods=['POST'])
+@bp.route('/api/eventos/asistencia', methods=['POST'])
 @token_required
 def registrar_asistencia(current_user):
     """El operador escanea el token del QR."""
@@ -228,6 +273,100 @@ def registrar_asistencia(current_user):
             'nombre': inscripcion['nombre_cliente']
         })
 
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# --- NUEVAS RUTAS DE GESTIÓN ---
+
+@bp.route('/api/eventos/<int:evento_id>/inscriptos', methods=['GET'])
+@token_required
+def get_inscriptos(current_user, evento_id):
+    db = get_db()
+    try:
+        db.execute("SELECT * FROM eventos_inscripciones WHERE evento_id = %s ORDER BY id DESC", (evento_id,))
+        inscriptos = db.fetchall()
+        for i in inscriptos:
+            i['monto_total'] = float(i['monto_total'])
+            i['fecha_asistencia'] = i['fecha_asistencia'].isoformat() if i['fecha_asistencia'] else None
+        return jsonify(inscriptos)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/api/eventos/inscripciones/<int:inscripcion_id>', methods=['PATCH'])
+@token_required
+def update_inscripcion(current_user, inscripcion_id):
+    db = get_db()
+    data = request.get_json()
+    try:
+        allowed_fields = ['estado_pago', 'asistio']
+        updates = []
+        params = []
+        for field in allowed_fields:
+            if field in data:
+                updates.append(f"{field} = %s")
+                params.append(data[field])
+        
+        if not updates:
+            return jsonify({'error': 'No hay campos válidos para actualizar'}), 400
+            
+        params.append(inscripcion_id)
+        db.execute(f"UPDATE eventos_inscripciones SET {', '.join(updates)} WHERE id = %s", tuple(params))
+        g.db_conn.commit()
+        return jsonify({'message': 'Inscripción actualizada'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/api/eventos/<int:evento_id>/exportar', methods=['GET'])
+@token_required
+def export_inscriptos(current_user, evento_id):
+    db = get_db()
+    try:
+        db.execute("SELECT nombre_cliente, email, telefono, metodo_pago, monto_total, estado_pago, asistio FROM eventos_inscripciones WHERE evento_id = %s", (evento_id,))
+        rows = db.fetchall()
+        
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Nombre', 'Email', 'Telefono', 'Metodo Pago', 'Monto', 'Estado Pago', 'Asistio'])
+        for row in rows:
+            writer.writerow([row['nombre_cliente'], row['email'], row['telefono'], row['metodo_pago'], row['monto_total'], row['estado_pago'], 'SI' if row['asistio'] else 'NO'])
+            
+        response = make_response(output.getvalue())
+        response.headers["Content-Disposition"] = f"attachment; filename=inscriptos_evento_{evento_id}.csv"
+        response.headers["Content-type"] = "text/csv"
+        return response
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/api/negocios/<int:negocio_id>/eventos/<int:evento_id>', methods=['PATCH'])
+@token_required
+def update_evento(current_user, negocio_id, evento_id):
+    db = get_db()
+    data = request.get_json()
+    try:
+        db.execute("""
+            UPDATE eventos 
+            SET titulo = %s, descripcion = %s, fecha_evento = %s, ubicacion = %s, precio = %s, cupo_total = %s
+            WHERE id = %s AND negocio_id = %s
+        """, (data['titulo'], data.get('descripcion'), data['fecha_evento'], 
+              data.get('ubicacion'), data.get('precio', 0), data['cupo_total'], evento_id, negocio_id))
+        
+        g.db_conn.commit()
+        return jsonify({'message': 'Evento actualizado'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/api/negocios/<int:negocio_id>/eventos/<int:evento_id>', methods=['DELETE'])
+@token_required
+def delete_evento(current_user, negocio_id, evento_id):
+    db = get_db()
+    try:
+        # Soft delete: cambiar estado a 'eliminado'
+        db.execute("UPDATE eventos SET estado = 'eliminado' WHERE id = %s AND negocio_id = %s", (evento_id, negocio_id))
+        g.db_conn.commit()
+        return jsonify({'message': 'Evento eliminado'})
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500

@@ -14,6 +14,27 @@ def registrar_venta(current_user, negocio_id):
     detalles = data.get('detalles')
     db = get_db()
 
+    # 0. Asegurar columnas de migración
+    try:
+        db.execute("ALTER TABLE ventas_detalle ADD COLUMN IF NOT EXISTS producto_nombre TEXT")
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS ventas_bitacora (
+                id SERIAL PRIMARY KEY,
+                venta_id INTEGER NOT NULL,
+                usuario_id INTEGER NOT NULL,
+                usuario_nombre TEXT,
+                fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                campo TEXT,
+                valor_anterior TEXT,
+                valor_nuevo TEXT,
+                motivo TEXT
+            )
+        """)
+        g.db_conn.commit()
+    except Exception as e:
+        print(f"Error migración ventas: {e}")
+        pass
+
     # Valida que la caja esté abierta
     db.execute('SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL', (negocio_id,))
     sesion_abierta = db.fetchone()
@@ -27,10 +48,40 @@ def registrar_venta(current_user, negocio_id):
 
     if not permitir_negativo:
         for item in detalles:
-            db.execute('SELECT stock, nombre FROM productos WHERE id = %s', (item['producto_id'],))
-            producto = db.fetchone()
-            if not producto or producto['stock'] < item['cantidad']:
-                return jsonify({'error': f"Stock insuficiente para '{producto['nombre'] if producto else 'ID desconocido'}'"}), 409
+            # ✨ NUEVO CÁLCULO: Disponible = Físico - Compromisos (pedidos pendientes de carga)
+            query_stock = """
+                SELECT 
+                    pr.stock, 
+                    pr.nombre,
+                    COALESCE((
+                        SELECT SUM(pd_inner.cantidad)
+                        FROM pedidos p_inner
+                        JOIN pedidos_detalle pd_inner ON p_inner.id = pd_inner.pedido_id
+                        LEFT JOIN hoja_ruta hr ON p_inner.hoja_ruta_id = hr.id
+                        WHERE pd_inner.producto_id = pr.id
+                          AND p_inner.estado IN ('pendiente', 'preparado')
+                          AND (hr.id IS NULL OR hr.carga_confirmada IS FALSE)
+                          AND p_inner.negocio_id = %s
+                    ), 0) as comprometido
+                FROM productos pr
+                WHERE pr.id = %s
+            """
+            db.execute(query_stock, (negocio_id, item['producto_id']))
+            prod = db.fetchone()
+            
+            if not prod:
+                return jsonify({'error': f"Producto ID {item['producto_id']} no encontrado"}), 404
+            
+            stock_fisico = float(prod['stock'])
+            comprometido = float(prod['comprometido'] or 0)
+            disponible = stock_fisico - comprometido
+            solicitado = float(item['cantidad'])
+            
+            if solicitado > disponible:
+                return jsonify({
+                    'error': f"Stock insuficiente para '{prod['nombre']}'",
+                    'detalle': f"Solicitado: {solicitado}, Disponible: {disponible} (Físico: {stock_fisico}, Comprometido en Pedidos: {comprometido})"
+                }), 409
 
     try:
         # Cálculo del total base de los items
@@ -50,16 +101,96 @@ def registrar_venta(current_user, negocio_id):
         tz_ar = pytz.timezone('America/Argentina/Buenos_Aires')
         fecha_actual = datetime.datetime.now(tz_ar)
 
-        db.execute(
-            '''INSERT INTO ventas 
-               (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, 
-                mp_payment_intent_id, mp_status, descuento, bonificacion_global, gastos_envio) 
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id''',
-            (negocio_id, data.get('cliente_id'), current_user['id'], total_venta, data.get('metodo_pago'), 
-             fecha_actual, sesion_abierta['id'], data.get('mp_payment_intent_id'), 
-             data.get('mp_status'), descuento_global, bonificacion_global, gastos_envio)
-        )
-        venta_id = db.fetchone()['id']
+        metodo_pago = data.get('metodo_pago')
+        if metodo_pago == 'Mixto':
+            montos_mixtos = data.get('montos_mixtos', {})
+            monto_ef = float(montos_mixtos.get('Efectivo', 0))
+            monto_mp = float(montos_mixtos.get('MP', 0))
+            monto_tarjeta = float(montos_mixtos.get('Tarjeta', 0))
+            monto_debito = float(montos_mixtos.get('Debito', 0))
+            monto_transf = float(montos_mixtos.get('Transferencia', 0))
+            monto_cta_cte = float(montos_mixtos.get('CuentaCorriente', 0))
+
+            # ✨ NUEVO: Calcular próximo número interno para este negocio
+            def get_next_nro_interno(db_conn, n_id):
+                db_conn.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 as next_nro FROM ventas WHERE negocio_id = %s", (n_id,))
+                return db_conn.fetchone()['next_nro']
+
+            nro_principal = get_next_nro_interno(db, negocio_id)
+
+            # 1. Venta Principal (lleva los detalles para descontar stock y las notificaciones)
+            db.execute(
+                '''INSERT INTO ventas 
+                   (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, 
+                    mp_payment_intent_id, mp_status, descuento, bonificacion_global, gastos_envio, numero_interno) 
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id''',
+                (negocio_id, data.get('cliente_id'), current_user['id'], monto_principal, metodo_principal, 
+                 fecha_actual, sesion_abierta['id'], data.get('mp_payment_intent_id'), 
+                 data.get('mp_status'), descuento_global, bonificacion_global, gastos_envio, nro_principal)
+            )
+            venta_id = db.fetchone()['id']
+
+            # 2. Registrar Ventas Secundarias (sin detalles para no duplicar stock)
+            if metodo_principal != 'Efectivo' and monto_ef > 0:
+                nro_sec = get_next_nro_interno(db, negocio_id)
+                db.execute(
+                    '''INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, bonificacion_global, gastos_envio, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, 0, 0, 0, %s)''',
+                    (negocio_id, data.get('cliente_id'), current_user['id'], monto_ef, 'Efectivo', fecha_actual, sesion_abierta['id'], nro_sec)
+                )
+            if metodo_principal != 'Mercado Pago' and monto_mp > 0:
+                nro_sec = get_next_nro_interno(db, negocio_id)
+                db.execute(
+                    '''INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, bonificacion_global, gastos_envio, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, 0, 0, 0, %s)''',
+                    (negocio_id, data.get('cliente_id'), current_user['id'], monto_mp, 'Mercado Pago', fecha_actual, sesion_abierta['id'], nro_sec)
+                )
+            if metodo_principal != 'Tarjeta' and monto_tarjeta > 0:
+                nro_sec = get_next_nro_interno(db, negocio_id)
+                db.execute(
+                    '''INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, bonificacion_global, gastos_envio, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, 0, 0, 0, %s)''',
+                    (negocio_id, data.get('cliente_id'), current_user['id'], monto_tarjeta, 'Tarjeta', fecha_actual, sesion_abierta['id'], nro_sec)
+                )
+            if metodo_principal != 'Débito' and monto_debito > 0:
+                nro_sec = get_next_nro_interno(db, negocio_id)
+                db.execute(
+                    '''INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, bonificacion_global, gastos_envio, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, 0, 0, 0, %s)''',
+                    (negocio_id, data.get('cliente_id'), current_user['id'], monto_debito, 'Débito', fecha_actual, sesion_abierta['id'], nro_sec)
+                )
+            if metodo_principal != 'Transferencia' and monto_transf > 0:
+                nro_sec = get_next_nro_interno(db, negocio_id)
+                db.execute(
+                    '''INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, bonificacion_global, gastos_envio, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, 0, 0, 0, %s)''',
+                    (negocio_id, data.get('cliente_id'), current_user['id'], monto_transf, 'Transferencia', fecha_actual, sesion_abierta['id'], nro_sec)
+                )
+            if metodo_principal != 'Cuenta Corriente' and monto_cta_cte > 0:
+                nro_sec = get_next_nro_interno(db, negocio_id)
+                db.execute(
+                    '''INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, bonificacion_global, gastos_envio, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, 0, 0, 0, %s)''',
+                    (negocio_id, data.get('cliente_id'), current_user['id'], monto_cta_cte, 'Cuenta Corriente', fecha_actual, sesion_abierta['id'], nro_sec)
+                )
+
+            
+            # 3. Y para la deuda, insertar en clientes_cuenta_corriente
+            if monto_cta_cte > 0:
+                db.execute("INSERT INTO clientes_cuenta_corriente (cliente_id, fecha, concepto, debe, haber, venta_id) VALUES (%s, %s, %s, %s, 0, %s)",
+                           (data.get('cliente_id'), fecha_actual, f"Venta en Mostrador #{venta_id}", monto_cta_cte, venta_id))
+        else:
+            db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 as next_nro FROM ventas WHERE negocio_id = %s", (negocio_id,))
+            nro_interno = db.fetchone()['next_nro']
+            
+            db.execute(
+                '''INSERT INTO ventas 
+                   (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, 
+                    mp_payment_intent_id, mp_status, descuento, bonificacion_global, gastos_envio, numero_interno) 
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id''',
+                (negocio_id, data.get('cliente_id'), current_user['id'], total_venta, metodo_pago, 
+                 fecha_actual, sesion_abierta['id'], data.get('mp_payment_intent_id'), 
+                 data.get('mp_status'), descuento_global, bonificacion_global, gastos_envio, nro_interno)
+            )
+            venta_id = db.fetchone()['id']
+            
+            if metodo_pago == 'Cuenta Corriente':
+                db.execute("INSERT INTO clientes_cuenta_corriente (cliente_id, fecha, concepto, debe, haber, venta_id) VALUES (%s, %s, %s, %s, 0, %s)",
+                           (data.get('cliente_id'), fecha_actual, f"Venta en Mostrador #{venta_id}", total_venta, venta_id))
 
         pago_detalle = data.get('pago_detalle')
         if pago_detalle:
@@ -77,8 +208,13 @@ def registrar_venta(current_user, negocio_id):
             bonificacion = float(item.get('bonificacion', 0))
             subtotal = (item['cantidad'] - bonificacion) * item['precio_unitario']
 
-            db.execute('INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal, bonificacion) VALUES (%s, %s, %s, %s, %s, %s)',
-                       (venta_id, item['producto_id'], item['cantidad'], item['precio_unitario'], subtotal, bonificacion))
+            # Persistir nombre para historial (resiliencia)
+            db.execute('SELECT nombre FROM productos WHERE id = %s', (item['producto_id'],))
+            p_res = db.fetchone()
+            p_nom = p_res['nombre'] if p_res else "Producto"
+
+            db.execute('INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal, bonificacion, producto_nombre) VALUES (%s, %s, %s, %s, %s, %s, %s)',
+                       (venta_id, item['producto_id'], item['cantidad'], item['precio_unitario'], subtotal, bonificacion, p_nom))
 
             nuevo_stock = stock_anterior - item['cantidad']
             db.execute('UPDATE productos SET stock = %s WHERE id = %s', (nuevo_stock, item['producto_id']))
@@ -111,15 +247,19 @@ def get_historial_ventas(current_user, negocio_id):
     query = """
         SELECT
             v.id,
+            v.numero_interno,
             v.fecha,
             v.total,
             v.metodo_pago,
             c.nombre AS cliente_nombre,
             v.estado,
             v.tipo_factura,
-            v.numero_factura
+            v.numero_factura,
+            p.id as pedido_id,
+            p.hoja_ruta_id
         FROM ventas v
         LEFT JOIN clientes c ON v.cliente_id = c.id
+        LEFT JOIN pedidos p ON p.venta_id = v.id
         WHERE v.negocio_id = %s
     """
     params = [negocio_id]
@@ -158,6 +298,11 @@ def get_historial_ventas(current_user, negocio_id):
                 tz_ar = pytz.timezone('America/Argentina/Buenos_Aires')
                 fecha = tz_ar.localize(fecha)
             v_dict['fecha'] = fecha.isoformat()
+        
+        # Fallback para numero_interno
+        if v_dict.get('numero_interno') is None:
+            v_dict['numero_interno'] = f"ID:{v_dict['id']}"
+            
         resultado_json.append(v_dict)
     
     return jsonify(resultado_json)
@@ -167,10 +312,16 @@ def get_historial_ventas(current_user, negocio_id):
 @token_required
 def get_venta_detalles(current_user, venta_id):
     db = get_db()
+    # 0. Asegurar columnas de migración
+    try:
+        db.execute("ALTER TABLE ventas_detalle ADD COLUMN IF NOT EXISTS producto_nombre TEXT")
+        g.db_conn.commit()
+    except: pass
+
     db.execute("""
-        SELECT vd.*, p.nombre
+        SELECT vd.*, COALESCE(vd.producto_nombre, p.nombre) as nombre
         FROM ventas_detalle vd
-        JOIN productos p ON vd.producto_id = p.id
+        LEFT JOIN productos p ON vd.producto_id = p.id
         WHERE vd.venta_id = %s
     """, (venta_id,))
     detalles = db.fetchall()
@@ -182,6 +333,12 @@ def get_venta_detalles(current_user, venta_id):
 @token_required
 def get_venta_completa(current_user, venta_id):
     db = get_db()
+    # 0. Asegurar columnas de migración
+    try:
+        db.execute("ALTER TABLE ventas_detalle ADD COLUMN IF NOT EXISTS producto_nombre TEXT")
+        g.db_conn.commit()
+    except: pass
+
     try:
         # 1. Obtenemos la cabecera de la venta
         db.execute("SELECT * FROM ventas WHERE id = %s", (venta_id,))
@@ -192,9 +349,9 @@ def get_venta_completa(current_user, venta_id):
         # 2. Obtenemos los detalles (productos) de la venta
         db.execute(
             """
-            SELECT vd.*, p.nombre as producto_nombre
+            SELECT vd.*, COALESCE(vd.producto_nombre, p.nombre) as producto_nombre
             FROM ventas_detalle vd
-            JOIN productos p ON vd.producto_id = p.id
+            LEFT JOIN productos p ON vd.producto_id = p.id
             WHERE vd.venta_id = %s
             """,
             (venta_id,)
@@ -215,6 +372,10 @@ def get_venta_completa(current_user, venta_id):
                 tz_ar = pytz.timezone('America/Argentina/Buenos_Aires')
                 fecha = tz_ar.localize(fecha)
             venta_dict['fecha'] = fecha.isoformat()
+
+        # Fallback para numero_interno
+        if venta_dict.get('numero_interno') is None:
+            venta_dict['numero_interno'] = f"ID:{venta_dict['id']}"
 
         return jsonify({
             'cabecera': venta_dict,
@@ -256,6 +417,10 @@ def anular_venta(current_user, venta_id):
             return jsonify({'error': 'Esta venta ya fue anulada anteriormente'}), 409
         if venta['estado'] == 'Facturada':
             return jsonify({'error': 'No se puede anular una venta ya facturada via ARCA. Se requiere un proceso fiscal separado.'}), 409
+
+        # --- 2.7 Desvincular pedido si existe ---
+        # Si la venta está atada a un pedido, lo liberamos para que pueda ser re-cobrado
+        db.execute("UPDATE pedidos SET venta_id = NULL, estado = 'en_camino' WHERE venta_id = %s", (venta_id,))
 
         negocio_id = venta['negocio_id']
         metodo_pago = venta['metodo_pago'] or ''
@@ -378,6 +543,110 @@ def anular_venta(current_user, venta_id):
         print(f"Error en anular_venta: {e}")
         return jsonify({'error': f'Error al anular la venta: {str(e)}'}), 500
 
+
+@bp.route('/ventas/<int:venta_id>/corregir_pago', methods=['POST'])
+@token_required
+def corregir_pago_venta(current_user, venta_id):
+    data = request.get_json()
+    nuevo_metodo = data.get('nuevo_metodo_pago')
+    motivo = data.get('motivo', '').strip()
+    
+    if not nuevo_metodo:
+        return jsonify({'error': 'El nuevo método de pago es requerido'}), 400
+    if not motivo:
+        return jsonify({'error': 'El motivo de la corrección es obligatorio'}), 400
+
+    db = get_db()
+    try:
+        # 1. Obtener venta original
+        db.execute("SELECT * FROM ventas WHERE id = %s", (venta_id,))
+        venta = db.fetchone()
+        if not venta:
+            return jsonify({'error': 'Venta no encontrada'}), 404
+
+        metodo_actual = venta['metodo_pago']
+        negocio_id = venta['negocio_id']
+
+        if metodo_actual == nuevo_metodo and nuevo_metodo != 'Mixto':
+            return jsonify({'error': 'La venta ya tiene ese método de pago registrado'}), 400
+
+        # Validación de Caja (si aplica financiera real)
+        db.execute("SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL", (negocio_id,))
+        sesion_activa = db.fetchone()
+        if not sesion_activa:
+            return jsonify({'error': 'Para realizar esta corrección financiera debes tener la Caja Abierta.'}), 400
+
+        # 3. Revertir efectos previos
+        if metodo_actual == 'Cuenta Corriente':
+            db.execute("DELETE FROM clientes_cuenta_corriente WHERE venta_id = %s AND debe > 0", (venta_id,))
+
+        # 4. Aplicar nuevos efectos
+        if nuevo_metodo == 'Mixto':
+            m_ef = float(data.get('monto_efectivo', 0))
+            m_mp = float(data.get('monto_mp', 0))
+            m_cc = float(data.get('monto_cta_cte', 0))
+
+            metodo_prin = 'Efectivo' if m_ef > 0 else ('Mercado Pago' if m_mp > 0 else 'Cuenta Corriente')
+            monto_prin = m_ef if metodo_prin == 'Efectivo' else (m_mp if metodo_prin == 'Mercado Pago' else m_cc)
+
+            # Actualizamos venta principal
+            db.execute("UPDATE ventas SET metodo_pago = %s, total = %s WHERE id = %s", (metodo_prin, monto_prin, venta_id))
+
+            # Crear ventas secundarias para dividir el monto total original
+            if metodo_prin != 'Efectivo' and m_ef > 0:
+                db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
+                n_sec = db.fetchone()[0]
+                db.execute(
+                    "INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, numero_interno) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (negocio_id, venta['cliente_id'], current_user['id'], m_ef, 'Efectivo', datetime.datetime.now(), sesion_activa['id'], 0, n_sec)
+                )
+            if metodo_prin != 'Mercado Pago' and m_mp > 0:
+                db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
+                n_sec = db.fetchone()[0]
+                db.execute(
+                    "INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, numero_interno) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (negocio_id, venta['cliente_id'], current_user['id'], m_mp, 'Mercado Pago', datetime.datetime.now(), sesion_activa['id'], 0, n_sec)
+                )
+            if m_cc > 0:
+                v_cc_id = venta_id if metodo_prin == 'Cuenta Corriente' else None
+                if not v_cc_id:
+                     db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
+                     n_sec = db.fetchone()[0]
+                     db.execute(
+                        "INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, numero_interno) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                        (negocio_id, venta['cliente_id'], current_user['id'], m_cc, 'Cuenta Corriente', datetime.datetime.now(), sesion_activa['id'], 0, n_sec)
+                    )
+                     v_cc_id = db.fetchone()['id']
+                
+                db.execute(
+                    "INSERT INTO clientes_cuenta_corriente (cliente_id, concepto, debe, haber, fecha, venta_id) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (venta['cliente_id'], f"Corrección a Mixto (Cta Cte) - Venta #{venta_id}", m_cc, 0, datetime.datetime.now(), v_cc_id)
+                )
+
+        elif nuevo_metodo == 'Cuenta Corriente':
+            db.execute(
+                "INSERT INTO clientes_cuenta_corriente (cliente_id, concepto, debe, haber, fecha, venta_id) VALUES (%s, %s, %s, %s, %s, %s)",
+                (venta['cliente_id'], f"Corrección Pago - Venta #{venta_id}", venta['total'], 0, datetime.datetime.now(), venta_id)
+            )
+            db.execute("UPDATE ventas SET metodo_pago = %s WHERE id = %s", (nuevo_metodo, venta_id))
+        else:
+            db.execute("UPDATE ventas SET metodo_pago = %s WHERE id = %s", (nuevo_metodo, venta_id))
+
+        # 5. AUDITORÍA (BITÁCORA) - Estilo SKU
+        db.execute(
+            """
+            INSERT INTO ventas_bitacora (venta_id, usuario_id, usuario_nombre, campo, valor_anterior, valor_nuevo, motivo)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (venta_id, current_user['id'], current_user.get('nombre', 'Sistema'), 'metodo_pago', metodo_actual, nuevo_metodo, motivo)
+        )
+
+        g.db_conn.commit()
+        return jsonify({'message': f'Pago de Venta #{venta_id} corregido exitosamente.'}), 200
+
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
 
 # --- ✨ NUEVA RUTA: LISTAR NOTAS DE CRÉDITO DEL NEGOCIO ---
 @bp.route('/negocios/<int:negocio_id>/notas_credito', methods=['GET'])

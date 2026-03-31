@@ -1,0 +1,232 @@
+<!-- app/static/resto_caja.html -->
+<div class="resto-caja-wrapper fade-in">
+    <!-- Navbar Internaizada para el Monitor -->
+    <div class="caja-navbar">
+        <div class="cn-left">
+            <img src="/static/img/logo.png" alt="Logo" class="mini-logo">
+            <span class="user-badge" id="caja-user-display">Cajero</span>
+        </div>
+        <div class="cn-right">
+            <button id="btn-caja-volver" class="btn-nav-caja" title="Volver al Menú" style="display: none;">
+                <i class="fas fa-th-large"></i> Dashboard
+            </button>
+            <button id="btn-caja-logout" class="btn-nav-caja btn-danger-caja" title="Cerrar Sesión">
+                <i class="fas fa-power-off"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="caja-main-layout">
+        <!-- Columna Principal: Monitor de Pendientes -->
+        <div class="caja-monitor-section">
+            <div class="section-header">
+                <div class="sh-left">
+                    <h2><i class="fas fa-cash-register me-2"></i> Monitor de Cobros</h2>
+                    <p class="text-muted">Mesas en espera de pago</p>
+                </div>
+                <div class="sh-right">
+                    <div class="caja-stats-mini">
+                        <span class="label">PENDIENTES:</span>
+                        <span id="caja-count-pendientes" class="value">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="caja-scroll-area">
+                <div id="caja-list-empty" class="empty-state py-5 text-center">
+                    <div class="empty-icon-wrapper">
+                        <i class="fas fa-check-double fa-4x mb-3 text-success opacity-25"></i>
+                    </div>
+                    <h3>¡Todo al día!</h3>
+                    <p class="text-muted">No hay cobros pendientes en este momento.</p>
+                </div>
+
+                <div id="caja-pendientes-grid" class="cobros-grid" style="display: none;">
+                    <!-- Se puebla dinámicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra Lateral: Historial Rápido y Acciones -->
+        <div class="caja-side-panel">
+            <div class="side-section">
+                <h3><i class="fas fa-history me-2"></i> Recientes</h3>
+                <div id="caja-historial-reciente" class="historial-mini-list">
+                    <p class="text-muted text-center small py-3">Sin cierres recientes</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    :root {
+        --caja-bg: #f8fafc;
+        --caja-card-bg: #ffffff;
+        --caja-primary: #4f46e5;
+        --caja-secondary: #64748b;
+        --caja-border: #e2e8f0;
+        --caja-header-bg: #0f172a;
+    }
+
+    .resto-caja-wrapper {
+        display: flex;
+        flex-direction: column;
+        min-height: calc(100vh - 60px); /* Ajuste para no tapar la navbar global */
+        background-color: var(--caja-bg);
+    }
+
+    /* Navbar Dedicada */
+    .caja-navbar {
+        height: 60px;
+        background: var(--caja-header-bg);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 24px;
+        color: white;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        z-index: 100;
+    }
+    .mini-logo { height: 32px; margin-right: 15px; }
+    .user-badge {
+        font-weight: 600;
+        font-size: 0.9rem;
+        background: rgba(255,255,255,0.1);
+        padding: 4px 12px;
+        border-radius: 20px;
+    }
+    .cn-right { display: flex; gap: 12px; }
+    .btn-nav-caja {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: white;
+        padding: 6px 16px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    .btn-nav-caja:hover { background: rgba(255,255,255,0.15); }
+    .btn-danger-caja:hover { background: #ef4444; border-color: #ef4444; }
+
+    /* Layout Principal */
+    .caja-main-layout {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .caja-monitor-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 30px;
+        overflow: hidden;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 24px;
+    }
+    .section-header h2 {
+        font-weight: 800;
+        color: #1e293b;
+        margin: 0;
+    }
+    .caja-stats-mini {
+        background: white;
+        padding: 10px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid var(--caja-border);
+    }
+    .caja-stats-mini .label { font-size: 0.75rem; font-weight: 700; color: var(--caja-secondary); }
+    .caja-stats-mini .value { font-size: 1.5rem; font-weight: 900; color: var(--caja-primary); }
+
+    .caja-scroll-area {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+
+    /* Grid de Cobros Estilo PC */
+    .cobros-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 25px;
+    }
+
+    .cobro-card {
+        background: white;
+        border-radius: 20px;
+        padding: 24px;
+        border: 1px solid var(--caja-border);
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        display: flex;
+        flex-direction: column;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    .cobro-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 6px; height: 100%;
+        background: var(--caja-primary);
+    }
+    .cobro-card:hover { transform: translateY(-5px); box-shadow: 0 12px 20px -5px rgba(0,0,0,0.1); }
+
+    .cc-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+    .cc-mesa { font-size: 1.5rem; font-weight: 900; color: #0f172a; }
+    .cc-mozo { font-size: 0.85rem; color: var(--caja-secondary); display: flex; align-items: center; gap: 5px; }
+
+    .cc-ticket-sim {
+        background: #f1f5f9;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .cc-row { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 5px; color: #475569; }
+    .cc-row.total { 
+        margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1;
+        font-weight: 800; color: #1e293b; font-size: 1.4rem;
+    }
+
+    .btn-cobrar-now {
+        background: var(--caja-primary);
+        color: white; border: none; padding: 14px; border-radius: 14px;
+        font-weight: 800; width: 100%; font-size: 1.1rem;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+        transition: all 0.2s;
+    }
+    .btn-cobrar-now:hover { filter: brightness(1.15); transform: translateY(-2px); }
+
+    /* Panel Lateral */
+    .caja-side-panel {
+        width: 320px;
+        background: white;
+        border-left: 1px solid var(--caja-border);
+        padding: 30px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 40px;
+    }
+    .side-section h3 { font-size: 1rem; font-weight: 800; color: #1e293b; margin-bottom: 20px; }
+    .historial-mini-list { display: flex; flex-direction: column; gap: 15px; }
+    .hist-item {
+        padding: 12px; border-radius: 12px; background: #f8fafc; border: 1px solid var(--caja-border);
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .hist-item .hi-top { display: flex; justify-content: space-between; font-weight: 700; font-size: 0.9rem; }
+    .hist-item .hi-bottom { font-size: 0.75rem; color: var(--caja-secondary); text-align: right; }
+
+    @media (max-width: 1200px) {
+        .caja-side-panel { display: none; }
+    }
+</style>

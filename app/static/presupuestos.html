@@ -89,6 +89,8 @@
             </div>
             <div class="presupuesto-totales">
                 <div class="total-row"><span>Subtotal:</span><span id="presupuesto-subtotal">$0.00</span></div>
+                <div class="total-row input-row"><label for="presupuesto-descuento">Descuento ($):</label><input
+                        type="number" id="presupuesto-descuento" value="0" step="0.01"></div>
                 <div class="total-row input-row"><label for="presupuesto-bonificacion">Bonificación (%):</label><input
                         type="number" id="presupuesto-bonificacion" value="0" step="0.01"></div>
                 <div class="total-row input-row"><label for="presupuesto-interes">Interés (%):</label><input
@@ -102,22 +104,26 @@
         </div>
     </div>
 
-    <!-- Modal de Búsqueda de Clientes (Presupuesto) -->
-    <div id="modal-buscar-cliente-presupuesto" class="modal">
-        <div class="modal-content search-modal">
-            <div class="modal-header">
-                <h3>Buscar Cliente</h3>
-                <span id="close-buscar-cliente-presupuesto" class="close-button">&times;</span>
+    <!-- Modal de Búsqueda de Clientes (Presupuesto) ✨ Estética Premium -->
+    <div id="modal-buscar-cliente-presupuesto" class="premium-modal-overlay">
+        <div class="premium-modal-content" style="max-width: 600px;">
+            <div class="premium-modal-header">
+                <h3 class="mb-0"><i class="fas fa-search me-2"></i>Buscar Cliente</h3>
+                <button type="button" id="close-buscar-cliente-presupuesto" class="btn-close-modal">×</button>
             </div>
-            <div class="modal-body">
-                <div class="search-box-container">
+            <div class="premium-modal-body">
+                <div class="search-box-container mb-3">
                     <i class="fas fa-search"></i>
-                    <input type="text" id="input-buscar-cliente-presupuesto" placeholder="Nombre, DNI o ID..." autofocus
-                        autocomplete="off">
+                    <input type="text" id="input-buscar-cliente-presupuesto" 
+                           placeholder="Nombre, DNI o ID..." autofocus
+                           autocomplete="off" class="form-control-premium">
                 </div>
                 <div id="resultados-clientes-presupuesto" class="search-results-list">
                     <div class="search-placeholder">Escribe para empezar a buscar...</div>
                 </div>
+            </div>
+            <div class="premium-modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-buscar-cliente-presupuesto').style.display='none'">Cerrar</button>
             </div>
         </div>
     </div>

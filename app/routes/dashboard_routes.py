@@ -250,17 +250,29 @@ def get_dashboard_distribucion(current_user, negocio_id):
 
         # 5. Ranking Vendedores
         db.execute("""
-            SELECT v.nombre, COUNT(p.id) AS pedidos, COALESCE(SUM(p.total), 0) AS total
+            SELECT 
+                v.nombre, 
+                COUNT(DISTINCT p.id) AS pedidos, 
+                COALESCE(SUM(p.total), 0) AS total,
+                (
+                    SELECT COUNT(*) 
+                    FROM hoja_ruta_items hri
+                    JOIN hoja_ruta hr ON hri.hoja_ruta_id = hr.id
+                    WHERE hr.vendedor_id = v.id 
+                      AND hr.fecha >= %s AND hr.fecha < %s
+                      AND hri.visitado = TRUE
+                ) as visitas
             FROM vendedores v
             LEFT JOIN pedidos p ON v.id = p.vendedor_id AND p.fecha >= %s AND p.fecha < %s AND p.estado = 'entregado'
             WHERE v.negocio_id = %s AND v.activo = TRUE
             GROUP BY v.id, v.nombre
             ORDER BY total DESC
             LIMIT 5
-        """, (desde, hasta_siguiente, negocio_id))
+        """, (desde, hasta_siguiente, desde, hasta_siguiente, negocio_id))
         ranking_v = [dict(row) for row in db.fetchall()]
         for r in ranking_v:
             r['total'] = float(r['total'])
+            r['visitas'] = int(r['visitas'])
 
         # 6. Ranking Productos (Mas pedidos por cantidad)
         db.execute("""

@@ -1,0 +1,38 @@
+# Task: Debugging Driver Login Issue
+
+- [x] Investigate `app/routes/distribucion_routes.py` around line 1058
+- [x] Check `usuarios` and `empleados` table relationship in models
+- [x] Verify how the driver is being identified
+- [x] Implement self-healing link in `app/routes/auth_routes.py`
+- [x] Update `app/routes/empleados_routes.py` and `app/routes/auth_routes.py`
+- [x] Verify the fix with a test script
+- [x] Find Damian and Alejandro records
+- [x] Unlink Damian from Alejandro in `vendedores` table
+- [x] Verify the unlinking
+- [x] Implement database migration for vehicle tracking
+- [x] Create backend endpoint for location updates
+- [x] Implement location reporting in Chofer App
+- [x] Implement database migration for vehicle tracking
+- [x] Create backend endpoint for location updates
+- [x] Implement location reporting in Chofer App
+- [x] Update HR panel to display real-time position
+- [x] Verify real-time tracking flow
+- [x] Implement backend endpoint for Unified Route
+- [x] Add Unified View to Chofer App frontend
+- [x] Optimize unified route (Nearest Neighbor)
+- [x] Verify unified route functionality
+- [x] Implement `imprimirVentaPDF` in `sales/utils.js`
+- [x] Add event listener for "Cobrar e Imprimir" in `sales/events.js`
+- [x] Verify Remito printing in Ventas module
+- [x] Add print button to Sales History (`historial_ventas.js`)
+- [x] Verify Remito printing in Sales History
+- [x] Add "Historial de Ventas" to Distribuidora menu in `index.html`
+- [x] Add `historial_ventas` to default permissions in `admin_routes.py`
+- [x] Verify visibility in Admin Apps and Menu
+- [x] Improve Remito PDF "Total" section design
+- [x] Deploy and verify PDF layout
+- [x] Enable seller modification in HR edit (`hoja_ruta.js`)
+- [x] Verify seller modification functionality
+- [x] Enable editing for "Activa" status in `hoja_ruta.js`
+- [x] Allow "Activa" status updates in `distribucion_routes.py`
+- [x] Verify seller reassignment in active routes

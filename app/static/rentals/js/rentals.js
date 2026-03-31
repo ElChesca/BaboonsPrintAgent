@@ -412,7 +412,7 @@ function setupContractsListeners() {
 
             try {
                 const negocioId = appState.negocioActivoId;
-                const token = localStorage.getItem('token');
+                const token = localStorage.getItem('jwt_token');
                 let url = `/api/negocios/${negocioId}/rentals/contracts`;
                 let method = 'POST';
 

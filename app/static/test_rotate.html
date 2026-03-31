@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate-map@0.3.1/leaflet-src.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.min.js"></script>
+    <style>
+        #map {
+            height: 400px;
+            width: 400px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        console.log("Leaflet L exists:", !!window.L);
+        var map = L.map('map', {
+            center: [51.505, -0.09],
+            zoom: 13,
+            rotate: true,
+            touchRotate: true,
+            shiftKeyRotate: true,
+            rotateControl: { closeOnZeroBearing: false }
+        });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        console.log("Map _rotate:", map._rotate);
+        console.log("Map option shiftKeyRotate:", map.options.shiftKeyRotate);
+        console.log("Has Control Rotate:", !!L.Control.Rotate);
+    </script>
+</body>
+
+</html>

@@ -20,25 +20,16 @@ let mapModalHR, markersModalHR = [];
 let mapFullRecorrido, markersFullRecorrido = [];
 let rutaTemporal = [];
 let hojaRutaEditandoId = null;
+let hrPaginaActual = 0;
+const HR_POR_PAGINA = 50;
 
-async function cargarLeafletJS() {
-    if (window.L) return;
-    return new Promise((resolve, reject) => {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
-
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-}
+// Leaflet ya se carga en index.html de forma síncrona
 
 async function inicializarMapaHojaRuta() {
-    await cargarLeafletJS();
+    if (!window.L) {
+        console.error("Leaflet NO cargado. Abortando mapa.");
+        return;
+    }
 
     // ✨ LÓGICA DEFENSIVA: Evitar mapas fantasma o contenedores obsoletos
     const container = document.getElementById('map-hoja-ruta');
@@ -57,7 +48,7 @@ async function inicializarMapaHojaRuta() {
         return;
     }
 
-    mapHR = L.map('map-hoja-ruta').setView([-33.3017, -66.3378], 13);
+    mapHR = L.map('map-hoja-ruta', { rotate: false }).setView([-33.3017, -66.3378], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(mapHR);
@@ -82,6 +73,8 @@ export async function inicializarHojaRuta() {
     window.verPedidoCliente = verPedidoCliente;
     window.repetirHojaRuta = repetirHojaRuta;
     window.editarHojaRuta = editarHojaRuta;
+    window.cambiarPaginaHR = cambiarPaginaHR;
+    window.eliminarHojaRuta = eliminarHojaRuta;
 
     const filtroFecha = document.getElementById('filtro-fecha-hr');
     if (!filtroFecha) return;
@@ -259,15 +252,55 @@ async function cargarHojasRuta() {
     const fecha = document.getElementById('filtro-fecha-hr').value;
     try {
         let url = `/api/negocios/${appState.negocioActivoId}/hoja_ruta`;
-        if (fecha) url += `?fecha=${fecha}`;
+        const params = new URLSearchParams();
+        if (fecha) params.append('fecha', fecha);
+
+        // Paginar solo si no hay fecha (cuando se ven "Todas")
+        if (!fecha) {
+            params.append('limit', HR_POR_PAGINA);
+            params.append('offset', hrPaginaActual * HR_POR_PAGINA);
+        }
+
+        if (params.toString()) url += `?${params.toString()}`;
+
         hojasRuta = await fetchData(url);
         renderHojasRuta();
+        actualizarPaginacionHR(fecha);
     } catch (error) {
         console.error(error);
     }
 }
 
+function actualizarPaginacionHR(conFecha) {
+    const pnl = document.getElementById('paginacion-hr');
+    if (!pnl) return;
+
+    if (conFecha) {
+        pnl.setAttribute('style', 'display: none !important');
+        return;
+    }
+
+    pnl.setAttribute('style', 'display: flex !important');
+    const label = document.getElementById('label-pagina-hr');
+    if (label) label.textContent = `Página ${hrPaginaActual + 1}`;
+
+    const btnPrev = document.getElementById('btn-prev-hr');
+    const btnNext = document.getElementById('btn-next-hr');
+
+    if (btnPrev) btnPrev.disabled = hrPaginaActual === 0;
+    if (btnNext) btnNext.disabled = hojasRuta.length < HR_POR_PAGINA;
+}
+
+async function cambiarPaginaHR(delta) {
+    hrPaginaActual = Math.max(0, hrPaginaActual + delta);
+    await cargarHojasRuta();
+    // Scroll al tope de la tabla
+    document.getElementById('lista-hojas-ruta')?.scrollIntoView({ behavior: 'smooth' });
+}
+
 window.toggleFiltroEstadoHR = function () {
+    // Al cambiar filtros manuales, reseteamos a pág 1 para no perdernos
+    hrPaginaActual = 0;
     renderHojasRuta();
 };
 
@@ -334,11 +367,52 @@ function renderHojasRuta() {
                 <button class="btn btn-sm btn-primary" onclick="verDetalleHR(${hr.id})" title="Ver Reparto"><i class="fas fa-eye"></i></button>
                 ${(hr.estado === 'borrador' || hr.estado === 'activa') ? `<button class="btn btn-sm btn-outline-warning" onclick="editarHojaRuta(${hr.id})" title="Editar"><i class="fas fa-edit"></i></button>` : ''}
                 <button class="btn btn-sm btn-outline-secondary" onclick="repetirHojaRuta(${hr.id})" title="Repetir esta ruta"><i class="fas fa-copy"></i></button>
+                ${hr.cant_pedidos === 0 ? `<button class="btn btn-sm btn-outline-danger" onclick="eliminarHojaRuta(${hr.id})" title="Eliminar"><i class="fas fa-trash"></i></button>` : ''}
             </td>
         `;
         tbody.appendChild(tr);
     });
 }
+
+async function eliminarHojaRuta(id) {
+    const { isConfirmed } = await Swal.fire({
+        title: '¿Estás seguro?',
+        text: `Se eliminará la Hoja de Ruta #${id}. Esta acción no se puede deshacer.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (isConfirmed) {
+        const { isConfirmed: doubleConfirmed } = await Swal.fire({
+            title: 'Confirmación Final',
+            text: 'Presiona el botón para confirmar definitivamente la eliminación.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Eliminar definitivamente',
+            cancelButtonText: 'No, mejor no'
+        });
+
+        if (doubleConfirmed) {
+            try {
+                const response = await sendData(`/api/hoja_ruta/${id}`, {}, 'DELETE');
+                if (response.error) {
+                    Swal.fire('Error', response.error, 'error');
+                } else {
+                    Swal.fire('Eliminada', 'La hoja de ruta ha sido eliminada.', 'success');
+                    cargarHojasRuta();
+                }
+            } catch (error) {
+                console.error(error);
+                Swal.fire('Error', 'Hubo un error al eliminar la hoja de ruta.', 'error');
+            }
+        }
+    }
+}
+
 
 async function abrirModalHojaRuta() {
     hojaRutaEditandoId = null; // Reset modo creación
@@ -597,7 +671,6 @@ function optimizarRuta() {
         mostrarNotificacion('La mayoría de los clientes no tienen coordenadas para optimizar.', 'warning');
         return;
     }
-
     // Algoritmo Greedy: Empezamos por el primero de la lista actual (asumimos que es el punto de partida o el primero deseado)
     let rutaOptima = [conCoords[0]];
     let pendientes = conCoords.slice(1);
@@ -836,6 +909,7 @@ async function verDetalleHR(id) {
                 <td>
                     <strong>${item.cliente_nombre}</strong>
                     ${item.tiene_venta ? '<i class="fas fa-check-circle text-success ms-1" title="Venta Realizada"></i>' : ''}
+                    ${item.total_pedidos_cliente > 1 ? `<span class="badge bg-light text-primary border ms-1" title="${item.total_pedidos_cliente} pedidos">${item.total_pedidos_cliente} pack</span>` : ''}
                     ${iconPedido}
                 </td>
                 <td><small class="text-muted">${item.cliente_direccion || ''}</small>
@@ -869,10 +943,12 @@ async function verDetalleHR(id) {
 
             try {
                 // Buscamos pedidos y ventas recientes para este cliente
-                const [pedidos, ventas] = await Promise.all([
+                const [resPedidos, ventas] = await Promise.all([
                     fetchData(`/api/negocios/${appState.negocioActivoId}/pedidos?cliente_id=${clienteId}`),
                     fetchData(`/api/negocios/${appState.negocioActivoId}/ventas?cliente_id=${clienteId}`)
                 ]);
+
+                const pedidos = resPedidos.pedidos || [];
 
                 const combined = [
                     ...pedidos.map(p => ({
@@ -1045,17 +1121,32 @@ async function verPedidoCliente(clienteId, hojaRutaId) {
     try {
         // 1. Buscar el pedido asociado a esta ruta y cliente
         const urlBusqueda = `/api/negocios/${appState.negocioActivoId}/pedidos?hoja_ruta_id=${hojaRutaId}&cliente_id=${clienteId}`;
-        const pedidos = await fetchData(urlBusqueda);
+        const res = await fetchData(urlBusqueda);
+        const pedidos = res.pedidos || [];
 
         if (!pedidos || pedidos.length === 0) {
             mostrarNotificacion('No se encontró el pedido vinculado.', 'warning');
             return;
         }
 
-        const pedidoResumen = pedidos[0]; // Tomamos el más reciente/primero
+        // ✨ MANEJO DE MÚLTIPLES PEDIDOS
+        let pedidoIdParaVer = pedidos[0].id;
+        if (pedidos.length > 1) {
+            const { value: selectedId } = await Swal.fire({
+                title: 'Múltiples Pedidos',
+                text: `El cliente tiene ${pedidos.length} pedidos en esta ruta. Seleccione cuál desea ver:`,
+                input: 'select',
+                inputOptions: Object.fromEntries(pedidos.map(p => [p.id, `Pedido #${p.id} - $${p.total.toLocaleString()}`])),
+                inputPlaceholder: 'Seleccione un pedido',
+                showCancelButton: true,
+                confirmButtonText: 'Ver Detalle'
+            });
+            if (!selectedId) return;
+            pedidoIdParaVer = selectedId;
+        }
 
         // 2. Obtener detalle completo
-        const pedido = await fetchData(`/api/pedidos/${pedidoResumen.id}`);
+        const pedido = await fetchData(`/api/pedidos/${pedidoIdParaVer}`);
 
         // 3. Renderizar en Modal
         const modal = document.getElementById('modal-ver-pedido');
@@ -1190,6 +1281,11 @@ window.editarHojaRuta = async function (id) {
 function volverListaHR() {
     document.getElementById('detalle-hoja-ruta').style.display = 'none';
     document.getElementById('lista-hojas-ruta').style.display = 'block';
+
+    // Asegurar que cerramos cualquier modal de liquidación abierto
+    const modalLiq = document.getElementById('modal-liquidacion-hr');
+    if (modalLiq) modalLiq.style.display = 'none';
+
     detenerRefrescoTracking();
 }
 
@@ -1628,23 +1724,44 @@ let resumenLiqActual = null;
 
 async function abrirModalLiquidacion(id, estadoActual) {
     document.getElementById('liq-hr-id').value = id;
+    const headerDisplay = document.getElementById('liq-hr-id-display');
+    if (headerDisplay) headerDisplay.textContent = `HR #${id}`;
     const btnFinalizar = document.getElementById('btn-finalizar-liq');
     if (btnFinalizar) btnFinalizar.style.display = estadoActual === 'activa' ? 'block' : 'none';
 
     const modal = document.getElementById('modal-liquidacion-hr');
     const tbody = document.querySelector('#tabla-liq-productos tbody');
     tbody.innerHTML = '<tr><td colspan="2" class="text-center">Calculando...</td></tr>';
+
+    // Abrir modal y subir al tope de la página para que el overlay se vea bien
     modal.style.display = 'flex';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     resumenLiqActual = null;
 
     try {
         const resumen = await fetchData(`/api/hoja_ruta/${id}/resumen_liquidacion`);
         resumenLiqActual = resumen;
 
-        document.getElementById('liq-stats-visitas').innerText = `${resumen.visitas.visitados} / ${resumen.visitas.total_clientes}`;
-        document.getElementById('liq-stats-ventas').innerText = `$ ${resumen.ventas.total_moneda.toLocaleString()}`;
+        // Pilar 1 & 3: Totales Principales
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val;
+        };
 
-        if (resumen.productos.length === 0) {
+        setVal('liq-stats-visitas', `${resumen.visitas.visitados} / ${resumen.visitas.total_clientes}`);
+        setVal('liq-stats-dif-precios', `$ ${resumen.pilares.diferencia_por_precios.toLocaleString()}`);
+
+
+        // ✨ New: Order Stats
+        if (resumen.pedidos_stats) {
+            setVal('liq-stats-pedidos', `${resumen.pedidos_stats.pedidos_entregados} / ${resumen.pedidos_stats.total_pedidos}`);
+        } else {
+            setVal('liq-stats-pedidos', '- / -');
+        }
+        setVal('liq-total-final-rendir', `$ ${resumen.pilares.total_vendido.toLocaleString()}`);
+
+        // Pilar 1: Mercadería Entregada
+        if (!resumen.productos || resumen.productos.length === 0) {
             tbody.innerHTML = '<tr><td colspan="2" class="text-center">No se entregó mercadería</td></tr>';
         } else {
             tbody.innerHTML = resumen.productos.map(p => `
@@ -1655,10 +1772,25 @@ async function abrirModalLiquidacion(id, estadoActual) {
             `).join('');
         }
 
-        // --- Render Rebotes ---
+        // Pilar 2: Mercadería a Devolver (Físico)
+        const tbodyDevolucion = document.querySelector('#tabla-liq-devolucion-fisica tbody');
+        if (tbodyDevolucion) {
+            const aDevolver = resumen.pilares.mercaderia_a_devolver;
+            if (!aDevolver || aDevolver.length === 0) {
+                tbodyDevolucion.innerHTML = '<tr><td colspan="2" class="text-center text-muted">Sin mercadería para devolver</td></tr>';
+            } else {
+                tbodyDevolucion.innerHTML = aDevolver.map(p => `
+                    <tr>
+                        <td>${p.producto}</td>
+                        <td class="text-center fw-bold text-orange">${p.cantidad_a_devolver}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        // --- Render Rebotes (Detalle de motivos) ---
         const tbodyRebotes = document.querySelector('#tabla-liq-rebotes tbody');
         if (tbodyRebotes) {
-            tbodyRebotes.innerHTML = '<tr><td colspan="3" class="text-center">Calculando...</td></tr>';
             if (!resumen.rebotes || resumen.rebotes.length === 0) {
                 tbodyRebotes.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No hubo rechazos / mermas en este reparto</td></tr>';
             } else {
@@ -1669,6 +1801,110 @@ async function abrirModalLiquidacion(id, estadoActual) {
                         <td class="text-center fw-bold text-danger">${r.cantidad_total}</td>
                     </tr>
                 `).join('');
+            }
+        }
+
+        // ✨ NUEVO: Advertencia de Pedidos Pendientes
+        const warningContainer = document.getElementById('liq-warning-pendientes');
+        if (warningContainer) {
+            const pendientes = resumen.pilares.pedidos_pendientes || [];
+            if (pendientes.length > 0) {
+                warningContainer.innerHTML = `
+                    <div class="alert alert-warning p-1 px-2 small mb-2 border-warning shadow-sm" style="background: #fff9e6; border-radius: 8px;">
+                        <span class="fw-bold text-dark"><i class="fas fa-exclamation-triangle me-1"></i> ¡Pedidos sin Procesar!</span>
+                        Hay <strong>${pendientes.length}</strong> pedido(s) que siguen en estado "${pendientes[0].estado.toUpperCase()}":
+                        <ul class="mb-0 mt-1 px-3">
+                            ${pendientes.slice(0, 2).map(p => `<li>${p.cliente} ($${p.total.toLocaleString()})</li>`).join('')}
+                            ${pendientes.length > 2 ? `<li>... y otros ${pendientes.length - 2} más</li>` : ''}
+                        </ul>
+                        <p class="mb-0 mt-1 text-muted italic" style="font-size: 0.7rem;">Si no los marcás como entregados, el sistema asumirá que la mercadería volvió al depósito.</p>
+                    </div>
+                `;
+                warningContainer.style.display = 'block';
+            } else {
+                warningContainer.style.display = 'none';
+            }
+        }
+
+        // ✨ NUEVO: Resumen de Cobros (Cómo se cobró, quién y cuándo)
+        const seccionCobro = document.getElementById('seccion-como-cobro');
+        const tbodyCobros = document.getElementById('tbody-liq-cobros');
+        const infoCard = document.getElementById('liq-cobro-info-card');
+        const horarioBadge = document.getElementById('liq-cobro-horario');
+
+        if (seccionCobro && tbodyCobros) {
+            const cobros = resumen.resumen_cobros || [];
+            const infoCobro = resumen.info_cobro;
+
+            if (cobros.length > 0) {
+                seccionCobro.style.display = 'block';
+
+                const iconoMetodo = (metodo) => {
+                    const m = (metodo || '').toLowerCase();
+                    if (m.includes('efectivo')) return '<i class="fas fa-money-bill-wave text-success me-2"></i>';
+                    if (m.includes('mercado') || m.includes('mp')) return '<i class="fas fa-qrcode text-primary me-2"></i>';
+                    if (m.includes('cuenta') || m.includes('cte')) return '<i class="fas fa-file-invoice-dollar text-warning me-2"></i>';
+                    if (m.includes('mixto')) return '<i class="fas fa-layer-group text-info me-2"></i>';
+                    return '<i class="fas fa-credit-card text-secondary me-2"></i>';
+                };
+
+                const colorBadge = (metodo) => {
+                    const m = (metodo || '').toLowerCase();
+                    if (m.includes('efectivo')) return 'bg-success';
+                    if (m.includes('mercado') || m.includes('mp')) return 'bg-primary';
+                    if (m.includes('cuenta') || m.includes('cte')) return 'bg-warning text-dark';
+                    if (m.includes('mixto')) return 'bg-info';
+                    return 'bg-secondary';
+                };
+
+                tbodyCobros.innerHTML = cobros.map(c => `
+                    <tr>
+                        <td class="ps-4">
+                            ${iconoMetodo(c.metodo_pago)}
+                            <span class="badge ${colorBadge(c.metodo_pago)} rounded-pill">${c.metodo_pago || 'N/D'}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-light text-dark border">${c.cantidad_pedidos} pedido${c.cantidad_pedidos !== 1 ? 's' : ''}</span>
+                        </td>
+                        <td class="pe-4 text-end fw-bold text-success">$ ${parseFloat(c.total_metodo).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                `).join('');
+
+                if (infoCard && infoCobro) {
+                    const fmtFecha = (f) => {
+                        if (!f) return '—';
+                        const d = new Date(f);
+                        return d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    };
+
+                    if (horarioBadge && infoCobro.primer_cobro) {
+                        horarioBadge.textContent = `${fmtFecha(infoCobro.primer_cobro)} → ${fmtFecha(infoCobro.ultimo_cobro)}`;
+                    }
+
+                    infoCard.innerHTML = `
+                        <div class="d-flex align-items-center mb-2 border-bottom pb-2">
+                            <div class="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width:40px; height:40px; min-width:40px;">
+                                <i class="fas fa-user-check text-success"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-0" style="font-size:0.9rem;">${infoCobro.cobrado_por || 'Usuario'}</h6>
+                                <small class="text-muted d-block" style="font-size:0.75rem;">Responsable del Cobro</small>
+                            </div>
+                        </div>
+                        <div class="small text-muted" style="font-size:0.75rem;">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span><i class="fas fa-clock me-1"></i>Primer cobro:</span>
+                                <strong>${fmtFecha(infoCobro.primer_cobro)}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span><i class="fas fa-check-double me-1"></i>Último cobro:</span>
+                                <strong>${fmtFecha(infoCobro.ultimo_cobro)}</strong>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                seccionCobro.style.display = 'none';
             }
         }
 
@@ -1711,28 +1947,86 @@ function exportarLiquidacionPDF() {
     doc.setFontSize(18);
     doc.text(`Liquidación de Reparto - HR #${id}`, 14, 20);
     doc.setFontSize(11);
-    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 30);
-    doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 35);
+    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 28);
+
+    // Comparativa de Totales
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Resumen Contable de Rendición:", 14, 40);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Total Teórico HR (Cargado):`, 14, 48);
+    doc.text(`$ ${resumenLiqActual.pilares.total_original.toLocaleString()}`, 100, 48, { align: 'right' });
+
+    doc.setTextColor(200, 0, 0);
+    doc.text(`(-) Pedidos No Entregados:`, 14, 54);
+    doc.text(`$ ${resumenLiqActual.pilares.total_no_entregados.toLocaleString()}`, 100, 54, { align: 'right' });
+
+    doc.text(`(-) Rebotes / Rechazos Parciales:`, 14, 60);
+    doc.text(`$ ${resumenLiqActual.pilares.total_rebotes.toLocaleString()}`, 100, 60, { align: 'right' });
+
+    doc.setTextColor(0, 128, 0);
+    doc.setFont("helvetica", "bold");
+    doc.text(`(=) TOTAL VENDIDO (Neto):`, 14, 68);
+    doc.text(`$ ${resumenLiqActual.pilares.total_vendido.toLocaleString()}`, 100, 68, { align: 'right' });
+
+    // ✨ NUEVO: Desglose de Cobros en PDF
+    let cobroY = 74;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+
+    if (resumenLiqActual.resumen_cobros && resumenLiqActual.resumen_cobros.length > 0) {
+        resumenLiqActual.resumen_cobros.forEach(c => {
+            doc.text(`> ${c.metodo_pago}:`, 20, cobroY);
+            doc.text(`$ ${c.total_metodo.toLocaleString()}`, 100, cobroY, { align: 'right' });
+            cobroY += 5;
+        });
+    }
+
+    doc.setTextColor(0, 0, 255);
+    doc.setFontSize(10);
+    doc.text(`(+) Diferencia por Precios:`, 14, cobroY);
+    doc.text(`$ ${resumenLiqActual.pilares.diferencia_por_precios.toLocaleString()}`, 100, cobroY, { align: 'right' });
+    cobroY += 8;
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Visitas: ${resumenLiqActual.visitas.visitados} de ${resumenLiqActual.visitas.total_clientes}`, 120, 48);
+
+    // Pilar 1: Mercadería Entregada
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("1. Mercadería Entregada (Pilar 1)", 14, cobroY + 10);
+    const headers1 = [["Producto", "Cantidad Entregada"]];
+    const data1 = resumenLiqActual.productos.map(p => [p.producto, p.cantidad_total]);
+
+    doc.autoTable({
+        startY: cobroY + 14,
+        head: headers1,
+        body: data1,
+        theme: 'striped',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+        styles: { fontSize: 9 }
+    });
+
+    // Pilar 2: Mercadería a Devolver
+    let nextY = doc.lastAutoTable.finalY + 10;
+    if (nextY > 240) { doc.addPage(); nextY = 20; }
 
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Resumen de Operación:", 14, 45);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    doc.text(`- Visitas: ${resumenLiqActual.visitas.visitados} de ${resumenLiqActual.visitas.total_clientes}`, 14, 52);
-    doc.text(`- Pedidos Entregados: ${resumenLiqActual.ventas.cantidad}`, 14, 58);
-    doc.text(`- Total Ventas (CC): $ ${resumenLiqActual.ventas.total_moneda.toLocaleString()}`, 14, 64);
-
-    const headers = [["Producto Entregado", "Cantidad Total"]];
-    const data = resumenLiqActual.productos.map(p => [p.producto, p.cantidad_total]);
+    doc.text("2. Mercadería a Devolver (Pilar 2 - Stock Físico)", 14, nextY);
+    const headers2 = [["Producto", "Stock a Devolver"]];
+    const data2 = resumenLiqActual.pilares.mercaderia_a_devolver.map(p => [p.producto, p.cantidad_a_devolver]);
 
     doc.autoTable({
-        startY: 75,
-        head: headers,
-        body: data,
+        startY: nextY + 4,
+        head: headers2,
+        body: data2,
         theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-        styles: { fontSize: 10 }
+        headStyles: { fillColor: [243, 156, 18], textColor: 255 },
+        styles: { fontSize: 9 }
     });
 
     doc.save(`Liquidacion_HR_${id}.pdf`);
@@ -1741,64 +2035,74 @@ function exportarLiquidacionPDF() {
 
 // --- GENERACIÓN DE PICKING LIST GENERAL (PDF) ---
 function exportarPickingPDF() {
-    const { jsPDF } = window.jspdf;
-    if (!jsPDF) {
-        mostrarNotificacion('Librería PDF no cargada', 'error');
-        return;
-    }
-    const doc = new jsPDF();
-    const fecha = document.getElementById('filtro-fecha-pedidos').value;
-
-    doc.setFontSize(18);
-    doc.text("Picking List - Preparación de Carga", 14, 20);
-
-    doc.setFontSize(11);
-    doc.text(`Fecha de Reparto: ${fecha}`, 14, 30);
-    doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 35);
-
-    const headers = [["Producto", "Pend.", "Prep.", "Total a Cargar"]];
-    const data = [];
-
-    const rows = document.querySelectorAll('#tabla-consolidado-items tbody tr');
-    rows.forEach(row => {
-        const cols = row.querySelectorAll('td');
-        if (cols.length >= 4) {
-            data.push([
-                cols[0].innerText,
-                cols[1].innerText,
-                cols[2].innerText,
-                cols[3].innerText
-            ]);
+    try {
+        const { jsPDF } = window.jspdf || {};
+        if (!jsPDF) {
+            mostrarNotificacion('Librería PDF no cargada (jsPDF)', 'error');
+            return;
         }
-    });
+        const doc = new jsPDF();
+        const fecha = document.getElementById('filtro-fecha-pedidos').value;
 
-    if (data.length === 0) {
-        mostrarNotificacion('No hay datos para exportar', 'warning');
-        return;
+        doc.setFontSize(18);
+        doc.text("Picking List - Preparación de Carga", 14, 20);
+
+        doc.setFontSize(11);
+        doc.text(`Fecha de Reparto: ${fecha}`, 14, 30);
+        doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 35);
+
+        const headers = [["Producto", "Pend.", "Prep.", "Total a Cargar"]];
+        const data = [];
+
+        const rows = document.querySelectorAll('#tabla-consolidado-items tbody tr');
+        rows.forEach(row => {
+            const cols = row.querySelectorAll('td');
+            if (cols.length >= 4) {
+                data.push([
+                    cols[0].innerText,
+                    cols[1].innerText,
+                    cols[2].innerText,
+                    cols[3].innerText
+                ]);
+            }
+        });
+
+        if (data.length === 0) {
+            mostrarNotificacion('No hay datos para exportar', 'warning');
+            return;
+        }
+
+        doc.autoTable({
+            startY: 45,
+            head: headers,
+            body: data,
+            theme: 'striped',
+            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+            styles: { fontSize: 10 }
+        });
+
+        doc.save(`PickingList_${fecha}.pdf`);
+    } catch (error) {
+        console.error(error);
+        mostrarNotificacion('Error al generar Picking List', 'error');
     }
-
-    doc.autoTable({
-        startY: 45,
-        head: headers,
-        body: data,
-        theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-        styles: { fontSize: 10 }
-    });
-
-    doc.save(`PickingList_${fecha}.pdf`);
 }
 
 // --- GENERACIÓN DE PICKING LIST PARA HOJA DE RUTA ---
 async function exportarPickingHR_PDF(id) {
-    const { jsPDF } = window.jspdf;
-    if (!jsPDF) {
-        mostrarNotificacion('Librería PDF no cargada', 'error');
-        return;
-    }
-
     try {
+        const { jsPDF } = window.jspdf || {};
+        if (!jsPDF) {
+            mostrarNotificacion('Librería PDF no cargada (jsPDF)', 'error');
+            return;
+        }
+
         const resumen = await fetchData(`/api/hoja_ruta/${id}/picking_list`);
+        if (resumen.error) {
+            mostrarNotificacion('Error al obtener datos: ' + resumen.error, 'error');
+            return;
+        }
+
         const doc = new jsPDF();
 
         doc.setFontSize(18);
@@ -1889,21 +2193,40 @@ async function exportarPickingHR_PDF(id) {
                 doc.text(`Dirección: ${cliente.direccion}`, 14, currentY);
                 currentY += 5;
 
-                // Client products table
-                const clientData = cliente.productos.map(p => [p.producto, p.cantidad, ""]);
+                // Support for multiple orders (Discriminated) vs legacy consolidated
+                const pedidos = cliente.pedidos || [{ id: 'S/N', productos: cliente.productos }];
 
-                doc.autoTable({
-                    startY: currentY,
-                    head: [["Producto", "Cant.", "✓"]],
-                    body: clientData,
-                    theme: 'striped',
-                    headStyles: { fillColor: [40, 167, 69], textColor: 255, fontSize: 9 },
-                    styles: { fontSize: 9 },
-                    columnStyles: { 2: { cellWidth: 15 } },
-                    margin: { left: 20 }
+                pedidos.forEach(pedido => {
+                    if (pedidos.length > 1) {
+                        doc.setFont(undefined, 'bold');
+                        doc.text(`Pedido #${pedido.id}`, 20, currentY);
+                        doc.setFont(undefined, 'normal');
+                        currentY += 4;
+                    }
+
+                    const tableData = pedido.productos.map(p => [p.producto, p.cantidad, ""]);
+
+                    doc.autoTable({
+                        startY: currentY,
+                        head: [["Producto", "Cant.", "✓"]],
+                        body: tableData,
+                        theme: 'striped',
+                        headStyles: { fillColor: [40, 167, 69], textColor: 255, fontSize: 9 },
+                        styles: { fontSize: 9 },
+                        columnStyles: { 2: { cellWidth: 15 } },
+                        margin: { left: 20 }
+                    });
+
+                    currentY = doc.lastAutoTable.finalY + 5;
+
+                    // New page check inside loop
+                    if (currentY > 260) {
+                        doc.addPage();
+                        currentY = 20;
+                    }
                 });
 
-                currentY = doc.lastAutoTable.finalY + 8;
+                currentY += 5;
             });
         } else {
             doc.text('No hay entregas programadas', 14, currentY);
@@ -2162,6 +2485,97 @@ function actualizarCapacidadHR() {
     barraVolumen.className = 'progress-bar ' + (porcVolumen > 100 ? 'bg-danger' : porcVolumen > 80 ? 'bg-warning' : 'bg-info');
 }
 
+/**
+ * ✨ Baboons Premium: Modal de Stock Insuficiente
+ * Crea un modal dinámico con Glassmorphism para informar al usuario sobre 
+ * los productos que faltan en el depósito.
+ */
+function mostrarModalStockInsuficiente(detalles) {
+    const existing = document.getElementById('modal-stock-error-premium');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'modal-stock-error-premium';
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        z-index: 10000; display: flex; align-items: center; justify-content: center;
+        animation: baboonsFadeIn 0.3s ease-out; opacity: 1; transition: opacity 0.3s ease;
+    `;
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background: rgba(255, 255, 255, 0.95);
+        max-width: 500px; width: 90%; border-radius: 28px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        padding: 30px; position: relative; border: 1px solid rgba(255, 255, 255, 0.3);
+        transform: translateY(0); animation: baboonsSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    `;
+
+    const iconHeader = `
+        <div style="text-align: center; margin-bottom: 20px;">
+            <div style="width: 70px; height: 70px; background: rgba(239, 68, 68, 0.1); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+                <i class="fas fa-box-open" style="font-size: 2rem; color: #dc2626;"></i>
+            </div>
+            <h3 style="margin: 0; font-weight: 800; color: #1f2937; letter-spacing: -0.5px;">Stock Insuficiente</h3>
+            <p style="color: #6b7280; font-size: 0.95rem; margin-top: 5px;">No hay existencias suficientes en el depósito central.</p>
+        </div>
+    `;
+
+    let listHtml = '<div style="background: #f9fafb; border-radius: 18px; padding: 15px; margin-bottom: 25px; max-height: 250px; overflow-y: auto; border: 1px solid #f3f4f6;">';
+    detalles.forEach(d => {
+        listHtml += `
+            <div style="display: flex; align-items: start; gap: 12px; margin-bottom: 12px; padding: 8px; border-bottom: 1px solid #f1f5f9;">
+                <i class="fas fa-exclamation-triangle" style="color: #f59e0b; margin-top: 4px; font-size: 0.9rem;"></i>
+                <span style="font-weight: 600; color: #374151; font-size: 0.9rem;">${d}</span>
+            </div>
+        `;
+    });
+    listHtml += '</div>';
+
+    const footerHtml = `
+        <div style="background: rgba(37, 99, 235, 0.05); border-radius: 14px; padding: 12px; margin-bottom: 25px; display: flex; gap: 10px; align-items: center;">
+            <i class="fas fa-lightbulb" style="color: #2563eb;"></i>
+            <span style="color: #1e40af; font-size: 0.8rem; line-height: 1.4;">
+                <strong>Tip Baboons:</strong> Si necesitas cargar el camión de todas formas, un administrador puede habilitar <em>"Stock Negativo"</em> en la configuración.
+            </span>
+        </div>
+        <button id="btn-close-stock-error" style="
+            width: 100%; padding: 14px; border-radius: 14px; border: none;
+            background: #1f2937; color: white; font-weight: 700; font-size: 1rem;
+            cursor: pointer; transition: all 0.2s ease;
+        ">
+            Entendido
+        </button>
+    `;
+
+    modal.innerHTML = iconHeader + listHtml + footerHtml;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    if (!document.getElementById('baboons-modal-styles')) {
+        const style = document.createElement('style');
+        style.id = 'baboons-modal-styles';
+        style.innerHTML = `
+            @keyframes baboonsFadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes baboonsSlideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+            #btn-close-stock-error:hover { background: #111827 !important; transform: translateY(-2px); }
+            #btn-close-stock-error:active { transform: translateY(0); }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.getElementById('btn-close-stock-error').onclick = () => {
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 300);
+    };
+
+    overlay.onclick = (e) => {
+        if (e.target === overlay) document.getElementById('btn-close-stock-error').click();
+    };
+}
+
 function resetearCapacidadHR() {
     cargaStateHR.hojasRutaSeleccionadas = [];
     document.getElementById('carga-peso-label').innerText = '0 / 0 Kg';
@@ -2196,12 +2610,19 @@ async function confirmarCargaVehiculoMultiple() {
 
     } catch (error) {
         console.error(error);
-        // El error ya se muestra en sendData/handleApiResponse
+        
+        if (error.status === 409 && error.data && error.data.detalles) {
+            mostrarModalStockInsuficiente(error.data.detalles);
+        } else {
+            // El error ya se muestra en sendData/handleApiResponse (pero reforzamos con notificación directa)
+            mostrarNotificacion(error.message || 'Error al confirmar la carga', 'error');
+        }
     }
 }
 
 // Exponer función globalmente
 window.confirmarCargaVehiculoMultiple = confirmarCargaVehiculoMultiple;
+window.resetearCapacidadHR = resetearCapacidadHR;
 // --- Inventario Móvil ---
 
 async function inicializarInventarioMovil() {

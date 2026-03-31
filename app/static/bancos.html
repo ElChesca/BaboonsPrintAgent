@@ -1,0 +1,728 @@
+<!-- bancos.html — Módulo Bancos: Cheques & Echeqs -->
+<style>
+    .bancos-kpis {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .bancos-kpi-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px 22px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
+        border-left: 5px solid #ccc;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        position: relative;
+        overflow: hidden;
+        transition: transform .18s, box-shadow .18s;
+    }
+
+    .bancos-kpi-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, .12);
+    }
+
+    .bancos-kpi-card.azul {
+        border-left-color: #007bff;
+    }
+
+    .bancos-kpi-card.verde {
+        border-left-color: #28a745;
+    }
+
+    .bancos-kpi-card.naranja {
+        border-left-color: #fd7e14;
+    }
+
+    .bancos-kpi-card.rojo {
+        border-left-color: #dc3545;
+    }
+
+    .bancos-kpi-icon {
+        font-size: 2rem;
+        position: absolute;
+        right: 18px;
+        top: 18px;
+        opacity: .12;
+    }
+
+    .bancos-kpi-card.azul .bancos-kpi-icon {
+        color: #007bff;
+    }
+
+    .bancos-kpi-card.verde .bancos-kpi-icon {
+        color: #28a745;
+    }
+
+    .bancos-kpi-card.naranja .bancos-kpi-icon {
+        color: #fd7e14;
+    }
+
+    .bancos-kpi-card.rojo .bancos-kpi-icon {
+        color: #dc3545;
+    }
+
+    .bancos-kpi-label {
+        font-size: .78rem;
+        font-weight: 600;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .bancos-kpi-value {
+        font-size: 1.7rem;
+        font-weight: 700;
+        color: #212529;
+        line-height: 1.1;
+    }
+
+    .bancos-kpi-sub {
+        font-size: .78rem;
+        color: #aaa;
+    }
+
+    .bancos-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid #dee2e6;
+        margin-bottom: 20px;
+    }
+
+    .bancos-tab-btn {
+        padding: 10px 22px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: .9rem;
+        font-weight: 600;
+        color: #6c757d;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        transition: color .15s, border-color .15s;
+    }
+
+    .bancos-tab-btn:hover,
+    .bancos-tab-btn.active {
+        color: #007bff;
+        border-bottom-color: #007bff;
+    }
+
+    .bancos-tab-pane {
+        display: none;
+    }
+
+    .bancos-tab-pane.active {
+        display: block;
+    }
+
+    .bancos-filtros {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        margin-bottom: 16px;
+        background: #fff;
+        padding: 14px 16px;
+        border-radius: 10px;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+    }
+
+    .bancos-filtros .fg {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .bancos-filtros label {
+        font-size: .75rem;
+        font-weight: 600;
+        color: #555;
+    }
+
+    .bancos-filtros select,
+    .bancos-filtros input {
+        padding: 7px 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: .88rem;
+        min-width: 130px;
+    }
+
+    .badge-estado {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: .72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .badge-en_cartera {
+        background: #e3f2fd;
+        color: #1565c0;
+    }
+
+    .badge-depositado {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .badge-endosado {
+        background: #fff3e0;
+        color: #e65100;
+    }
+
+    .badge-aplicado {
+        background: #f3e5f5;
+        color: #6a1b9a;
+    }
+
+    .badge-rechazado {
+        background: #ffebee;
+        color: #c62828;
+    }
+
+    .badge-anulado {
+        background: #f5f5f5;
+        color: #757575;
+    }
+
+    .tabla-cheques th {
+        white-space: nowrap;
+    }
+
+    .tabla-cheques td {
+        vertical-align: middle;
+    }
+
+    .btn-accion {
+        padding: 4px 9px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: .78rem;
+        font-weight: 600;
+        transition: opacity .15s;
+        margin: 1px;
+    }
+
+    .btn-accion:hover {
+        opacity: .8;
+    }
+
+    .btn-depositar {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .btn-endosar {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .btn-rechazar {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .btn-historial {
+        background: #e2e3f3;
+        color: #383d99;
+    }
+
+    .btn-anular {
+        background: #e2e3e5;
+        color: #383838;
+    }
+
+    .timeline {
+        position: relative;
+        padding-left: 28px;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 9px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #dee2e6;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+
+    .timeline-dot {
+        position: absolute;
+        left: -24px;
+        top: 4px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #007bff;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 2px #007bff;
+    }
+
+    .timeline-dot.rechazo {
+        background: #dc3545;
+        box-shadow: 0 0 0 2px #dc3545;
+    }
+
+    .timeline-dot.deposito {
+        background: #28a745;
+        box-shadow: 0 0 0 2px #28a745;
+    }
+
+    .timeline-dot.endoso_salida {
+        background: #fd7e14;
+        box-shadow: 0 0 0 2px #fd7e14;
+    }
+
+    .timeline-dot.anulacion {
+        background: #6c757d;
+        box-shadow: 0 0 0 2px #6c757d;
+    }
+
+    .timeline-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 10px 14px;
+        border: 1px solid #e9ecef;
+    }
+
+    .timeline-tipo {
+        font-weight: 700;
+        font-size: .85rem;
+    }
+
+    .timeline-fecha {
+        font-size: .75rem;
+        color: #888;
+    }
+
+    .timeline-detalle {
+        font-size: .82rem;
+        color: #555;
+        margin-top: 4px;
+    }
+
+    @media(max-width:900px) {
+        .bancos-kpis {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media(max-width:580px) {
+        .bancos-kpis {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .bancos-tab-btn {
+            font-size: .78rem;
+            padding: 8px 12px;
+        }
+    }
+</style>
+
+<div class="seccion-contenido-dinamico">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <h2 style="margin:0;">🏦 Bancos — Cheques &amp; Echeqs</h2>
+        <div style="display:flex;gap:10px;">
+            <button class="btn btn-primary" id="btn-nuevo-cheque-recibido"><i class="fas fa-plus"></i> Cheque
+                Recibido</button>
+            <button class="btn btn-secondary" id="btn-nuevo-cheque-emitido"><i class="fas fa-paper-plane"></i> Cheque
+                Emitido</button>
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="bancos-kpis">
+        <div class="bancos-kpi-card azul"><span class="bancos-kpi-icon"><i class="fas fa-wallet"></i></span>
+            <div class="bancos-kpi-label">Cartera Terceros</div>
+            <div class="bancos-kpi-value" id="kpi-cartera">—</div>
+            <div class="bancos-kpi-sub">En cartera disponible</div>
+        </div>
+        <div class="bancos-kpi-card naranja"><span class="bancos-kpi-icon"><i class="fas fa-clock"></i></span>
+            <div class="bancos-kpi-label">Vencen en 7 días</div>
+            <div class="bancos-kpi-value" id="kpi-prox-valor">—</div>
+            <div class="bancos-kpi-sub" id="kpi-prox-cant">— cheques</div>
+        </div>
+        <div class="bancos-kpi-card rojo"><span class="bancos-kpi-icon"><i class="fas fa-times-circle"></i></span>
+            <div class="bancos-kpi-label">Rechazados Activos</div>
+            <div class="bancos-kpi-value" id="kpi-rechazados-valor">—</div>
+            <div class="bancos-kpi-sub" id="kpi-rechazados-cant">— cheques</div>
+        </div>
+        <div class="bancos-kpi-card verde"><span class="bancos-kpi-icon"><i
+                    class="fas fa-file-invoice-dollar"></i></span>
+            <div class="bancos-kpi-label">Propios Pendientes</div>
+            <div class="bancos-kpi-value" id="kpi-propios">—</div>
+            <div class="bancos-kpi-sub">Cheques emitidos</div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="bancos-tabs">
+        <button class="bancos-tab-btn active" data-tab="tab-cartera"><i class="fas fa-inbox"></i> Cartera
+            Terceros</button>
+        <button class="bancos-tab-btn" data-tab="tab-propios"><i class="fas fa-paper-plane"></i> Cheques
+            Propios</button>
+        <button class="bancos-tab-btn" data-tab="tab-historial"><i class="fas fa-history"></i> Historial
+            Completo</button>
+    </div>
+
+    <!-- Tab 1: Cartera -->
+    <div id="tab-cartera" class="bancos-tab-pane active">
+        <div class="bancos-filtros">
+            <div class="fg"><label>Estado</label><select id="filtro-estado-cartera">
+                    <option value="">Todos</option>
+                    <option value="en_cartera" selected>En Cartera</option>
+                    <option value="depositado">Depositado</option>
+                    <option value="endosado">Endosado</option>
+                    <option value="rechazado">Rechazado</option>
+                    <option value="anulado">Anulado</option>
+                </select></div>
+            <div class="fg"><label>Tipo</label><select id="filtro-modalidad-cartera">
+                    <option value="">Todos</option>
+                    <option value="fisico">Físico</option>
+                    <option value="echeq">Echeq</option>
+                </select></div>
+            <div class="fg"><label>Vto. Desde</label><input type="date" id="filtro-desde-cartera"></div>
+            <div class="fg"><label>Vto. Hasta</label><input type="date" id="filtro-hasta-cartera"></div>
+            <button class="btn btn-primary" id="btn-filtrar-cartera" style="align-self:flex-end;"><i
+                    class="fas fa-search"></i> Filtrar</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+            <div class="tabla-contenedor" style="overflow-x:auto;">
+                <table class="table tabla-cheques" id="tabla-cartera">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tipo</th>
+                            <th>Banco</th>
+                            <th>Nº Cheque</th>
+                            <th>Librador</th>
+                            <th>Monto</th>
+                            <th>Fecha Vto.</th>
+                            <th>Estado</th>
+                            <th>Cliente</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-cartera">
+                        <tr>
+                            <td colspan="10" class="text-center text-muted">Cargando...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 2: Propios -->
+    <div id="tab-propios" class="bancos-tab-pane">
+        <div class="bancos-filtros">
+            <div class="fg"><label>Estado</label><select id="filtro-estado-propios">
+                    <option value="">Todos</option>
+                    <option value="aplicado">Aplicado</option>
+                    <option value="rechazado">Rechazado</option>
+                    <option value="anulado">Anulado</option>
+                </select></div>
+            <div class="fg"><label>Vto. Desde</label><input type="date" id="filtro-desde-propios"></div>
+            <div class="fg"><label>Vto. Hasta</label><input type="date" id="filtro-hasta-propios"></div>
+            <button class="btn btn-primary" id="btn-filtrar-propios" style="align-self:flex-end;"><i
+                    class="fas fa-search"></i> Filtrar</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+            <div class="tabla-contenedor" style="overflow-x:auto;">
+                <table class="table tabla-cheques" id="tabla-propios">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tipo</th>
+                            <th>Banco</th>
+                            <th>Nº Cheque</th>
+                            <th>Monto</th>
+                            <th>Fecha Vto.</th>
+                            <th>Estado</th>
+                            <th>Proveedor</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-propios">
+                        <tr>
+                            <td colspan="9" class="text-center text-muted">Cargando...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 3: Historial -->
+    <div id="tab-historial" class="bancos-tab-pane">
+        <div class="bancos-filtros">
+            <div class="fg"><label>Tipo</label><select id="filtro-tipo-hist">
+                    <option value="">Todos</option>
+                    <option value="tercero">Terceros</option>
+                    <option value="propio">Propios</option>
+                </select></div>
+            <div class="fg"><label>Estado</label><select id="filtro-estado-hist">
+                    <option value="">Todos</option>
+                    <option value="en_cartera">En Cartera</option>
+                    <option value="depositado">Depositado</option>
+                    <option value="endosado">Endosado</option>
+                    <option value="aplicado">Aplicado</option>
+                    <option value="rechazado">Rechazado</option>
+                    <option value="anulado">Anulado</option>
+                </select></div>
+            <div class="fg"><label>Desde</label><input type="date" id="filtro-desde-hist"></div>
+            <div class="fg"><label>Hasta</label><input type="date" id="filtro-hasta-hist"></div>
+            <button class="btn btn-primary" id="btn-filtrar-hist" style="align-self:flex-end;"><i
+                    class="fas fa-search"></i> Filtrar</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+            <div class="tabla-contenedor" style="overflow-x:auto;">
+                <table class="table tabla-cheques" id="tabla-historial">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tipo</th>
+                            <th>Modal.</th>
+                            <th>Banco</th>
+                            <th>Nº Cheque</th>
+                            <th>Monto</th>
+                            <th>Fecha Vto.</th>
+                            <th>Estado</th>
+                            <th>Origen/Destino</th>
+                            <th>Detalle</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-historial">
+                        <tr>
+                            <td colspan="10" class="text-center text-muted">Usá los filtros para buscar</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALES PREMIUM -->
+
+<!-- Modal: Cheque Recibido -->
+<div id="modal-cheque-recibido" class="premium-modal-overlay">
+    <div class="premium-modal-content" style="max-width:680px;width:95%;">
+        <div class="premium-modal-header">
+            <h4 class="mb-0 fw-bold"><i class="fas fa-inbox me-2"></i>Registrar Cheque Recibido</h4><button
+                class="btn-close-modal" onclick="Bancos.cerrarModal('modal-cheque-recibido')">×</button>
+        </div>
+        <div class="premium-modal-body">
+            <form id="form-cheque-recibido">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                    <div class="form-group mb-0"><label>Modalidad *</label><select id="cr-modalidad"
+                            class="form-control" required>
+                            <option value="fisico">Físico</option>
+                            <option value="echeq">Echeq</option>
+                        </select></div>
+                    <div class="form-group mb-0"><label>Origen</label><select id="cr-origen" class="form-control">
+                            <option value="manual">Manual / Sin venta</option>
+                            <option value="cobro_venta">Cobro de Venta</option>
+                            <option value="cobro_ctacte">Cobro Cta. Cte.</option>
+                        </select></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                    <div class="form-group mb-0"><label>Banco *</label><input type="text" id="cr-banco"
+                            class="form-control" placeholder="Ej: Banco Galicia" required></div>
+                    <div class="form-group mb-0"><label>Nº de Cheque *</label><input type="text" id="cr-numero"
+                            class="form-control" placeholder="Ej: 12345678" required></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                    <div class="form-group mb-0"><label>Nombre Librador</label><input type="text" id="cr-librador"
+                            class="form-control" placeholder="Nombre / razón social"></div>
+                    <div class="form-group mb-0"><label>CUIT Librador</label><input type="text" id="cr-cuit"
+                            class="form-control" placeholder="Ej: 20-12345678-9"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;">
+                    <div class="form-group mb-0"><label>Monto ($) *</label><input type="number" id="cr-monto"
+                            class="form-control" step="0.01" min="0.01" required></div>
+                    <div class="form-group mb-0"><label>Fecha Emisión</label><input type="date" id="cr-fecha-emision"
+                            class="form-control"></div>
+                    <div class="form-group mb-0"><label>Fecha Vencimiento *</label><input type="date" id="cr-fecha-vto"
+                            class="form-control" required></div>
+                </div>
+                <div class="form-group" style="margin-bottom:14px;"><label>Cliente (opcional)</label><select
+                        id="cr-cliente" class="form-control">
+                        <option value="">— Sin cliente —</option>
+                    </select></div>
+                <div id="cr-echeq-fields" style="display:none;margin-bottom:14px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                        <div class="form-group mb-0"><label>ID Echeq (ARCA)</label><input type="text" id="cr-echeq-id"
+                                class="form-control" placeholder="ID único del echeq"></div>
+                        <div class="form-group mb-0"><label>CBU de acreditación</label><input type="text"
+                                id="cr-echeq-cbu" class="form-control" placeholder="CBU destino"></div>
+                    </div>
+                </div>
+                <div class="form-group mb-0"><label>Observaciones</label><textarea id="cr-observaciones"
+                        class="form-control" rows="2" placeholder="Notas adicionales..."></textarea></div>
+            </form>
+        </div>
+        <div class="premium-modal-footer">
+            <button class="btn btn-secondary" onclick="Bancos.cerrarModal('modal-cheque-recibido')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-guardar-cheque-recibido"><i class="fas fa-save"></i> Registrar
+                Cheque</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Cheque Emitido -->
+<div id="modal-cheque-emitido" class="premium-modal-overlay">
+    <div class="premium-modal-content" style="max-width:640px;width:95%;">
+        <div class="premium-modal-header" style="background:#6a1b9a;">
+            <h4 class="mb-0 fw-bold"><i class="fas fa-paper-plane me-2"></i>Registrar Cheque Emitido</h4><button
+                class="btn-close-modal" onclick="Bancos.cerrarModal('modal-cheque-emitido')">×</button>
+        </div>
+        <div class="premium-modal-body">
+            <form id="form-cheque-emitido">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                    <div class="form-group mb-0"><label>Modalidad *</label><select id="ce-modalidad"
+                            class="form-control" required>
+                            <option value="fisico">Físico</option>
+                            <option value="echeq">Echeq</option>
+                        </select></div>
+                    <div class="form-group mb-0"><label>Proveedor *</label><select id="ce-proveedor"
+                            class="form-control" required>
+                            <option value="">— Seleccionar —</option>
+                        </select></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                    <div class="form-group mb-0"><label>Banco *</label><input type="text" id="ce-banco"
+                            class="form-control" required></div>
+                    <div class="form-group mb-0"><label>Nº de Cheque *</label><input type="text" id="ce-numero"
+                            class="form-control" required></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;">
+                    <div class="form-group mb-0"><label>Monto ($) *</label><input type="number" id="ce-monto"
+                            class="form-control" step="0.01" min="0.01" required></div>
+                    <div class="form-group mb-0"><label>Fecha Emisión</label><input type="date" id="ce-fecha-emision"
+                            class="form-control"></div>
+                    <div class="form-group mb-0"><label>Fecha Vencimiento *</label><input type="date" id="ce-fecha-vto"
+                            class="form-control" required></div>
+                </div>
+                <div class="form-group mb-0"><label>Observaciones</label><textarea id="ce-observaciones"
+                        class="form-control" rows="2"></textarea></div>
+            </form>
+        </div>
+        <div class="premium-modal-footer">
+            <button class="btn btn-secondary" onclick="Bancos.cerrarModal('modal-cheque-emitido')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-guardar-cheque-emitido"><i class="fas fa-save"></i> Registrar
+                Cheque</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Endosar -->
+<div id="modal-endosar" class="premium-modal-overlay">
+    <div class="premium-modal-content" style="max-width:500px;width:95%;">
+        <div class="premium-modal-header" style="background:#e65100;">
+            <h4 class="mb-0 fw-bold"><i class="fas fa-exchange-alt me-2"></i>Endosar Cheque</h4><button
+                class="btn-close-modal" onclick="Bancos.cerrarModal('modal-endosar')">×</button>
+        </div>
+        <div class="premium-modal-body">
+            <p id="endosar-info" class="mb-3"
+                style="font-size:.9rem;color:#444;background:#fff3e0;padding:10px;border-radius:6px;"></p>
+            <div class="form-group"><label>Proveedor Destino *</label><select id="endosar-proveedor"
+                    class="form-control" required>
+                    <option value="">— Seleccionar proveedor —</option>
+                </select></div>
+            <div class="form-group"><label
+                    style="display:flex;align-items:center;gap:8px;font-weight:normal;cursor:pointer;"><input
+                        type="checkbox" id="endosar-tiene-factura" style="width:auto;"> ¿Va acompañado de
+                    factura?</label></div>
+            <div class="form-group" id="endosar-nro-factura-wrap" style="display:none;"><label>Nº de
+                    Factura</label><input type="text" id="endosar-nro-factura" class="form-control"
+                    placeholder="Ej: 0001-00001234"></div>
+            <div class="form-group mb-0"><label>Observaciones</label><textarea id="endosar-observaciones"
+                    class="form-control" rows="2"></textarea></div>
+        </div>
+        <div class="premium-modal-footer">
+            <button class="btn btn-secondary" onclick="Bancos.cerrarModal('modal-endosar')">Cancelar</button>
+            <button class="btn btn-warning" id="btn-confirmar-endoso" style="color:#fff;"><i
+                    class="fas fa-exchange-alt"></i> Confirmar Endoso</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Depositar -->
+<div id="modal-depositar" class="premium-modal-overlay">
+    <div class="premium-modal-content" style="max-width:440px;width:95%;">
+        <div class="premium-modal-header" style="background:#155724;">
+            <h4 class="mb-0 fw-bold"><i class="fas fa-university me-2"></i>Depositar Cheque</h4><button
+                class="btn-close-modal" onclick="Bancos.cerrarModal('modal-depositar')">×</button>
+        </div>
+        <div class="premium-modal-body">
+            <p id="depositar-info" class="mb-3"
+                style="font-size:.9rem;color:#444;background:#e8f5e9;padding:10px;border-radius:6px;"></p>
+            <div class="form-group mb-0"><label>Observaciones</label><textarea id="depositar-observaciones"
+                    class="form-control" rows="3" placeholder="Cuenta, sucursal, fecha depósito..."></textarea></div>
+        </div>
+        <div class="premium-modal-footer">
+            <button class="btn btn-secondary" onclick="Bancos.cerrarModal('modal-depositar')">Cancelar</button>
+            <button class="btn btn-success" id="btn-confirmar-deposito"><i class="fas fa-university"></i> Confirmar
+                Depósito</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Rechazar -->
+<div id="modal-rechazar" class="premium-modal-overlay">
+    <div class="premium-modal-content" style="max-width:440px;width:95%;">
+        <div class="premium-modal-header" style="background:#c62828;">
+            <h4 class="mb-0 fw-bold"><i class="fas fa-times-circle me-2"></i>Registrar Rechazo</h4><button
+                class="btn-close-modal" onclick="Bancos.cerrarModal('modal-rechazar')">×</button>
+        </div>
+        <div class="premium-modal-body">
+            <p id="rechazar-info" class="mb-3"
+                style="font-size:.9rem;color:#444;background:#ffebee;padding:10px;border-radius:6px;"></p>
+            <div class="form-group mb-0"><label>Motivo del rechazo *</label><textarea id="rechazar-observaciones"
+                    class="form-control" rows="3" placeholder="Sin fondos, firma no coincide, etc." required></textarea>
+            </div>
+        </div>
+        <div class="premium-modal-footer">
+            <button class="btn btn-secondary" onclick="Bancos.cerrarModal('modal-rechazar')">Cancelar</button>
+            <button class="btn btn-danger" id="btn-confirmar-rechazo"><i class="fas fa-times-circle"></i> Confirmar
+                Rechazo</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Historial / Detalle -->
+<div id="modal-historial-cheque" class="premium-modal-overlay">
+    <div class="premium-modal-content" style="max-width:680px;width:95%;">
+        <div class="premium-modal-header">
+            <h4 class="mb-0 fw-bold"><i class="fas fa-history me-2"></i>Historial del Cheque</h4><button
+                class="btn-close-modal" onclick="Bancos.cerrarModal('modal-historial-cheque')">×</button>
+        </div>
+        <div class="premium-modal-body">
+            <div id="hist-cheque-datos" style="background:#f8f9fa;border-radius:8px;padding:14px;margin-bottom:20px;">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;" id="hist-cheque-grid"></div>
+            </div>
+            <h6 style="font-weight:700;margin-bottom:14px;color:#444;"><i class="fas fa-stream me-1"></i> Movimientos
+            </h6>
+            <div class="timeline" id="hist-timeline"></div>
+        </div>
+        <div class="premium-modal-footer">
+            <button class="btn btn-secondary" onclick="Bancos.cerrarModal('modal-historial-cheque')">Cerrar</button>
+        </div>
+    </div>
+</div>

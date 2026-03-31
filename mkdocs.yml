@@ -1,0 +1,40 @@
+site_name: Documentación del Proyecto
+theme:
+  name: material
+  palette:
+    scheme: slate 
+    primary: blue grey
+    accent: light blue
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Inicio: index.md
+  - ⚙️ Proyecto: configuraciones/
+  - 📊 Informes: informes/
+  - 🧪 Pruebas: pruebas/
+  - 🚀 Roadmap: roadmap/
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.magiclink
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+  - awesome-pages:
+      collapse_single_pages: true
+      strict: false

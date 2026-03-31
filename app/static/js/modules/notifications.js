@@ -1,52 +1,86 @@
 // app/static/js/modules/notifications.js
 
-// 1. INYECCIÓN AUTOMÁTICA DE ESTILOS (Para evitar Errores 404 de CSS)
+// 1. INYECCIÓN AUTOMÁTICA DE ESTILOS PREMIUM
 const style = document.createElement('style');
 style.innerHTML = `
     #notification-container {
         position: fixed;
-        top: 90px;
-        right: 20px;
-        z-index: 99999;
+        top: 25px;
+        right: 25px;
+        z-index: 10000;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
         pointer-events: none;
+        max-width: 380px;
+        width: calc(100% - 50px);
     }
 
     .notif-toast {
-        background: white;
-        min-width: 300px;
-        padding: 15px 20px;
-        border-radius: 8px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        padding: 16px 20px;
+        border-radius: 18px;
+        box-shadow: 0 10px 40px -10px rgba(0,0,0,0.2);
         display: flex;
         align-items: center;
-        gap: 12px;
-        font-family: 'Segoe UI', sans-serif;
+        gap: 15px;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
         font-weight: 600;
-        font-size: 0.95rem;
-        border-left: 6px solid #333;
+        font-size: 0.9rem;
+        border: 1px solid rgba(255, 255, 255, 0.5);
         pointer-events: auto;
         cursor: pointer;
-        animation: slideInRight 0.3s ease-out forwards;
+        animation: baboons-toast-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        position: relative;
+        overflow: hidden;
     }
 
-    .notif-toast.success { border-left-color: #2ecc71; color: #212529; }
-    .notif-toast.error { border-left-color: #e74c3c; color: #c0392b; }
-    .notif-toast.warning { border-left-color: #f1c40f; color: #d35400; }
+    .notif-toast::before {
+        content: '';
+        position: absolute;
+        bottom: 0; left: 0;
+        height: 3px;
+        width: 100%;
+        background: currentColor;
+        opacity: 0.3;
+        transform: scaleX(1);
+        transform-origin: left;
+        animation: baboons-toast-progress 4s linear forwards;
+    }
 
-    .notif-toast i { font-size: 1.2rem; }
-    .notif-toast.success i { color: #2ecc71; }
-    .notif-toast.error i { color: #e74c3c; }
-    .notif-toast.warning i { color: #f1c40f; }
+    .notif-toast.success { color: #059669; }
+    .notif-toast.error { color: #dc2626; }
+    .notif-toast.warning { color: #d97706; }
+    .notif-toast.info { color: #2563eb; }
 
-    @keyframes slideInRight {
-        from { transform: translateX(120%); opacity: 0; }
+    .notif-toast .notif-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+
+    .notif-toast.success .notif-icon { background: rgba(16, 185, 129, 0.1); }
+    .notif-toast.error .notif-icon { background: rgba(239, 68, 68, 0.1); }
+    .notif-toast.warning .notif-icon { background: rgba(245, 158, 11, 0.1); }
+    .notif-toast.info .notif-icon { background: rgba(59, 130, 246, 0.1); }
+
+    @keyframes baboons-toast-in {
+        from { transform: translateX(100px); opacity: 0; }
         to { transform: translateX(0); opacity: 1; }
     }
-    @keyframes fadeOut {
-        to { transform: translateX(120%); opacity: 0; }
+    @keyframes baboons-toast-out {
+        to { transform: translateX(100px); opacity: 0; }
+    }
+    @keyframes baboons-toast-progress {
+        from { transform: scaleX(1); }
+        to { transform: scaleX(0); }
     }
 `;
 document.head.appendChild(style);
@@ -54,7 +88,6 @@ document.head.appendChild(style);
 
 // 2. FUNCIÓN EXPORTABLE
 export function mostrarNotificacion(mensaje, tipo = 'info') {
-    // Buscar o Crear el Contenedor (Si no existe en el HTML)
     let container = document.getElementById('notification-container');
     if (!container) {
         container = document.createElement('div');
@@ -64,23 +97,26 @@ export function mostrarNotificacion(mensaje, tipo = 'info') {
 
     const iconos = {
         success: 'fa-check-circle',
-        error: 'fa-times-circle',
-        warning: 'fa-exclamation-triangle',
-        info: 'fa-info-circle'
+        error: 'fa-exclamation-circle',
+        warning: 'fa-triangle-exclamation',
+        info: 'fa-circle-info'
     };
     const iconoClass = iconos[tipo] || iconos.info;
 
     const toast = document.createElement('div');
     toast.className = `notif-toast ${tipo}`;
-    toast.innerHTML = `<i class="fas ${iconoClass}"></i> <span>${mensaje}</span>`;
+    toast.innerHTML = `
+        <div class="notif-icon"><i class="fas ${iconoClass}"></i></div>
+        <div style="flex-grow: 1;">${mensaje}</div>
+    `;
 
     container.appendChild(toast);
 
     const removeToast = () => {
-        toast.style.animation = 'fadeOut 0.3s ease-in forwards';
+        toast.style.animation = 'baboons-toast-out 0.3s ease-in forwards';
         toast.addEventListener('animationend', () => toast.remove());
     };
 
     setTimeout(removeToast, 4000);
     toast.onclick = removeToast;
-}
+}

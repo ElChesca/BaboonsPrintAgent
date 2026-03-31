@@ -1,0 +1,338 @@
+<!-- Eliminados los extends de jinja porque esta app carga por AJAX (loadContent) -->
+<div class="row mb-4 animate__animated animate__fadeInDown">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h3 fw-bold text-gray-800 mb-0">
+                <i class="fas fa-hand-holding-usd me-2 text-primary"></i>Gestión de Comisiones
+            </h2>
+        </div>
+        <p class="text-muted">Administra las reglas de comisiones y realiza liquidaciones a los vendedores.</p>
+    </div>
+</div>
+
+<!-- Navegación por pestañas -->
+<ul class="nav nav-pills mb-4 gap-2" id="comisionesTab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active px-4 rounded-pill fw-medium btn-shadow" id="liquidar-tab" data-bs-toggle="pill"
+            data-bs-target="#liquidar" type="button" role="tab" aria-controls="liquidar" aria-selected="true">
+            <i class="fas fa-calculator me-1"></i> Liquidar
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link px-4 rounded-pill fw-medium btn-shadow" id="historial-tab" data-bs-toggle="pill"
+            data-bs-target="#historial" type="button" role="tab" aria-controls="historial" aria-selected="false">
+            <i class="fas fa-history me-1"></i> Historial
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link px-4 rounded-pill fw-medium btn-shadow" id="reglas-tab" data-bs-toggle="pill"
+            data-bs-target="#reglas" type="button" role="tab" aria-controls="reglas" aria-selected="false">
+            <i class="fas fa-cogs me-1"></i> Reglas
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="comisionesTabContent">
+
+    <!-- PESTAÑA 1: LIQUIDAR MÚLTIPLES VENTAS -->
+    <div class="tab-pane fade show active animate__animated animate__fadeIn" id="liquidar" role="tabpanel"
+        aria-labelledby="liquidar-tab">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4">
+                <div class="row g-3 align-items-end mb-4 bg-light p-3 rounded-3">
+                    <div class="col-md-4">
+                        <label for="liquidarVendedorSelect" class="form-label fw-bold text-secondary text-uppercase"
+                            style="font-size: 0.8rem;">Vendedor <span class="text-danger">*</span></label>
+                        <select class="form-select border-0 shadow-sm" id="liquidarVendedorSelect" required>
+                            <option value="">Seleccione un vendedor...</option>
+                            <!-- Llenado por JS -->
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fechaDesdeInput" class="form-label fw-bold text-secondary text-uppercase"
+                            style="font-size: 0.8rem;">Desde <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control border-0 shadow-sm" id="fechaDesdeInput" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fechaHastaInput" class="form-label fw-bold text-secondary text-uppercase"
+                            style="font-size: 0.8rem;">Hasta <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control border-0 shadow-sm" id="fechaHastaInput" required>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" id="btnCalcular"
+                            class="btn btn-primary w-100 fw-bold shadow-sm d-flex align-items-center justify-content-center">
+                            <i class="fas fa-search me-2"></i> Calcular
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Resultados de búsqueda / Simulador -->
+                <div id="resultadoSimulacion" class="d-none mt-4">
+                    <h5 class="fw-bold mb-3 border-bottom pb-2"><i
+                            class="fas fa-list-check me-2 text-primary"></i>Ventas Aplicables y Cálculo</h5>
+
+                    <div class="row mb-4">
+                        <div class="col-md-8">
+                            <div class="table-responsive rounded-3 border">
+                                <table class="table table-hover table-striped align-middle mb-0"
+                                    id="tablaVentasLiquidar">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Tipo</th>
+                                            <th>Total Venta</th>
+                                            <th>Método</th>
+                                            <th class="text-end">Comisión Calculada</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="listaVentasLiquidarBody">
+                                        <!-- Llenado por JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="card bg-gradient-primary text-white shadow-lg border-0 h-100"
+                                style="background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);">
+                                <div class="card-body d-flex flex-column justify-content-between p-4">
+                                    <div>
+                                        <h6 class="text-uppercase fw-bold mb-3 text-white-50">Resumen a Liquidar</h6>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Operaciones aplican:</span>
+                                            <span class="fw-bold" id="resumenCantOp">0</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Regla Usada:</span>
+                                            <span class="fw-bold" id="resumenRegla">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Detalle Regla:</span>
+                                            <span class="fw-bold" id="resumenDetalle">-</span>
+                                        </div>
+                                        <hr class="border-light opacity-50">
+                                    </div>
+
+                                    <div>
+                                        <p class="mb-1 text-white-50 fw-bold text-uppercase" style="font-size: 0.8rem;">
+                                            Total a Pagar</p>
+                                        <h2 class="display-5 fw-bold mb-3">
+                                            <span style="font-size: 0.6em; vertical-align: top;">$</span><span
+                                                id="resumenTotal">0.00</span>
+                                        </h2>
+
+                                        <div class="mb-3">
+                                            <input type="text"
+                                                class="form-control form-control-sm bg-light bg-opacity-25 border-0 text-white placeholder-white"
+                                                id="observacionesLiquidacion" placeholder="Observaciones (opcional)...">
+                                            <style>
+                                                #observacionesLiquidacion::placeholder {
+                                                    color: rgba(255, 255, 255, 0.7) !important;
+                                                }
+                                            </style>
+                                        </div>
+
+                                        <button type="button" id="btnConfirmarLiquidacion"
+                                            class="btn btn-light w-100 fw-bold text-primary btn-lg shadow">
+                                            <i class="fas fa-check-circle me-1"></i> Confirmar Liquidación
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty State Simulación -->
+                <div id="simulacionVacia" class="text-center py-5 d-none">
+                    <div class="mb-3">
+                        <i class="fas fa-inbox fa-3x text-muted opacity-25"></i>
+                    </div>
+                    <h5 class="fw-bold text-gray-800">No hay ventas para liquidar</h5>
+                    <p class="text-muted">No se encontraron ventas completadas o entregadas sin liquidar en este rango
+                        que apliquen a las reglas del vendedor (recuerda chequear si la Cuenta Corriente está excluida).
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- PESTAÑA 2: HISTORIAL -->
+    <div class="tab-pane fade animate__animated animate__fadeIn" id="historial" role="tabpanel"
+        aria-labelledby="historial-tab">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold m-0"><i class="fas fa-book text-primary me-2"></i>Registro de Liquidaciones</h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="cargarHistorial()"><i
+                            class="fas fa-sync-alt me-1"></i> Actualizar</button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="tablaHistorial">
+                        <thead class="table-light">
+                            <tr>
+                                <th># ID</th>
+                                <th>Fecha Liquidación</th>
+                                <th>Vendedor</th>
+                                <th>Período</th>
+                                <th>Operaciones</th>
+                                <th>Notas</th>
+                                <th class="text-end">Monto Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historialBody">
+                            <tr>
+                                <td colspan="7" class="text-center py-4">
+                                    <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
+                                    Cargando historial...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PESTAÑA 3: REGLAS DE COMISIÓN -->
+    <div class="tab-pane fade animate__animated animate__fadeIn" id="reglas" role="tabpanel"
+        aria-labelledby="reglas-tab">
+
+        <div class="row g-4">
+            <!-- Regla Global -->
+            <div class="col-md-5">
+                <div class="card shadow-sm border-0 border-top border-primary border-4 rounded-4 h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="fw-bold m-0"><i class="fas fa-globe text-primary me-2"></i>Regla Global del
+                                Negocio</h5>
+                            <span class="badge bg-primary rounded-pill">Default</span>
+                        </div>
+                        <p class="text-muted small mb-4">Esta regla aplica a todos los vendedores que no tengan una
+                            regla específica configurada.</p>
+
+                        <form id="formReglaGlobal" class="needs-validation" novalidate>
+                            <input type="hidden" id="rg_vendedor_id" value="">
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-uppercase">Porcentaje (%)</label>
+                                <div class="input-group">
+                                    <input type="number" step="0.01" min="0" max="100" class="form-control"
+                                        id="rg_porcentaje" placeholder="Ej: 5.0">
+                                    <span class="input-group-text"><i class="fas fa-percent"></i></span>
+                                </div>
+                                <div class="form-text">Si usas porcentaje, deja el monto fijo en 0.</div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-bold small text-uppercase">O Monto Fijo ($)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-dollar-sign"></i></span>
+                                    <input type="number" step="0.01" min="0" class="form-control" id="rg_monto_fijo"
+                                        placeholder="Ej: 500.0">
+                                </div>
+                                <div class="form-text">Monto pagado por CADA venta/pedido entregado.</div>
+                            </div>
+
+                            <div class="form-check form-switch mb-4 p-3 bg-light rounded-3 shadow-sm border">
+                                <input class="form-check-input ms-0 me-2 mt-1" type="checkbox" role="switch" id="rg_cc"
+                                    style="transform: scale(1.3);">
+                                <label class="form-check-label fw-bold text-dark" for="rg_cc">Comisiona en Cuenta
+                                    Corriente</label>
+                                <div class="form-text mt-1 d-block ms-0">Si está inactivo, las ventas fiadas NO
+                                    generarán comisión al vendedor.</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100 fw-bold"><i class="fas fa-save me-1"></i>
+                                Guardar Regla Global</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Excepciones / Vendedores -->
+            <div class="col-md-7">
+                <div class="card shadow-sm border-0 rounded-4 h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="fw-bold m-0"><i class="fas fa-user-tag text-info me-2"></i>Excepciones por
+                                Vendedor</h5>
+                            <button class="btn btn-sm btn-outline-info" onclick="abrirModalExcepcion()"><i
+                                    class="fas fa-plus me-1"></i> Nueva Excepción</button>
+                        </div>
+                        <p class="text-muted small mb-4">Configura reglas especiales para vendedores específicos (anulan
+                            la regla global).</p>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light text-secondary" style="font-size: 0.85rem;">
+                                    <tr>
+                                        <th>Vendedor</th>
+                                        <th>Regla</th>
+                                        <th class="text-center">Cta. Cte.</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="listaExcepcionesBody">
+                                    <!-- Llenado por JS -->
+                                    <tr>
+                                        <td colspan="4" class="text-center py-4 bg-light rounded">No hay excepciones
+                                            configuradas. Todos usan la global.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Modal para Nueva Excepción -->
+<div class="modal fade" id="modalExcepcion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-light border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold"><i class="fas fa-user-cog text-info me-2"></i>Regla Específica de
+                    Vendedor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="formReglaEspecifica">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary small">Vendedor <span
+                                class="text-danger">*</span></label>
+                        <select class="form-select bg-light" id="re_vendedor_id" required>
+                            <!-- Llenado por JS -->
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label fw-bold text-secondary small">Porcentaje (%)</label>
+                            <input type="number" step="0.01" min="0" max="100" class="form-control" id="re_porcentaje">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label fw-bold text-secondary small">Monto Fijo ($)</label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="re_monto_fijo">
+                        </div>
+                    </div>
+
+                    <div class="form-check form-switch mb-4 p-3 bg-light rounded-3 border">
+                        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="re_cc">
+                        <label class="form-check-label fw-bold" for="re_cc">Comisiona en Cuenta Corriente</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-info text-white w-100 fw-bold shadow-sm">Guardar
+                        Excepción</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/comisiones.js"></script>

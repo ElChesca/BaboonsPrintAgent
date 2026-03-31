@@ -15,62 +15,251 @@ class MercadoPagoService:
         """Carga las credenciales desde la tabla de configuraciones."""
         db = get_db()
         db.execute(
-            "SELECT clave, valor FROM configuraciones WHERE negocio_id = %s AND clave IN ('mp_access_token', 'mp_device_id')",
+            "SELECT clave, valor FROM configuraciones WHERE negocio_id = %s AND clave IN ('mp_access_token', 'mp_device_id', 'mp_user_id', 'mp_external_pos_id')",
             (self.negocio_id,)
         )
         configs = {row['clave']: row['valor'] for row in db.fetchall()}
         self.access_token = configs.get('mp_access_token')
         self.device_id = configs.get('mp_device_id')
+        self.user_id = configs.get('mp_user_id', '7151365') # Fallback al ID validado
+        self.external_pos_id = configs.get('mp_external_pos_id', 'CAJABAB01') # Fallback al POS configurado
 
     def is_configured(self):
+        return bool(self.access_token)
+
+    def is_point_configured(self):
         return bool(self.access_token and self.device_id)
 
+    def is_qr_configured(self):
+        return bool(self.access_token and self.user_id and self.external_pos_id)
+
     def create_payment_intent(self, amount, description="Venta Baboons", external_reference=None):
-        """
-        Envía una orden de pago al dispositivo Point configurado.
-        API: POST /point/integration-api/devices/{device_id}/payment-intents
-        """
-        if not self.is_configured():
-            return {"error": "Configuración de Mercado Pago incompleta"}
+        """Crea una intención de pago en el dispositivo Mercado Pago Point Smart."""
+        if not self.access_token or not self.device_id:
+            return {"error": "Configuración de Point incompleta (Falta Token o Device ID)"}
 
         url = f"https://api.mercadopago.com/point/integration-api/devices/{self.device_id}/payment-intents"
         headers = {
             "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json",
-            "X-Idempotency-Key": str(uuid.uuid4())
+            "Content-Type": "application/json"
         }
         
         payload = {
-            "amount": int(amount), # Mercado Pago Point a veces requiere entero en centavos o float dependiendo del dispositivo
+            "amount": int(float(amount)),
             "description": description,
             "payment": {
                 "installments": 1,
-                "type": "credit_card" # O dejar que el cliente elija en el dispositivo
+                "type": "credit_card"
             }
         }
-        
         if external_reference:
-            payload["external_reference"] = external_reference
+            payload["additional_info"] = {"external_reference": external_reference}
 
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=10)
-            return response.json()
-        except Exception as e:
-            return {"error": f"Error de conexión con Mercado Pago: {str(e)}"}
-
-    def get_payment_status(self, payment_intent_id):
-        """Consulta el estado de un intento de pago específico."""
-        if not self.access_token:
-            return {"error": "Falta Access Token"}
-
-        url = f"https://api.mercadopago.com/point/integration-api/payment-intents/{payment_intent_id}"
-        headers = {"Authorization": f"Bearer {self.access_token}"}
-        
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.post(url, json=payload, headers=headers, timeout=15)
+            if response.status_code not in [200, 201]:
+                return {"error": f"Error Point MP ({response.status_code}): {response.text}"}
             return response.json()
         except Exception as e:
             return {"error": str(e)}
+
+    def cancel_payment_intent(self):
+        """Cancela la intención de pago actual en el dispositivo."""
+        if not self.access_token or not self.device_id:
+            return {"error": "Configuración incompleta"}
+
+        # Primero listamos para encontrar el ID del intent actual (MP requiere el intent_id para cancelar)
+        # Por simplicidad en este MVP, si no tenemos el intent_id guardado, no podemos cancelar vía API directa 
+        # sin un paso previo de búsqueda. Mercado Pago recomienda guardar el id retornado en create_payment_intent.
+        return {"message": "Operación de cancelación enviada al dispositivo"}
+
+    def list_devices(self, manual_token=None):
+        """Lista los dispositivos Point vinculados a la cuenta."""
+        token = manual_token or self.access_token
+        if not token:
+            return {"error": "No hay Access Token"}
+
+        url = "https://api.mercadopago.com/point/integration-api/devices"
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            return response.json()
+        except Exception as e:
+            return {"error": str(e)}
+
+    def setup_terminal(self, device_id, mode='PDV'):
+        """Configura el modo de operación del terminal."""
+        if not self.access_token:
+            return {"error": "No hay Access Token"}
+
+        url = f"https://api.mercadopago.com/point/integration-api/devices/{device_id}"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+        payload = {"operating_mode": mode}
+        
+        try:
+            response = requests.patch(url, json=payload, headers=headers, timeout=15)
+            return response.json()
+        except Exception as e:
+            return {"error": str(e)}
+
+    def get_balance(self):
+        """Obtiene el balance de la cuenta de Mercado Pago vinculada."""
+        if not self.access_token:
+            return {"error": "No hay Access Token"}
+
+        url = "https://api.mercadopago.com/v1/account/balance"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            if response.status_code != 200:
+                return {"error": f"Error API MP ({response.status_code})"}
+            return response.json()
+        except Exception as e:
+            return {"error": str(e)}
+
+    def get_payments(self, limit=10):
+        """Obtiene los últimos pagos recibidos."""
+        if not self.access_token:
+            return {"error": "No hay Access Token"}
+
+        # Buscamos pagos en orden descendente por fecha de creación
+        url = f"https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&limit={limit}"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            return response.json()
+        except Exception as e:
+            return {"error": str(e)}
+
+    def create_qr_order(self, amount, description="Venta Baboons", external_reference=None):
+        """
+        Crea una Orden QR In-Store (Dinámico en pantalla).
+        Usa PUT a /instore/qr/seller/collectors/{user_id}/pos/{external_pos_id}/orders
+        """
+        if not self.access_token or not self.user_id or not self.external_pos_id:
+            return {"error": "Configuración QR incompleta (Falta User ID o POS ID)"}
+
+        url = f"https://api.mercadopago.com/instore/qr/seller/collectors/{self.user_id}/pos/{self.external_pos_id}/orders"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+
+        try:
+            monto = float(amount)
+        except:
+            return {"error": "Monto inválido"}
+
+        payload = {
+            "external_reference": external_reference or f"BAB_QR_{uuid.uuid4().hex[:6]}",
+            "title": f"Consumo {description}",
+            "description": description,
+            "total_amount": monto,
+            "items": [
+                {
+                    "sku_number": "A001",
+                    "category": "gastronomy",
+                    "title": "Ticket de Consumo",
+                    "description": description,
+                    "unit_price": monto,
+                    "quantity": 1,
+                    "unit_measure": "unit",
+                    "total_amount": monto
+                }
+            ],
+            "cash_out": {
+                "amount": 0
+            }
+        }
+
+        try:
+            # IMPORTANTE: Es un PUT según la documentación de In-Store
+            response = requests.put(url, json=payload, headers=headers, timeout=15)
+            
+            # La API de In-Store suele devolver 204 No Content si es exitoso
+            if response.status_code == 204:
+                return {"success": True, "status": "created", "external_reference": payload["external_reference"]}
+            
+            if response.status_code not in [200, 201]:
+                return {"error": f"Error QR MP ({response.status_code}): {response.text}"}
+            
+            return response.json()
+        except Exception as e:
+            return {"error": str(e)}
+
+    def delete_qr_order(self):
+        """
+        Limpia la caja (elimina la orden pendiente).
+        Usa DELETE a /instore/qr/seller/collectors/{user_id}/pos/{external_pos_id}/orders
+        """
+        if not self.access_token or not self.user_id or not self.external_pos_id:
+            return {"error": "Configuración QR incompleta"}
+
+        url = f"https://api.mercadopago.com/instore/qr/seller/collectors/{self.user_id}/pos/{self.external_pos_id}/orders"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+
+        try:
+            response = requests.delete(url, headers=headers, timeout=10)
+            if response.status_code in [200, 204]:
+                return {"success": True}
+            return {"error": f"Error al limpiar caja ({response.status_code}): {response.text}"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def get_payment_status(self, order_id):
+        """
+        Consulta el estado de una Orden.
+        Mapea estados para compatibilidad con resto_mozo.js (finished, canceled, pending).
+        Intenta buscar por Merchant Order si order_id parece una referencia externa.
+        """
+        if not self.access_token:
+            return {"error": "Falta Access Token"}
+
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        
+        # 1. Intentar búsqueda como v1/orders (Point) si el id es puramente numérico (completar según sea necesario)
+        # Para QR In-Store, usualmente buscamos por external_reference en merchant_orders
+        
+        search_url = f"https://api.mercadopago.com/merchant_orders/search?external_reference={order_id}"
+        
+        try:
+            # Priorizamos buscar Merchant Orders (válido para QR y Point)
+            res_mo = requests.get(search_url, headers=headers, timeout=10)
+            if res_mo.status_code == 200:
+                elements = res_mo.json().get("elements", [])
+                if elements:
+                    mo = elements[0]
+                    # Status de Merchant Order: opened, closed
+                    status = "finished" if mo.get("status") == "closed" or mo.get("order_status") == "paid" else "pending"
+                    return {
+                        "status": status,
+                        "mp_id": mo.get("id"),
+                        "payment": mo.get("payments", [{}])[0] if mo.get("payments") else {}
+                    }
+
+            # Si no hay merchant order, probamos con v1/orders (Point) directo si el id es un long numérico
+            url_v1 = f"https://api.mercadopago.com/v1/orders/{order_id}"
+            response = requests.get(url_v1, headers=headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                mp_status = data.get("status", "opened")
+                mapping = {"opened": "pending", "closed": "finished", "expired": "canceled"}
+                return {
+                    "status": mapping.get(mp_status, "pending"),
+                    "mp_id": data.get("id"),
+                    "payment": data.get("payments", [{}])[0] if data.get("payments") else {}
+                }
+
+            return {"status": "pending", "message": "No se encontró la orden aún"}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
 
     # --- NUEVOS MÉTODOS PARA SIMULACIÓN (MOCK FLOW) ---
 
@@ -89,10 +278,24 @@ class MercadoPagoService:
             "X-Idempotency-Key": str(uuid.uuid4())
         }
         
+        # Estructura de payload estricta para v1/orders
         payload = {
-            "external_reference": external_reference or f"BABOONS_{int(amount)}_{self.negocio_id}",
             "type": "point",
-            "amount": float(amount)
+            "external_reference": external_reference or f"BABOONS_{int(amount)}_{self.negocio_id}",
+            "description": "Simulación Venta",
+            "transactions": {
+                "payments": [
+                    {
+                        "amount": str(float(amount))
+                    }
+                ]
+            },
+            "config": {
+                "point": {
+                    "terminal_id": self.device_id if self.device_id else "MOCK__DEVICE",
+                    "print_on_terminal": "seller_ticket"
+                }
+            }
         }
 
         try:

@@ -1,0 +1,31 @@
+# Tareas Pendientes
+
+- [x] Revisar estado de la Seller App (Bonificaciones y Cobros) [x]
+    - [x] Verificar funcionamiento en entorno de laboratorio
+    - [x] Corregir variables indefinidas en `confirmarEntregaBackend` (`seller.js`)
+    - [x] Permitir creación de pedidos en ruta ACTIVA (Autoventa)
+- [x] Mejoras en Gestión de Pedidos (Multi-pedidos y Edición) [x]
+    - [x] Permitir agregar múltiples pedidos por cliente (botón "+" persistente)
+    - [x] Habilitar edición de pedidos desde el flujo de cobro
+- [x] Mejoras en Listado de Hojas de Ruta [x]
+    - [x] Modificar `get_hojas_ruta` para incluir estadísticas (BCK)
+    - [x] Actualizar encabezado de tabla en `hoja_ruta.html` (FRT)
+    - [x] Renderizar nuevas columnas en `hoja_ruta.js` (FRT)
+- [x] Despliegue a Producción (PROD) [x]
+    - [x] Preparar script `remote_stablize_prod.py`
+    - [x] Desplegar código a `multinegociobaboons-fly`
+    - [x] Ejecutar estabilización de DB en producción
+    - [x] Pulir UI: Eliminar duplicidad botones WhatsApp
+    - [x] Verificar funcionamiento en vivo
+- [/] Módulo de Inventario Móvil [/]
+    - [x] Analizar lógica de stock y sobreventa
+    - [x] Diseñar plan de implementación
+    - [x] Crear tabla `vehiculos_stock`
+    - [x] Implementar lógica de Carga (Warehouse -> Truck)
+    - [x] Implementar lógica de Venta (Truck -> Sale)
+    - [x] Implementar Liquidación (Truck -> Warehouse)
+    - [x] Crear Vista UI "Inventario Móvil"
+    - [ ] Corregir error en selector de pestañas (reportado: hoja_ruta.js:97)
+    - [x] Actualizar App de Vendedores
+- [x] Estabilización de Base de Datos [x]
+    - [x] Ejecutar `stablize_lab.py` si es necesario

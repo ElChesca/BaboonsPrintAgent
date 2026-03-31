@@ -51,51 +51,52 @@ def login():
 
     SECRET_KEY = current_app.config['SECRET_KEY']
     
-    # --- ✨ VINCULACIÓN DE VENDEDOR PARA EL TOKEN ---
+    # --- ✨ VINCULACIÓN DE NEGOCIO PARA EL TOKEN ---
     vendedor_id = None
     negocio_id = None
+    especialidad = None
 
     if user['rol'] == 'vendedor':
-        db.execute('SELECT id, negocio_id FROM vendedores WHERE email = %s AND negocio_id IS NOT NULL', (user['email'],))
+        db.execute('SELECT id, negocio_id, especialidad_resto FROM vendedores WHERE email = %s AND negocio_id IS NOT NULL', (user['email'],))
         vendedor_row = db.fetchone()
         if vendedor_row:
             vendedor_id = vendedor_row['id']
             negocio_id = vendedor_row['negocio_id']
+            especialidad = vendedor_row.get('especialidad_resto')
     elif user['rol'] == 'chofer':
         db.execute('SELECT id, negocio_id FROM empleados WHERE email = %s AND negocio_id IS NOT NULL', (user['email'],))
         empleado_row = db.fetchone()
         if empleado_row:
             negocio_id = empleado_row['negocio_id']
 
-    # If not vendedor but the usuario mismo tiene negocio asociado (admin, etc) o empleado_id
+    # Si aún no tenemos negocio_id (ej: es admin/superadmin), buscamos el primero al que tenga acceso
+    if not negocio_id:
+        db.execute('SELECT negocio_id FROM usuarios_negocios WHERE usuario_id = %s LIMIT 1', (user['id'],))
+        un_row = db.fetchone()
+        if un_row:
+            negocio_id = un_row['negocio_id']
+
+    # If not vendedor but the usuario mismo tiene empleado_id
     empleado_id = user.get('empleado_id')
     
     # --- ✨ AUTO-VINCULACIÓN (Self-healing) ---
-    # Si el usuario no tiene empleado_id pero el rol es chofer (o similar que lo requiera),
-    # intentamos buscar un empleado con el mismo email para vincularlo dinámicamente.
     if not empleado_id:
         db.execute('SELECT id FROM empleados WHERE email = %s', (user['email'],))
         emp_row = db.fetchone()
         if emp_row:
             empleado_id = emp_row['id']
-            # Actualizamos la DB para que la próxima vez ya esté vinculado
             db.execute('UPDATE usuarios SET empleado_id = %s WHERE id = %s', (empleado_id, user['id']))
             g.db_conn.commit()
-            print(f"✨ Auto-vinculación exitosa: Usuario {user['id']} -> Empleado {empleado_id}")
-
-    if not negocio_id:
-        # Se podría buscar negocio_id principal de usuarios_negocios, pero por defecto el login global
-        # no exige negocio_id en el token a menos que sea vendedor aislado.
-        pass
 
     token_payload = {
         'id': user['id'],
         'rol': user['rol'],
+        'especialidad': especialidad,
         'nombre': user['nombre'],
         'email': user['email'],
         'vendedor_id': vendedor_id,
-        'empleado_id': empleado_id, # <-- Agregamos el empleado_id para choferes
-        'negocio_id': negocio_id, # <-- Agregamos el negocio_id al token
+        'empleado_id': empleado_id,
+        'negocio_id': negocio_id,
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=8)
     }
     token = jwt.encode(token_payload, SECRET_KEY, algorithm="HS256")

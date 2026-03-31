@@ -62,7 +62,7 @@ function aplicarFiltros() {
 
         // Búsqueda texto
         if (buscar) {
-            const haystack = `${p.id} ${p.cliente_nombre} ${p.vendedor_nombre}`.toLowerCase();
+            const haystack = `${p.id} ${p.numero} ${p.cliente_nombre} ${p.vendedor_nombre}`.toLowerCase();
             if (!haystack.includes(buscar)) return false;
         }
 
@@ -108,7 +108,7 @@ function renderTabla(lista) {
             </div>`;
 
         return `<tr data-id="${p.id}">
-            <td><strong>#${p.id}</strong></td>
+            <td><strong>#${p.numero}</strong></td>
             <td>${fmtFecha(p.fecha)}</td>
             <td>${p.cliente_nombre || '—'}</td>
             <td>${p.vendedor_nombre || '—'}</td>
@@ -145,7 +145,7 @@ async function abrirModalImpresion(presupuestoId) {
 
     // Poblar datos básicos del modal desde la lista
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    set('print-numero', p.id);
+    set('print-numero', p.numero);
     set('print-fecha', fmtFecha(p.fecha));
     set('print-entrega', p.fecha_entrega_estimada ? fmtFecha(p.fecha_entrega_estimada) : 'A confirmar');
     set('print-cliente', p.cliente_nombre || 'Consumidor Final');
@@ -197,15 +197,29 @@ async function abrirModalImpresion(presupuestoId) {
                     </tr>`;
                 }).join('');
 
-                // Aplicar bonificación/interés si existen
                 const bonif = parseFloat(cabecera.bonificacion) || 0;
                 const inter = parseFloat(cabecera.interes) || 0;
-                const montoBonif = subtotal * (bonif / 100);
-                const basePostBonif = subtotal - montoBonif;
+                const descFijo = parseFloat(cabecera.descuento_fijo) || 0;
+
+                const basePostDescuento = subtotal - descFijo;
+                const montoBonif = basePostDescuento * (bonif / 100);
+                const basePostBonif = basePostDescuento - montoBonif;
                 const montoInter = basePostBonif * (inter / 100);
                 const totalFinal = basePostBonif + montoInter;
 
                 if (subtotalEl) subtotalEl.textContent = fmtMoneda(subtotal);
+
+                // Fila Descuento Fijo
+                const descRow = document.getElementById('print-desc-row');
+                if (descRow) {
+                    if (descFijo > 0) {
+                        descRow.style.display = 'flex';
+                        const montoEl = document.getElementById('print-descuento-monto');
+                        if (montoEl) montoEl.textContent = `- ${fmtMoneda(descFijo)}`;
+                    } else {
+                        descRow.style.display = 'none';
+                    }
+                }
 
                 // Fila bonificación
                 const bonifRow = document.getElementById('print-bonif-row');
@@ -370,6 +384,8 @@ export function inicializarLogicaHistorialPresupuestos() {
 
     // Cerrar modal de impresión
     document.getElementById('btn-cerrar-modal-print')
+        ?.addEventListener('click', cerrarModalImpresion);
+    document.getElementById('btn-cerrar-modal-print-premium')
         ?.addEventListener('click', cerrarModalImpresion);
 
     // Cerrar modal haciendo click fuera

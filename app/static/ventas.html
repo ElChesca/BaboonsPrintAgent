@@ -27,7 +27,9 @@
                 <option value="MP">Mercado Pago</option>
                 <option value="Tarjeta">Tarjeta</option>
                 <option value="Debito">Débito</option>
-                <option value="Transf.">Transferencia</option>
+                <option value="Transferencia">Transferencia</option>
+                <option value="Cuenta Corriente">Cuenta Corriente</option>
+                <option value="Mixto">Pago Mixto + Cta Cte</option>
             </select>
         </div>
         <div id="info-caja-activa" class="caja-status-label">Cargando...</div>
@@ -73,6 +75,21 @@
 
             <div class="card venta-footer">
                 <div class="venta-ajustes-container">
+                    <div class="venta-resumen-items">
+                        <div class="resumen-dato">
+                            <span class="resumen-label">Artículos (SKUs)</span>
+                            <span class="resumen-valor" id="resumen-skus">0</span>
+                        </div>
+                        <div class="resumen-dato">
+                            <span class="resumen-label">Total Unidades</span>
+                            <span class="resumen-valor" id="resumen-unidades">0</span>
+                        </div>
+                        <div class="resumen-dato">
+                            <span class="resumen-label">Subtotal Líneas</span>
+                            <span class="resumen-valor" id="resumen-subtotal-lineas">$0.00</span>
+                        </div>
+                    </div>
+
                     <div class="venta-ajustes-extra">
                         <div class="form-group">
                             <label for="bonificacion-global">Bonif. Global (%)</label>
@@ -108,6 +125,26 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- NUEVO PANEL PAGO MIXTO (Oculto por defecto) -->
+                    <div id="panel-pago-mixto" class="pago-mixto-container" style="display: none;">
+                        <div class="mixto-grid">
+                            <div class="form-group mixed-group">
+                                <label for="mixto-efectivo">Efectivo</label>
+                                <input type="number" id="mixto-efectivo" class="mixto-input" step="any"
+                                    placeholder="0.00">
+                            </div>
+                            <div class="form-group mixed-group">
+                                <label for="mixto-mp">Mercado Pago</label>
+                                <input type="number" id="mixto-mp" class="mixto-input" step="any" placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="mixto-resumen">
+                            <span>A Cta Cte:</span>
+                            <strong id="mixto-restante">$0.00</strong>
+                        </div>
+                    </div>
+
                     <div class="form-actions">
                         <button type="button" id="btn-finalize-sale" class="btn-primary btn-action-main">
                             <i class="fas fa-check-circle"></i> Cobrar

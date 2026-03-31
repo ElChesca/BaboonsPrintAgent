@@ -50,7 +50,8 @@ def create_app():
                         price_lists_routes, unidades_medida_routes, inventory_routes, \
                         historial_inventario_routes, precios_especificos_routes, mobile_routes, \
                         payments_routes, gastos_routes, consorcio_routes, club_puntos_routes, \
-                        pedidos_routes, logistica_routes, eventos_routes
+                        pedidos_routes, logistica_routes, eventos_routes, \
+                        resto_routes, reservas_routes, bancos_routes
     from .crm_social import bp as crm_bp
     from .crm_social import leads_routes
     from .rentals import routes as rentals_routes
@@ -76,7 +77,9 @@ def create_app():
         (admin_routes.bp, '/api'), (distribucion_routes.bp, '/api'), (pedidos_routes.bp, '/api'),
         (logistica_routes.bp, '/api'), (import_routes.bp, '/api'), (empleados_routes.bp, '/api'),
         (mercado_pago_routes.bp, '/api'), (agente_facturacion_routes.bp, '/api'),
-        (eventos_routes.bp, '/api'), (tickets_routes.bp, '/api')
+        (eventos_routes.bp, ''), (tickets_routes.bp, '/api'),
+        (resto_routes.bp, '/api'), (reservas_routes.bp, '/api'),
+        (bancos_routes.bp, '/api')
     ]
     for bp, prefix in blueprints:
         app.register_blueprint(bp, url_prefix=prefix)
@@ -209,6 +212,75 @@ def create_app():
             
         except Exception as e:
             app.logger.error(f"Error sirviendo app-club: {e}")
+            return f"Error configurando ruta: {e}", 500
+
+    # =================================================================
+    # ✨ NUEVA RUTA CARTA DIGITAL (PÚBLICA)
+    # =================================================================
+    @app.route('/carta')
+    def serve_digital_menu():
+        try:
+            negocio_id = request.args.get('id')
+            lista_id = request.args.get('lista')
+            
+            og_title = "Carta Digital | Baboons"
+            og_image = f"{request.url_root}static/img/logo_baboons.png"
+            negocio_data = {}
+            lista_data = {}
+
+            if negocio_id:
+                db = get_db()
+                try:
+                    # 1. Datos del Negocio
+                    query = """
+                        SELECT nombre, logo_url_resto, fondo_url_resto, 
+                               direccion_resto, telefono_resto, 
+                               instagram_url_resto, facebook_url_resto 
+                        FROM negocios WHERE id = %s
+                    """
+                    db.execute(query, (negocio_id,))
+                    row = db.fetchone()
+                    if row:
+                        negocio_data = dict(row)
+                        og_title = f"Menú - {row['nombre']}"
+                        
+                        img_path = row['logo_url_resto'] or row['fondo_url_resto']
+                        if img_path:
+                            if img_path.startswith('http'):
+                                og_image = img_path
+                            else:
+                                og_image = request.url_root.rstrip('/') + (img_path if img_path.startswith('/') else '/' + img_path)
+                    
+                    # 2. Datos de la Lista (si aplica)
+                    if lista_id:
+                        db.execute("SELECT nombre, mensaje_banner, banner_url FROM menu_listas WHERE id = %s AND negocio_id = %s", (lista_id, negocio_id))
+                        l_row = db.fetchone()
+                        if l_row:
+                            lista_data = dict(l_row)
+                            if l_row['mensaje_banner']:
+                                og_title = f"{l_row['nombre']} - {row['nombre']}"
+                except Exception as e:
+                    app.logger.error(f"Error buscando negocio para Carta: {e}")
+
+            # Leer el archivo HTML manualmente desde static/Resto
+            resto_dir = os.path.join(app.root_path, 'static', 'Resto')
+            file_path = os.path.join(resto_dir, 'carta_virtual.html')
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            return render_template_string(
+                content, 
+                negocio=negocio_data, 
+                negocio_id=negocio_id,
+                lista_id=lista_id,
+                lista=lista_data,
+                og_title=og_title, 
+                og_image=og_image
+            )
+            
+        except Exception as e:
+            app.logger.error(f"Error sirviendo carta digital: {e}")
             return f"Error configurando ruta: {e}", 500
 
     # --- RUTA CATCH-ALL (Debe ir AL FINAL) ---

@@ -105,11 +105,25 @@ export function inicializarLogicaLogin() {
     const form = document.getElementById('login-form');
     if (!form) return;
 
-    // 1. Buscamos el div de error (seguridad para que no falle si falta el HTML)
     const errorMessageDiv = document.getElementById('login-error-message');
+    
+    // --- 1. Lógica Toggle Password (UI) ---
+    const toggleBtn = document.getElementById('toggle-password');
+    const passwordInput = document.getElementById('password');
+    if (toggleBtn && passwordInput) {
+        toggleBtn.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            const icon = toggleBtn.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-eye');
+                icon.classList.toggle('fa-eye-slash');
+            }
+        });
+    }
+
     if (!errorMessageDiv) {
-        console.error("Error crítico: No se encontró el div 'login-error-message'");
-        return;
+        console.warn("No se encontró el div 'login-error-message'. Los errores se mostrarán por consola.");
     }
 
     form.addEventListener('submit', async (e) => {

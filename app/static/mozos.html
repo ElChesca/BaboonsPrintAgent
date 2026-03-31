@@ -1,0 +1,117 @@
+<!-- app/static/mozos.html -->
+<div class="container-fluid fade-in" style="padding: 20px;">
+    <div class="page-header d-flex justify-content-between align-items-center">
+        <h2 style="color: var(--primary-color);">
+            <i class="fas fa-user-tie me-2"></i> Gestión de Mozos / Personal
+        </h2>
+        <button id="btn-nuevo-mozo" type="button" class="btn btn-primary shadow-sm">
+            <i class="fas fa-plus me-1"></i> Nuevo Empleado Restó
+        </button>
+    </div>
+
+    <div class="card shadow-sm mt-4" style="border-radius: 12px; border: none; overflow: hidden;">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="tabla-mozos">
+                    <thead style="background: #f8f9fa;">
+                        <tr>
+                            <th style="padding-left: 25px;">Nombre Completo</th>
+                            <th>Teléfono</th>
+                            <th>Email / Usuario</th>
+                            <th>Sector Habitual</th>
+                            <th>Estado</th>
+                            <th style="text-align: right; padding-right: 25px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Se llena dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="loading-mozos" style="display: none; text-align: center; padding: 40px;">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted">Cargando personal...</p>
+            </div>
+            <div id="no-mozos" style="display: none; text-align: center; padding: 60px;">
+                <i class="fas fa-user-friends fa-3x text-muted mb-3"></i>
+                <p class="text-muted fs-5">No hay personal registrado.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Crear/Editar Mozo -->
+<div id="modal-mozo" class="premium-modal-overlay">
+    <div class="premium-modal-content" style="max-width: 500px; width: 95%;">
+        <div class="premium-modal-header">
+            <h4 class="mb-0 fw-bold" id="modal-mozo-titulo">Nuevo Empleado Restó</h4>
+            <button class="btn-close-modal" id="btn-cerrar-modal-mozo" type="button">×</button>
+        </div>
+
+        <form id="form-mozo">
+            <div class="premium-modal-body" style="background: #fff;">
+                <input type="hidden" id="mozo-id">
+
+                <div class="form-group mb-3">
+                    <label for="mozo-nombre" class="form-label fw-bold">Nombre Completo:</label>
+                    <input type="text" id="mozo-nombre" class="form-control" required placeholder="Ej: Juan Pérez">
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="mozo-telefono" class="form-label fw-bold">Teléfono:</label>
+                            <input type="text" id="mozo-telefono" class="form-control" placeholder="Ej: 11223344">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="mozo-sector" class="form-label fw-bold">Sector Habitual:</label>
+                            <select id="mozo-sector" class="form-select">
+                                <option value="Salon">Salón</option>
+                                <option value="Terraza">Terraza</option>
+                                <option value="VIP">VIP</option>
+                                <option value="Todos">Global / Flotante</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="mozo-rol-resto" class="form-label fw-bold">Rol en Restó:</label>
+                    <select id="mozo-rol-resto" class="form-select">
+                        <option value="mozo">Mozo (Toma pedidos)</option>
+                        <option value="cocinero">Cocinero (Ve comandas)</option>
+                        <option value="barman">Barman (Ve bebidas)</option>
+                        <option value="adicionista">Adicionista (Cierra cuentas)</option>
+                        <option value="bachero">Bachero</option>
+                    </select>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="mozo-email" class="form-label fw-bold">Email (para acceso a la App):</label>
+                    <input type="email" id="mozo-email" class="form-control" placeholder="mozo@resto.com">
+                </div>
+
+                <div class="form-group mb-3"
+                    style="padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <label for="mozo-password" class="form-label fw-bold"><i class="fas fa-key me-1"></i> Contraseña
+                        Acceso App:</label>
+                    <input type="password" id="mozo-password" class="form-control"
+                        placeholder="Dejar vacío para no cambiar">
+                    <small class="text-muted">Se usará para loguearse en la tablet/móvil.</small>
+                </div>
+
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="mozo-activo" checked>
+                    <label class="form-check-label fw-bold" for="mozo-activo">Empleado Activo</label>
+                </div>
+            </div>
+
+            <div class="premium-modal-footer">
+                <button type="button" id="btn-cancelar-mozo" class="btn btn-secondary">Cancelar</button>
+                <button type="submit" class="btn btn-primary px-4">Guardar Empleado</button>
+            </div>
+        </form>
+    </div>
+</div>

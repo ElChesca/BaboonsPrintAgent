@@ -14,25 +14,40 @@ def get_clientes(current_user, negocio_id):
     offset = (page - 1) * limit
     revisado_filter = request.args.get('revisado', 'all') # all, yes, no
     zona_filter = request.args.get('zona', '').strip()
+    solo_deuda = request.args.get('solo_deuda', 'false').lower() == 'true'
+    order_by = request.args.get('order_by', 'nombre') # nombre, operaciones
 
     db = get_db()
     
     # 1. Base Query Params
     params_count = [negocio_id]
-    where_clause = "WHERE c.negocio_id = %s"
+    
+    # CTE o subqueries para saldo y operaciones
+    extra_joins = """
+        LEFT JOIN (
+            SELECT cliente_id, SUM(debe) - SUM(haber) as saldo
+            FROM clientes_cuenta_corriente
+            GROUP BY cliente_id
+        ) cc ON c.id = cc.cliente_id
+        LEFT JOIN (
+            SELECT cliente_id, COUNT(*) as total_operaciones
+            FROM (
+                SELECT cliente_id FROM ventas
+                UNION ALL
+                SELECT cliente_id FROM pedidos
+            ) combined_ops
+            GROUP BY cliente_id
+        ) op ON c.id = op.cliente_id
+    """
+
+    where_clause = "WHERE c.negocio_id = %s AND c.activo = TRUE"
 
     # ✨ LÓGICA DE FILTRADO DE CLIENTES POR VENDEDOR
-    
-    # Caso A: Si es VENDEDOR, forzamos el filtro para que solo vea SUS clientes
     if current_user['rol'] == 'vendedor':
         if not current_user.get('vendedor_id'):
-             # Si es vendedor pero no tiene ID asociado, no ve nada por seguridad
              return jsonify({'data': [], 'pagination': {'total_items': 0, 'total_pages': 0, 'current_page': 1, 'items_per_page': limit}})
-        
         where_clause += " AND c.vendedor_id = %s"
         params_count.append(current_user['vendedor_id'])
-    
-    # Caso B: Si es ADMIN y pide filtrar por vendedor (ej. para armar ruta)
     else:
         vendedor_filter_id = request.args.get('vendedor_id')
         if vendedor_filter_id:
@@ -52,26 +67,45 @@ def get_clientes(current_user, negocio_id):
         where_clause += " AND c.zona_id = %s"
         params_count.append(zona_filter)
 
+    if solo_deuda:
+        where_clause += " AND COALESCE(cc.saldo, 0) > 0.01"
+
     # 2. Contar total
-    count_sql = f"SELECT COUNT(*) FROM clientes c {where_clause}"
+    count_sql = f"""
+        SELECT COUNT(*) 
+        FROM clientes c 
+        {extra_joins if solo_deuda else ''}
+        {where_clause}
+    """
     db.execute(count_sql, tuple(params_count))
     total_items = db.fetchone()['count']
 
     # 3. Datos paginados
+    order_clause = "ORDER BY c.nombre ASC"
+    if order_by == 'operaciones':
+        order_clause = "ORDER BY total_operaciones DESC, c.nombre ASC"
+
     sql = f"""
-        SELECT c.*, lp.nombre AS lista_de_precio_nombre, v.nombre AS vendedor_nombre,
+        SELECT c.*, 
+               COALESCE(cc.saldo, 0) as saldo,
+               COALESCE(op.total_operaciones, 0) as total_operaciones,
+               lp.nombre AS lista_de_precio_nombre, 
+               v.nombre AS vendedor_nombre,
+               z.nombre AS zona_nombre,
                u.nombre AS usuario_revision_nombre
         FROM clientes c
+        {extra_joins}
         LEFT JOIN listas_de_precios lp ON c.lista_de_precio_id = lp.id
         LEFT JOIN vendedores v ON c.vendedor_id = v.id
+        LEFT JOIN zonas z ON c.zona_id = z.id
         LEFT JOIN usuarios u ON c.usuario_revision_id = u.id
         {where_clause}
-        ORDER BY c.nombre ASC
+        {order_clause}
         LIMIT %s OFFSET %s
     """
     
     # params para query final
-    params_query = list(params_count) # Copia
+    params_query = list(params_count)
     params_query.extend([limit, offset])
 
     db.execute(sql, tuple(params_query))
@@ -91,15 +125,15 @@ def get_clientes(current_user, negocio_id):
 @bp.route('/negocios/<int:negocio_id>/clientes/zonas', methods=['GET'])
 @token_required
 def get_zonas(current_user, negocio_id):
-    """Retorna lista de Zonas distintas (ref_interna) para el filtro."""
+    """Retorna lista de todas las Zonas operativas para el filtro."""
     db = get_db()
     db.execute("""
-        SELECT DISTINCT ref_interna
-        FROM clientes
-        WHERE negocio_id = %s AND ref_interna IS NOT NULL AND ref_interna != ''
-        ORDER BY ref_interna ASC
+        SELECT id, nombre
+        FROM zonas
+        WHERE negocio_id = %s
+        ORDER BY nombre ASC
     """, (negocio_id,))
-    zonas = [row['ref_interna'] for row in db.fetchall()]
+    zonas = [dict(row) for row in db.fetchall()]
     return jsonify(zonas)
 
 
@@ -137,16 +171,16 @@ def create_cliente(current_user, negocio_id):
             INSERT INTO clientes (negocio_id, nombre, dni, telefono, email, direccion,
                                   tipo_cliente, tipo_documento, condicion_venta, posicion_iva,
                                   lista_precios, credito_maximo, ciudad, provincia, ref_interna, lista_de_precio_id,
-                                  latitud, longitud, vendedor_id, actividad,
+                                  latitud, longitud, vendedor_id, actividad, zona_id,
                                   visita_lunes, visita_martes, visita_miercoles, visita_jueves, visita_viernes, visita_sabado, visita_domingo)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (negocio_id, data.get('nombre'), data.get('dni'), data.get('telefono'), data.get('email'), data.get('direccion'),
              data.get('tipo_cliente', 'Individuo'), data.get('tipo_documento', 'DNI'), data.get('condicion_venta', 'Contado'),
              data.get('posicion_iva', 'Consumidor Final'), data.get('lista_precios'), data.get('credito_maximo', 0),
              data.get('ciudad'), data.get('provincia'), data.get('ref_interna'), lista_id,
-             data.get('latitud'), data.get('longitud'), data.get('vendedor_id'), data.get('actividad'),
+             data.get('latitud'), data.get('longitud'), data.get('vendedor_id'), data.get('actividad'), data.get('zona_id'),
              data.get('visita_lunes', False), data.get('visita_martes', False), data.get('visita_miercoles', False),
              data.get('visita_jueves', False), data.get('visita_viernes', False), data.get('visita_sabado', False),
              data.get('visita_domingo', False))
@@ -174,7 +208,7 @@ def update_cliente(current_user, cliente_id):
     allowed_fields = ['nombre', 'dni', 'telefono', 'email', 'direccion',
                       'tipo_cliente', 'tipo_documento', 'condicion_venta', 'posicion_iva',
                       'lista_precios', 'credito_maximo', 'ciudad', 'provincia', 'ref_interna','lista_de_precio_id',
-                      'latitud', 'longitud', 'vendedor_id', 'actividad',
+                      'latitud', 'longitud', 'vendedor_id', 'actividad', 'zona_id',
                       'visita_lunes', 'visita_martes', 'visita_miercoles', 'visita_jueves', 
                       'visita_viernes', 'visita_sabado', 'visita_domingo']
     
@@ -222,10 +256,15 @@ def update_cliente(current_user, cliente_id):
 @token_required
 def delete_cliente(current_user, cliente_id):
     db = get_db()
-    # Aquí podrías añadir una lógica para verificar si el cliente tiene saldo en cta. cte. antes de borrar.
-    db.execute('DELETE FROM clientes WHERE id = %s', (cliente_id,))
-    g.db_conn.commit()
-    return jsonify({'message': 'Cliente eliminado con éxito'})
+    try:
+        # Baja lógica: marcamos el cliente como inactivo en lugar de borrarlo físicamente.
+        # Esto evita errores de FK con ventas, pedidos y cuenta corriente existentes.
+        db.execute('UPDATE clientes SET activo = FALSE WHERE id = %s', (cliente_id,))
+        g.db_conn.commit()
+        return jsonify({'message': 'Cliente eliminado con éxito'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @bp.route('/clientes/<int:cliente_id>/cuenta_corriente', methods=['GET'])
 @token_required

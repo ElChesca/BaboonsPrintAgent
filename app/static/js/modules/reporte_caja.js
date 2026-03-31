@@ -48,6 +48,7 @@ function renderizarTabla() {
         
         // 2. Asignar el HTML interno
         fila.innerHTML = `
+            <td><strong>#${sesion.numero}</strong></td>
             <td>${new Date(sesion.fecha_apertura).toLocaleString('es-AR')}</td>
             <td>${new Date(sesion.fecha_cierre).toLocaleString('es-AR')}</td>
             <td>${sesion.usuario_nombre}</td>
@@ -75,8 +76,9 @@ function exportarAPDF() {
 
     doc.text("Reporte de Cierres de Caja", 14, 16);
     doc.autoTable({
-        head: [['Apertura', 'Cierre', 'Usuario', 'Inicial', 'Esperado', 'Contado', 'Diferencia']],
+        head: [['Nº', 'Apertura', 'Cierre', 'Usuario', 'Inicial', 'Esperado', 'Contado', 'Diferencia']],
         body: reporteCache.map(s => [
+            `#${s.numero}`,
             new Date(s.fecha_apertura).toLocaleString('es-AR'),
             new Date(s.fecha_cierre).toLocaleString('es-AR'),
             s.usuario_nombre,

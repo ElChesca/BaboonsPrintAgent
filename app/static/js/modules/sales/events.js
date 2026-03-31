@@ -28,7 +28,41 @@ async function procesarVenta(imprimir = false) {
                 producto_id: item.producto_id, cantidad: item.cantidad, precio_unitario: item.precio_unitario
             }))
         };
-        if (payload.metodo_pago !== 'Efectivo') {
+
+        if (payload.metodo_pago === 'Cuenta Corriente' && !payload.cliente_id) {
+            ui.toggleFinalizeButtons(false);
+            return mostrarNotificacion("Debe seleccionar un cliente para cobrar con Cuenta Corriente.", 'warning');
+        }
+
+        if (payload.metodo_pago === 'Mixto') {
+            const subtotalItems = state.calculateTotal();
+            const total = (subtotalItems * (1 - (payload.bonificacion_global / 100))) - payload.descuento + payload.gastos_envio;
+
+            const efectivo = parseFloat(document.getElementById('mixto-efectivo').value) || 0;
+            const mp = parseFloat(document.getElementById('mixto-mp').value) || 0;
+
+            const sumaFija = efectivo + mp;
+            const cuentaCorrienteCalc = Math.max(0, total - sumaFija);
+
+            payload.montos_mixtos = {
+                Efectivo: efectivo,
+                MP: mp,
+                CuentaCorriente: cuentaCorrienteCalc
+            };
+
+            if (payload.montos_mixtos.CuentaCorriente > 0 && !payload.cliente_id) {
+                ui.toggleFinalizeButtons(false);
+                return mostrarNotificacion("Debe seleccionar un cliente para asentar deuda en Cuenta Corriente.", 'warning');
+            }
+
+            // Validate that the sum equals the total (if they overpay this will fail)
+            const sumMontos = Object.values(payload.montos_mixtos).reduce((a, b) => a + b, 0);
+
+            if (Math.abs(total - sumMontos) > 0.01) {
+                ui.toggleFinalizeButtons(false);
+                return mostrarNotificacion(`No se puede exceder el total de la venta enviando vuelto. Por favor ajuste los montos introducidos.`, 'warning');
+            }
+        } else if (payload.metodo_pago !== 'Efectivo' && payload.metodo_pago !== 'Cuenta Corriente') {
             payload.pago_detalle = {
                 cliente_dni: document.getElementById('pago-dni').value,
                 tarjeta_numero: document.getElementById('pago-tarjeta').value,
@@ -36,6 +70,7 @@ async function procesarVenta(imprimir = false) {
                 banco: document.getElementById('pago-banco').value
             };
         }
+
         const responseData = await sendData(`/api/negocios/${appState.negocioActivoId}/ventas`, payload, 'POST');
         mostrarNotificacion(responseData.message || `¡Venta #${responseData.venta_id} registrada!`, 'success');
 
@@ -261,13 +296,18 @@ export function setupEventListeners() {
     if (metodoPagoSelector) {
         metodoPagoSelector.addEventListener('change', () => {
             const esEfectivo = metodoPagoSelector.value === 'Efectivo';
+            const esMixto = metodoPagoSelector.value === 'Mixto';
+            const esCtaCte = metodoPagoSelector.value === 'Cuenta Corriente';
             const pagoDetallesContainer = document.getElementById('pago-detalles-container');
             const calculoVueltoContainer = document.getElementById('calculo-vuelto-container');
-            if (calculoVueltoContainer) calculoVueltoContainer.style.display = esEfectivo ? 'block' : 'none';
-            if (pagoDetallesContainer) pagoDetallesContainer.style.display = esEfectivo ? 'none' : 'grid';
+            // La visibilidad de mixto y vuelto se maneja en setupMixPayments
+            if (pagoDetallesContainer) pagoDetallesContainer.style.display = (esEfectivo || esMixto || esCtaCte) ? 'none' : 'grid';
         });
         metodoPagoSelector.dispatchEvent(new Event('change'));
     }
+
+    // Configurar listeners de pagos mixtos interactivos
+    ui.setupMixPayments();
 
     if (pagaConInput) {
         pagaConInput.addEventListener('input', () => {

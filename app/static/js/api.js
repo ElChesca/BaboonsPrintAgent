@@ -36,13 +36,17 @@ async function handleApiResponse(response) {
     // Si no fue 401, continuamos con tu lógica de errores original
     if (!response.ok) {
         let errorMessage = `Error ${response.status}: ${response.statusText}`;
+        let errorData = null;
         try {
-            const errorData = await response.json();
+            errorData = await response.json();
             errorMessage = errorData.message || errorData.error || errorMessage;
         } catch (e) { /* Ignorar si no hay JSON */ }
 
-        // Lanzamos el error para que el 'catch' de la llamada original lo tome
-        throw new Error(errorMessage);
+        // Lanzamos el error con la data adjunta para que el 'catch' pueda usarla
+        const error = new Error(errorMessage);
+        error.status = response.status;
+        error.data = errorData;
+        throw error;
     }
 
     // Manejo de respuestas exitosas (tu lógica original)

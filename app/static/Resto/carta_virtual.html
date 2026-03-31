@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{ og_title }}</title>
+    
+    <!-- Meta Tags for Social Media -->
+    <meta property="og:title" content="{{ og_title }}">
+    <meta property="og:image" content="{{ og_image }}">
+    <meta property="og:description" content="Explora nuestra carta digital y deléitate con nuestra propuesta gastronómica.">
+    <meta name="theme-color" content="#1e293b">
+    
+    <!-- Fonts - Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --accent-color: #ff4757;
+            --dark-navy: #0f172a;
+            --soft-bg: #f8fafc;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --card-shadow: 0 10px 30px rgba(0,0,0,0.06);
+            --header-height: 220px;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--soft-bg);
+            color: var(--dark-navy);
+            margin: 0; padding: 0;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Loading State - Premium */
+        #loading {
+            position: fixed;
+            inset: 0;
+            background: white;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s, visibility 0.5s;
+        }
+        .spinner-elegant {
+            width: 60px; height: 60px;
+            border: 4px solid #f1f5f9;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Header Layout - Luxury Feel */
+        .hero-banner {
+            height: var(--header-height);
+            background: linear-gradient(rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.9)), url('{{ lista.banner_url or negocio.fondo_url_resto or og_image }}');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: white;
+            padding: 20px;
+            position: relative;
+        }
+
+        .logo-circle {
+            width: 90px; height: 90px;
+            background: white;
+            border-radius: 24px;
+            padding: 10px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            margin-bottom: 15px;
+            transform: translateY(20px);
+            animation: fadeInUp 0.8s forwards;
+            object-fit: contain;
+        }
+
+        .restaurant-name {
+            font-weight: 800;
+            font-size: 1.8rem;
+            letter-spacing: -0.5px;
+            margin-bottom: 5px;
+            transform: translateY(10px);
+            opacity: 0;
+            animation: fadeInUp 0.8s 0.2s forwards;
+        }
+
+        .restaurant-meta {
+            font-size: 0.85rem;
+            opacity: 0;
+            animation: fadeInUp 0.8s 0.4s forwards;
+            background: rgba(255,255,255,0.1);
+            padding: 4px 15px;
+            border-radius: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .special-menu-badge {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 800;
+            padding: 4px 16px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(217, 119, 6, 0.4);
+            animation: bounceIn 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: inline-block;
+            margin-bottom: 5px;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes fadeInUp {
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Sticky Categories Nav - Glassmorphism */
+        .sticky-category-nav {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            padding: 12px 0;
+            display: flex;
+            overflow-x: auto;
+            scrollbar-width: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.02);
+            transition: all 0.3s;
+        }
+        .sticky-category-nav::-webkit-scrollbar { display: none; }
+
+        .cat-pill {
+            padding: 8px 20px;
+            margin: 0 6px;
+            background: transparent;
+            border-radius: 30px;
+            color: #64748b;
+            font-weight: 700;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .cat-pill.active {
+            background: var(--primary-color);
+            color: white !important;
+            box-shadow: 0 8px 15px rgba(67, 97, 238, 0.25);
+        }
+        .cat-pill:first-child { margin-left: 20px; }
+        .cat-pill:last-child { margin-right: 20px; }
+
+        /* Menu Content Area */
+        .menu-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 10px 15px 100px;
+        }
+
+        .category-section {
+            padding-top: 20px;
+            margin-bottom: 40px;
+        }
+
+        .category-title {
+            font-weight: 800;
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            padding-left: 5px;
+            border-left: 4px solid var(--primary-color);
+            line-height: 1;
+        }
+
+        /* Item Card - Modern List Style */
+        .menu-item-row {
+            background: white;
+            border-radius: 24px;
+            padding: 12px;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s;
+            border: 1px solid rgba(0,0,0,0.02);
+            animation: fadeInScale 0.6s backwards;
+        }
+        .menu-item-row:active { transform: scale(0.97); }
+
+        .item-image-box {
+            width: 100px; height: 100px;
+            border-radius: 18px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #f1f5f9;
+        }
+        .item-image-box img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+
+        .item-details {
+            flex-grow: 1;
+            padding-left: 15px;
+            overflow: hidden;
+        }
+
+        .item-name {
+            font-weight: 800;
+            font-size: 1.05rem;
+            margin-bottom: 4px;
+            color: var(--dark-navy);
+        }
+
+        .item-description {
+            font-size: 0.82rem;
+            color: #64748b;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+
+        .item-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .item-price {
+            font-weight: 800;
+            font-size: 1.15rem;
+            color: var(--primary-color);
+        }
+
+        .btn-add-item {
+            width: 32px; height: 32px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            display: flex;
+            align-items: center; justify-content: center;
+            color: #475569;
+            font-size: 0.8rem;
+        }
+
+        /* Floating Order Bar (Opcional, Da look de app) */
+        .floating-cta {
+            position: fixed;
+            bottom: 25px; left: 20px; right: 20px;
+            background: var(--dark-navy);
+            color: white;
+            border-radius: 20px;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            z-index: 1010;
+            animation: slideInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Footer Styles */
+        footer {
+            background: white;
+            padding-bottom: 120px !important; /* Space for floating CTA */
+        }
+        .btn-outline-dark {
+            border-color: #e2e8f0;
+            color: #475569;
+            transition: all 0.3s;
+        }
+        .btn-outline-dark:hover {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(67, 97, 238, 0.2);
+        }
+        footer .container {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Keyframes */
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInScale { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        @keyframes slideInUp { from { transform: translateY(100px); } to { transform: translateY(0); } }
+
+    </style>
+</head>
+<body>
+
+    <!-- Premium Loader -->
+    <div id="loading">
+        <div class="spinner-elegant"></div>
+        <h5 class="mt-4 fw-800 animate__animated animate__pulse animate__infinite" style="color: #475569">Cocinando el Menú...</h5>
+    </div>
+
+    <!-- Hero Header -->
+    <section class="hero-banner">
+        <img class="logo-circle" src="{{ negocio.logo_url_resto or og_image }}" alt="Logo" onerror="this.src='/static/img/icons/reportes.png'">
+        <h1 class="restaurant-name">{{ negocio.nombre }}</h1>
+        {% if lista.mensaje_banner %}
+            <div class="special-menu-badge">
+                <i class="fas fa-star me-2"></i>{{ lista.mensaje_banner }}
+            </div>
+        {% endif %}
+        <div class="restaurant-meta">
+            <i class="fas fa-clock me-1 text-warning"></i> Abierto ahora • <i class="fas fa-star text-warning me-1 ms-2"></i> 4.8 
+        </div>
+    </section>
+
+    <!-- Sticky Nav -->
+    <nav class="sticky-category-nav" id="cat-nav">
+        <a href="#" class="cat-pill active">Todos</a>
+        <!-- Dynamic Tabs -->
+    </nav>
+
+    <!-- Menu Content -->
+    <main class="menu-container">
+        <div id="menu-content">
+            <!-- Dynamic Sections -->
+        </div>
+    </main>
+
+    <!-- Floating Footer (Call to mozo / WiFi info) -->
+    <div class="floating-cta">
+        <div>
+            <span class="d-block x-small opacity-50 fw-600">{{ negocio.nombre }} - MENÚ DIGITAL</span>
+            <span class="fw-800">¡Bienvenidos!</span>
+        </div>
+        <button class="btn btn-primary rounded-pill px-4 fw-800" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+            <i class="fas fa-arrow-up me-2"></i> INICIO
+        </button>
+    </div>
+
+    <!-- Final Footer con Info Comercial -->
+    <footer class="bg-white pt-5 pb-5 mt-5 border-top">
+        <div class="container text-center">
+            <img class="mb-4" src="{{ negocio.logo_url_resto or og_image }}" alt="Logo" style="height: 60px; object-fit: contain; border-radius: 12px;" onerror="this.style.display='none'">
+            <h4 class="fw-800 mb-2">{{ negocio.nombre }}</h4>
+            
+            {% if negocio.direccion_resto %}
+            <p class="text-muted small mb-1">
+                <i class="fas fa-map-marker-alt me-2 text-primary"></i>{{ negocio.direccion_resto }}
+            </p>
+            {% endif %}
+
+            {% if negocio.telefono_resto %}
+            <p class="text-muted small mb-4">
+                <i class="fas fa-phone me-2 text-primary"></i>{{ negocio.telefono_resto }}
+            </p>
+            {% endif %}
+
+            <div class="d-flex justify-content-center gap-3 mb-5">
+                {% if negocio.instagram_url_resto %}
+                <a href="{{ negocio.instagram_url_resto }}" target="_blank" class="btn btn-outline-dark rounded-circle" style="width: 45px; height: 45px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fab fa-instagram fa-lg"></i>
+                </a>
+                {% endif %}
+                
+                {% if negocio.facebook_url_resto %}
+                <a href="{{ negocio.facebook_url_resto }}" target="_blank" class="btn btn-outline-dark rounded-circle" style="width: 45px; height: 45px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fab fa-facebook-f fa-lg"></i>
+                </a>
+                {% endif %}
+            </div>
+
+            <div class="opacity-25 mt-4">
+                <img src="/static/img/logo.png" height="20" alt="Baboons">
+                <p class="x-small fw-700 mt-2 mb-0">POWERED BY BABOONS</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const NEGOCIO_ID = "{{ negocio_id }}";
+        const LISTA_ID = "{{ lista_id or '' }}";
+        let categorias = [];
+        let items = [];
+
+        async function init() {
+            try {
+                const itemsUrl = `/api/negocios/${NEGOCIO_ID}/menu/items` + (LISTA_ID ? `?lista_id=${LISTA_ID}` : '');
+                
+                const [catsData, itemsData] = await Promise.all([
+                    fetch(`/api/negocios/${NEGOCIO_ID}/menu/categorias`).then(r => r.json()),
+                    fetch(itemsUrl).then(r => r.json())
+                ]);
+
+                categorias = catsData;
+                // Filtrar solo items disponibles para el público
+                items = itemsData.filter(i => i.disponible === true || i.disponible === 1 || i.disponible === "true");
+
+                renderMenu();
+                
+                // Hide loader with fade
+                const loader = document.getElementById('loading');
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 500);
+
+            } catch (error) {
+                console.error("Error:", error);
+                document.getElementById('loading').innerHTML = `
+                    <div class="text-center px-4">
+                        <i class="fas fa-wifi fa-3x text-danger mb-4"></i>
+                        <h4 class="fw-800">Algo salió mal</h4>
+                        <p class="text-muted">No pudimos conectar con la cocina. Por favor, reintentá escaneando el código de nuevo.</p>
+                        <button class="btn btn-primary px-5 rounded-pill" onclick="location.reload()">REINTENTAR</button>
+                    </div>
+                `;
+            }
+        }
+
+        function renderMenu() {
+            const nav = document.getElementById('cat-nav');
+            const content = document.getElementById('menu-content');
+
+            // 1. Group items first to know which categories have content
+            const grouped = {};
+            items.forEach(i => {
+                if (!grouped[i.categoria_id]) grouped[i.categoria_id] = [];
+                grouped[i.categoria_id].push(i);
+            });
+
+            // 2. Categorías Nav (Solo mostrar si tienen items y la categoría está activa)
+            let navHtml = '<a href="#" class="cat-pill active" onclick="filtrar(event, \'all\')">Todos</a>';
+            categorias.forEach(c => {
+                const isCatActiva = c.activo === true || c.activo === 1 || c.activo === "true";
+                if (isCatActiva && grouped[c.id] && grouped[c.id].length > 0) {
+                    navHtml += `<a href="#cat-${c.id}" class="cat-pill" onclick="filtrar(event, ${c.id})">${c.nombre}</a>`;
+                }
+            });
+            nav.innerHTML = navHtml;
+
+            // Sections
+            let sectionsHtml = '';
+            categorias.forEach(c => {
+                const isCatActiva = c.activo === true || c.activo === 1 || c.activo === "true";
+                const catItems = grouped[c.id] || [];
+                if (!isCatActiva || catItems.length === 0) return;
+
+                sectionsHtml += `
+                    <div id="cat-${c.id}" class="category-section">
+                        <h2 class="category-title animate__animated animate__fadeInLeft">${c.nombre}</h2>
+                        <div class="items-list">
+                            ${catItems.map((item, index) => `
+                                <div class="menu-item-row" style="animation-delay: ${index * 0.1}s">
+                                    <div class="item-image-box">
+                                        <img src="${item.imagen_url || '/static/img/icons/reportes.png'}" alt="${item.nombre}" onerror="this.src='/static/img/icons/reportes.png'">
+                                    </div>
+                                    <div class="item-details">
+                                        <h3 class="item-name">${item.nombre}</h3>
+                                        <p class="item-description">${item.descripcion || 'Especialidad de la casa preparada con ingredientes frescos del día.'}</p>
+                                        <div class="item-footer">
+                                            <div class="item-price">$${parseFloat(item.precio).toLocaleString('es-AR')}</div>
+                                            <div class="btn-add-item">
+                                                <i class="fas fa-plus"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            content.innerHTML = sectionsHtml;
+        }
+
+        function filtrar(e, id) {
+            if (id === 'all') {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+        }
+
+        // Scroll Spy refined
+        window.addEventListener('scroll', () => {
+            const sections = document.querySelectorAll('.category-section');
+            let current = '';
+            
+            sections.forEach(s => {
+                const sectionTop = s.offsetTop;
+                if (window.scrollY >= sectionTop - 120) {
+                    current = s.id;
+                }
+            });
+
+            if (current) {
+                document.querySelectorAll('.cat-pill').forEach(p => {
+                    p.classList.remove('active');
+                    if (p.getAttribute('href') === `#${current}`) {
+                        p.classList.add('active');
+                        // Center active tab
+                        p.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    }
+                });
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>

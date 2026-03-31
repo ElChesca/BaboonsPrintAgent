@@ -1,0 +1,140 @@
+/* app/static/css/resto_mozo.css */
+/* Mozo POS - External CSS (extends inline styles in HTML) */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* Extra touch optimizations for POS on mobile */
+.mozo-app * {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+/* Safe area padding for notched phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .pos-panel-footer {
+        padding-bottom: calc(14px + env(safe-area-inset-bottom));
+    }
+    
+    .mozo-mesas-scroll {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
+
+/* Landscape phone POS optimization */
+@media (max-height: 500px) and (orientation: landscape) {
+    .pos-order-panel {
+        height: 100vh !important;
+        border-radius: 0 !important;
+        transform: translateX(100%) !important;
+        width: 320px !important;
+        position: fixed !important;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        left: auto !important;
+    }
+    
+    .pos-order-panel.expanded {
+        transform: translateX(0) !important;
+    }
+    
+    .pos-panel-handle {
+        display: none !important;
+    }
+    
+    .mozo-mesas-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+    }
+}
+
+/* Print-friendly for pre-ticket */
+@media print {
+    .mozo-topbar,
+    .pos-topbar,
+    .mozo-filters,
+    .pos-cats-bar,
+    .pos-search,
+    .pos-footer-actions,
+    .mozo-loader { 
+        display: none !important; 
+    }
+    
+    .pos-order-panel {
+        position: static !important;
+        width: 100% !important;
+        height: auto !important;
+        transform: none !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+}
+
+/* Smooth entrance animations */
+.mesa-item-v3 {
+    animation: mesa-enter 0.3s ease-out backwards;
+}
+
+.mesa-item-v3:nth-child(1)  { animation-delay: 0.02s; }
+.mesa-item-v3:nth-child(2)  { animation-delay: 0.04s; }
+.mesa-item-v3:nth-child(3)  { animation-delay: 0.06s; }
+.mesa-item-v3:nth-child(4)  { animation-delay: 0.08s; }
+.mesa-item-v3:nth-child(5)  { animation-delay: 0.10s; }
+.mesa-item-v3:nth-child(6)  { animation-delay: 0.12s; }
+.mesa-item-v3:nth-child(7)  { animation-delay: 0.14s; }
+.mesa-item-v3:nth-child(8)  { animation-delay: 0.16s; }
+.mesa-item-v3:nth-child(9)  { animation-delay: 0.18s; }
+.mesa-item-v3:nth-child(10) { animation-delay: 0.20s; }
+.mesa-item-v3:nth-child(11) { animation-delay: 0.22s; }
+.mesa-item-v3:nth-child(12) { animation-delay: 0.24s; }
+
+@keyframes mesa-enter {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* 💸 ESTADO EN COBRO (NUEVO) */
+.mesa-item-v3.en_cobro {
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    color: white !important;
+    animation: pulse-orange 2s infinite !important;
+    border: 2px solid #fbbf24 !important;
+}
+
+.mesa-item-v3.en_cobro .mesa-num {
+    color: white !important;
+}
+
+@keyframes pulse-orange {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+    70% { transform: scale(1.03); box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+/* Product card entrance */
+.prod-card-v2 {
+    animation: prod-enter 0.25s ease-out backwards;
+}
+
+.prod-card-v2:nth-child(1)  { animation-delay: 0.02s; }
+.prod-card-v2:nth-child(2)  { animation-delay: 0.04s; }
+.prod-card-v2:nth-child(3)  { animation-delay: 0.06s; }
+.prod-card-v2:nth-child(4)  { animation-delay: 0.08s; }
+.prod-card-v2:nth-child(5)  { animation-delay: 0.10s; }
+.prod-card-v2:nth-child(6)  { animation-delay: 0.12s; }
+
+@keyframes prod-enter {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

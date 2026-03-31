@@ -1,0 +1,133 @@
+
+--- Table: ventas ---
+id | integer | None
+negocio_id | integer | None
+cliente_id | integer | None
+usuario_id | integer | None
+caja_sesion_id | integer | None
+total | real | None
+fecha | timestamp without time zone | None
+vencimiento_cae | date | None
+vendedor_id | integer | None
+descuento | numeric | None
+bonificacion_global | numeric | None
+gastos_envio | numeric | None
+liquidacion_id | integer | None
+metodo_pago | text | None
+mp_payment_intent_id | text | None
+estado | text | None
+tipo_factura | text | None
+numero_factura | text | None
+cae | text | None
+mp_status | text | None
+
+--- Table: ventas_detalle ---
+id | integer | None
+venta_id | integer | None
+producto_id | integer | None
+cantidad | real | None
+precio_unitario | real | None
+subtotal | real | None
+bonificacion | real | None
+
+--- Table: pedidos ---
+fecha_estado | timestamp without time zone | None
+negocio_id | integer | None
+cliente_id | integer | None
+vendedor_id | integer | None
+hoja_ruta_id | integer | None
+fecha | timestamp without time zone | None
+usuario_entrega_id | integer | None
+id | integer | None
+total | numeric | None
+venta_id | integer | None
+usuario_id | integer | None
+fecha_entrega | timestamp without time zone | None
+estado | text | None
+observaciones | text | None
+
+--- Table: pedidos_detalle ---
+id | integer | None
+pedido_id | integer | None
+producto_id | integer | None
+cantidad | numeric | None
+precio_unitario | numeric | None
+subtotal | numeric | None
+bonificacion | numeric | None
+
+--- Table: pedidos_rebotes ---
+id | integer | None
+negocio_id | integer | None
+pedido_id | integer | None
+hoja_ruta_id | integer | None
+producto_id | integer | None
+cantidad | integer | None
+motivo_rebote_id | integer | None
+fecha | timestamp without time zone | None
+
+--- Table: negocios ---
+acceso_bloqueado | boolean | None
+punto_de_venta | integer | None
+club_default | boolean | None
+fecha_alta | date | None
+cuota_mensual | numeric | None
+suscripcion_activa | boolean | None
+id | integer | None
+logo_url | text | None
+tipo_app | character varying | 50
+nombre | text | None
+direccion | text | None
+razon_social | text | None
+cuit | text | None
+posicion_iva | text | None
+domicilio_fiscal | text | None
+
+--- Table: vendedores ---
+zona_id | integer | None
+negocio_id | integer | None
+activo | boolean | None
+empleado_id | integer | None
+id | integer | None
+color | text | None
+zona_geografica | text | None
+nombre | text | None
+telefono | text | None
+email | text | None
+
+--- Table: hoja_ruta ---
+id | integer | None
+negocio_id | integer | None
+vendedor_id | integer | None
+fecha | date | None
+carga_confirmada | boolean | None
+chofer_id | integer | None
+vehiculo_id | integer | None
+estado | text | None
+observaciones | text | None
+
+--- Table: hoja_ruta_items ---
+orden | integer | None
+hoja_ruta_id | integer | None
+cliente_id | integer | None
+id | integer | None
+visitado | boolean | None
+fecha_visita | timestamp without time zone | None
+observaciones | text | None
+
+--- Table: usuarios ---
+id | integer | None
+activo | boolean | None
+empleado_id | integer | None
+email | text | None
+rol | text | None
+nombre | text | None
+password | text | None
+
+--- Table: clientes_cuenta_corriente ---
+venta_id | integer | None
+cliente_id | integer | None
+fecha | timestamp without time zone | None
+id | integer | None
+debe | real | None
+haber | real | None
+concepto | text | None

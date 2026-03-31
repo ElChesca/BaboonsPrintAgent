@@ -1,0 +1,10 @@
+{
+    "title": "Smart Pagination Pattern (Orders & Routing)",
+    "summary": "Implementación de paginación inteligente optimizada para grandes volúmenes de datos, con soporte en backend (Flask/PostgreSQL) y frontend (JS Vanilla/Bootstrap).",
+    "references": [
+        "c:\\Users\\usuario\\Documents\\MultinegocioBaboons\\app\\routes\\pedidos_routes.py",
+        "c:\\Users\\usuario\\Documents\\MultinegocioBaboons\\app\\static\\js\\modules\\pedidos.js",
+        "c:\\Users\\usuario\\Documents\\MultinegocioBaboons\\app\\static\\pedidos.html"
+    ],
+    "created_at": "2026-03-21T10:00:00Z"
+}

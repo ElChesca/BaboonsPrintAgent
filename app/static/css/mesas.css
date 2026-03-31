@@ -1,0 +1,38 @@
+/* app/static/css/mesas.css */
+/* Estilos para el módulo de Gestión de Mesas */
+
+.tabla-contenedor {
+    min-height: 200px;
+}
+
+#bulk-actions-bar-mesas {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 800px;
+    z-index: 1050;
+    transition: all 0.3s ease;
+}
+
+#bulk-actions-bar-mesas .card-body {
+    background: #f8fbff;
+    border-radius: 12px;
+}
+
+.select-mesa {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+.tabla-bonita th {
+    padding: 12px 15px;
+    font-weight: 600;
+}
+
+.tabla-bonita td {
+    padding: 12px 15px;
+    vertical-align: middle;
+}

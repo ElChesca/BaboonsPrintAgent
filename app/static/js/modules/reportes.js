@@ -19,12 +19,14 @@ function alternarVistaReporte() {
     const containerVentas = document.getElementById('reporte-container-ventas');
     const containerEntregas = document.getElementById('reporte-container-entregas');
     const containerBajadas = document.getElementById('reporte-container-bajadas-detalle');
+    const containerHREjecutivo = document.getElementById('reporte-container-hr-ejecutivo');
     const filterChoferCon = document.getElementById('filtro-chofer-container');
     const filterHRCon = document.getElementById('filtro-hr-container');
 
     containerVentas.style.display = tipo === 'ventas' ? 'block' : 'none';
     containerEntregas.style.display = tipo === 'entregas' ? 'block' : 'none';
     containerBajadas.style.display = tipo === 'bajadas_detalle' ? 'block' : 'none';
+    containerHREjecutivo.style.display = tipo === 'hr_ejecutivo' ? 'block' : 'none';
 
     // Solo mostramos el filtro de chofer y el de HR en el reporte detallado
     filterChoferCon.style.display = tipo === 'bajadas_detalle' ? 'flex' : 'none';
@@ -39,6 +41,8 @@ async function generarReporteActual() {
         await cargarReporteEntregas();
     } else if (tipo === 'bajadas_detalle') {
         await cargarReporteBajadasDetalle();
+    } else if (tipo === 'hr_ejecutivo') {
+        await cargarReporteHREjecutivo();
     }
 }
 
@@ -224,11 +228,85 @@ async function cargarReporteBajadasDetalle() {
     }
 }
 
+async function cargarReporteHREjecutivo() {
+    if (!appState.negocioActivoId) return;
+
+    const fechaDesde = document.getElementById('fecha-desde').value;
+    const fechaHasta = document.getElementById('fecha-hasta').value;
+
+    let url = `/api/negocios/${appState.negocioActivoId}/reportes/hojas-ruta-ejecutivo`;
+    const params = new URLSearchParams();
+    if (fechaDesde) params.append('fecha_desde', fechaDesde);
+    if (fechaHasta) params.append('fecha_hasta', fechaHasta);
+    if (params.toString()) url += `?${params.toString()}`;
+
+    try {
+        const response = await fetch(url, { headers: getAuthHeaders() });
+        const data = await response.json();
+
+        if (!response.ok || !Array.isArray(data)) {
+            throw new Error(data.error || 'Error al cargar reporte ejecutivo HR');
+        }
+
+        const tbody = document.getElementById('tbody-hr-ejecutivo');
+        tbody.innerHTML = '';
+
+        let totalNeto = 0;
+        let totalBruto = 0;
+        let totalBonif = 0;
+
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No hay datos en este período.</td></tr>';
+        } else {
+            data.forEach(row => {
+                totalNeto += row.importe_neto || 0;
+                totalBruto += row.importe_bruto || 0;
+                totalBonif += row.bonificacion_monto || 0;
+
+                const fHR = row.hr_fecha ? new Date(row.hr_fecha).toLocaleDateString() : '-';
+                const fEnt = row.fecha_entrega ? new Date(row.fecha_entrega).toLocaleString() : '-';
+
+                const badgeEstado = (est) => {
+                    const e = (est || '').toLowerCase();
+                    if (e === 'entregado') return '<span class="badge bg-success">Entregado</span>';
+                    if (e === 'pendiente') return '<span class="badge bg-warning text-dark">Pendiente</span>';
+                    if (e === 'anulado') return '<span class="badge bg-danger">Anulado</span>';
+                    return `<span class="badge bg-secondary">${est}</span>`;
+                };
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="small">${fHR}</td>
+                        <td class="fw-bold">#${row.hr_id}</td>
+                        <td class="small">${row.cliente_nombre}</td>
+                        <td class="text-end fw-bold text-success">$${(row.importe_neto || 0).toLocaleString()}</td>
+                        <td class="text-end text-muted">$${(row.importe_bruto || 0).toLocaleString()}</td>
+                        <td class="text-end text-danger">${row.bonificacion_monto > 0 ? '$' + row.bonificacion_monto.toLocaleString() : '-'}</td>
+                        <td class="text-center small">${row.metodo_pago || '<span class="text-muted">N/D</span>'}</td>
+                        <td class="small">${row.chofer_nombre || '-'}</td>
+                        <td class="text-center">${badgeEstado(row.estado_pedido)}</td>
+                        <td class="small text-muted" style="font-size: 0.75rem;">${fEnt}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        document.getElementById('total-hr-ejecutivo-neto').textContent = `$${totalNeto.toLocaleString()}`;
+        document.getElementById('total-hr-ejecutivo-bruto').textContent = `$${totalBruto.toLocaleString()}`;
+        document.getElementById('total-hr-ejecutivo-bonif').textContent = `$${totalBonif.toLocaleString()}`;
+
+    } catch (e) {
+        console.error(e);
+        mostrarNotificacion(e.message, 'error');
+    }
+}
+
 function exportarAPDF() {
     const tipo = document.getElementById('tipo-reporte').value;
     let elementId = 'reporte-container-ventas';
     if (tipo === 'entregas') elementId = 'reporte-container-entregas';
     if (tipo === 'bajadas_detalle') elementId = 'reporte-container-bajadas-detalle';
+    if (tipo === 'hr_ejecutivo') elementId = 'reporte-container-hr-ejecutivo';
 
     const element = document.getElementById(elementId);
     const negocioNombre = document.getElementById('selector-negocio').options[document.getElementById('selector-negocio').selectedIndex].text;
@@ -242,8 +320,8 @@ function exportarAPDF() {
         jsPDF: { unit: 'in', format: 'letter', orientation: 'keyboard' } // Landscape mejor para entregas?
     };
 
-    // Ajustar orientación si es entregas (más columnas)
-    if (tipo === 'entregas') {
+    // Ajustar orientación si hay muchas columnas
+    if (tipo === 'entregas' || tipo === 'hr_ejecutivo') {
         opt.jsPDF.orientation = 'landscape';
     } else {
         opt.jsPDF.orientation = 'portrait';

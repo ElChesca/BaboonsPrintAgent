@@ -46,6 +46,7 @@
             <option value="ventas">Ventas por Día</option>
             <option value="entregas">Estado de Entregas (Logística)</option>
             <option value="bajadas_detalle">Reporte de Bajadas Detallado</option>
+            <option value="hr_ejecutivo">Reporte Ejecutivo de Hoja de Ruta</option>
         </select>
 
         <div id="filtro-chofer-container" style="display: none; align-items: center; gap: 10px;">
@@ -127,4 +128,39 @@
             <tbody></tbody>
         </table>
     </div>
+
+    <!-- ✨ REPORTE EJECUTIVO DE HOJAS DE RUTA -->
+    <div id="reporte-container-hr-ejecutivo" style="display: none; padding-top: 20px;">
+        <h4 id="reporte-titulo-hr-ejecutivo" class="mb-3">📊 Reporte Ejecutivo de Hojas de Ruta</h4>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle shadow-sm bg-white"
+                style="border-radius: 8px; overflow: hidden;">
+                <thead class="bg-dark text-white">
+                    <tr>
+                        <th class="small py-3">FECHA HR</th>
+                        <th class="small py-3">HR#</th>
+                        <th class="small py-3">CLIENTE</th>
+                        <th class="small py-3 text-end">NETO ($)</th>
+                        <th class="small py-3 text-end">BRUTO ($)</th>
+                        <th class="small py-3 text-end">BONIF ($)</th>
+                        <th class="small py-3 text-center">PAGO</th>
+                        <th class="small py-3">CHOFER</th>
+                        <th class="small py-3">ESTADO</th>
+                        <th class="small py-3">ENTREGA</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-hr-ejecutivo"></tbody>
+                <tfoot class="table-dark">
+                    <tr>
+                        <th colspan="3" class="text-end">TOTALES:</th>
+                        <th id="total-hr-ejecutivo-neto" class="text-end">$0</th>
+                        <th id="total-hr-ejecutivo-bruto" class="text-end">$0</th>
+                        <th id="total-hr-ejecutivo-bonif" class="text-end">$0</th>
+                        <th colspan="4"></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
 </div>

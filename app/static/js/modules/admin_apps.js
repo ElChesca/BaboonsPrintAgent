@@ -35,6 +35,7 @@ export async function inicializarAdminApps() {
                 else if (btnEl.innerText.includes('Consorcio')) currentType = 'consorcio';
                 else if (btnEl.innerText.includes('Rentals')) currentType = 'rentals';
                 else if (btnEl.innerText.includes('Distribuidora')) currentType = 'distribuidora';
+                else if (btnEl.innerText.includes('Restó')) currentType = 'resto';
                 else if (btnEl.innerText.includes('Pagos')) currentType = 'pagos';
             }
             cambiarTabAdmin(currentType);

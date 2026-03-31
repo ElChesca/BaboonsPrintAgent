@@ -8,6 +8,7 @@ let activeClientId = null;
 let activeRouteId = null;
 let editingOrderId = null; // ✨ Estado para saber si editamos
 let motivosReboteCache = []; // ✨ Motivos de rebote para rechazos parciales
+let appConfigs = {}; // ✨ Cache de configuraciones del negocio
 const formatProductName = (p) => p.alias ? `${p.alias} (${p.sku || p.nombre})` : p.nombre;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -55,11 +56,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     await loadRoute(localDate);
+    cargarConfigs(); // ✨ Cargar configuraciones del negocio
     cargarMotivosRebote();
 
     // Nota: La lógica de Cambio de Método de Pago ha sido removida para Vendedores
     // ya que solo realizan la entrega (bajada) sin cobro.
 });
+
+async function cargarConfigs() {
+    const user = getCurrentUser();
+    if (!user) return;
+    try {
+        appConfigs = await fetchData(`/api/negocios/${user.negocio_id}/configuraciones`);
+    } catch (e) {
+        console.error("Error cargando configuraciones", e);
+    }
+}
 
 async function cargarMotivosRebote() {
     if (motivosReboteCache.length > 0) return;
@@ -233,10 +245,11 @@ async function loadRouteDetails(id) {
         // 2. Cargar Pedidos de esta Ruta (Para saber qué entregar)
         // Usamos el negocio del user actual.
         const user = getCurrentUser();
-        const pedidos = await fetchData(`/api/negocios/${user.negocio_id}/pedidos?hoja_ruta_id=${id}`);
+        const response = await fetchData(`/api/negocios/${user.negocio_id}/pedidos?hoja_ruta_id=${id}`);
+        const pedidos = response.pedidos || [];
         // Mapeamos para rápido acceso (Soporta múltiples pedidos por cliente)
         detalle.pedidosMap = {};
-        if (pedidos) {
+        if (Array.isArray(pedidos)) {
             pedidos.forEach(p => {
                 if (!detalle.pedidosMap[p.cliente_id]) detalle.pedidosMap[p.cliente_id] = [];
                 detalle.pedidosMap[p.cliente_id].push(p);
@@ -436,19 +449,38 @@ function renderClients(items, pedidosMap = {}) {
             // Generar botones para pedidos "A Entregar" o "Tomados"
             clientPedidos.forEach(p => {
                 const pJson = JSON.stringify(p).replace(/'/g, "&#39;");
+                const canCollect = appConfigs.vendedor_cobra !== 'No'; // Default Si
+
                 if (p.estado === 'en_camino' || p.estado === 'preparado') {
-                    actionButtonHTML += `
-                        <button class="btn btn-primary shadow-sm fw-bold px-3 py-2 rounded-pill mb-1" style="min-width:110px" ${disabledDeliver} onclick='abrirModalEntregaSeller(${pJson})'>
-                            <i class="fas fa-hand-holding-usd me-1"></i> $${p.total.toLocaleString()}
-                        </button>
-                    `;
-                } else if (p.estado === 'pendiente') {
-                    if (currentRoute.estado === 'activa') {
+                    if (canCollect) {
                         actionButtonHTML += `
-                            <button class="btn btn-primary shadow-sm fw-bold px-3 py-2 rounded-pill mb-1" style="min-width:110px" onclick='abrirModalEntregaSeller(${pJson})'>
+                            <button class="btn btn-primary shadow-sm fw-bold px-3 py-2 rounded-pill mb-1" style="min-width:110px" ${disabledDeliver} onclick='abrirModalEntregaSeller(${pJson})'>
                                 <i class="fas fa-hand-holding-usd me-1"></i> $${p.total.toLocaleString()}
                             </button>
                         `;
+                    } else {
+                        // Si no cobra, el botón solo abre el detalle (que ya tiene opción de editar)
+                        actionButtonHTML += `
+                            <button class="btn btn-info text-white shadow-sm fw-bold px-3 py-2 rounded-pill mb-1" style="min-width:110px" onclick='abrirModalPedidoSeller(${item.cliente_id}, "${item.cliente_nombre.replace(/"/g, '&quot;')}", ${item.id}, ${p.id})'>
+                                <i class="fas fa-search me-1"></i> $${p.total.toLocaleString()}
+                            </button>
+                        `;
+                    }
+                } else if (p.estado === 'pendiente') {
+                    if (currentRoute.estado === 'activa') {
+                        if (canCollect) {
+                            actionButtonHTML += `
+                                <button class="btn btn-primary shadow-sm fw-bold px-3 py-2 rounded-pill mb-1" style="min-width:110px" onclick='abrirModalEntregaSeller(${pJson})'>
+                                    <i class="fas fa-hand-holding-usd me-1"></i> $${p.total.toLocaleString()}
+                                </button>
+                            `;
+                        } else {
+                            actionButtonHTML += `
+                                <button class="btn btn-info text-white shadow-sm fw-bold px-3 py-2 rounded-pill mb-1" style="min-width:110px" onclick='abrirModalPedidoSeller(${item.cliente_id}, "${item.cliente_nombre.replace(/"/g, '&quot;')}", ${item.id}, ${p.id})'>
+                                    <i class="fas fa-search me-1"></i> $${p.total.toLocaleString()}
+                                </button>
+                            `;
+                        }
                     } else {
                         actionButtonHTML += `
                             <button class="btn btn-info shadow-sm text-white fw-bold px-3 py-2 rounded-pill mb-1" style="min-width:110px" ${disabledAdd} onclick="abrirModalPedidoSeller(${item.cliente_id}, '${item.cliente_nombre}', ${item.id}, ${p.id})">
@@ -700,8 +732,24 @@ async function confirmarPedido() {
         loadTodayRoute(); // Recargar ruta para actualizar estados
 
     } catch (e) {
-        console.error(e);
-        if (e.message && e.message.includes('BORRADOR')) {
+        console.error("Error en confirmarPedido:", e);
+
+        let errorMsg = e.message || 'No se pudo procesar el pedido';
+        let htmlContent = null;
+
+        // Si tenemos detalles (faltantes de stock), armamos un HTML bonito
+        if (e.data && e.data.detalles && e.data.detalles.length > 0) {
+            htmlContent = `
+                <div class="text-start mt-2">
+                    <p class="small mb-2">Los siguientes productos no tienen suficiente stock disponible:</p>
+                    <ul class="list-group list-group-flush small border rounded">
+                        ${e.data.detalles.map(d => `<li class="list-group-item list-group-item-danger p-2">${d}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        if (errorMsg.includes('BORRADOR')) {
             Swal.fire({
                 icon: 'info',
                 title: 'Ruta no iniciada',
@@ -709,7 +757,13 @@ async function confirmarPedido() {
                 confirmButtonText: 'Entendido'
             });
         } else {
-            Swal.fire('Error', e.message || 'No se pudo crear el pedido', 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'No se pudo confirmar',
+                text: htmlContent ? null : errorMsg,
+                html: htmlContent,
+                confirmButtonColor: '#d33'
+            });
         }
     }
 }

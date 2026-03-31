@@ -1,0 +1,17 @@
+/* app/static/css/resto_menu.css */
+.resto-menu-container {
+    padding: 20px;
+}
+
+.menu-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+    .resto-menu-container {
+        padding: 10px;
+    }
+}

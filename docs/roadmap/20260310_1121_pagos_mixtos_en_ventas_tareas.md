@@ -1,0 +1,14 @@
+# Pagos Mixtos en Ventas
+- [x] Investigate how mixed payments are implemented in Pedidos / Chofer app
+- [x] Add HTML UI for mixed payments in `ventas.html` (compactly)
+- [x] Implement CSS for the new mixed payment UI
+- [x] Update `ui.js` and `state.js` in `sales/` module to handle multiple payment methods
+- [x] Modify API payload in `sales/api.js` to send multiple payment methods
+- [x] Validate backend properly processes multiple payment methods for direct sales
+- [x] Support *Cuenta Corriente* explicitly inside Mixed Payments and inside Native Sales and generate debt dynamically.
+- [x] Fix missing `Cobrar` buttons in the bottom container
+- [x] Made Cuenta Corriente calculate as remainder matching Hoja de Ruta UX
+- [x] Prevent selecting Cuenta Corriente if no Client is active
+- [x] Simplify Mixed Payment UI to only show Efectivo / MP (Exactly like Hoja de Ruta)
+- [x] Hide irrelevant "Paga con" field for non-cash methods
+- [x] Verifying results in production (v1.6.5)

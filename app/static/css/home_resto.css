@@ -1,0 +1,154 @@
+/* app/static/css/home_resto.css */
+
+:root {
+    --resto-primary: #ff4d4d;
+    --resto-secondary: #2d3436;
+    --resto-accent: #00cec9;
+    --resto-bg: #f5f6fa;
+    --resto-card-bg: rgba(255, 255, 255, 0.9);
+    --resto-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+}
+
+.app-resto {
+    background: linear-gradient(135deg, #f5f6fa 0%, #dcdde1 100%);
+    min-height: 100vh;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.resto-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.resto-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background: var(--resto-card-bg);
+    backdrop-filter: blur(8px);
+    border-radius: 15px;
+    box-shadow: var(--resto-shadow);
+    margin-bottom: 40px;
+}
+
+.resto-header .logo {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+#resto-logo {
+    height: 40px;
+}
+
+.resto-header h1 {
+    font-size: 1.5rem;
+    color: var(--resto-secondary);
+    margin: 0;
+}
+
+.welcome-msg {
+    text-align: center;
+    font-size: 2rem;
+    color: var(--resto-secondary);
+    margin-bottom: 50px;
+    font-weight: 700;
+}
+
+.role-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+}
+
+.role-card {
+    background: var(--resto-card-bg);
+    backdrop-filter: blur(4px);
+    border-radius: 20px;
+    padding: 40px 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: var(--resto-shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.role-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.card-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--resto-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 25px;
+    font-size: 2.5rem;
+    color: white;
+}
+
+.role-card.mozo .card-icon { background: #ff7675; }
+.role-card.cocina .card-icon { background: #0984e3; }
+.role-card.admin .card-icon { background: #6c5ce7; }
+
+.role-card h3 {
+    font-size: 1.8rem;
+    margin: 0 0 15px 0;
+    color: var(--resto-secondary);
+}
+
+.role-card p {
+    font-size: 1rem;
+    color: #636e72;
+    margin-bottom: 30px;
+    line-height: 1.5;
+}
+
+.btn-enter {
+    background: var(--resto-secondary);
+    color: white;
+    padding: 10px 25px;
+    border-radius: 30px;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.role-card:hover .btn-enter {
+    background: var(--resto-primary);
+}
+
+.resto-footer {
+    margin-top: 60px;
+    text-align: center;
+    color: #b2bec3;
+    font-size: 0.9rem;
+}
+
+.btn-logout {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: var(--resto-secondary);
+    cursor: pointer;
+    margin-left: 15px;
+    transition: color 0.2s;
+}
+
+.btn-logout:hover {
+    color: var(--resto-primary);
+}
+
+@media (max-width: 768px) {
+    .role-cards {
+        grid-template-columns: 1fr;
+    }
+}

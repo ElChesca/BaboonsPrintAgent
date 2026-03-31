@@ -256,6 +256,11 @@
         </div>
 
         <form id="form-inscripcion">
+            <!-- 🛡️ HONEYPOT: Trampa para bots (invisible para humanos) -->
+            <div style="display:none !important; position: absolute; left: -9999px;">
+                <input type="text" name="website" id="website" tabindex="-1" autocomplete="off">
+            </div>
+
             <div class="form-group">
                 <label for="nombre">Nombre Completo</label>
                 <input type="text" id="nombre" placeholder="Ej: Juan Pérez" required>
@@ -292,11 +297,12 @@
     </div>
 
     <script>
-        const eventoId = "{{ evento_id }}";
+        const identifier = "{{ virtual_slug or evento_id }}";
+        const eventoIdReal = "{{ evento_id }}"; // Guardamos el ID real solo para la inscripción por ahora
         let metodoPago = 'Mercado Pago';
 
         window.onload = async () => {
-            if (!eventoId) {
+            if (!identifier) {
                 Swal.fire('Error', 'No se pudo identificar el evento', 'error');
                 return;
             }
@@ -305,7 +311,7 @@
 
         async function cargarDatosEvento() {
             try {
-                const res = await fetch(`/api/public/eventos/${eventoId}`);
+                const res = await fetch(`/api/public/eventos/${identifier}`);
                 const evento = await res.json();
 
                 if (res.status !== 200) throw new Error(evento.error);
@@ -346,11 +352,12 @@
                 nombre: document.getElementById('nombre').value,
                 email: document.getElementById('email').value,
                 telefono: document.getElementById('telefono').value,
-                metodo_pago: metodoPago
+                metodo_pago: metodoPago,
+                website: document.getElementById('website').value // <-- HONEYPOT
             };
 
             try {
-                const res = await fetch(`/api/public/eventos/${eventoId}/inscribir`, {
+                const res = await fetch(`/api/public/eventos/${eventoIdReal}/inscribir`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)

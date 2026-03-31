@@ -1,0 +1,28 @@
+# Task List: Distribuidora Business Type
+
+- [x] Analyze existing Business Type implementation <!-- id: 0 -->
+    - [x] Review `schema.sql` for business type definitions <!-- id: 1 -->
+    - [x] Review `admin_apps.html` for frontend app rendering logic <!-- id: 2 -->
+    - [x] Review backend routes for business logic <!-- id: 3 -->
+- [x] Planning & Design <!-- id: 4 -->
+    - [x] Create Implementation Plan <!-- id: 5 -->
+- [ ] Implementation <!-- id: 6 -->
+    - [x] Database Migration (`migrations/distribuidora.sql`) <!-- id: 7 -->
+        - [x] Add `vendedores` table
+        - [x] Add `hoja_ruta` & `hoja_ruta_items` tables
+        - [x] Add `vendedor_id`, `lat`, `long` to `clientes`
+        - [x] Add `vendedor_id` to `ventas`
+        - [x] Insert new modules and permissions
+    - [x] Backend: Create/Update API endpoints <!-- id: 9 -->
+        - [x] `distribucion_routes.py` (CRUD, Hoja de Ruta, Sinc) <!-- id: 10 -->
+        - [x] Update `clientes_routes.py` (Lat/Long, Vendedor) <!-- id: 12 -->
+        - [ ] Update `sales_routes.py` (Link sale to seller) <!-- id: 13 -->
+    - [ ] Frontend: Create new HTML/JS pages <!-- id: 15 -->
+        - [x] Update `admin_apps.html`, `negocios.html` <!-- id: 23 -->
+        - [ ] `vendedores.html` & `js/vendedores.js` <!-- id: 16 -->
+        - [ ] `hoja_ruta.html` & `js/hoja_ruta.js` <!-- id: 17 -->
+        - [ ] `mapa_clientes.html` & `js/mapa_clientes.js` <!-- id: 18 -->
+- [ ] Verification <!-- id: 19 -->
+    - [ ] Verify "Distribuidora" type creation <!-- id: 20 -->
+    - [ ] Verify exclusive apps visibility <!-- id: 21 -->
+    - [ ] Verify specific features (Map, Roadmap, etc.) <!-- id: 22 -->

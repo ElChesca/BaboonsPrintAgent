@@ -1,156 +1,213 @@
 // static/js/modules/gastos.js
 import { fetchData, sendData } from '../api.js';
 import { mostrarNotificacion } from './notifications.js';
-import { appState } from '../main.js'; // Importamos el estado global
+import { appState, checkGlobalCashRegisterState } from '../main.js';
+import { formatearMoneda } from '../uiHelpers.js';
 
 let gastosCache = [];
+const GASTOS_POR_PAGINA = 15;
+let gastosPaginaActual = 0;
 
-// (Las funciones de formateo de fecha no cambian)
+// Instancias de Chart.js
+let chartEvolucion = null;
+let chartDistribucion = null;
+
+// Anuncios globales manejados en main.js
+
+export async function inicializarGastos() {    // Configuración de exportación
+    window.exportarGastosExcel = (datos) => {
+        const datosParaExportar = datos.map(g => ({
+            "Fecha": formatearFechaTabla(g.fecha),
+            "Categoría": g.categoria || '-',
+            "Descripción": g.descripcion || '-',
+            "Monto": g.monto,
+            "Método de Pago": g.metodo_pago || '-',
+            "Estado": g.estado
+        }));
+        const ws = XLSX.utils.json_to_sheet(datosParaExportar);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Gastos");
+        XLSX.writeFile(wb, "Reporte_Gastos.xlsx");
+    };
+
+    window.exportarGastosPDF = (datos) => {
+        const { jsPDF } = jspdf;
+        const doc = new jsPDF();
+        doc.text("Reporte de Gastos Operativos", 14, 15);
+        const head = [["Fecha", "Categoría", "Descripción", "Monto", "Pago", "Estado"]];
+        const body = datos.map(g => [formatearFechaTabla(g.fecha), g.categoria || '-', g.descripcion || '-', (g.monto), g.metodo_pago || '-', g.estado]);
+        doc.autoTable({ startY: 20, head, body, theme: 'striped' });
+        doc.save("Reporte_Gastos.pdf");
+    };
+
+    const form = document.getElementById('form-gasto');
+    if (form) form.addEventListener('submit', guardarGasto);
+
+    await cargarCategoriasParaDropdown();
+    await window.cargarGastos(true);
+}
+
+// Helpers de fecha
 function formatearFechaInput(isoDate) {
     if (!isoDate) return '';
     const date = new Date(isoDate);
-    return date.toISOString().slice(0, 16);
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(date - tzOffset)).toISOString().slice(0, 16);
+    return localISOTime;
 }
+
 function formatearFechaTabla(isoDate) {
     if (!isoDate) return '-';
     const date = new Date(isoDate);
     return date.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+// ---------------------------------------------------------
+// 📑 CARGA Y RENDERIZADO (CON PAGINACIÓN)
+// ---------------------------------------------------------
+
+window.cargarGastos = async function (resetPaging = false) {
+    if (!appState.negocioActivoId) return;
+
+    if (resetPaging) {
+        gastosPaginaActual = 0;
+    }
+
+    const desde = document.getElementById('filtro-gasto-desde').value;
+    const hasta = document.getElementById('filtro-gasto-hasta').value;
+
+    try {
+        const offset = gastosPaginaActual * GASTOS_POR_PAGINA;
+        let url = `/api/negocios/${appState.negocioActivoId}/gastos?limit=${GASTOS_POR_PAGINA}&offset=${offset}`;
+        if (desde) url += `&desde=${desde}`;
+        if (hasta) url += `&hasta=${hasta}`;
+
+        const res = await fetchData(url);
+        gastosCache = res.gastos || [];
+        renderizarTablaGastos();
+        actualizarPaginacionGastos(res.total || 0);
+        window.cargarEstadisticasGastos?.(); // 🔄 Sincronizar gráficos
+    } catch (error) {
+        mostrarNotificacion('Error al cargar la lista de gastos.', 'error');
+    }
+}
+
+window.limpiarFiltrosGastos = () => {
+    document.getElementById('filtro-gasto-desde').value = '';
+    document.getElementById('filtro-gasto-hasta').value = '';
+    window.cargarGastos(true);
+};
+
 function renderizarTablaGastos() {
     const tbody = document.querySelector('#tabla-gastos tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    gastosCache.forEach(g => {
-        tbody.innerHTML += `
-            <tr class="${g.estado === 'Anulado' ? 'fila-anulada' : ''}">
-                <td>${formatearFechaTabla(g.fecha)}</td>
-                <td>${g.categoria || '-'}</td>
-                <td>${g.descripcion || '-'}</td>
-                <td>$ ${g.monto.toFixed(2)}</td>
-                <td>${g.metodo_pago || '-'}</td>
-                <td><span class="badge ${g.estado === 'Pagado' ? 'badge-success' : (g.estado === 'Pendiente' ? 'badge-warning' : 'badge-danger')}">${g.estado}</span></td>
-                <td class="acciones">
-                    ${g.estado !== 'Anulado' ? `
-                        <button class="btn-secondary" onclick="window.editarGasto(${g.id})">Editar</button>
-                        <button class="btn-danger" onclick="window.anularGasto(${g.id})">Anular</button>
-                    ` : 'Anulado'}
-                </td>
-            </tr>
-        `;
-    });
-}
-
-async function cargarGastos() {
-    if (!appState.negocioActivoId) return;
-
-    try {
-        gastosCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/gastos`);
-        renderizarTablaGastos();
-    } catch (error) {
-        mostrarNotificacion('No se pudieron cargar los gastos.', 'error');
-    }
-}
-
-async function cargarCategoriasParaDropdown() {
-    const select = document.getElementById('gasto-categoria');
-    if (!select || !appState.negocioActivoId) return;
-
-    try {
-        const categorias = await fetchData(`/api/negocios/${appState.negocioActivoId}/categorias_gasto/activas`);
-        select.innerHTML = '<option value="">Seleccione una categoría...</option>';
-        categorias.forEach(cat => {
-            select.innerHTML += `<option value="${cat.id}">${cat.descripcion}</option>`;
-        });
-    } catch (error) {
-        mostrarNotificacion('Error al cargar categorías para el formulario.', 'error');
-    }
-}
-
-function resetFormularioGastos() {
-    document.getElementById('form-gasto-titulo').textContent = 'Registrar Nuevo Gasto';
-    document.getElementById('form-gasto').reset();
-    document.getElementById('gasto-id').value = '';
-    document.getElementById('btn-cancelar-edicion-gasto').style.display = 'none';
-    document.getElementById('gasto-fecha').value = formatearFechaInput(new Date());
-}
-
-window.editarGasto = (id) => {
-    const gasto = gastosCache.find(g => g.id === id);
-    if (!gasto) return;
-
-    document.getElementById('form-gasto-titulo').textContent = 'Editar Gasto';
-    document.getElementById('gasto-id').value = gasto.id;
-    document.getElementById('gasto-fecha').value = formatearFechaInput(gasto.fecha);
-    document.getElementById('gasto-categoria').value = gasto.categoria_gasto_id;
-    document.getElementById('gasto-monto').value = gasto.monto;
-    document.getElementById('gasto-descripcion').value = gasto.descripcion;
-    document.getElementById('gasto-metodo-pago').value = gasto.metodo_pago;
-    document.getElementById('gasto-estado').value = gasto.estado;
-
-    document.getElementById('btn-cancelar-edicion-gasto').style.display = 'inline-block';
-    window.scrollTo(0, 0);
-};
-
-window.anularGasto = async (id) => {
-    if (!confirm('¿Estás seguro de que deseas anular este gasto?')) {
+    if (gastosCache.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No se encontraron gastos registrados.</td></tr>';
         return;
     }
 
-    try {
-        const response = await sendData(`/api/negocios/${appState.negocioActivoId}/gastos/anular/${id}`, {}, 'PUT');
-        mostrarNotificacion(response.message || 'Gasto anulado con éxito.', 'success');
-        await cargarGastos();
-    } catch (error) {
-        mostrarNotificacion(error.message, 'error');
-    }
+    gastosCache.forEach(g => {
+        const tr = document.createElement('tr');
+        if (g.estado === 'Anulado') tr.classList.add('table-light', 'text-muted');
+
+        tr.innerHTML = `
+            <td class="ps-3 fw-bold small">${formatearFechaTabla(g.fecha)}</td>
+            <td><span class="badge bg-light text-dark border">${g.categoria || 'Sin Cat.'}</span></td>
+            <td class="small text-truncate" style="max-width: 200px;" title="${g.descripcion || ''}">${g.descripcion || '-'}</td>
+            <td class="fw-bold">${formatearMoneda(g.monto)}</td>
+            <td class="small text-muted italic">${g.metodo_pago || '-'}</td>
+            <td>
+                <span class="badge ${g.estado === 'Pagado' ? 'bg-success' : (g.estado === 'Pendiente' ? 'bg-warning text-dark' : 'bg-danger')}">
+                    ${g.estado.toUpperCase()}
+                </span>
+            </td>
+            <td class="text-center">
+                <div class="btn-group btn-group-sm">
+                    ${g.estado !== 'Anulado' ? `
+                        <button class="btn btn-outline-primary" title="Editar" onclick="window.editarGasto(${g.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" title="Anular" onclick="window.anularGasto(${g.id})">
+                            <i class="fas fa-ban"></i>
+                        </button>
+                    ` : '<span class="text-danger small fw-bold">ANULADO</span>'}
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
 }
 
-// ==========================================================
-// ✨ MODIFICACIÓN AQUÍ ✨
-// ==========================================================
-import { checkGlobalCashRegisterState } from '../main.js'; // Importamos la función
+function actualizarPaginacionGastos(totalItems) {
+    const container = document.getElementById('paginacion-gastos');
+    if (!container) return;
+
+    const totalPaginas = Math.ceil(totalItems / GASTOS_POR_PAGINA);
+
+    if (totalPaginas <= 1) {
+        container.style.setProperty('display', 'none', 'important');
+        return;
+    }
+
+    container.style.setProperty('display', 'flex', 'important');
+    document.getElementById('label-pagina-gastos').textContent = `Página ${gastosPaginaActual + 1} de ${totalPaginas}`;
+
+    document.getElementById('btn-prev-gastos').disabled = (gastosPaginaActual === 0);
+    document.getElementById('btn-next-gastos').disabled = (gastosPaginaActual >= totalPaginas - 1);
+}
+
+window.cambiarPaginaGastos = (delta) => {
+    gastosPaginaActual += delta;
+    if (gastosPaginaActual < 0) gastosPaginaActual = 0;
+    window.cargarGastos(false);
+}
+
+// ---------------------------------------------------------
+// 💎 MODAL PREMIUM Y CRUD
+// ---------------------------------------------------------
+
+window.abrirModalGasto = () => {
+    resetFormularioGastos();
+    document.getElementById('modal-gasto-titulo').innerHTML = '<i class="fas fa-plus-circle me-2"></i> Nuevo Gasto';
+    document.getElementById('btn-save-gasto-text').textContent = 'Guardar Gasto';
+    document.getElementById('modal-gasto').style.display = 'flex';
+};
+
+window.cerrarModalGasto = () => {
+    document.getElementById('modal-gasto').style.display = 'none';
+};
+
+function resetFormularioGastos() {
+    const form = document.getElementById('form-gasto');
+    if (form) form.reset();
+    document.getElementById('gasto-id').value = '';
+    document.getElementById('estado-pagado').checked = true;
+    document.getElementById('gasto-fecha').value = formatearFechaInput(new Date());
+}
 
 async function guardarGasto(e) {
     e.preventDefault();
     const id = document.getElementById('gasto-id').value;
-    const metodoPago = document.getElementById('gasto-metodo-pago').value;
     const monto = parseFloat(document.getElementById('gasto-monto').value);
+    const metodoPago = document.getElementById('gasto-metodo-pago').value;
+    const estado = document.querySelector('input[name="gasto-estado"]:checked').value;
 
-    // 🚫 1. (NUEVA VALIDACIÓN)
-    // Si el método es 'Efectivo' Y la caja NO está abierta (no hay ID de sesión)
-    // 🚫 1. (VALIDACIÓN CORREGIDA)
-    // Si es EFECTIVO y NO hay caja abierta -> Error
-    // Si es otro método (Transferencia, etc) -> NO requiere caja abierta
-    // Si es Pendiente -> El método puede ser irrelevante o 'Efectivo' pero diferido... 
-    // Asumimos: Si estado es 'Pendiente', NO valida caja, salvo que el usuario insista en marcar 'Efectivo' como método.
-    // Corrección: Si el estado es 'Pagado' Y el método es 'Efectivo', entonces requerimos caja.
-
-    const estado = document.getElementById('gasto-estado').value;
-
-    if (estado === 'Pagado' && metodoPago.toLowerCase() === 'efectivo') {
-        // Re-verificar estado por si acaso (fail-safe)
+    // Validación de Caja Abierta para Efectivo Pagado
+    if (estado === 'Pagado' && metodoPago === 'Efectivo') {
         if (!appState.cajaSesionIdActiva) {
-            await checkGlobalCashRegisterState(); // Intento de último momento
+            await checkGlobalCashRegisterState();
         }
-
         if (!appState.cajaSesionIdActiva) {
-            mostrarNotificacion('🚫 No se puede registrar un gasto "Pagado" en "Efectivo" si la caja está cerrada.', 'error');
+            mostrarNotificacion('🚫 No se puede registrar un gasto en EFECTIVO si la caja está cerrada.', 'error');
             return;
         }
     }
 
-    // 🚫 2. (NUEVA VALIDACIÓN) Asegurarse de que el monto sea positivo
-    if (monto <= 0) {
-        mostrarNotificacion('El monto del gasto debe ser mayor a cero.', 'error');
+    if (isNaN(monto) || monto <= 0) {
+        mostrarNotificacion('El monto debe ser un número positivo.', 'error');
         return;
-    }
-
-    // 3. Lógica de asignación de sesión (como antes)
-    let idSesionCaja = null;
-    if (metodoPago.toLowerCase() === 'efectivo') {
-        idSesionCaja = appState.cajaSesionIdActiva;
     }
 
     const data = {
@@ -159,120 +216,224 @@ async function guardarGasto(e) {
         monto: monto,
         descripcion: document.getElementById('gasto-descripcion').value,
         metodo_pago: metodoPago,
-        estado: document.getElementById('gasto-estado').value,
-        proveedor_id: null,
-        caja_sesion_id: (metodoPago.toLowerCase() === 'efectivo') ? idSesionCaja : null // Solo enviamos sesión si es efectivo
+        estado: estado,
+        caja_sesion_id: (metodoPago === 'Efectivo') ? appState.cajaSesionIdActiva : null
     };
 
-    const esEdicion = !!id;
-    const url = esEdicion
+    const method = id ? 'PUT' : 'POST';
+    const url = id
         ? `/api/negocios/${appState.negocioActivoId}/gastos/${id}`
         : `/api/negocios/${appState.negocioActivoId}/gastos`;
 
-    const method = esEdicion ? 'PUT' : 'POST';
+    try {
+        await sendData(url, data, method);
+        mostrarNotificacion(`Gasto ${id ? 'actualizado' : 'registrado'} correctamente.`, 'success');
+        cerrarModalGasto();
+        window.cargarGastos(true);
+    } catch (error) {
+        mostrarNotificacion(error.message || 'Error al guardar gasto.', 'error');
+    }
+}
+
+window.editarGasto = (id) => {
+    const g = gastosCache.find(item => item.id === id);
+    if (!g) return;
+
+    document.getElementById('gasto-id').value = g.id;
+    document.getElementById('gasto-fecha').value = formatearFechaInput(g.fecha);
+    document.getElementById('gasto-categoria').value = g.categoria_gasto_id;
+    document.getElementById('gasto-monto').value = g.monto;
+    document.getElementById('gasto-descripcion').value = g.descripcion || '';
+    document.getElementById('gasto-metodo-pago').value = g.metodo_pago;
+
+    if (g.estado === 'Pagado') document.getElementById('estado-pagado').checked = true;
+    else if (g.estado === 'Pendiente') document.getElementById('estado-pendiente').checked = true;
+
+    document.getElementById('modal-gasto-titulo').innerHTML = '<i class="fas fa-edit me-2 text-primary"></i> Editar Gasto';
+    document.getElementById('btn-save-gasto-text').textContent = 'Actualizar Gasto';
+    document.getElementById('modal-gasto').style.display = 'flex';
+};
+
+window.anularGasto = async (id) => {
+    if (!confirm('¿Confirma que desea anular este gasto? Esta acción es irreversible.')) return;
 
     try {
-        const response = await sendData(url, data, method);
-        mostrarNotificacion(response.message || `Gasto ${esEdicion ? 'actualizado' : 'creado'} con éxito.`, 'success');
-        resetFormularioGastos();
-        await cargarGastos();
+        await sendData(`/api/negocios/${appState.negocioActivoId}/gastos/anular/${id}`, {}, 'PUT');
+        mostrarNotificacion('Gasto anulado.', 'success');
+        window.cargarGastos();
     } catch (error) {
         mostrarNotificacion(error.message, 'error');
     }
-}
+};
 
-function exportarGastosExcel() {
-    if (gastosCache.length === 0) {
-        mostrarNotificacion('No hay datos para exportar.', 'warning');
-        return;
+// ---------------------------------------------------------
+// 📊 GRÁFICOS Y ESTADÍSTICAS
+// ---------------------------------------------------------
+
+window.cargarEstadisticasGastos = async () => {
+    if (!appState.negocioActivoId) return;
+    const desde = document.getElementById('filtro-gasto-desde')?.value;
+    const hasta = document.getElementById('filtro-gasto-hasta')?.value;
+    try {
+        let url = `/api/negocios/${appState.negocioActivoId}/gastos/stats`;
+        const p = [];
+        if (desde) p.push(`desde=${desde}`);
+        if (hasta) p.push(`hasta=${hasta}`);
+        if (p.length) url += `?${p.join('&')}`;
+        const stats = await fetchData(url);
+
+        // Sumar total mes actual para la KPI
+        const porCategoria = stats.por_categoria || [];
+        const totalMes = porCategoria.reduce((acc, curr) => acc + curr.value, 0);
+        document.getElementById('stat-gasto-mes-actual').textContent = formatearMoneda(totalMes);
+
+        renderizarGraficosGastos(stats);
+        renderizarRankingGastos(porCategoria);
+    } catch (error) {
+        console.error(error);
+        mostrarNotificacion('No se pudieron cargar las estadísticas.', 'warning');
+    }
+};
+
+function renderizarGraficosGastos(stats) {
+    // 🟣 Gráfico de Evolución Mensual (Últimos 6 meses reales)
+    const ctxEvolucion = document.getElementById('chart-evolucion-gastos');
+    if (!ctxEvolucion) return;
+
+    if (chartEvolucion) chartEvolucion.destroy();
+
+    const dataPoints = [];
+    const labels = [];
+    const agrupacion = stats.agrupacion || 'mes';
+
+    if (stats.evolucion && stats.evolucion.length > 0) {
+        stats.evolucion.forEach(e => {
+            labels.push(agrupacion === 'dia' ? e.mes.split('-').reverse().slice(0, 2).join('/') : e.mes.split('-').reverse().join('/'));
+            dataPoints.push(e.total);
+        });
     }
 
-    // 1. Preparar los datos (aplanar)
-    const datosParaExportar = gastosCache.map(g => ({
-        "Fecha": formatearFechaTabla(g.fecha),
-        "Categoría": g.categoria || '-',
-        "Descripción": g.descripcion || '-',
-        "Monto": g.monto,
-        "Método de Pago": g.metodo_pago || '-',
-        "Estado": g.estado
-    }));
+    const ctx = ctxEvolucion.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+    gradient.addColorStop(0, 'rgba(41, 128, 185, 0.4)');
+    gradient.addColorStop(1, 'rgba(41, 128, 185, 0)');
 
-    // 2. Crear la hoja de cálculo
-    const ws = XLSX.utils.json_to_sheet(datosParaExportar);
-
-    // (Opcional) Ajustar anchos de columna
-    ws['!cols'] = [
-        { wch: 20 }, // Fecha
-        { wch: 25 }, // Categoría
-        { wch: 40 }, // Descripción
-        { wch: 15 }, // Monto
-        { wch: 20 }, // Método de Pago
-        { wch: 15 }  // Estado
-    ];
-
-    // 3. Crear el libro y guardar
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Gastos");
-    XLSX.writeFile(wb, "Reporte_Gastos_Operativos.xlsx");
-}
-
-function exportarGastosPDF() {
-    if (gastosCache.length === 0) {
-        mostrarNotificacion('No hay datos para exportar.', 'warning');
-        return;
-    }
-
-    // (Asegurarnos de que la librería jsPDF esté cargada)
-    if (typeof jspdf === 'undefined' || typeof jspdf.jsPDF === 'undefined') {
-        mostrarNotificacion('Error: La librería jsPDF no se cargó correctamente.', 'error');
-        return;
-    }
-    const { jsPDF } = jspdf; // Extraer el constructor
-
-    // 1. Preparar los datos
-    const head = [["Fecha", "Categoría", "Descripción", "Monto", "Método Pago", "Estado"]];
-    const body = gastosCache.map(g => [
-        formatearFechaTabla(g.fecha),
-        g.categoria || '-',
-        g.descripcion || '-',
-        `$${g.monto.toFixed(2)}`,
-        g.metodo_pago || '-',
-        g.estado
-    ]);
-
-    // 2. Crear el documento PDF
-    const doc = new jsPDF();
-    doc.text("Reporte de Gastos Operativos", 14, 15);
-
-    // 3. Usar autoTable para dibujar la tabla
-    doc.autoTable({
-        startY: 20,
-        head: head,
-        body: body,
-        theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185] } // Un color azul
+    chartEvolucion = new Chart(ctxEvolucion, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Pesos (AR$)',
+                data: dataPoints,
+                borderColor: '#2980b9',
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.35,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#2980b9',
+                pointBorderWidth: 3,
+                borderWidth: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (c) => ` Total: ${formatearMoneda(c.parsed.y)}`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f0f0f0' },
+                    ticks: { callback: (v) => formatearMoneda(v) }
+                },
+                x: { grid: { display: false } }
+            }
+        }
     });
 
-    // 4. Guardar el archivo
-    doc.save("Reporte_Gastos_Operativos.pdf");
+    // 🟠 Gráfico de Distribución por Categoría (Estilo original restaurado)
+    const ctxDistribucion = document.getElementById('chart-distribucion-gastos');
+    if (!ctxDistribucion) return;
+    if (chartDistribucion) chartDistribucion.destroy();
+
+    const porCategoria = stats.por_categoria || [];
+
+    chartDistribucion = new Chart(ctxDistribucion, {
+        type: 'doughnut',
+        data: {
+            labels: porCategoria.map(c => c.label),
+            datasets: [{
+                data: porCategoria.map(c => c.value),
+                backgroundColor: ['#2980b9', '#f39c12', '#27ae60', '#e74c3c', '#8e44ad', '#34495e', '#d35400', '#16a085', '#2c3e50', '#7f8c8d', '#bdc3c7', '#1abc9c'],
+                hoverOffset: 15,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: {
+                    display: true, // Siempre visible como pediste
+                    position: 'bottom',
+                    labels: { boxWidth: 10, font: { size: 9 }, padding: 10 }
+                }
+            }
+        }
+    });
 }
 
-export function inicializarGastos() {
-    const form = document.getElementById('form-gasto');
-    const btnCancelar = document.getElementById('btn-cancelar-edicion-gasto');
+function renderizarRankingGastos(porCategoria) {
+    const list = document.getElementById('lista-ranking-gastos');
+    if (!list) return;
 
-    if (!form) return;
+    list.innerHTML = '';
+    if (!porCategoria || porCategoria.length === 0) {
+        list.innerHTML = '<li class="list-group-item text-center py-4 text-muted small italic">Sin datos</li>';
+        return;
+    }
 
-    form.addEventListener('submit', guardarGasto);
-    btnCancelar.addEventListener('click', resetFormularioGastos);
-    // ✨ 1. (NUEVO) Listeners para los botones de exportación
-    const btnExcel = document.getElementById('btn-exportar-gastos-excel');
-    const btnPdf = document.getElementById('btn-exportar-gastos-pdf');
-    if (btnExcel) btnExcel.addEventListener('click', exportarGastosExcel);
-    if (btnPdf) btnPdf.addEventListener('click', exportarGastosPDF);
-
-    cargarCategoriasParaDropdown();
-    cargarGastos();
-
-    document.getElementById('gasto-fecha').value = formatearFechaInput(new Date());
+    // Estilo más sencillo como la versión anterior
+    porCategoria.slice(0, 5).forEach(c => {
+        const item = document.createElement('li');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center border-0 py-2';
+        item.innerHTML = `
+            <div>
+                <span class="fw-bold">${c.label}</span>
+                <div class="small text-muted">Aporte al mes actual</div>
+            </div>
+            <span class="badge bg-primary rounded-pill p-2 px-3">${formatearMoneda(c.value)}</span>
+        `;
+        list.appendChild(item);
+    });
 }
+
+// ---------------------------------------------------------
+// 🚀 INICIALIZACIÓN
+// ---------------------------------------------------------
+
+async function cargarCategoriasParaDropdown() {
+    const select = document.getElementById('gasto-categoria');
+    if (!select || !appState.negocioActivoId) return;
+
+    try {
+        const categorias = await fetchData(`/api/negocios/${appState.negocioActivoId}/categorias_gasto/activas`);
+        select.innerHTML = '<option value="">Seleccione Categoría...</option>';
+        categorias.forEach(cat => {
+            select.innerHTML += `<option value="${cat.id}">${cat.descripcion}</option>`;
+        });
+    } catch (error) {
+        mostrarNotificacion('Error al cargar categorías.', 'error');
+    }
+}
+

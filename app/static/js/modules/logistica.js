@@ -534,6 +534,189 @@ async function confirmarCargaVehiculo() {
 
 // ===== MODO REPARTIDOR (Lógica de Logística) =====
 
+// Variables de estado para el modal de entrega del chofer (bajada)
+let currentEntregaItems = [];
+let motivosReboteCache = null;
+
+async function cargarMotivosRebote(negocioId) {
+    if (motivosReboteCache) return;
+    try {
+        motivosReboteCache = await fetchData(`/api/negocios/${negocioId}/motivos_rebote`);
+    } catch (e) {
+        console.error("Error cargando motivos de rebote:", e);
+        motivosReboteCache = [];
+    }
+}
+
+window.marcarVisitaChofer = async function (hrId, itemId, estado, btn) {
+    if (!confirm(estado ? "¿Confirmar que se bajó la mercadería en esta parada?" : "¿Deshacer la bajada de mercadería?")) return;
+
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+    btn.disabled = true;
+
+    try {
+        await sendData(`/api/hoja_ruta/${hrId}/item/${itemId}`, { visitado: estado, observaciones: '' }, 'PUT');
+        // Recargar Modo Repartidor
+        abrirModoRepartidor(hrId);
+    } catch (e) {
+        alert("Error al actualizar estado: " + e.message);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+};
+
+window.abrirModalEntregaChofer = async function (hrId, itemId, pedido) {
+    await cargarMotivosRebote(appState.negocioActivoId);
+
+    // Asegurarnos que el modal de chofer existe en el DOM de logistica.html
+    // Si no existe, usamos el de cobro estándar pero con flag de 'solo_bajada'
+    // REVISIÓN: Logistica suele usar el modal de confirmación de entrega estándar.
+    // Sin embargo, el "Modo Repartidor" en Logística está diseñado para ser usado por Administrativos.
+
+    document.getElementById('entrega-pedido-id').value = pedido.id || pedido.pedido_id;
+    // El modal de 'confirmar-entrega' en logistica no tiene todos los campos del modal de chofer.
+    // Vamos a usar el modal de 'entrega' estándar pero adaptado si es necesario.
+
+    // Si el usuario quiere el flujo de chofer (con rebotes), necesitamos ese modal.
+    // Pero logistica.html no parece tener 'chofer-modal-entrega'.
+    // Por simplicidad para el administrativo, si hace clic en "Confirmar Bajada",
+    // podemos simplemente llamar a marcarVisitaChofer si no hay ajustes,
+    // o abrir el modal de entrega estándar.
+
+    // El plan decía: Implementar abrirModalEntregaChofer.
+    // Copiaremos la lógica simplificada o aseguramos que el modal exista.
+
+    // Si no hay modal de chofer, abrimos el de entrega normal pero marcando que es solo bajada.
+    // Pero el modal de entrega normal pide pago.
+
+    // Vamos a implementar una versión funcional de abrirModalEntregaChofer que use el modal de chofer
+    // asumiendo que el usuario quiere esa funcionalidad (que permite rebotes).
+
+    const modalChofer = document.getElementById('chofer-modal-entrega');
+    if (!modalChofer) {
+        // Si no existe el modal específico de chofer en logistica.html, usamos marcarVisitaChofer directo
+        // o notificamos que debe usar el flujo de cobro.
+        console.warn("Modal de chofer no encontrado en Logística. Realizando visita simple.");
+        return window.marcarVisitaChofer(hrId, itemId, true, document.activeElement);
+    }
+
+    document.getElementById('entrega-pedido-id').value = pedido.id;
+    document.getElementById('entrega-hr-id').value = hrId;
+    document.getElementById('entrega-item-id').value = itemId;
+    document.getElementById('entrega-cliente-nombre').innerText = `Bajada: ${pedido.cliente_nombre || 'Cliente'}`;
+
+    const montoTotalEl = document.getElementById('entrega-monto-total-chofer') || document.getElementById('entrega-monto-total');
+    montoTotalEl.innerText = `$${pedido.total.toLocaleString()}`;
+
+    const itemsContainer = document.getElementById('entrega-items-container');
+    if (itemsContainer) {
+        itemsContainer.innerHTML = '';
+        currentEntregaItems = (pedido.productos || []).map(p => ({
+            producto_id: p.producto_id,
+            nombre: p.nombre,
+            cantidad_original: p.cantidad,
+            cantidad_actual: p.cantidad,
+            precio_unitario: p.precio_unitario || 0,
+            motivo_rebote_id: null
+        }));
+
+        currentEntregaItems.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'card border-0 shadow-sm mb-2 p-2 bg-light';
+            div.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <div style="flex:1; min-width:0;">
+                        <div class="fw-bold small text-truncate">${item.nombre}</div>
+                        <div class="text-muted" style="font-size:0.7rem;">Orig: ${item.cantidad_original} | $${item.precio_unitario}</div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-outline-danger py-0" onclick="updateQtyEntrega(${index}, -1)">-</button>
+                        <span class="fw-bold">${item.cantidad_actual}</span>
+                        <button class="btn btn-sm btn-outline-success py-0" onclick="updateQtyEntrega(${index}, 1)" ${item.cantidad_actual >= item.cantidad_original ? 'disabled' : ''}>+</button>
+                    </div>
+                </div>
+            `;
+            itemsContainer.appendChild(div);
+        });
+    }
+
+    modalChofer.style.display = 'flex';
+};
+
+window.updateQtyEntrega = function (index, delta) {
+    const item = currentEntregaItems[index];
+    const nuevaCant = item.cantidad_actual + delta;
+    if (nuevaCant >= 0 && nuevaCant <= item.cantidad_original) {
+        item.cantidad_actual = nuevaCant;
+        // Refrescar lista e importe si los elementos existen
+        const itemsContainer = document.getElementById('entrega-items-container');
+        if (itemsContainer) {
+            // Re-renderizar o simplemente actualizar el span (más eficiente)
+            const spans = itemsContainer.querySelectorAll('.fw-bold');
+            // Nota: El primero es el nombre, el segundo es la cantidad. 
+            // Buscamos el span de cantidad específico por el contexto del click.
+            // Para ser robustos, mejor re-renderizar o usar IDs.
+            abrirModalEntregaChofer(
+                document.getElementById('entrega-hr-id').value,
+                document.getElementById('entrega-item-id').value,
+                { id: document.getElementById('entrega-pedido-id').value, total: 0, productos: currentEntregaItems, cliente_nombre: '' }
+            );
+        }
+    }
+};
+
+window.cerrarModalEntregaChofer = function () {
+    const m = document.getElementById('chofer-modal-entrega');
+    if (m) m.style.display = 'none';
+};
+
+window.confirmarEntregaChoferBackend = async function () {
+    const pedidoId = document.getElementById('entrega-pedido-id').value;
+    const hrId = document.getElementById('entrega-hr-id').value;
+
+    // Validar motivos de rebote si hay ajustes
+    for (let item of currentEntregaItems) {
+        if (item.cantidad_actual < item.cantidad_original && !item.motivo_rebote_id) {
+            Swal.fire('Faltan datos', `Debe seleccionar un motivo de rebote para: ${item.nombre}`, 'warning');
+            return;
+        }
+    }
+
+    const payload = {
+        solo_bajada: true,
+        items_ajustados: currentEntregaItems.reduce((acc, i) => {
+            acc[i.producto_id] = i.cantidad_actual;
+            return acc;
+        }, {}),
+        motivos_ajustados: currentEntregaItems.reduce((acc, i) => {
+            if (i.motivo_rebote_id) acc[i.producto_id] = i.motivo_rebote_id;
+            return acc;
+        }, {})
+    };
+
+    try {
+        Swal.fire({ title: 'Procesando bajada...', didOpen: () => Swal.showLoading() });
+        await sendData(`/api/pedidos/${pedidoId}/entregar`, payload, 'POST');
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Bajada Exitosa',
+            text: 'Se ha registrado la bajada de mercadería.',
+            timer: 2000,
+            showConfirmButton: false
+        });
+
+        window.cerrarModalEntregaChofer();
+        // Refrescar vista de modo repartidor en Logística
+        abrirModoRepartidor(hrId);
+
+    } catch (e) {
+        console.error(e);
+        Swal.fire('Error', e.message || 'No se pudo confirmar la entrega', 'error');
+    }
+};
+
 export async function abrirModoRepartidor(hrId) {
     document.getElementById('modal-modo-repartidor').style.display = 'block';
 
@@ -563,7 +746,8 @@ function renderRepartidorMode(detalle, pedidos) {
 
     // Mapa de cliente -> Pedido
     const pedidosMap = {};
-    pedidos.forEach(p => {
+    const pedidosArr = Array.isArray(pedidos.pedidos) ? pedidos.pedidos : (Array.isArray(pedidos) ? pedidos : []);
+    pedidosArr.forEach(p => {
         pedidosMap[p.cliente_id] = p;
     });
 
@@ -598,29 +782,36 @@ function renderRepartidorMode(detalle, pedidos) {
                 </button>
             `;
         } else if (tienePedido) {
-            const isVisitado = item.visitado || esEntregado || esCobrado; // Determine if the stop is considered visited
-            const hrId = detalle.id; // Assuming detalle.id is the hrId
-            const btnAccion = !isVisitado ? (
-                pedido ? `
-                <button class="btn btn-primary w-100 fw-bold btn-lg shadow-sm" onclick='abrirModalEntregaChofer(${hrId || item.hoja_ruta_id || 0}, ${item.hoja_ruta_item_id}, ${JSON.stringify(pedido).replace(/'/g, "&apos;")})'>
-                    <i class="fas fa-hand-holding-usd me-1"></i> Confirmar Bajada
-                </button>
-            ` : `
-                <button class="btn btn-warning w-100 fw-bold btn-lg shadow-sm" onclick="marcarVisitaChofer(${item.hoja_ruta_id || hrId}, ${item.hoja_ruta_item_id}, true, this)">
-                    <i class="fas fa-clipboard-check me-1"></i> Confirmar Bajada
-                </button>
-            `
-            ) : `
-            <button class="btn btn-outline-success w-100 fw-bold" disabled>
-                <i class="fas fa-check-circle me-1"></i> ${pedido ? 'Bajada Confirmada' : 'Bajada Confirmada'}
-            </button>
-            ${(pedido && pedido.venta_id) ?
-                `<small class="text-muted d-block mt-2 text-center"><i class="fas fa-lock"></i> No se puede deshacer (Cobrado)</small>` :
-                `<button class="btn btn-link text-danger w-100 mt-2 btn-sm" onclick="marcarVisitaChofer(${item.hoja_ruta_id || hrId}, ${item.hoja_ruta_item_id}, false, this)">
-                    <i class="fas fa-undo"></i> Deshacer bajada/visita
-                </button>`
+            const isVisitado = item.visitado || esEntregado || esCobrado;
+            const hrId = detalle.id;
+
+            // DETERMINAR QUÉ BOTÓN MOSTRAR
+            let btnAccion = '';
+
+            if (esCobrado) {
+                btnAccion = `<div class="text-success fw-bold"><i class="fas fa-check-double me-1"></i>ENTREGADO Y COBRADO</div>`;
+            } else if (esEntregado || item.visitado) {
+                // Ya bajó la mercadería, falta el cobro
+                btnAccion = `
+                    <button class="btn btn-warning text-dark w-100 shadow-sm fw-bold mb-2" onclick='window.abrirModalEntrega(${JSON.stringify(pedido).replace(/'/g, "&#39;")}, true)'>
+                        <i class="fas fa-hand-holding-usd me-2"></i>💰 REGISTRAR COBRO ($${pedido.total})
+                    </button>
+                    ${pedido.venta_id ? '' : `
+                    <button class="btn btn-link text-danger w-100 btn-sm" onclick="marcarVisitaChofer(${item.hoja_ruta_id || hrId}, ${item.hoja_ruta_item_id}, false, this)">
+                        <i class="fas fa-undo"></i> Deshacer bajada/visita
+                    </button>`}
+                `;
+            } else {
+                // Pendiente de bajada
+                btnAccion = `
+                    <button class="btn btn-primary w-100 fw-bold btn-lg shadow-sm" onclick='abrirModalEntregaChofer(${hrId || item.hoja_ruta_id || 0}, ${item.hoja_ruta_item_id}, ${JSON.stringify(pedido).replace(/'/g, "&apos;")})'>
+                        <i class="fas fa-hand-holding-usd me-1"></i> Confirmar Bajada
+                    </button>
+                    <button class="btn btn-link text-muted w-100 mt-2 btn-sm" onclick="marcarVisitaChofer(${item.hoja_ruta_id || hrId}, ${item.hoja_ruta_item_id}, true, this)">
+                         Solo marcar visita (sin bajar mercadería)
+                    </button>
+                `;
             }
-        `;
             accionBtn = btnAccion;
         } else {
             accionBtn = `<div class="text-muted"><small>Solo Visita / Sin Pedido</small></div>`;
@@ -630,7 +821,7 @@ function renderRepartidorMode(detalle, pedidos) {
             <div class="card-parada-header bg-white">
                 <div class="d-flex align-items-center">
                     <span class="badge bg-dark rounded-circle me-2" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;">${item.orden + 1}</span>
-                    <h6 class="mb-0 fw-bold text-truncate" style="max-width: 200px;">${item.cliente_nombre}</h6>
+                    <h6 class="mb-0 fw-bold text-truncate" style="max-width: 200px;">${item.cliente_nombre} ${pedido ? `<span class="badge bg-light text-primary border ms-1">#${pedido.id}</span>` : ''}</h6>
                 </div>
                 ${hasCoords(item) ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${item.latitud},${item.longitud}" target="_blank" class="btn btn-sm btn-outline-primary rounded-circle"><i class="fas fa-location-arrow"></i></a>` : ''}
             </div>
@@ -666,6 +857,8 @@ function hasCoords(item) {
 export async function abrirModalEntrega(pedido, isCobroSolamente = false) {
     document.getElementById("entrega-pedido-id").value = pedido.id;
     document.getElementById("entrega-pedido-id").dataset.soloCobro = isCobroSolamente ? "true" : "false";
+
+    document.getElementById("entrega-pedido-id-header").innerText = `(Pedido #${pedido.id})`;
 
     const montoTotal = parseFloat(pedido.total);
     document.getElementById("entrega-monto-total").innerText =

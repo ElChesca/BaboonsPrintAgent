@@ -24,23 +24,29 @@ def create_presupuesto(current_user, negocio_id):
     
     db = get_db()
     try:
+        # ✨ NUEVO: Calcular próximo número secuencial para este negocio
+        db.execute("SELECT COALESCE(MAX(numero), 0) + 1 as next_nro FROM presupuestos WHERE negocio_id = %s", (negocio_id,))
+        next_nro = db.fetchone()['next_nro']
+
         db.execute(
             """
             INSERT INTO presupuestos (
                 cliente_id, vendedor_id, negocio_id, fecha, tipo_comprobante, 
-                forma_pago, plazo_pago, bonificacion, interes, 
-                fecha_entrega_estimada, observaciones
+                forma_pago, plazo_pago, bonificacion, interes, descuento_fijo, 
+                fecha_entrega_estimada, observaciones, numero
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """,
             (
                 data['cliente_id'], current_user['id'], negocio_id, datetime.datetime.now(),
                 data.get('tipo_comprobante'), data.get('forma_pago'), data.get('plazo_pago'),
-                data.get('bonificacion', 0), data.get('interes', 0),
-                data.get('fecha_entrega_estimada'), data.get('observaciones')
+                data.get('bonificacion', 0), data.get('interes', 0), data.get('descuento_fijo', 0),
+                data.get('fecha_entrega_estimada'), data.get('observaciones'), next_nro
             )
         )
         presupuesto_id = db.fetchone()['id']
+        
+        # Enviar detalles... (el resto del bucle de items sigue igual)
         
         for item in detalles:
             subtotal_item = item['cantidad'] * item['precio_unitario']
@@ -59,7 +65,7 @@ def create_presupuesto(current_user, negocio_id):
             )
         
         g.db_conn.commit()
-        return jsonify({'message': 'Presupuesto creado con éxito', 'id': presupuesto_id}), 201
+        return jsonify({'message': f'Presupuesto #{next_nro} creado con éxito', 'id': presupuesto_id, 'numero': next_nro}), 201
 
     except Exception as e:
         g.db_conn.rollback()
@@ -71,11 +77,11 @@ def get_historial_presupuestos(current_user, negocio_id):
     db.execute(
             """
             SELECT 
-                p.id, p.fecha, p.convertido_a_venta, p.anulado,
+                p.id, p.numero, p.fecha, p.convertido_a_venta, p.anulado,
                 p.observaciones, p.fecha_entrega_estimada,
                 c.nombre as cliente_nombre, 
                 u.nombre as vendedor_nombre,
-                (SELECT SUM(pd.subtotal) FROM presupuestos_detalle pd WHERE pd.presupuesto_id = p.id) as total_presupuestado
+                ((SELECT SUM(pd.subtotal) FROM presupuestos_detalle pd WHERE pd.presupuesto_id = p.id) - COALESCE(p.descuento_fijo, 0)) * (1 - COALESCE(p.bonificacion, 0)/100) * (1 + COALESCE(p.interes, 0)/100) as total_presupuestado
             FROM presupuestos p
             JOIN clientes c ON p.cliente_id = c.id
             JOIN usuarios u ON p.vendedor_id = u.id
@@ -84,7 +90,15 @@ def get_historial_presupuestos(current_user, negocio_id):
             """, (negocio_id,)
         )
     presupuestos = db.fetchall()
-    return jsonify([dict(p) for p in presupuestos])
+    
+    resultado = []
+    for p in presupuestos:
+        p_dict = dict(p)
+        if p_dict.get('numero') is None:
+            p_dict['numero'] = f"ID:{p_dict['id']}"
+        resultado.append(p_dict)
+        
+    return jsonify(resultado)
 
 # --- ✨ NUEVA RUTA: ANULAR UN PRESUPUESTO ---
 @bp.route('/presupuestos/<int:presupuesto_id>/anular', methods=['PUT'])
@@ -144,7 +158,11 @@ def convertir_a_venta(current_user, presupuesto_id):
                 return jsonify({'error': f"Stock insuficiente para '{producto['nombre']}'"}), 409
         
         # 4. Creamos la VENTA
-        total_venta = (sum(item['subtotal'] for item in detalles) * (1 - presupuesto['bonificacion']/100)) * (1 + presupuesto['interes']/100)
+        subtotal_base = sum(item['subtotal'] for item in detalles)
+        descuento_fijo = float(presupuesto['descuento_fijo'] or 0)
+        base_imponible = subtotal_base - descuento_fijo
+        
+        total_venta = (base_imponible * (1 - presupuesto['bonificacion']/100)) * (1 + presupuesto['interes']/100)
         db.execute(
             """
             INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id)
@@ -156,8 +174,13 @@ def convertir_a_venta(current_user, presupuesto_id):
 
         # 5. Copiamos los detalles y actualizamos stock
         for item in detalles:
-            db.execute("INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (%s, %s, %s, %s, %s)",
-                       (venta_id, item['producto_id'], item['cantidad'], item['precio_unitario'], item['subtotal']))
+            # Recuperar nombre para persistencia
+            db.execute("SELECT nombre FROM productos WHERE id = %s", (item['producto_id'],))
+            p_res = db.fetchone()
+            p_nom = p_res['nombre'] if p_res else "Producto"
+
+            db.execute("INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal, producto_nombre) VALUES (%s, %s, %s, %s, %s, %s)",
+                       (venta_id, item['producto_id'], item['cantidad'], item['precio_unitario'], item['subtotal'], p_nom))
             db.execute("UPDATE productos SET stock = stock - %s WHERE id = %s", (item['cantidad'], item['producto_id']))
 
         # 6. Marcamos el presupuesto como convertido
@@ -183,7 +206,11 @@ def get_presupuesto_detalle(current_user, presupuesto_id):
     db.execute("SELECT * FROM presupuestos_detalle WHERE presupuesto_id = %s", (presupuesto_id,))
     detalles = db.fetchall()
     
+    cabecera = dict(presupuesto)
+    if cabecera.get('numero') is None:
+        cabecera['numero'] = f"ID:{cabecera['id']}"
+
     return jsonify({
-        'cabecera': dict(presupuesto),
+        'cabecera': cabecera,
         'detalles': [dict(d) for d in detalles]
     })

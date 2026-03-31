@@ -1,0 +1,69 @@
+/* app/static/css/resto_stats.css */
+.stats-container {
+    padding: 20px;
+}
+
+.kpi-card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+    margin-bottom: 20px;
+}
+
+.kpi-card .card-body {
+    padding: 25px;
+}
+
+.kpi-card h3 {
+    font-size: 2.2rem;
+    margin: 10px 0;
+    font-weight: 800;
+}
+
+.kpi-card h6 {
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.stats-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    border: none;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.stats-card .card-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.stats-card .card-body {
+    padding: 20px;
+}
+
+.table-stats th {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.badge-trend {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+}
+
+.icon-circle {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.2);
+    margin-bottom: 10px;
+}

@@ -9,9 +9,10 @@ export async function inicializarMapaClientes() {
     const mapContainer = document.getElementById('map');
     if (!mapContainer) return; // Guard
 
-    // Cargar Leaflet JS si no existe
+    // Leaflet se carga de forma síncrona en index.html
     if (!window.L) {
-        await cargarLeafletJS();
+        console.error("Leaflet NO cargado. Abortando mapa.");
+        return;
     }
 
     // Cargar Vendedores para el filtro
@@ -26,17 +27,8 @@ export async function inicializarMapaClientes() {
     window.recargarMapa = cargarClientesMapa;
 }
 
-function cargarLeafletJS() {
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-        script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
-        script.crossOrigin = "";
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-}
+// Leaflet ya cargado en index.html
+
 
 // Cache de colores de vendedores
 let vendedoresColores = {};
@@ -68,7 +60,7 @@ function initMap() {
 
     // Coordenadas default (San Luis, Argentina o donde sea el negocio)
     // Podríamos usar la geoloc del negocio si la tuviéramos
-    map = L.map('map').setView([-33.29, -66.33], 13); // San Luis aprox
+    map = L.map('map', { rotate: false }).setView([-33.29, -66.33], 13); // San Luis aprox
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

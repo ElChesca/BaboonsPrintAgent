@@ -29,6 +29,7 @@ async function verificarEstadoCaja() {
             const fechaApertura = new Date(data.sesion.fecha_apertura).toLocaleString('es-AR');
 
             infoSesionEl.innerHTML = `
+                <p style="font-size: 1.2em; color: var(--primary-color);"><strong>Sesión #${data.sesion.numero}</strong></p>
                 <p><strong>Caja abierta por:</strong> ${data.sesion.usuario_nombre || 'Usuario desconocido'}</p>
                 <p><strong>Fecha de apertura:</strong> ${fechaApertura}</p>
                 <p><strong>Monto inicial:</strong> $${data.sesion.monto_inicial.toFixed(2)}</p>

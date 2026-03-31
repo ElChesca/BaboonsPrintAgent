@@ -1,0 +1,4 @@
+- [x] Optimizar endpoint api_auditoria_anomalias (versión inicial)
+- [x] Migrar endpoints Territoriales a lógica SQL (SUM, COUNT, GROUP BY)
+- [x] Realizar deploy a Fly.io
+- [x] Validar funcionamiento en producción

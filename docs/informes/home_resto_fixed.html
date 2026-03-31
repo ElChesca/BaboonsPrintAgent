@@ -1,0 +1,102 @@
+<!-- app/static/home_resto.html -->
+<div class="app-dashboard fade-in">
+    <h2 class="dashboard-title">Operaciones de Restó</h2>
+    <div class="app-grid">
+        <div class="app-card" onclick="loadContent(event, 'static/resto_mozo.html', this)">
+            <div class="app-icon-wrapper"
+                style="background: rgba(255, 107, 107, 0.1); border-radius: 12px; padding: 10px; margin-bottom: 8px;">
+                <img src="static/img/icons/ventas.png" alt="Mozo" class="app-icon"
+                    style="filter: drop-shadow(0 4px 6px rgba(255,107,107,0.3));"
+                    onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            </div>
+            <span class="app-name" style="font-weight: 600;">Mozo / Salón</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/resto_cocina.html', this)">
+            <div class="app-icon-wrapper"
+                style="background: rgba(78, 205, 196, 0.1); border-radius: 12px; padding: 10px; margin-bottom: 8px;">
+                <img src="static/img/icons/ingresos.png" alt="Cocina" class="app-icon"
+                    style="filter: hue-rotate(180deg) drop-shadow(0 4px 6px rgba(78, 205, 196, 0.3));"
+                    onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            </div>
+            <span class="app-name" style="font-weight: 600;">Cocina</span>
+        </div>
+
+        <div class="app-card" onclick="loadContent(event, 'static/mesas.html', this)">
+            <div class="app-icon-wrapper"
+                style="background: rgba(255, 230, 109, 0.1); border-radius: 12px; padding: 10px; margin-bottom: 8px;">
+                <img src="static/img/icons/configuracion.png" alt="Mesas" class="app-icon"
+                    style="filter: hue-rotate(90deg) drop-shadow(0 4px 6px rgba(255, 230, 109, 0.3));"
+                    onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+            </div>
+            <span class="app-name" style="font-weight: 600;">Gestión de Mesas</span>
+        </div>
+    </div>
+</div>
+
+<div class="app-dashboard" style="padding-top: 15px;">
+    <h2 class="dashboard-title">Módulos Administrativos</h2>
+    <div class="app-grid" id="resto-modules-container">
+        <!-- Otros módulos habilitados se cargarán aquí -->
+    </div>
+</div>
+
+<script>
+    (function () {
+        console.log("🚀 Inicializando Dashboard Dinámico Restó...");
+
+        const container = document.getElementById('resto-modules-container');
+        if (!container) return;
+
+        if (!window.appState || !window.appState.permissions) {
+            console.error("❌ No se encontró appState o permisos.");
+            container.innerHTML = '<p class="text-muted">Cargando permisos...</p>';
+            return;
+        }
+
+        const restoPerms = window.appState.permissions['resto'] || [];
+        console.log("🔑 Permisos Restó detectados:", restoPerms);
+
+        if (restoPerms.length === 0) {
+            container.innerHTML = '<p class="text-muted">No se encontraron módulos administrativos configurados. Intente cerrar sesión y volver a entrar.</p>';
+        } else {
+            container.innerHTML = '';
+        }
+
+        // Módulos comunes a mostrar si están habilitados en el tipo 'resto'
+        const commonApps = [
+            { code: 'ventas', name: 'Ventas / Pedidos', icon: 'ventas.png', path: 'static/ventas.html' },
+            { code: 'historial_ventas', name: 'Historial Ventas', icon: 'historial_ventas.png', path: 'static/historial_ventas.html' },
+            { code: 'caja', name: 'Caja', icon: 'caja.png', path: 'static/caja.html' },
+            { code: 'inventario', name: 'Inventario / Stock', icon: 'inventario.png', path: 'static/inventario.html' },
+            { code: 'clientes', name: 'Cartera Clientes', icon: 'clientes.png', path: 'static/clientes.html' },
+            { code: 'proveedores', name: 'Proveedores', icon: 'proveedor.png', path: 'static/proveedores.html' },
+            { code: 'gastos', name: 'Gastos / Egresos', icon: 'gastos.png', path: 'static/gastos.html' },
+            { code: 'bancos', name: 'Bancos / Cheques', icon: 'bancos.png', path: 'static/bancos.html' },
+            { code: 'dashboard', name: 'Estadísticas', icon: 'dashboard.png', path: 'static/dashboard.html' },
+            { code: 'configuracion', name: 'Configuración', icon: 'configuracion.png', path: 'static/configuracion.html' },
+            { code: 'usuarios', name: 'Usuarios', icon: 'usuarios.png', path: 'static/usuarios.html' },
+            { code: 'negocios', name: 'Negocios', icon: 'negocios.png', path: 'static/negocios.html' }
+        ];
+
+        commonApps.forEach(app => {
+            if (restoPerms.includes(app.code)) {
+                const card = document.createElement('div');
+                card.className = 'app-card';
+                card.onclick = (e) => loadContent(e, app.path, card);
+
+                card.innerHTML = `
+                    <div class="app-icon-wrapper" style="background: rgba(var(--primary-rgb), 0.05); border-radius: 12px; padding: 8px;">
+                        <img src="static/img/icons/${app.icon}" alt="${app.name}" class="app-icon" onerror="this.onerror=null; this.src='static/img/icons/configuracion.png'">
+                    </div>
+                    <span class="app-name">${app.name}</span>
+                `;
+                container.appendChild(card);
+            }
+        });
+
+        if (window.actualizarVisibilidadMenu) {
+            window.actualizarVisibilidadMenu();
+        }
+    })();
+</script>

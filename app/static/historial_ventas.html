@@ -34,12 +34,13 @@
         <table id="tabla-historial-ventas" class="tabla-bonita">
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th>Nro</th>
                     <th>Fecha</th>
                     <th>Cliente</th>
                     <th>Forma de Pago</th>
                     <th>Total</th>
                     <th>Estado</th>
+                    <th>Pedido / HR</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -64,7 +65,7 @@
             <h2 id="modal-facturar-titulo">Facturar Venta</h2>
             <span class="close-button" id="close-facturar-modal">&times;</span>
         </div>
-        <p id="modal-facturar-texto">¿Cómo deseas facturar la Venta Nro. X?</p>
+        <p id="modal-facturar-texto">¿Cómo deseas facturar la Venta?</p>
         <div class="form-actions" style="justify-content: center; gap: 20px;">
             <button id="btn-facturar-oficial" class="btn-primary">Factura Oficial (AFIP)</button>
             <button id="btn-facturar-negro" class="btn-secondary">Factura "X" (No Fiscal)</button>
@@ -81,7 +82,7 @@
         </div>
         <div class="modal-body" style="padding: 16px 0;">
             <p id="modal-anular-texto" style="margin-bottom: 16px; color: var(--text-secondary);">
-                ¿Está seguro que desea anular la <strong>Venta #<span id="modal-anular-venta-id"></span></strong>?
+                ¿Está seguro que desea anular la <strong>Venta #<span id="modal-anular-venta-nro"></span></strong>?
             </p>
             <div
                 style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 0.875rem;">
@@ -107,3 +108,64 @@
         </div>
     </div>
 </div>
+
+<!-- ✨ NUEVO Modal: Corrección de Pago (Estilo Pedidos) -->
+<div id="modal-corregir-pago-venta" class="baboons-modal">
+    <div class="baboons-modal-content" style="max-width: 500px;">
+        <div class="baboons-modal-header">
+            <h2 style="color: var(--primary-color); margin: 0;">💸 Corregir Forma de Pago</h2>
+            <span class="close-button" id="close-modal-corregir-pago">&times;</span>
+        </div>
+        <div class="modal-body" style="padding: 16px 0;">
+            <p style="margin-bottom: 16px; color: var(--text-secondary);">
+                Corrigiendo pago para la <strong>Venta #<span id="corregir-venta-nro"></span></strong><br>
+                Total de la operación: <strong id="corregir-venta-total" style="color: var(--primary-color);"></strong>
+            </p>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="nuevo-metodo-pago-venta"><strong>Nuevo Método de Pago</strong></label>
+                <select id="nuevo-metodo-pago-venta" class="baboons-input" style="width: 100%;">
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Mercado Pago">Mercado Pago</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                    <option value="Cuenta Corriente">Cuenta Corriente</option>
+                    <option value="Mixto">Pago Mixto (Varias formas)</option>
+                </select>
+            </div>
+
+            <!-- Panel para Pago Mixto -->
+            <div id="panel-mixto-venta" style="display: none; background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #e9ecef;">
+                <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-secondary);">Desglose de Pago Mixto:</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem;">Efectivo</label>
+                        <input type="number" id="mixto-efectivo-venta" class="baboons-input" value="0" step="0.01" style="width: 100%;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 0.8rem;">Mercado Pago</label>
+                        <input type="number" id="mixto-mp-venta" class="baboons-input" value="0" step="0.01" style="width: 100%;">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top: 10px;">
+                    <label style="font-size: 0.8rem;">A Cuenta Corriente</label>
+                    <input type="number" id="mixto-cta-cte-venta" class="baboons-input" value="0" step="0.01" style="width: 100%;">
+                </div>
+                <div id="mixto-error-venta" style="color: #e74c3c; font-size: 0.75rem; margin-top: 8px; display: none;"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="motivo-correccion-pago"><strong>Motivo de la corrección</strong> <span style="color: #e74c3c;">*</span></label>
+                <textarea id="motivo-correccion-pago" rows="2" placeholder="Ej: Error al tipear el medio de pago, el cliente cambió de opinión..." 
+                    style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+            </div>
+        </div>
+        <div class="form-actions" style="justify-content: flex-end; gap: 12px;">
+            <button id="btn-cancelar-correccion" class="btn-secondary">Cancelar</button>
+            <button id="btn-confirmar-correccion-pago" class="btn-primary" 
+                style="padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                💾 Guardar Cambios
+            </button>
+        </div>
+    </div>
+</div>

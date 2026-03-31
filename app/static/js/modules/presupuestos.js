@@ -30,12 +30,14 @@ function renderizarTablaYTotales() {
         `;
     });
 
+    const descuentoFijo = parseFloat(document.getElementById('presupuesto-descuento').value) || 0;
     const bonificacionPct = parseFloat(document.getElementById('presupuesto-bonificacion').value) || 0;
     const interesPct = parseFloat(document.getElementById('presupuesto-interes').value) || 0;
 
-    const montoBonificacion = subtotal * (bonificacionPct / 100);
-    const montoInteres = subtotal * (interesPct / 100);
-    const totalFinal = subtotal - montoBonificacion + montoInteres;
+    const subtotalTrasDescuento = subtotal - descuentoFijo;
+    const montoBonificacion = subtotalTrasDescuento * (bonificacionPct / 100);
+    const montoInteres = subtotalTrasDescuento * (interesPct / 100);
+    const totalFinal = subtotalTrasDescuento - montoBonificacion + montoInteres;
 
     document.getElementById('presupuesto-subtotal').textContent = formatCurrency(subtotal);
     document.getElementById('presupuesto-total').textContent = formatCurrency(totalFinal);
@@ -141,14 +143,18 @@ export function inicializarLogicaPresupuestos() {
     let timeoutBusqueda = null;
     const abrirModalBusqueda = () => {
         if (!modalBuscarCliente) return;
-        modalBuscarCliente.style.display = 'flex';
+        modalBuscarCliente.style.display = 'flex'; // Centrado Premium
         if (inputBuscar) { inputBuscar.value = ''; inputBuscar.focus(); }
         if (resultadosContainer) resultadosContainer.innerHTML = '<div class="search-placeholder">Escribe para empezar a buscar...</div>';
     };
 
     if (btnBuscarCliente) btnBuscarCliente.onclick = abrirModalBusqueda;
     if (displayCliente) displayCliente.onclick = abrirModalBusqueda;
+    
+    // Sujetar ambos botones de cierre (viejo y nuevo por seguridad)
     if (closeBuscar) closeBuscar.onclick = () => modalBuscarCliente.style.display = 'none';
+    const closePremium = document.getElementById('close-buscar-cliente-presupuesto');
+    if (closePremium) closePremium.onclick = () => modalBuscarCliente.style.display = 'none';
     window.addEventListener('click', (e) => {
         if (modalBuscarCliente && e.target === modalBuscarCliente) modalBuscarCliente.style.display = 'none';
     });
@@ -213,7 +219,7 @@ export function inicializarLogicaPresupuestos() {
         }
     }
 
-    cargarDatosIniciales();
+    // cargarDatosIniciales() ya se llamó arriba en la línea 131 o 127
     renderizarTablaYTotales();
 
     elementos.productoInput.addEventListener('input', () => {
@@ -237,12 +243,13 @@ export function inicializarLogicaPresupuestos() {
         elementos.searchResults.style.display = 'block';
     });
 
-    elementos.formAddItem.addEventListener('submit', (e) => {
+    elementos.formAddItem.onsubmit = (e) => {
         e.preventDefault();
         const producto = productosCache.find(p => p.nombre === elementos.productoInput.value);
         const cantidad = parseFloat(document.getElementById('presupuesto-item-cantidad').value);
 
         if (producto && cantidad > 0) {
+            // Prevenir duplicados si se desea, o simplemente agregar
             stagedBudgetItems.push({
                 producto_id: producto.id,
                 descripcion_producto: producto.nombre,
@@ -250,12 +257,15 @@ export function inicializarLogicaPresupuestos() {
                 precio_unitario: producto.precio_venta
             });
             renderizarTablaYTotales();
+            
+            // Limpiar inputs
             elementos.productoInput.value = '';
             document.getElementById('presupuesto-item-cantidad').value = '1';
+            elementos.productoInput.focus(); 
         } else {
             mostrarNotificacion('Seleccione un producto válido y una cantidad.', 'warning');
         }
-    });
+    };
 
     elementos.tablaBody.addEventListener('click', (e) => {
         if (e.target.classList.contains('btn-quitar')) {
@@ -267,8 +277,9 @@ export function inicializarLogicaPresupuestos() {
 
     elementos.bonificacionInput.addEventListener('input', renderizarTablaYTotales);
     elementos.interesInput.addEventListener('input', renderizarTablaYTotales);
+    document.getElementById('presupuesto-descuento')?.addEventListener('input', renderizarTablaYTotales);
 
-    elementos.btnGuardar.addEventListener('click', async () => {
+    elementos.btnGuardar.onclick = async () => {
         const payload = {
             cliente_id: document.getElementById('presupuesto-cliente').value,
             tipo_comprobante: document.getElementById('presupuesto-tipo-comprobante').value,
@@ -276,6 +287,7 @@ export function inicializarLogicaPresupuestos() {
             plazo_pago: document.getElementById('presupuesto-plazo-pago').value,
             fecha_entrega_estimada: document.getElementById('presupuesto-fecha-entrega').value || null,
             observaciones: document.getElementById('presupuesto-observaciones').value,
+            descuento_fijo: parseFloat(document.getElementById('presupuesto-descuento').value) || 0,
             bonificacion: parseFloat(elementos.bonificacionInput.value) || 0,
             interes: parseFloat(elementos.interesInput.value) || 0,
             detalles: stagedBudgetItems
@@ -286,18 +298,24 @@ export function inicializarLogicaPresupuestos() {
         }
 
         try {
+            elementos.btnGuardar.disabled = true;
+            elementos.btnGuardar.textContent = 'Guardando...';
+
             const response = await fetchData(`/api/negocios/${appState.negocioActivoId}/presupuestos`, {
                 method: 'POST',
                 body: JSON.stringify(payload)
             });
             mostrarNotificacion(response.message, 'success');
             stagedBudgetItems = [];
+            
+            // Reset formulario
             document.getElementById('presupuesto-cliente').value = '';
             document.getElementById('presupuesto-cliente-display').value = '';
             document.getElementById('presupuesto-forma-pago').value = 'A convenir';
             document.getElementById('presupuesto-plazo-pago').value = '30 días';
             document.getElementById('presupuesto-fecha-entrega').value = '';
             document.getElementById('presupuesto-observaciones').value = '';
+            document.getElementById('presupuesto-descuento').value = 0;
             document.getElementById('presupuesto-bonificacion').value = 0;
             document.getElementById('presupuesto-interes').value = 0;
 
@@ -305,6 +323,9 @@ export function inicializarLogicaPresupuestos() {
             renderizarTablaYTotales();
         } catch (error) {
             mostrarNotificacion(error.message, 'error');
+        } finally {
+            elementos.btnGuardar.disabled = false;
+            elementos.btnGuardar.textContent = 'Guardar Presupuesto';
         }
-    });
+    };
 }

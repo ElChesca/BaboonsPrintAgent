@@ -53,11 +53,37 @@
 
         #reader {
             width: 100%;
+            min-height: 350px;
             border-radius: 12px;
             overflow: hidden;
             border: none !important;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            position: relative;
+        }
+
+        #reader.active {
             background: #000;
+        }
+
+        .scanner-placeholder {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .btn-retry {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
         }
 
         .status-card {
@@ -126,10 +152,19 @@
             <i class="fas fa-qrcode text-primary"></i> Scanner <span style="color:var(--primary)">Eventos</span>
         </div>
         <div id="operator-name" style="font-size: 0.9rem; color: #64748b;">Operador: ---</div>
+        <button onclick="logout()" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.9rem;">
+            <i class="fas fa-sign-out-alt"></i> Salir
+        </button>
     </header>
 
     <div class="container">
-        <div id="reader"></div>
+        <div id="reader">
+            <div class="scanner-placeholder">
+                <i class="fas fa-camera fa-3x mb-3" style="opacity: 0.5;"></i>
+                <p>Iniciando cámara...</p>
+                <p style="font-size: 0.8rem; opacity: 0.7;">Asegúrate de permitir el acceso a la cámara</p>
+            </div>
+        </div>
 
         <div id="result-card" class="status-card">
             <div id="result-icon" style="font-size: 3rem; margin-bottom: 10px;"></div>
@@ -149,13 +184,13 @@
         let html5QrCode;
 
         window.onload = () => {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('jwt_token');
             if (!token) {
                 Swal.fire({
                     title: 'Acceso Denegado',
                     text: 'Debes iniciar sesión como operador.',
                     icon: 'warning'
-                }).then(() => window.location.href = '/');
+                }).then(() => window.location.href = '/static/login.html?redirect=Eventos/operador.html');
                 return;
             }
 
@@ -164,11 +199,39 @@
             startScanner();
         };
 
-        function startScanner() {
-            html5QrCode = new Html5Qrcode("reader");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        async function startScanner() {
+            const readerDiv = document.getElementById('reader');
+            try {
+                if (html5QrCode) {
+                    await html5QrCode.stop().catch(() => {});
+                }
+                
+                html5QrCode = new Html5Qrcode("reader");
+                const config = { 
+                    fps: 10, 
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                };
 
-            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
+                await html5QrCode.start(
+                    { facingMode: "environment" }, 
+                    config, 
+                    onScanSuccess
+                );
+                
+                readerDiv.classList.add('active');
+                console.log("[Scanner] Iniciado correctamente");
+            } catch (err) {
+                console.error("[Scanner] Error al iniciar:", err);
+                readerDiv.innerHTML = `
+                    <div class="scanner-placeholder" style="color: #ef4444;">
+                        <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                        <p>No se pudo acceder a la cámara</p>
+                        <p style="font-size: 0.8rem;">${err.message || "Error desconocido"}</p>
+                        <button class="btn-retry" onclick="startScanner()">Reintentar</button>
+                    </div>
+                `;
+            }
         }
 
         async function onScanSuccess(decodedText) {
@@ -189,7 +252,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
                     },
                     body: JSON.stringify({ token })
                 });
@@ -247,6 +310,11 @@
             </div>
         `;
             log.prepend(item);
+        }
+
+        function logout() {
+            localStorage.removeItem('jwt_token');
+            window.location.href = '/static/login.html';
         }
     </script>
 

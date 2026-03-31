@@ -1,0 +1,137 @@
+<!-- app/static/resto_stats.html -->
+<div class="resto-stats-container fade-in p-4">
+    <header class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Indicadores de Restó</h2>
+            <p class="text-muted small">Resumen de operaciones en tiempo real</p>
+        </div>
+        <button onclick="loadContent(event, 'static/home_resto.html')"
+            class="btn btn-outline-secondary btn-sm rounded-pill">
+            <i class="fas fa-arrow-left me-2"></i>Volver
+        </button>
+    </header>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md">
+            <div class="stats-card kpi-card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="opacity-75">Ventas Hoy</h6>
+                    <h3 id="stat-ventas-monto" class="fw-bold">$0.00</h3>
+                    <p class="small mb-0" id="stat-ventas-count">0 tickets hoy</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md">
+            <div class="stats-card kpi-card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="opacity-75">Mesas Libres</h6>
+                    <h3 id="stat-mesas-libres" class="fw-bold">0</h3>
+                    <p class="small mb-0">Disponibles</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md">
+            <div class="stats-card kpi-card bg-warning text-dark">
+                <div class="card-body">
+                    <h6 class="opacity-70">Mesas Ocupadas</h6>
+                    <h3 id="stat-mesas-ocupadas" class="fw-bold">0</h3>
+                    <p class="small mb-0">Consumo</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md">
+            <div class="stats-card kpi-card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="opacity-75">Cubiertos Hoy</h6>
+                    <h3 id="stat-pax-count" class="fw-bold">0</h3>
+                    <p class="small mb-0">Total</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md">
+            <div class="stats-card kpi-card bg-secondary text-white">
+                <div class="card-body">
+                    <h6 class="opacity-75">Demora Promedio</h6>
+                    <h3 id="stat-tiempo-promedio" class="fw-bold">0 min</h3>
+                    <p class="small mb-0">Cocina / Bar</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Ranking Staff -->
+        <div class="col-md-6">
+            <div class="stats-card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-trophy text-warning me-2"></i>Ranking de Empleados</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Empleado</th>
+                                    <th class="text-end">Total Vendido</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ranking-staff-list">
+                                <!-- Data here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Products -->
+        <div class="col-md-6">
+            <div class="stats-card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-star text-primary me-2"></i>Platos más Pedidos</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-end">Cantidad</th>
+                                </tr>
+                            </thead>
+                            <tbody id="top-products-list">
+                                <!-- Data here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="static/js/modules/resto_stats.js"></script>
+
+<style>
+    .stats-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+        overflow: hidden;
+    }
+
+    .kpi-card {
+        border: none;
+        transition: transform 0.3s;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .stats-card .card-header {
+        padding: 15px 20px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+</style>

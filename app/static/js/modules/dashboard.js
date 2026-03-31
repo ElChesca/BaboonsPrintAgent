@@ -190,13 +190,14 @@ async function cargarDistribucion(desdeDate, hastaDate) {
         if (tablaV) {
             tablaV.innerHTML = '';
             if (!ranking_vendedores?.length) {
-                tablaV.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin datos.</td></tr>';
+                tablaV.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">Sin datos.</td></tr>';
             } else {
                 ranking_vendedores.forEach((v, i) => {
                     tablaV.innerHTML += `
                         <tr>
                             <td style="font-weight:700; color:${i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#cbd5e1'}">${i + 1}</td>
                             <td>${v.nombre}</td>
+                            <td style="text-align:center;">${v.visitas || 0}</td>
                             <td style="text-align:center;">${v.pedidos}</td>
                             <td style="font-weight:600;">${formatCurrency(v.total)}</td>
                         </tr>`;

@@ -25,8 +25,8 @@
 .pos-container {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    padding: 24px;
+    gap: 16px;
+    padding: 16px;
     background-color: var(--bg-app);
     min-height: 100vh;
 }
@@ -37,7 +37,7 @@
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-light);
     box-shadow: var(--shadow-sm);
-    padding: 24px;
+    padding: 16px;
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
@@ -46,7 +46,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     align-items: end;
-    gap: 20px;
+    gap: 16px;
 }
 
 .pos-header .form-group {
@@ -55,7 +55,7 @@
 
 .pos-header label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     font-weight: 600;
     font-size: 0.85rem;
     color: var(--text-muted);
@@ -63,10 +63,10 @@
 
 .pos-header select,
 .pos-header input {
-    height: 42px;
+    height: 38px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-light);
-    padding: 0 12px;
+    padding: 0 10px;
     font-size: 0.95rem;
     width: 100%;
     background-color: #fcfcfc;
@@ -80,8 +80,8 @@
     position: absolute;
     right: 0;
     bottom: 0;
-    height: 42px;
-    width: 42px;
+    height: 38px;
+    width: 38px;
     background: var(--primary-main);
     color: white;
     border: none;
@@ -103,13 +103,13 @@
     border-radius: var(--radius-md);
     overflow: hidden;
     position: relative;
-    padding-right: 42px;
+    padding-right: 38px;
     /* Espacio para el botón de añadir */
     width: 100%;
 }
 
 .client-search-group {
-    padding-right: 42px;
+    padding-right: 38px;
     /* Margen para el botón + */
 }
 
@@ -163,12 +163,12 @@
 .search-panel form {
     display: grid;
     grid-template-columns: 1fr 120px 140px;
-    gap: 16px;
+    gap: 12px;
     align-items: end;
 }
 
 .btn-add-item {
-    height: 42px;
+    height: 38px;
     background: var(--primary-main);
     color: white;
     border: none;
@@ -208,7 +208,7 @@
 }
 
 .panel-header {
-    padding: 20px 24px;
+    padding: 12px 16px;
     border-bottom: 1px solid var(--border-light);
 }
 
@@ -219,7 +219,8 @@
 }
 
 .tabla-contenedor-venta {
-    max-height: 450px;
+    max-height: 350px;
+    overflow-y: auto;
 }
 
 .tabla-venta-elegante {
@@ -229,17 +230,20 @@
 
 .tabla-venta-elegante th {
     background: #f8fafc;
-    padding: 14px 24px;
+    padding: 10px 16px;
     text-align: left;
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-muted);
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .tabla-venta-elegante td {
-    padding: 16px 24px;
-    font-size: 0.95rem;
+    padding: 10px 16px;
+    font-size: 0.9rem;
     border-bottom: 1px solid #f1f5f9;
 }
 
@@ -266,7 +270,7 @@
 .venta-footer {
     display: flex;
     flex-direction: column;
-    gap: 32px;
+    gap: 20px;
 }
 
 .venta-ajustes-container {
@@ -275,6 +279,35 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 24px;
+}
+
+.venta-resumen-items {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.resumen-dato {
+    display: flex;
+    flex-direction: column;
+}
+
+.resumen-label {
+    font-size: 0.70rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.resumen-valor {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-main);
 }
 
 .venta-ajustes-extra {
@@ -313,9 +346,9 @@
 .finalization-controls {
     display: grid;
     grid-template-columns: 1fr auto;
-    gap: 24px;
+    gap: 20px;
     background: #f8fafc;
-    padding: 24px;
+    padding: 16px;
     border-radius: var(--radius-md);
 }
 
@@ -464,6 +497,87 @@
 
 .result-item-cliente:hover {
     background: #f8fafc;
+}
+
+.result-item-.client-name-bold {
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+/* PANEL PAGO MIXTO */
+.pago-mixto-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.mixto-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+}
+
+.mixed-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mixed-group label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.mixto-input {
+    width: 100%;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-light);
+    background: var(--bg-input);
+    color: var(--text-color);
+    font-size: 0.95rem;
+    height: 36px;
+    transition: all 0.2s ease;
+}
+
+.mixto-input:focus {
+    border-color: var(--accent-color);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.mixto-resumen {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-light);
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.mixto-resumen strong {
+    font-size: 1.2rem;
+    color: var(--text-color);
+}
+
+/* Color indicator for remaining balance */
+.mixto-resumen strong.falta {
+    color: var(--danger-color);
+}
+
+.mixto-resumen strong.ok {
+    color: var(--success-color);
+}
+
+.mixto-resumen strong.sobra {
+    color: var(--warning-color);
 }
 
 .result-item-cliente .name {

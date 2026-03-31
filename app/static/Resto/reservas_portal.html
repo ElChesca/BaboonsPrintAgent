@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Open Graph / WhatsApp Branding -->
+    <meta property="og:title" content="{{ og_title }}">
+    <meta property="og:description" content="Click para reservar tu mesa online.">
+    <meta property="og:image" content="{{ og_image }}">
+    <meta property="og:type" content="website">
+    
+    <title>{{ og_title }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .portal-container {
+            width: 100%;
+            max-width: 450px;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .header { text-align: center; margin-bottom: 32px; }
+        .logo { font-size: 2.5rem; color: var(--primary); margin-bottom: 12px; }
+        .title { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; }
+
+        .section { display: none; }
+        .section.active { display: block; animation: fadeIn 0.3s ease-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.05em; }
+        
+        input, select, textarea {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--primary); background: rgba(99, 102, 241, 0.05); }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn-secondary { background: rgba(255, 255, 255, 0.05); color: var(--text); margin-top: 12px; }
+
+        .link-text { color: var(--primary); cursor: pointer; font-weight: 600; text-decoration: none; }
+        .link-text:hover { text-decoration: underline; }
+
+        .alert {
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .alert-error { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .alert-success { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
+
+        .slots-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .slot-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .slot-btn.selected { background: var(--primary); border-color: var(--primary); }
+        .slot-btn.disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .success-icon { font-size: 4rem; color: #10b981; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="portal-container">
+        <div class="header">
+            <div class="logo"><i class="fas fa-utensils"></i></div>
+            <h1 class="title" id="negocio-nombre">{{ negocio_nombre }}</h1>
+            <p class="subtitle">Reserva tu mesa online de forma rápida</p>
+        </div>
+
+        <div id="alert" class="alert"></div>
+
+        <!-- SECCIÓN: LOGIN -->
+        <div id="sec-login" class="section active">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="login-email" placeholder="tu@email.com">
+            </div>
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" id="login-pass" placeholder="••••••••">
+            </div>
+            <button class="btn btn-primary" onclick="loginAction()">Ingresar</button>
+            <p style="text-align: center; margin-top: 20px; font-size: 0.9rem; color: var(--text-muted);">
+                ¿No tienes cuenta? <span class="link-text" onclick="showSection('sec-register')">Regístrate aquí</span>
+            </p>
+        </div>
+
+        <!-- SECCIÓN: REGISTRO -->
+        <div id="sec-register" class="section">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group"><label>Nombre</label><input type="text" id="reg-nombre"></div>
+                <div class="form-group"><label>Apellido</label><input type="text" id="reg-apellido"></div>
+            </div>
+            <div class="form-group"><label>Email</label><input type="email" id="reg-email"></div>
+            <div class="form-group"><label>Celular</label><input type="tel" id="reg-cel"></div>
+            <div class="form-group"><label>Contraseña</label><input type="password" id="reg-pass"></div>
+            <button class="btn btn-primary" onclick="registerAction()">Crear Cuenta</button>
+            <button class="btn btn-secondary" onclick="showSection('sec-login')">Volver al Login</button>
+        </div>
+
+        <!-- SECCIÓN: RESERVA -->
+        <div id="sec-reserva" class="section">
+            <div class="form-group">
+                <label>Número de Comensales</label>
+                <select id="res-pax">
+                    <option value="1">1 Persona</option>
+                    <option value="2" selected>2 Personas</option>
+                    <option value="3">3 Personas</option>
+                    <option value="4">4 Personas</option>
+                    <option value="5">5 Personas</option>
+                    <option value="6">6 Personas</option>
+                    <option value="7">7 Personas</option>
+                    <option value="8">8 Personas</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Fecha</label>
+                <input type="date" id="res-fecha" onchange="loadSlots()">
+            </div>
+            <div class="form-group">
+                <label>Horarios Disponibles</label>
+                <div id="slots-container" class="slots-grid">
+                    <p style="grid-column: 1/-1; text-align: center; font-size: 0.8rem; color: var(--text-muted);">Elige una fecha para ver horarios</p>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Notas / Pedidos Especiales</label>
+                <textarea id="res-notas" rows="2" placeholder="Ej: Cumpleaños, alergias..."></textarea>
+            </div>
+            <button class="btn btn-primary" id="btn-confirmar" onclick="confirmarReserva()" disabled>Confirmar Reserva</button>
+            <button class="btn btn-secondary" onclick="logoutAction()">Cerrar Sesión</button>
+        </div>
+
+        <!-- SECCIÓN: ÉXITO -->
+        <div id="sec-success" class="section" style="text-align: center;">
+            <i class="fas fa-check-circle success-icon"></i>
+            <h2 class="title" id="final-msg-title">¡Reserva Solicitada!</h2>
+            <p class="subtitle" style="margin-bottom: 24px;">Te hemos enviado un email con los detalles. El local se comunicará contigo para confirmar la mesa.</p>
+            <button class="btn btn-primary" onclick="window.location.reload()">Hacer otra reserva</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let negocioId = new URLSearchParams(window.location.search).get('id');
+        let sessionToken = localStorage.getItem('guest_token');
+        let selectedSlot = null;
+
+        document.getElementById('res-fecha').min = new Date().toISOString().split('T')[0];
+
+        async function initPortal() {
+            if (!negocioId) {
+                showAlert('Error: No se especificó el ID del negocio.', 'error');
+                return;
+            }
+            // Obtenemos info del negocio
+            try {
+                const res = await fetch(`${API_BASE}/public/negocios/${negocioId}`);
+                const data = await res.json();
+                document.getElementById('negocio-nombre').innerText = data.nombre || 'Restó Baboons';
+            } catch (e) {
+                document.getElementById('negocio-nombre').innerText = 'Reservas Online';
+            }
+
+            if (sessionToken) {
+                showSection('sec-reserva');
+                const hoy = new Date().toISOString().split('T')[0];
+                document.getElementById('res-fecha').value = hoy;
+                loadSlots();
+            }
+        }
+
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            hideAlert();
+        }
+
+        function showAlert(msg, type) {
+            const al = document.getElementById('alert');
+            al.innerText = msg;
+            al.className = `alert alert-${type}`;
+            al.style.display = 'block';
+        }
+
+        function hideAlert() { document.getElementById('alert').style.display = 'none'; }
+
+        async function loginAction() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-pass').value;
+            try {
+                const res = await fetch(`${API_BASE}/public/reservas/${negocioId}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                localStorage.setItem('guest_token', data.token);
+                sessionToken = data.token;
+                showSection('sec-reserva');
+                loadSlots();
+            } catch (e) { showAlert(e.message, 'error'); }
+        }
+
+        async function registerAction() {
+            const payload = {
+                nombre: document.getElementById('reg-nombre').value,
+                apellido: document.getElementById('reg-apellido').value,
+                email: document.getElementById('reg-email').value,
+                celular: document.getElementById('reg-cel').value,
+                password: document.getElementById('reg-pass').value
+            };
+            try {
+                const res = await fetch(`${API_BASE}/public/reservas/${negocioId}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                localStorage.setItem('guest_token', data.token);
+                sessionToken = data.token;
+                showSection('sec-reserva');
+                loadSlots();
+            } catch (e) { showAlert(e.message, 'error'); }
+        }
+
+        async function loadSlots() {
+            const fecha = document.getElementById('res-fecha').value;
+            if (!fecha) return;
+            const container = document.getElementById('slots-container');
+            container.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Cargando horarios...</p>';
+            try {
+                const res = await fetch(`${API_BASE}/public/reservas/${negocioId}/disponibilidad?fecha=${fecha}`);
+                const data = await res.json();
+                container.innerHTML = '';
+                if (!data.slots || data.slots.length === 0) {
+                    container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #f87171;">No hay turnos para hoy</p>';
+                    return;
+                }
+                data.slots.forEach(s => {
+                    const btn = document.createElement('div');
+                    btn.className = `slot-btn ${s.disponible ? '' : 'disabled'}`;
+                    btn.innerText = s.hora;
+                    if (s.disponible) {
+                        btn.onclick = () => selectSlot(s.hora, btn);
+                    }
+                    container.appendChild(btn);
+                });
+            } catch (e) { container.innerHTML = 'Error al cargar'; }
+        }
+
+        function selectSlot(hora, el) {
+            selectedSlot = hora;
+            document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+            el.classList.add('selected');
+            document.getElementById('btn-confirmar').disabled = false;
+        }
+
+        async function confirmarReserva() {
+            const payload = {
+                fecha: document.getElementById('res-fecha').value,
+                hora: selectedSlot,
+                num_comensales: document.getElementById('res-pax').value,
+                notas: document.getElementById('res-notas').value
+            };
+            try {
+                const res = await fetch(`${API_BASE}/public/reservas/${negocioId}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionToken}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                showSection('sec-success');
+            } catch (e) { showAlert(e.message, 'error'); }
+        }
+
+        function logoutAction() {
+            localStorage.removeItem('guest_token');
+            window.location.reload();
+        }
+
+        initPortal();
+    </script>
+</body>
+</html>

@@ -14,7 +14,7 @@ def get_negocios(current_user):
     db = get_db()
     try:
         if current_user['rol'] == 'superadmin':
-            db.execute("SELECT id, nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa, acceso_bloqueado FROM negocios ORDER BY nombre")
+            db.execute("SELECT id, nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa, acceso_bloqueado, anuncio_texto, anuncio_version FROM negocios ORDER BY nombre")
         else: # Admin u Operador
              db.execute("""
                  SELECT n.id, n.nombre, n.direccion, n.tipo_app, n.logo_url, n.acceso_bloqueado
@@ -44,6 +44,48 @@ def get_negocios(current_user):
         g.db_conn.rollback()
         return jsonify({'error': f'Error al obtener negocios: {str(e)}'}), 500
 
+@bp.route('/negocios/<int:id>', methods=['GET'])
+@token_required
+def get_negocio(current_user, id):
+    db = get_db()
+    try:
+        # Asegurar columnas de branding
+        try:
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS logo_url_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS fondo_url_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS instagram_url_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS facebook_url_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS direccion_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS telefono_resto TEXT")
+            g.db_conn.commit()
+        except: g.db_conn.rollback()
+
+        db.execute("SELECT * FROM negocios WHERE id = %s", (id,))
+        negocio = db.fetchone()
+        if not negocio:
+            return jsonify({'error': 'Negocio no encontrado'}), 404
+        
+        res = dict(negocio)
+        if res.get('fecha_alta'): res['fecha_alta'] = res['fecha_alta'].isoformat()
+        if res.get('cuota_mensual'): res['cuota_mensual'] = float(res['cuota_mensual'])
+        
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/public/negocios/<int:id>', methods=['GET'])
+def get_negocio_public_info(id):
+    """Retorna información básica del negocio para portales públicos (no requiere login)."""
+    db = get_db()
+    try:
+        db.execute("SELECT id, nombre, logo_url, logo_url_resto, fondo_url_resto, direccion_resto, telefono_resto FROM negocios WHERE id = %s", (id,))
+        negocio = db.fetchone()
+        if not negocio:
+            return jsonify({'error': 'Negocio no encontrado'}), 404
+        return jsonify(dict(negocio))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @bp.route('/negocios', methods=['POST'])
 @token_required
 def add_negocio(current_user):
@@ -54,21 +96,29 @@ def add_negocio(current_user):
     if not data or 'nombre' not in data:
         return jsonify({'error': 'El campo "nombre" es obligatorio'}), 400
 
-    nombre = data['nombre']
-    direccion = data.get('direccion', '')
-    tipo_app = data.get('tipo_app', 'retail')
-    logo_url = data.get('logo_url', '')
-    fecha_alta = data.get('fecha_alta')
-    cuota_mensual = data.get('cuota_mensual', 0)
-    suscripcion_activa = data.get('suscripcion_activa', False)
-    acceso_bloqueado = data.get('acceso_bloqueado', False)
-    
     db = get_db()
     try:
-        db.execute(
-            'INSERT INTO negocios (nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa, acceso_bloqueado) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
-            (nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa, acceso_bloqueado)
-        )
+        # Asegurar columnas
+        try:
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS logo_url_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS fondo_url_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS instagram_url_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS facebook_url_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS direccion_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS telefono_resto TEXT")
+            g.db_conn.commit()
+        except: g.db_conn.rollback()
+
+        campos = []
+        placeholders = []
+        valores = []
+        for k, v in data.items():
+            campos.append(k)
+            placeholders.append("%s")
+            valores.append(v)
+
+        query = f"INSERT INTO negocios ({', '.join(campos)}) VALUES ({', '.join(placeholders)}) RETURNING id"
+        db.execute(query, tuple(valores))
         nuevo_id = db.fetchone()['id']
 
         db.execute(
@@ -77,13 +127,7 @@ def add_negocio(current_user):
         )
         g.db_conn.commit()
 
-        return jsonify({
-            'id': nuevo_id, 'nombre': nombre, 'direccion': direccion,
-            'tipo_app': tipo_app, 'logo_url': logo_url,
-            'fecha_alta': fecha_alta, 'cuota_mensual': cuota_mensual,
-            'suscripcion_activa': suscripcion_activa,
-            'acceso_bloqueado': acceso_bloqueado
-        }), 201
+        return jsonify({'id': nuevo_id, 'message': 'Negocio creado con éxito'}), 201
 
     except Exception as e:
         g.db_conn.rollback()
@@ -97,25 +141,63 @@ def actualizar_negocio(current_user, id):
         
     try:
         datos = request.get_json()
-        nombre = datos['nombre']
-        direccion = datos.get('direccion', '')
-        tipo_app = datos.get('tipo_app', 'retail')
-        logo_url = datos.get('logo_url', '')
-        fecha_alta = datos.get('fecha_alta')
-        cuota_mensual = datos.get('cuota_mensual', 0)
-        suscripcion_activa = datos.get('suscripcion_activa', False)
-        acceso_bloqueado = datos.get('acceso_bloqueado', False)
-
         db = get_db()
-        db.execute(
-            'UPDATE negocios SET nombre = %s, direccion = %s, tipo_app = %s, logo_url = %s, fecha_alta = %s, cuota_mensual = %s, suscripcion_activa = %s, acceso_bloqueado = %s WHERE id = %s', 
-            (nombre, direccion, tipo_app, logo_url, fecha_alta, cuota_mensual, suscripcion_activa, acceso_bloqueado, id)
-        )
+
+        # Asegurar columnas branding antes de update
+        try:
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS logo_url_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS fondo_url_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS instagram_url_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS facebook_url_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS direccion_resto TEXT")
+            db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS telefono_resto TEXT")
+            g.db_conn.commit()
+        except: g.db_conn.rollback()
+
+        campos = []
+        valores = []
+        for k, v in datos.items():
+            if k == 'id': continue
+            campos.append(f"{k} = %s")
+            valores.append(v)
+        
+        if not campos:
+            return jsonify({'error': 'No hay datos para actualizar'}), 400
+
+        valores.append(id)
+        db.execute(f"UPDATE negocios SET {', '.join(campos)} WHERE id = %s", tuple(valores))
+        
         g.db_conn.commit()
         return jsonify({'message': 'Negocio actualizado con éxito'})
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:id>', methods=['DELETE'])
+@token_required
+def eliminar_negocio(current_user, id):
+    if current_user['rol'] != 'superadmin':
+        return jsonify({'message': 'Acción no permitida'}), 403
+    
+    db = get_db()
+    try:
+        # 1. Eliminar relaciones de permisos y usuarios primero (generalmente no tienen mucha data crítica)
+        db.execute('DELETE FROM usuarios_negocios WHERE negocio_id = %s', (id,))
+        db.execute('DELETE FROM negocio_rol_permisos WHERE negocio_id = %s', (id,))
+        
+        # 2. Intentar eliminar el negocio. 
+        # Si hay FKs en cascada, funcionará. Si no, lanzará un error que capturamos.
+        db.execute('DELETE FROM negocios WHERE id = %s', (id,))
+        
+        g.db_conn.commit()
+        return jsonify({'message': 'Negocio eliminado con éxito y todas sus configuraciones base.'})
+    except Exception as e:
+        g.db_conn.rollback()
+        # Si es un error de Foreign Key, damos un mensaje más amigable
+        error_msg = str(e).lower()
+        if 'foreign key' in error_msg or 'violates foreign key' in error_msg:
+             return jsonify({'error': 'No se puede eliminar el negocio porque tiene datos asociados (Ventas, Productos, Clientes, etc). Debe eliminar esos datos manualmente primero o contactar a soporte para un borrado total.'}), 400
+        return jsonify({'error': f'Error al eliminar negocio: {str(e)}'}), 500
 
 @bp.route('/negocios/<int:id>/suscripcion-status', methods=['GET'])
 @token_required

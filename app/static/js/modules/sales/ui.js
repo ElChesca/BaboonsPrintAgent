@@ -1,4 +1,6 @@
 import * as state from './state.js';
+import { mostrarNotificacion } from '../notifications.js';
+
 const formatCurrency = (n) => (n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 
 /** Dibuja la tabla de items de la venta. */
@@ -138,6 +140,19 @@ export function toggleFinalizeButtons(isProcessing) {
 export function actualizarTotalFinal() {
     const subtotalItems = state.calculateTotal();
 
+    // NUEVO RECUADRO: Total SKUs, Unidades, Subtotal
+    const items = state.getSaleItems();
+    const cantidadSkus = items.length;
+    const cantidadUnidades = items.reduce((sum, item) => sum + parseFloat(item.cantidad || 0), 0);
+
+    const skusEl = document.getElementById('resumen-skus');
+    const unidadesEl = document.getElementById('resumen-unidades');
+    const subtotalEl = document.getElementById('resumen-subtotal-lineas');
+
+    if (skusEl) skusEl.textContent = cantidadSkus;
+    if (unidadesEl) unidadesEl.textContent = cantidadUnidades;
+    if (subtotalEl) subtotalEl.textContent = formatCurrency(subtotalItems);
+
     // Obtener valores de los nuevos inputs
     const bonificacionPorcentaje = parseFloat(document.getElementById('bonificacion-global').value) || 0;
     const descuentoFijo = parseFloat(document.getElementById('descuento-extra').value) || 0;
@@ -150,5 +165,77 @@ export function actualizarTotalFinal() {
     const totalEl = document.getElementById('venta-total');
     if (totalEl) {
         totalEl.textContent = formatCurrency(totalFinal);
+    }
+
+    // Si estamos en modo mixto, actualizar restante
+    actualizarRestanteMixto(totalFinal);
+}
+
+/** Configura los listeners para el pago mixto */
+export function setupMixPayments() {
+    const selector = document.getElementById('metodo-pago-selector');
+    const panelMixto = document.getElementById('panel-pago-mixto');
+    const calculoVuelto = document.getElementById('calculo-vuelto-container');
+    const inputsMixtos = document.querySelectorAll('.mixto-input');
+
+    if (selector) {
+        selector.addEventListener('change', (e) => {
+            const clienteSelector = document.getElementById('cliente-selector');
+            const clienteId = clienteSelector ? clienteSelector.value : null;
+
+            if (e.target.value === 'Cuenta Corriente' && !clienteId) {
+                e.target.value = 'Efectivo'; // Fallback immediately
+                mostrarNotificacion('Debe seleccionar un cliente para usar Cuenta Corriente.', 'warning');
+                return;
+            }
+
+            if (e.target.value === 'Mixto') {
+                if (panelMixto) panelMixto.style.display = 'flex';
+                if (calculoVuelto) calculoVuelto.style.display = 'none';
+                actualizarTotalFinal(); // Para recalcular el restante
+            } else if (e.target.value === 'Efectivo') {
+                if (panelMixto) panelMixto.style.display = 'none';
+                if (calculoVuelto) calculoVuelto.style.display = 'block';
+            } else {
+                if (panelMixto) panelMixto.style.display = 'none';
+                if (calculoVuelto) calculoVuelto.style.display = 'none';
+            }
+        });
+    }
+
+    // Actualizar restante al tippear
+    inputsMixtos.forEach(input => {
+        input.addEventListener('input', () => {
+            actualizarTotalFinal();
+        });
+    });
+}
+
+function actualizarRestanteMixto(totalFinal) {
+    const selector = document.getElementById('metodo-pago-selector');
+    if (selector && selector.value !== 'Mixto') return;
+
+    const efectivo = parseFloat(document.getElementById('mixto-efectivo').value) || 0;
+    const mp = parseFloat(document.getElementById('mixto-mp').value) || 0;
+
+    const sumaFija = efectivo + mp;
+    const restante = totalFinal - sumaFija;
+
+    const restanteEl = document.getElementById('mixto-restante');
+    if (restanteEl) {
+        restanteEl.textContent = formatCurrency(Math.abs(restante));
+
+        // Colores según estado del pago
+        restanteEl.className = '';
+        if (restante > 0) {
+            restanteEl.classList.add('falta');
+            restanteEl.previousElementSibling.textContent = 'A Cta Cte:';
+        } else if (restante < 0) {
+            restanteEl.classList.add('sobra');
+            restanteEl.previousElementSibling.textContent = 'Sobran (Vuelto):';
+        } else {
+            restanteEl.classList.add('ok');
+            restanteEl.previousElementSibling.textContent = 'A Cta Cte:';
+        }
     }
 }

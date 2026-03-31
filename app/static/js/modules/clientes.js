@@ -13,28 +13,20 @@ let totalItems = 0;
 let currentSearch = '';
 let currentRevisionFilter = 'all';
 let currentZonaFilter = '';
+let currentDeudaFilter = false;
+let currentSortBy = 'nombre';
 let selectedClienteIds = new Set(); // ✨ Selección masiva
 
 
 
-async function cargarLeafletJS() {
-    if (window.L) return;
-    return new Promise((resolve, reject) => {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
+// Leaflet se carga en index.html de forma síncrona
 
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-}
 
 async function inicializarMapaSeleccion() {
-    await cargarLeafletJS();
+    if (!window.L) {
+        console.error("Leaflet NO cargado. Abortando mapa.");
+        return;
+    }
 
     if (map) {
         // ✨ LÓGICA DEFENSIVA: Si el mapa existe pero el contenedor ya no está en el DOM (porque cambiamos de vista), reiniciamos.
@@ -55,7 +47,7 @@ async function inicializarMapaSeleccion() {
     const latDefault = -33.3017;
     const lngDefault = -66.3378;
 
-    map = L.map('map-selector').setView([latDefault, lngDefault], 13);
+    map = L.map('map-selector', { rotate: false }).setView([latDefault, lngDefault], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
@@ -108,6 +100,7 @@ function renderTablaClientes(clientes) {
         }
 
         const zonaLabel = cliente.zona_nombre || cliente.ref_interna || '-';
+        const totalOps = cliente.total_operaciones || 0;
         const isChecked = selectedClienteIds.has(cliente.id) ? 'checked' : '';
         tbody.innerHTML += `
             <tr data-id="${cliente.id}">
@@ -124,6 +117,9 @@ function renderTablaClientes(clientes) {
                 <td style="padding: 4px 8px; font-size: 0.9em;">${cliente.dni || '-'}</td>
                 <td style="padding: 4px 8px; font-size: 0.9em;">
                     <span style="background: #e9f0fb; color: #3366cc; border-radius: 4px; padding: 2px 7px; font-size: 0.85em; white-space: nowrap;">${zonaLabel}</span>
+                </td>
+                <td style="padding: 4px 8px; text-align: center; font-size: 0.9em;">
+                    <span class="badge bg-secondary" title="Total Operaciones (Ventas + Pedidos)">${totalOps}</span>
                 </td>
                 <td style="padding: 4px 8px; font-size: 0.9em;">${cliente.condicion_venta || 'Contado'}</td>
                 <td class="acciones" style="padding: 4px 8px;">
@@ -181,7 +177,7 @@ async function poblarSelectDeVendedores() {
 }
 
 async function inicializarSelectores() {
-    await Promise.all([poblarSelectDeListas(), poblarSelectDeVendedores()]);
+    await Promise.all([poblarSelectDeListas(), poblarSelectDeVendedores(), poblarSelectDeZonas()]);
 }
 
 // ✨ --- NUEVA FUNCIÓN PARA CARGAR LAS LISTAS DE PRECIOS EN EL FORMULARIO --- ✨
@@ -201,10 +197,27 @@ async function poblarSelectDeListas() {
         });
 
         // Si había un valor seleccionado (editando), lo restauramos
-        select.value = valorActual;
+        if (valorActual) select.value = valorActual;
     } catch (error) {
         console.error("No se pudieron cargar las listas de precios en el formulario.");
-        // No mostramos notificación para no molestar al usuario, pero lo logueamos.
+    }
+}
+
+async function poblarSelectDeZonas() {
+    const select = document.getElementById('cliente-zona');
+    if (!select) return;
+
+    try {
+        const zonas = await fetchData(`/api/negocios/${appState.negocioActivoId}/zonas`);
+        const valorActual = select.value;
+        select.innerHTML = '<option value="">-- Sin Zona --</option>';
+
+        zonas.forEach(z => {
+            select.innerHTML += `<option value="${z.id}">${z.nombre}</option>`;
+        });
+        if (valorActual) select.value = valorActual;
+    } catch (error) {
+        console.error("No se pudieron cargar las zonas en el formulario.");
     }
 }
 
@@ -225,6 +238,7 @@ function poblarFormulario(cliente) {
     document.getElementById('cliente-credito').value = cliente.credito_maximo || 0;
     document.getElementById('cliente-ref').value = cliente.ref_interna || '';
     document.getElementById('cliente-actividad').value = cliente.actividad || '';
+    document.getElementById('cliente-zona').value = cliente.zona_id || '';
 
     // ✨ Nuevos Campos
     document.getElementById('cliente-vendedor').value = cliente.vendedor_id || '';
@@ -272,6 +286,7 @@ async function resetFormulario() {
     document.getElementById('cliente-id').value = '';
     document.getElementById('cliente-lat').value = '';
     document.getElementById('cliente-lng').value = '';
+    document.getElementById('cliente-zona').value = '';
 
     if (marker && map) {
         map.removeLayer(marker);
@@ -495,6 +510,7 @@ export function inicializarLogicaClientes() {
             longitud: document.getElementById('cliente-lng').value ? parseFloat(document.getElementById('cliente-lng').value) : null,
             // Nuevos Campos
             vendedor_id: document.getElementById('cliente-vendedor').value || null,
+            zona_id: document.getElementById('cliente-zona').value || null,
             visita_lunes: document.getElementById('visita-lunes').checked,
             visita_martes: document.getElementById('visita-martes').checked,
             visita_miercoles: document.getElementById('visita-miercoles').checked,
@@ -546,18 +562,44 @@ export function inicializarLogicaClientes() {
     // ✨ Filtro por Zona
     const filtroZona = document.getElementById('filtro-zona');
     if (filtroZona) {
-        // Poblar el select con las zonas disponibles
+        // Poblar el select con las zonas disponibles (ahora vienen como objetos {id, nombre})
         fetchData(`/api/negocios/${appState.negocioActivoId}/clientes/zonas`)
             .then(zonas => {
-                filtroZona.innerHTML = '<option value="">Todas las zonas</option>';
+                filtroZona.innerHTML = '<option value="">📍 Todas las zonas</option>';
                 zonas.forEach(z => {
-                    filtroZona.innerHTML += `<option value="${z}">${z}</option>`;
+                    filtroZona.innerHTML += `<option value="${z.id}">${z.nombre}</option>`;
                 });
             })
             .catch(() => { });
 
         filtroZona.addEventListener('change', () => {
             currentZonaFilter = filtroZona.value;
+            currentPage = 1;
+            cargarClientes();
+        });
+    }
+
+    // ✨ Filtro Solo Deuda
+    const btnFiltroDeuda = document.getElementById('btn-filtro-deuda');
+    if (btnFiltroDeuda) {
+        btnFiltroDeuda.addEventListener('click', () => {
+            currentDeudaFilter = !currentDeudaFilter;
+            btnFiltroDeuda.classList.toggle('active');
+            btnFiltroDeuda.classList.toggle('btn-outline-danger');
+            btnFiltroDeuda.classList.toggle('btn-danger');
+            currentPage = 1;
+            cargarClientes();
+        });
+    }
+
+    // ✨ Ordenar por Operaciones
+    const btnOrdenOps = document.getElementById('btn-orden-operaciones');
+    if (btnOrdenOps) {
+        btnOrdenOps.addEventListener('click', () => {
+            currentSortBy = (currentSortBy === 'operaciones') ? 'nombre' : 'operaciones';
+            btnOrdenOps.classList.toggle('active');
+            btnOrdenOps.classList.toggle('btn-outline-primary');
+            btnOrdenOps.classList.toggle('btn-primary');
             currentPage = 1;
             cargarClientes();
         });
@@ -713,9 +755,9 @@ export function inicializarLogicaClientes() {
 async function cargarClientes() {
     try {
         const tbody = document.querySelector('#tabla-clientes tbody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Cargando...</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Cargando...</td></tr>';
 
-        const url = `/api/negocios/${appState.negocioActivoId}/clientes?page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(currentSearch)}&revisado=${currentRevisionFilter}&zona=${encodeURIComponent(currentZonaFilter)}`;
+        const url = `/api/negocios/${appState.negocioActivoId}/clientes?page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(currentSearch)}&revisado=${currentRevisionFilter}&zona=${encodeURIComponent(currentZonaFilter)}&solo_deuda=${currentDeudaFilter}&order_by=${currentSortBy}`;
         const response = await fetchData(url);
 
         const clientes = response.data || [];

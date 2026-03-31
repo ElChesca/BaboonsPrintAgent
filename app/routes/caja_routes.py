@@ -83,10 +83,14 @@ def get_estado_caja(current_user, negocio_id):
             'total_egresos_ajuste': total_egresos_ajuste
         }
         
+        sesion_data = dict(sesion_abierta)
+        if sesion_data.get('numero') is None:
+            sesion_data['numero'] = f"ID:{sesion_data['id']}"
+
         return jsonify({
             'estado': 'abierta',
-            'sesion': dict(sesion_abierta),
-            'totales': totales # Enviamos los nuevos totales
+            'sesion': sesion_data,
+            'totales': totales
         })
     else:
         return jsonify({'estado': 'cerrada'})
@@ -118,12 +122,16 @@ def abrir_caja(current_user, negocio_id):
     if monto_inicial is None:
         return jsonify({'error': 'El monto inicial es obligatorio'}), 400
 
+    # Calcular el siguiente número de sesión para este negocio
+    db.execute('SELECT COALESCE(MAX(numero), 0) + 1 as next_num FROM caja_sesiones WHERE negocio_id = %s', (negocio_id,))
+    next_num = db.fetchone()['next_num']
+
     db.execute(
-        'INSERT INTO caja_sesiones (negocio_id, usuario_id, fecha_apertura, monto_inicial) VALUES (%s, %s, %s, %s)',
-        (negocio_id, current_user['id'], datetime.datetime.now(), monto_inicial)
+        'INSERT INTO caja_sesiones (negocio_id, usuario_id, fecha_apertura, monto_inicial, numero) VALUES (%s, %s, %s, %s, %s)',
+        (negocio_id, current_user['id'], datetime.datetime.now(), monto_inicial, next_num)
     )
     g.db_conn.commit()
-    return jsonify({'message': 'Caja abierta con éxito'}), 201
+    return jsonify({'message': f'Caja abierta con éxito (Sesión #{next_num})', 'numero': next_num}), 201
 
 @bp.route('/negocios/<int:negocio_id>/caja/cierre', methods=['PUT'])
 @token_required

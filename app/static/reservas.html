@@ -1,0 +1,205 @@
+<!-- app/static/reservas.html -->
+<!-- ✨ Baboons Premium - Panel de Reservas de Mesas para Restó ✨ -->
+<div class="res-dashboard fade-in">
+
+  <!-- HEADER -->
+  <div class="res-header">
+    <div>
+      <h1 class="res-title"><i class="fas fa-calendar-check"></i> Reservas de Mesas</h1>
+      <p class="res-subtitle" id="res-fecha-display">Hoy</p>
+    </div>
+    <div class="res-header-actions">
+      <button id="btn-nueva-reserva" class="btn-res-primary" onclick="abrirModalNuevaReserva()">
+        <i class="fas fa-plus"></i> Nueva Reserva
+      </button>
+      <button class="btn-res-secondary" onclick="window.compartirPortal()">
+        <i class="fab fa-whatsapp"></i> Compartir Link
+      </button>
+      <button class="btn-res-secondary" onclick="window.abrirModalConfigTurnos()">
+        <i class="fas fa-clock"></i> Turnos
+      </button>
+    </div>
+  </div>
+
+  <!-- FILTROS Y NAVEGACIÓN DE FECHA -->
+  <div class="res-controls">
+    <div class="res-date-nav">
+      <button class="btn-nav-date" id="btn-date-prev" onclick="cambiarFecha(-1)">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <input type="date" id="res-fecha-input" class="res-date-input" onchange="cargarReservas()">
+      <button class="btn-nav-date" id="btn-date-next" onclick="cambiarFecha(1)">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+    <div class="res-estado-tabs">
+      <button class="res-tab active" data-estado="all" onclick="filtrarEstado('all', this)">Todas</button>
+      <button class="res-tab" data-estado="pendiente" onclick="filtrarEstado('pendiente', this)">
+        Pendientes <span id="badge-pendientes" class="res-badge"></span>
+      </button>
+      <button class="res-tab" data-estado="confirmada" onclick="filtrarEstado('confirmada', this)">Confirmadas</button>
+      <button class="res-tab" data-estado="cancelada" onclick="filtrarEstado('cancelada', this)">Canceladas</button>
+    </div>
+  </div>
+
+  <!-- STATS DEL DÍA -->
+  <div class="res-stats-row">
+    <div class="res-stat-pill">
+      <i class="fas fa-users"></i>
+      <span id="stat-total-reservas">0</span> reservas
+    </div>
+    <div class="res-stat-pill">
+      <i class="fas fa-user-check"></i>
+      <span id="stat-total-pax">0</span> comensales
+    </div>
+    <div class="res-stat-pill warning">
+      <i class="fas fa-clock"></i>
+      <span id="stat-pendientes">0</span> pendientes
+    </div>
+  </div>
+
+  <!-- LISTA DE RESERVAS -->
+  <div id="res-list-container">
+    <div class="res-loading">
+      <i class="fas fa-spinner fa-spin"></i> Cargando reservas...
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL: NUEVA RESERVA MANUAL -->
+<div id="modal-nueva-reserva" class="res-modal-overlay" style="display:none;">
+  <div class="res-modal-box">
+    <div class="res-modal-header">
+      <h2><i class="fas fa-calendar-plus"></i> Nueva Reserva Manual</h2>
+      <button class="res-modal-close" onclick="cerrarModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="res-modal-body">
+      <div class="res-form-row">
+        <div class="res-form-group">
+          <label>Nombre y Apellido *</label>
+          <input type="text" id="nr-nombre" placeholder="Ej: Juan García" class="res-input">
+        </div>
+        <div class="res-form-group">
+          <label>Teléfono</label>
+          <input type="tel" id="nr-telefono" placeholder="Ej: 11 2345-6789" class="res-input">
+        </div>
+      </div>
+      <div class="res-form-row">
+        <div class="res-form-group">
+          <label>Email</label>
+          <input type="email" id="nr-email" placeholder="cliente@email.com" class="res-input">
+        </div>
+        <div class="res-form-group">
+          <label>Origen *</label>
+          <select id="nr-origen" class="res-input">
+            <option value="telefono">📞 Teléfono</option>
+            <option value="whatsapp">💬 WhatsApp</option>
+            <option value="presencial">🚶 Presencial</option>
+            <option value="manual">✏️ Manual</option>
+          </select>
+        </div>
+      </div>
+      <div class="res-form-row">
+        <div class="res-form-group">
+          <label>Fecha *</label>
+          <input type="date" id="nr-fecha" class="res-input">
+        </div>
+        <div class="res-form-group">
+          <label>Hora *</label>
+          <select id="nr-hora" class="res-input">
+            <option value="">— elegir fecha primero —</option>
+          </select>
+        </div>
+      </div>
+      <div class="res-form-row">
+        <div class="res-form-group">
+          <label>Comensales *</label>
+          <input type="number" id="nr-comensales" value="2" min="1" max="50" class="res-input">
+        </div>
+        <div class="res-form-group">
+          <label>Mesa (opcional)</label>
+          <select id="nr-mesa" class="res-input">
+            <option value="">— asignar después —</option>
+          </select>
+        </div>
+      </div>
+      <div class="res-form-group">
+        <label>Notas / Pedidos Especiales</label>
+        <textarea id="nr-notas" class="res-input" rows="2" placeholder="Ej: Cumpleaños, lugar preferido, alergias..."></textarea>
+      </div>
+
+      <!-- LINK DE WHATSAPP -->
+      <div id="wa-link-container" style="display:none;" class="wa-link-box">
+        <p class="wa-link-label"><i class="fab fa-whatsapp"></i> Link de confirmación para el cliente:</p>
+        <a id="wa-link" href="#" target="_blank" class="wa-link-btn">
+          <i class="fab fa-whatsapp"></i> Enviar Confirmación por WhatsApp
+        </a>
+      </div>
+    </div>
+    <div class="res-modal-footer">
+      <button class="btn-res-secondary" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-res-primary" onclick="guardarReservaManual()">
+        <i class="fas fa-save"></i> Guardar Reserva
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DETALLE / EDICIÓN RESERVA -->
+<div id="modal-detalle-reserva" class="res-modal-overlay" style="display:none;">
+  <div class="res-modal-box">
+    <div class="res-modal-header">
+      <h2><i class="fas fa-calendar-day"></i> Detalle de Reserva</h2>
+      <button class="res-modal-close" onclick="cerrarModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="res-modal-body" id="detalle-reserva-content">
+      <!-- Cargado dinámicamente -->
+    </div>
+    <div class="res-modal-footer" id="detalle-reserva-actions">
+      <!-- Acciones dinámicas -->
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CONFIGURACIÓN DE TURNOS -->
+<div id="modal-config-turnos" class="res-modal-overlay" style="display:none;">
+  <div class="res-modal-box" style="max-width: 700px;">
+    <div class="res-modal-header">
+      <h2><i class="fas fa-clock"></i> Configuración de Turnos y Días</h2>
+      <button class="res-modal-close" onclick="cerrarModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="res-modal-body">
+      <p style="color:#94a3b8; font-size:0.85rem; margin-bottom:16px;">
+        Configurá los horarios en los que tu local acepta reservas. Los slots se generarán automáticamente.
+      </p>
+      
+      <div style="text-align:right; margin-bottom:10px;">
+        <button class="res-btn-mini" onclick="window.duplicarLunesATodos()" title="Copia el horario de Lunes a todos los demás días">
+           <i class="fas fa-copy"></i> Copiar Lunes a todos los días
+        </button>
+      </div>
+
+      <table class="res-turn-table">
+        <thead>
+          <tr>
+            <th>Día</th>
+            <th>Activo</th>
+            <th>Inicio</th>
+            <th>Fin</th>
+            <th>Intervalo</th>
+          </tr>
+        </thead>
+        <tbody id="turnos-config-list">
+          <!-- Cargado dinámicamente -->
+        </tbody>
+      </table>
+    </div>
+    <div class="res-modal-footer">
+      <button class="btn-res-secondary" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-res-primary" onclick="window.guardarConfigTurnos()">
+        <i class="fas fa-save"></i> Guardar Cambios
+      </button>
+    </div>
+  </div>
+</div>

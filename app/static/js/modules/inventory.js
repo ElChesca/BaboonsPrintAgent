@@ -7,10 +7,12 @@ import { fetchData, sendData } from '../api.js';
 import { mostrarNotificacion } from './notifications.js';
 
 let productosCache = [];
-// --- Variables de Paginación ---
+// --- Variables de Paginación y Ordenamiento ---
 let currentPage = 1;
 const itemsPerPage = 15; // Número de productos por página
 let selectedProductIds = new Set();
+let sortColumn = 'nombre';
+let sortDirection = 'asc';
 
 // ---
 // FUNCIÓN PARA CAMBIAR DE PÁGINA (llamada desde onclick)
@@ -33,13 +35,28 @@ function renderProductos() {
 
     if (!listaProductos || !headerRow) return;
 
-    // 1. Renderizar cabecera
-    headerRow.innerHTML = `<th class="col-check"><input type="checkbox" id="check-all-products"></th><th>Foto</th><th>Nombre</th><th>SKU</th><th>Categoría</th><th>Ubicación</th><th>Stock</th><th>Precio Venta</th>`;
+    // 1. Renderizar cabecera con ordenamiento
+    const getSortIcon = (col) => {
+        if (sortColumn !== col) return '<i class="fas fa-sort text-muted ms-1" style="font-size: 0.8rem;"></i>';
+        return sortDirection === 'asc' ? '<i class="fas fa-sort-up ms-1"></i>' : '<i class="fas fa-sort-down ms-1"></i>';
+    };
+
+    let headerHTML = `<th class="col-check"><input type="checkbox" id="check-all-products"></th><th>Foto</th>`;
+    headerHTML += `<th onclick="window.sortInventory('nombre')" style="cursor: pointer;">Nombre ${getSortIcon('nombre')}</th>`;
+    headerHTML += `<th onclick="window.sortInventory('sku')" style="cursor: pointer;">SKU ${getSortIcon('sku')}</th>`;
+    headerHTML += `<th onclick="window.sortInventory('categoria_nombre')" style="cursor: pointer;">Categoría ${getSortIcon('categoria_nombre')}</th>`;
+    headerHTML += `<th onclick="window.sortInventory('ubicacion')" style="cursor: pointer;">Ubicación ${getSortIcon('ubicacion')}</th>`;
+    headerHTML += `<th onclick="window.sortInventory('stock')" style="cursor: pointer;">Físico ${getSortIcon('stock')}</th>`;
+    headerHTML += `<th onclick="window.sortInventory('stock_comprometido')" style="cursor: pointer;" title="Comprometido en pedidos pendientes">Comprometido ${getSortIcon('stock_comprometido')}</th>`;
+    headerHTML += `<th onclick="window.sortInventory('stock_movil')" style="cursor: pointer;">Móvil ${getSortIcon('stock_movil')}</th>`;
+    headerHTML += `<th onclick="window.sortInventory('precio_venta')" style="cursor: pointer;">Precio Venta ${getSortIcon('precio_venta')}</th>`;
+
     if (isAdmin) {
-        headerRow.innerHTML += `<th>Costo</th>`;
+        headerHTML += `<th onclick="window.sortInventory('precio_costo')" style="cursor: pointer;">Costo ${getSortIcon('precio_costo')}</th>`;
     }
-    headerRow.innerHTML += `<th>Acciones</th>`;
-    const colspan = isAdmin ? 10 : 9;
+    headerHTML += `<th>Acciones</th>`;
+    headerRow.innerHTML = headerHTML;
+    const colspan = isAdmin ? 12 : 11;
 
     if (!appState.negocioActivoId) {
         listaProductos.innerHTML = `<tr><td colspan="${colspan}">Seleccione un negocio para ver su inventario.</td></tr>`;
@@ -63,7 +80,29 @@ function renderProductos() {
         return matchTexto && matchUbicacion;
     });
 
-    // 3. Renderizar resumen
+    // ✨ 3. ORDENAMIENTO ✨
+    productosFiltrados.sort((a, b) => {
+        let valA = a[sortColumn];
+        let valB = b[sortColumn];
+
+        // Manejo de nulos
+        if (valA === null || valA === undefined) valA = '';
+        if (valB === null || valB === undefined) valB = '';
+
+        // Si es string, comparar ignorando mayúsculas
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            return sortDirection === 'asc'
+                ? valA.localeCompare(valB)
+                : valB.localeCompare(valA);
+        }
+
+        // Si es número
+        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    // 4. Renderizar resumen
     const summaryEl = document.getElementById('productos-summary');
     if (summaryEl) {
         let summaryText = `<strong>${productosFiltrados.length}</strong> productos encontrados`;
@@ -109,6 +148,13 @@ function renderProductos() {
             <td>${p.categoria_nombre || 'Sin categoría'}</td>
             <td>${p.ubicacion || 'Depósito 1'}</td>
             <td class="${stockClass}">${p.stock} ${p.unidad_medida || 'un'}</td>
+            <td class="text-danger" style="cursor: pointer;" onclick="window.verDetalleComprometido(${p.id})">
+                <strong title="Click para ver detalle">${p.stock_comprometido || 0} ${p.unidad_medida || 'un'}</strong>
+            </td>
+            <td>
+                <strong>${p.stock_movil || 0}</strong>
+                ${p.patentes_movil ? `<br><small class="text-muted" style="font-size: 0.75rem;">(${p.patentes_movil})</small>` : ''}
+            </td>
             <td>${(p.precio_venta || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>
         `;
         if (isAdmin) {
@@ -166,6 +212,18 @@ function renderProductos() {
     vincularEventosCheckboxes();
     updateBulkActionBar();
 }
+
+// --- ✨ FUNCIÓN DE ORDENAMIENTO ✨ ---
+export function sortInventory(column) {
+    if (sortColumn === column) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortColumn = column;
+        sortDirection = 'asc';
+    }
+    renderProductos();
+}
+window.sortInventory = sortInventory;
 
 // ---
 // FUNCIÓN PARA OBTENER LOS DATOS (¡Aquí estaba el error!)
@@ -391,6 +449,7 @@ function abrirModal(producto = null) {
         document.getElementById('producto-alias').value = producto.alias || '';
         document.getElementById('producto-sku').value = producto.sku || '';
         document.getElementById('producto-categoria').value = producto.categoria_id || '';
+        document.getElementById('producto-tipo').value = producto.tipo_producto || 'final';
         document.getElementById('producto-ubicacion').value = producto.ubicacion || 'Depósito 1';
         document.getElementById('producto-proveedor').value = producto.proveedor_id || '';
         document.getElementById('producto-stock').value = producto.stock || 0;
@@ -410,15 +469,20 @@ function abrirModal(producto = null) {
     // Resetear campo de imagen y preview
     const imgInput = document.getElementById('producto-imagen');
     const previewContainer = document.getElementById('producto-imagen-preview');
+    const btnEliminarFoto = document.getElementById('btn-eliminar-foto');
     const previewImg = previewContainer.querySelector('img');
+
     if (imgInput) imgInput.value = '';
+
     if (previewContainer) {
         if (producto && producto.imagen_url) {
             previewImg.src = producto.imagen_url;
-            previewContainer.style.display = 'block';
+            previewContainer.style.display = 'flex';
+            if (btnEliminarFoto) btnEliminarFoto.style.display = 'block';
         } else {
             previewImg.src = '';
             previewContainer.style.display = 'none';
+            if (btnEliminarFoto) btnEliminarFoto.style.display = 'none';
         }
     }
 
@@ -437,6 +501,7 @@ async function guardarProducto(e) {
         alias: document.getElementById('producto-alias').value || null,
         sku: document.getElementById('producto-sku').value || null,
         categoria_id: document.getElementById('producto-categoria').value || null,
+        tipo_producto: document.getElementById('producto-tipo').value || 'final',
         ubicacion: document.getElementById('producto-ubicacion').value || 'Depósito 1',
         proveedor_id: document.getElementById('producto-proveedor').value || null,
         stock: parseFloat(document.getElementById('producto-stock').value),
@@ -488,6 +553,66 @@ async function guardarProducto(e) {
     } finally {
         botonGuardar.disabled = false;
         botonGuardar.textContent = 'Guardar';
+    }
+}
+
+// --- ✨ NUEVAS FUNCIONES PARA GESTIÓN DE IMÁGENES ✨ ---
+
+function handleSelectImagen(e) {
+    const file = e.target.files[0];
+    const previewContainer = document.getElementById('producto-imagen-preview');
+    const previewImg = previewContainer.querySelector('img');
+    const btnEliminarFoto = document.getElementById('btn-eliminar-foto');
+
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            previewImg.src = e.target.result;
+            previewContainer.style.display = 'flex';
+            if (btnEliminarFoto) btnEliminarFoto.style.display = 'none'; // No mostrar borrar en foto local nueva
+        };
+        reader.readAsDataURL(file);
+    } else {
+        previewImg.src = '';
+        previewContainer.style.display = 'none';
+    }
+}
+
+async function eliminarFotoProducto() {
+    const productoId = document.getElementById('producto-id').value;
+    if (!productoId) return;
+
+    const result = await Swal.fire({
+        title: '¿Eliminar foto?',
+        text: 'La imagen se eliminará permanentemente del producto.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            await sendData(`/api/productos/${productoId}/image`, {}, 'DELETE');
+            mostrarNotificacion('Imagen eliminada con éxito.', 'success');
+
+            // Limpiar UI
+            const previewContainer = document.getElementById('producto-imagen-preview');
+            const previewImg = previewContainer.querySelector('img');
+            const btnEliminarFoto = document.getElementById('btn-eliminar-foto');
+            const fileInput = document.getElementById('producto-imagen');
+
+            previewImg.src = '';
+            previewContainer.style.display = 'none';
+            if (btnEliminarFoto) btnEliminarFoto.style.display = 'none';
+            if (fileInput) fileInput.value = '';
+
+            await fetchProductos(); // Recargar para ver el cambio en la tabla
+        } catch (error) {
+            mostrarNotificacion('Error al eliminar la imagen.', 'error');
+        }
     }
 }
 
@@ -662,6 +787,45 @@ export async function verBitacoraProducto(productoId, nombre) {
         tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error al cargar historial.</td></tr>`;
     }
 }
+
+export async function verDetalleComprometido(productoId) {
+    const modal = document.getElementById('modal-comprometido-detalle');
+    const infoEl = document.getElementById('comprometido-producto-info');
+    const tbody = document.querySelector('#tabla-comprometido-detalle tbody');
+
+    if (!modal || !tbody) return;
+
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center"><i>Buscando pedidos...</i></td></tr>`;
+    modal.style.display = 'flex';
+
+    try {
+        const data = await fetchData(`/api/productos/${productoId}/comprometido`);
+        infoEl.textContent = data.producto_nombre;
+
+        if (data.detalles.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No se encontraron pedidos pendientes para este producto.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = data.detalles.map(d => {
+            const fechaHR = d.hr_fecha ? new Date(d.hr_fecha).toLocaleDateString() : '-';
+            const hrInfo = d.hoja_ruta_id
+                ? `HR #${d.hoja_ruta_id} (${d.hr_vendedor || 'S/V'}) - ${fechaHR}`
+                : '<span class="text-muted">Sin HR (Pendiente carga)</span>';
+
+            return `<tr>
+                <td class="fw-bold">Pedido #${d.pedido_id}</td>
+                <td>${d.cliente_nombre || 'S/N'}</td>
+                <td>${hrInfo}</td>
+                <td><span class="badge ${d.pedido_estado === 'preparado' ? 'bg-info' : 'bg-warning'} text-dark">${d.pedido_estado}</span></td>
+                <td class="text-end fw-bold">${d.cantidad} ${data.unidad_medida || 'un'}</td>
+            </tr>`;
+        }).join('');
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error al obtener detalles.</td></tr>`;
+    }
+}
+window.verDetalleComprometido = verDetalleComprometido;
 
 // ---
 // EXPORTAR PRODUCTOS CON PORCENTAJE (Simplificado y Rápido)
@@ -995,6 +1159,12 @@ export async function inicializarLogicaInventario() {
     await poblarSelectoresDelModal();
     fetchProductos();
 
+    // LISTENERS IMÁGENES
+    const inputImagen = document.getElementById('producto-imagen');
+    const btnEliminarFoto = document.getElementById('btn-eliminar-foto');
+    if (inputImagen) inputImagen.onchange = handleSelectImagen;
+    if (btnEliminarFoto) btnEliminarFoto.onclick = eliminarFotoProducto;
+
     // NUEVOS LISTENERS MASIVOS
     const btnBulkCat = document.getElementById('btn-bulk-categoria');
     const btnBulkDel = document.getElementById('btn-bulk-borrar');
@@ -1008,11 +1178,13 @@ export async function inicializarLogicaInventario() {
     if (btnBulkConfirmCat) btnBulkConfirmCat.onclick = guardarBulkCategoria;
     if (closeModalBulkCat) closeModalBulkCat.onclick = () => document.getElementById('modal-bulk-categoria').style.display = 'none';
 
-    // Registrar función global de exportación (opcional si se quier llamar de fuera)
-    window.abrirModalExportar = abrirModalExportar;
-
-    // Registrar función global de bitácora
+    // Registrar funciones globales
+    window.abrirModalEditarProducto = abrirModalEditarProducto;
+    window.borrarProducto = borrarProducto;
+    window.reactivarProducto = reactivarProducto;
     window.verBitacoraProducto = verBitacoraProducto;
+    window.abrirModalExportar = abrirModalExportar;
+    window.changeProductPage = changeProductPage;
     window.addEventListener('click', (e) => {
         const modalBitacora = document.getElementById('modal-bitacora-producto');
         if (modalBitacora && e.target == modalBitacora) modalBitacora.style.display = 'none';

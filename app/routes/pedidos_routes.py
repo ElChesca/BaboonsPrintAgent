@@ -33,6 +33,51 @@ def create_pedido(current_user, negocio_id):
             if hr['estado'] not in ['borrador', 'activa']:
                 return jsonify({'error': f'No se pueden agregar pedidos a una Hoja de Ruta {hr["estado"].upper()}. Solo en BORRADOR o ACTIVA.'}), 409
 
+        # ✨ NUEVA REGLA: Bloquear creación si no hay stock
+        db.execute("SELECT valor FROM configuraciones WHERE negocio_id = %s AND clave = 'bloquear_pedido_sin_stock'", (negocio_id,))
+        config_bloqueo = db.fetchone()
+        if config_bloqueo and config_bloqueo['valor'] == 'Si':
+            faltantes = []
+            for item in detalles:
+                # ✨ NUEVO CÁLCULO: Stock Disponible = Stock Físico - Compromisos (pedidos sin cargar)
+                query_stock = """
+                    SELECT 
+                        pr.stock, 
+                        pr.nombre,
+                        COALESCE((
+                            SELECT SUM(pd_inner.cantidad)
+                            FROM pedidos p_inner
+                            JOIN pedidos_detalle pd_inner ON p_inner.id = pd_inner.pedido_id
+                            LEFT JOIN hoja_ruta hr ON p_inner.hoja_ruta_id = hr.id
+                            WHERE pd_inner.producto_id = pr.id
+                              AND p_inner.estado IN ('pendiente', 'preparado')
+                              AND (hr.id IS NULL OR hr.carga_confirmada IS FALSE)
+                              AND p_inner.negocio_id = %s
+                        ), 0) as comprometido
+                    FROM productos pr
+                    WHERE pr.id = %s
+                """
+                db.execute(query_stock, (negocio_id, item['producto_id']))
+                prod = db.fetchone()
+                
+                if not prod:
+                    faltantes.append(f"Producto ID {item['producto_id']} no encontrado")
+                    continue
+                
+                stock_fisico = float(prod['stock'])
+                comprometido = float(prod['comprometido'] or 0)
+                disponible = stock_fisico - comprometido
+                solicitado = float(item['cantidad'])
+                
+                if solicitado > disponible:
+                     faltantes.append(f"{prod['nombre']} (Solicitado: {solicitado}, Disponible Real: {disponible} [Stock: {stock_fisico}, Comprometido: {comprometido}])")
+            
+            if faltantes:
+                return jsonify({
+                    'error': 'Stock insuficiente (Considerando pedidos pendientes)',
+                    'detalles': faltantes
+                }), 409
+
         # current_user['vendedor_id'] viene del token (es el ID de la tabla 'vendedores')
         vendedor_id = current_user.get('vendedor_id')
         
@@ -83,15 +128,26 @@ def get_pedidos(current_user, negocio_id):
     fecha = request.args.get('fecha')
     cliente_id = request.args.get('cliente_id')
     estado = request.args.get('estado')
+    limit = request.args.get('limit')
+    offset = request.args.get('offset')
     
     db = get_db()
     
+    # 1. Base query para contar TOTAL (sin limit/offset) para paginación
+    count_query = """
+        SELECT COUNT(*) as total
+        FROM pedidos p
+        WHERE p.negocio_id = %s
+    """
+    
+    # Base query para DATOS
     query = """
         SELECT p.*, c.nombre as cliente_nombre, 
                COALESCE(v.nombre, u.nombre, 'Sistema') as vendedor_nombre,
                vent.metodo_pago, vent.caja_sesion_id,
                CASE WHEN p.venta_id IS NOT NULL THEN TRUE ELSE FALSE END as pagado,
-               hr.estado as hoja_ruta_estado
+               hr.estado as hoja_ruta_estado,
+               COALESCE((SELECT SUM(cantidad) FROM pedidos_rebotes prb WHERE prb.pedido_id = p.id), 0) as rebotes_count
         FROM pedidos p
         JOIN clientes c ON p.cliente_id = c.id
         LEFT JOIN vendedores v ON p.vendedor_id = v.id
@@ -102,44 +158,55 @@ def get_pedidos(current_user, negocio_id):
     """
     params = [negocio_id]
     
+    # Filtros comunes para ambos queries
+    filter_sql = ""
+    filter_params = []
+
     # ✨ LÓGICA DE VISIBILIDAD DE VENDEDOR
     if current_user['rol'] == 'vendedor':
         if hoja_ruta_id:
-            # Si pide pedidos de una ruta, verificamos que la ruta sea suya
             db.execute("SELECT vendedor_id FROM hoja_ruta WHERE id = %s AND negocio_id = %s", (hoja_ruta_id, negocio_id))
             hr = db.fetchone()
             if not hr or hr['vendedor_id'] != current_user.get('vendedor_id'):
                 return jsonify({'error': 'No tiene permisos para ver pedidos de esta Hoja de Ruta'}), 403
-            # Si la ruta es suya, NO filtramos los pedidos por vendedor_id para que vea los cargados por Admin
         else:
-            # Si no hay ruta específica, solo ve sus propios pedidos
             if current_user.get('vendedor_id'):
-                query += " AND p.vendedor_id = %s"
-                params.append(current_user['vendedor_id'])
+                filter_sql += " AND p.vendedor_id = %s"
+                filter_params.append(current_user['vendedor_id'])
     
     if hoja_ruta_id:
-        query += " AND p.hoja_ruta_id = %s"
-        params.append(hoja_ruta_id)
+        filter_sql += " AND p.hoja_ruta_id = %s"
+        filter_params.append(hoja_ruta_id)
         
     if fecha:
-        query += " AND DATE(p.fecha) = %s"
-        params.append(fecha)
+        filter_sql += " AND DATE(p.fecha) = %s"
+        filter_params.append(fecha)
 
     if cliente_id:
-        query += " AND p.cliente_id = %s"
-        params.append(cliente_id)
+        filter_sql += " AND p.cliente_id = %s"
+        filter_params.append(cliente_id)
         
     if estado:
-        query += " AND p.estado = %s"
-        params.append(estado)
+        filter_sql += " AND p.estado = %s"
+        filter_params.append(estado)
+
+    # Ejecutar conteo total
+    db.execute(count_query + filter_sql, tuple(params + filter_params))
+    total_count = db.fetchone()['total']
         
+    # Aplicar orden y paginación al query de datos
+    query += filter_sql
     query += " ORDER BY p.fecha DESC"
     
-    db.execute(query, tuple(params))
+    if limit and offset:
+        query += " LIMIT %s OFFSET %s"
+        filter_params.extend([int(limit), int(offset)])
+    
+    db.execute(query, tuple(params + filter_params))
     rows = db.fetchall()
     
     ahora = datetime.datetime.now()
-    resultado = []
+    pedidos_lista = []
     for r in rows:
         d = dict(r)
         fecha_ref = d.get('fecha_estado') or d.get('fecha')
@@ -156,9 +223,12 @@ def get_pedidos(current_user, negocio_id):
         else:
             d['dias_en_estado'] = 0
             
-        resultado.append(d)
+        pedidos_lista.append(d)
         
-    return jsonify(resultado)
+    return jsonify({
+        'pedidos': pedidos_lista,
+        'total': total_count
+    })
 
 @bp.route('/pedidos/<int:id>', methods=['GET'])
 @token_required
@@ -211,20 +281,93 @@ def update_pedido_content(current_user, id):
     
     try:
         # 1. Verificar estado actual y obtener Hoja de Ruta vinculada
-        db.execute("SELECT estado, negocio_id, hoja_ruta_id FROM pedidos WHERE id = %s", (id,))
+        db.execute("SELECT estado, negocio_id, hoja_ruta_id, observaciones, total FROM pedidos WHERE id = %s", (id,))
         pedido = db.fetchone()
         if not pedido: return jsonify({'error': 'Pedido no encontrado'}), 404
         
-        # ✨ Solo permitir editar si está PENDIENTE
-        if pedido['estado'] != 'pendiente':
-             return jsonify({'error': 'Solo se pueden editar pedidos en estado Pendiente'}), 409
+        # ✨ Solo permitir editar si NO está ENTREGADO ni ANULADO
+        if pedido['estado'] in ['entregado', 'anulado']:
+             return jsonify({'error': f'No se pueden editar pedidos en estado {pedido["estado"].upper()}'}), 409
 
-        # ✨ VALIDACIÓN DE REGLA DE NEGOCIO: La Hoja de Ruta debe estar en BORRADOR
+        # ✨ VALIDACIÓN DE REGLA DE NEGOCIO: La Hoja de Ruta debe estar en BORRADOR o ACTIVA
         if pedido['hoja_ruta_id']:
             db.execute("SELECT estado FROM hoja_ruta WHERE id = %s", (pedido['hoja_ruta_id'],))
             hr = db.fetchone()
             if hr and hr['estado'] not in ['borrador', 'activa']:
                 return jsonify({'error': f'No se puede editar pedidos de una Hoja de Ruta {hr["estado"].upper()}.'}), 409
+
+        # 1.5. GUARDAR BITÁCORA (Snapshot del estado actual antes de editar)
+        db.execute("""
+            SELECT pd.*, pr.nombre as producto_nombre 
+            FROM pedidos_detalle pd 
+            JOIN productos pr ON pd.producto_id = pr.id 
+            WHERE pd.pedido_id = %s
+        """, (id,))
+        detalles_anteriores = db.fetchall()
+        
+        import json, decimal
+        datos_anteriores = {
+            'observaciones': pedido['observaciones'],
+            'total': float(pedido['total']) if pedido['total'] else 0,
+            'detalles': []
+        }
+        
+        for row in detalles_anteriores:
+            d = dict(row)
+            for k, v in d.items():
+                if isinstance(v, decimal.Decimal):
+                    d[k] = float(v)
+            datos_anteriores['detalles'].append(d)
+
+        db.execute("""
+            INSERT INTO pedidos_historial (pedido_id, negocio_id, usuario_id, datos_anteriores, motivo)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (id, pedido['negocio_id'], current_user['id'], json.dumps(datos_anteriores), data.get('motivo_edicion', 'Edición manual')))
+
+        # ✨ NUEVA REGLA: Bloquear si no hay stock (Captura/Edición)
+        db.execute("SELECT valor FROM configuraciones WHERE negocio_id = %s AND clave = 'bloquear_pedido_sin_stock'", (pedido['negocio_id'],))
+        config_bloqueo = db.fetchone()
+        if config_bloqueo and config_bloqueo['valor'] == 'Si':
+            detalles_nuevos = data.get('detalles', [])
+            faltantes = []
+            for item in detalles_nuevos:
+                # ✨ NUEVO CÁLCULO: Disponible = Físico - Compromisos (Excepto este pedido que estamos editando)
+                query_stock = """
+                    SELECT 
+                        pr.stock, 
+                        pr.nombre,
+                        COALESCE((
+                            SELECT SUM(pd_inner.cantidad)
+                            FROM pedidos p_inner
+                            JOIN pedidos_detalle pd_inner ON p_inner.id = pd_inner.pedido_id
+                            LEFT JOIN hoja_ruta hr ON p_inner.hoja_ruta_id = hr.id
+                            WHERE pd_inner.producto_id = pr.id
+                              AND p_inner.estado IN ('pendiente', 'preparado')
+                              AND (hr.id IS NULL OR hr.carga_confirmada IS FALSE)
+                              AND p_inner.negocio_id = %s
+                              AND p_inner.id != %s
+                        ), 0) as comprometido
+                    FROM productos pr
+                    WHERE pr.id = %s
+                """
+                db.execute(query_stock, (pedido['negocio_id'], id, item['producto_id']))
+                prod = db.fetchone()
+                
+                if not prod: continue
+                
+                stock_fisico = float(prod['stock'])
+                comprometido = float(prod['comprometido'] or 0)
+                disponible = stock_fisico - comprometido
+                solicitado = float(item['cantidad'])
+                
+                if solicitado > disponible:
+                     faltantes.append(f"{prod['nombre']} (Solicitado: {solicitado}, Disponible Real: {disponible})")
+            
+            if faltantes:
+                return jsonify({
+                    'error': 'Stock insuficiente (Considerando otros pedidos pendientes)',
+                    'detalles': faltantes
+                }), 409
 
         # 2. Actualizar Cabecera (Observaciones y Total)
         total_nuevo = data.get('total', 0)
@@ -316,8 +459,8 @@ def update_pedido_estado(current_user, id):
             db.execute("SELECT producto_id, cantidad FROM pedidos_detalle WHERE pedido_id = %s", (id,))
             detalles = db.fetchall()
             
-            # ✨ Validar configuración de Stock Negativo
-            db.execute("SELECT valor FROM configuraciones WHERE negocio_id = %s AND clave = 'vender_stock_negativo'", (negocio_id,))
+            # ✨ Validar configuración de Stock Negativo específica para PEDIDOS
+            db.execute("SELECT valor FROM configuraciones WHERE negocio_id = %s AND clave = 'pedidos_stock_negativo'", (negocio_id,))
             config_row = db.fetchone()
             permitir_negativo = config_row and config_row['valor'] == 'Si'
 
@@ -332,60 +475,66 @@ def update_pedido_estado(current_user, id):
             # ✨ NOTA: Ya no descontamos stock aquí. 
             # El descuento físico ocurre al "Confirmar Carga" en el camión.
 
-        # Caso B: Restaurar Stock (Si se anula o vuelve a pendiente desde ENTREGADO)
-        # OJO: Si vuelve desde PREPARADO, ya no hace falta restaurar porque no descontamos.
-        elif nuevo_estado in ['anulado', 'pendiente'] and estado_anterior == 'entregado':
-            db.execute("SELECT producto_id, cantidad FROM pedidos_detalle WHERE pedido_id = %s", (id,))
-            detalles = db.fetchall()
-            for item in detalles:
-                db.execute("UPDATE productos SET stock = stock + %s WHERE id = %s", (item['cantidad'], item['producto_id']))
+        # Caso B: Reversión de Stock (Si se anula o vuelve a pendiente)
+        if nuevo_estado in ['anulado', 'pendiente'] and estado_anterior != nuevo_estado:
+            # Caso 1: Si vuelve desde ENTREGADO, restauramos stock al depósito (se quitó del camión al entregar)
+            if estado_anterior == 'entregado':
+                db.execute("SELECT producto_id, cantidad FROM pedidos_detalle WHERE pedido_id = %s", (id,))
+                detalles = db.fetchall()
+                for item in detalles:
+                    db.execute("UPDATE productos SET stock = stock + %s WHERE id = %s", (item['cantidad'], item['producto_id']))
+            
+            # Caso 2: Si vuelve desde PREPARADO/EN_CAMINO y ya estaba cargado en un camión (carga_confirmada),
+            # debemos devolver el stock al depósito central y quitarlo del stock del camión.
+            elif estado_anterior in ['preparado', 'en_camino']:
+                db.execute("""
+                    SELECT hr.vehiculo_id, hr.carga_confirmada 
+                    FROM pedidos p 
+                    JOIN hoja_ruta hr ON p.hoja_ruta_id = hr.id 
+                    WHERE p.id = %s
+                """, (id,))
+                hr_data = db.fetchone()
+                if hr_data and hr_data['carga_confirmada'] and hr_data['vehiculo_id']:
+                    db.execute("SELECT producto_id, cantidad FROM pedidos_detalle WHERE pedido_id = %s", (id,))
+                    items_cargados = db.fetchall()
+                    for item in items_cargados:
+                        # Devolver al depósito
+                        db.execute("UPDATE productos SET stock = stock + %s WHERE id = %s", (item['cantidad'], item['producto_id']))
+                        # Restar del camión
+                        db.execute("UPDATE vehiculos_stock SET cantidad = cantidad - %s WHERE vehiculo_id = %s AND producto_id = %s", 
+                                   (item['cantidad'], hr_data['vehiculo_id'], item['producto_id']))
 
         # 3. Lógica de Venta / Cuenta Corriente (Caso C: ENTREGADO)
         if nuevo_estado == 'entregado' and estado_anterior != 'entregado':
-            # A. Validar Caja Abierta
-            db.execute("SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL", (negocio_id,))
-            sesion = db.fetchone()
-            if not sesion:
-                return jsonify({'error': 'La caja está cerrada. Debe abrir la caja para poder entregar pedidos y registrar la deuda.'}), 409
+            # A. Obtener estado de la Hoja de Ruta
+            db.execute("""
+                SELECT hr.id, hr.estado, hr.vehiculo_id 
+                FROM pedidos p 
+                LEFT JOIN hoja_ruta hr ON p.hoja_ruta_id = hr.id 
+                WHERE p.id = %s
+            """, (id,))
+            hr_info = db.fetchone()
             
-            # B. Obtener datos completos del pedido
-            db.execute("SELECT cliente_id, total, vendedor_id FROM pedidos WHERE id = %s", (id,))
-            pedido_data = db.fetchone()
-            
-            # C. Crear la Venta (Metodo: Cuenta Corriente)
-            db.execute(
-                """
-                INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, estado, vendedor_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
-                """,
-                (negocio_id, pedido_data['cliente_id'], current_user['id'], pedido_data['total'], 'Cuenta Corriente', 
-                 datetime.datetime.now(), sesion['id'], 'Completado', pedido_data['vendedor_id'])
-            )
-            venta_id = db.fetchone()['id']
-            
-            # D. Copiar Detalles a ventas_detalle
-            db.execute("SELECT producto_id, cantidad, precio_unitario, subtotal, bonificacion FROM pedidos_detalle WHERE pedido_id = %s", (id,))
-            detalles = db.fetchall()
-            for item in detalles:
-                db.execute(
-                    """
-                    INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal, bonificacion)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    """,
-                    (venta_id, item['producto_id'], item['cantidad'], item['precio_unitario'], item['subtotal'], item['bonificacion'])
-                )
-            
-            # E. Generar Movimiento en Cuenta Corriente (Deuda)
-            db.execute(
-                """
-                INSERT INTO clientes_cuenta_corriente (cliente_id, concepto, debe, haber, venta_id, fecha)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                """,
-                (pedido_data['cliente_id'], f"Venta Automática - Pedido #{id}", pedido_data['total'], 0, venta_id, datetime.datetime.now())
-            )
-            
-            # F. Vincular el pedido con la venta
-            db.execute("UPDATE pedidos SET venta_id = %s WHERE id = %s", (venta_id, id))
+            # --- VALIDACIÓN DE REGLA DE NEGOCIO ---
+            # Si la hoja está ACTIVA, no permitimos la entrega manual administrativa. 
+            # Deben usar la App del Chofer (Flujo Normal).
+            if hr_info and hr_info['estado'] == 'activa':
+                return jsonify({
+                    'error': 'El pedido pertenece a una Hoja de Ruta ACTIVA. Debe ser entregado desde la App del Chofer siguiendo el flujo normal.'
+                }), 400
+
+            # ✨ REGLA CRÍTICA: La entrega manual desde el panel administrativo solo se permite para
+            # pedidos "huérfanos" (HR Finalizada). En este caso NO tocamos nada de dinero ni stock.
+            if hr_info and hr_info['estado'] == 'finalizada':
+                pass # Solo saltamos el resto de la lógica de negocio y permitimos solo el cambio de estado (final de función)
+            else:
+                # Si llegamos aquí sin HR o con HR en borrador, por seguridad bloqueamos.
+                # El usuario indicó que solo aplica para HRs Finalizadas.
+                return jsonify({
+                    'error': 'La entrega administrativa solo está permitida para pedidos de Hojas de Ruta ya FINALIZADAS (Limpieza de pedidos huérfanos).'
+                }), 400
+
+        # 4. Lógica de Reversión (Si sale de entregado)
 
         # 4. Lógica de Reversión (Si sale de entregado)
         if estado_anterior == 'entregado' and nuevo_estado != 'entregado':
@@ -410,3 +559,27 @@ def update_pedido_estado(current_user, id):
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/pedidos/<int:id>/historial', methods=['GET'])
+@token_required
+def get_pedido_historial(current_user, id):
+    db = get_db()
+    db.execute("""
+        SELECT h.id, h.pedido_id, h.negocio_id, h.usuario_id, h.fecha, h.datos_anteriores, h.motivo, u.nombre as usuario_nombre
+        FROM pedidos_historial h
+        JOIN usuarios u ON h.usuario_id = u.id
+        WHERE h.pedido_id = %s
+        ORDER BY h.fecha DESC
+    """, (id,))
+    historial = db.fetchall()
+    
+    # Formatear para JSON
+    resultado = []
+    for h in historial:
+        item = dict(h)
+        if item.get('fecha'):
+            item['fecha'] = item['fecha'].isoformat()
+        resultado.append(item)
+        
+    return jsonify(resultado)

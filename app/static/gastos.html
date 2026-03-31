@@ -1,95 +1,231 @@
-<!-- Para Excel (SheetJS) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<!-- Para PDF (jsPDF) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<!-- Para tablas en PDF (jsPDF-AutoTable) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-
 <div class="seccion-contenido-dinamico">
-    <div class="page-header">
-        <h2>💸 Registro de Gastos Operativos</h2>
+    <div class="page-header d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">💸 Gestión de Gastos Operativos</h2>
+            <p class="text-muted small mb-0">Control de egresos, caja y estadísticas de consumo.</p>
+        </div>
+        <button class="btn btn-primary shadow-sm px-4" onclick="abrirModalGasto()">
+            <i class="fas fa-plus-circle me-2"></i> Nuevo Gasto
+        </button>
     </div>
 
-    <div class="card mb-4">
-        <h3 id="form-gasto-titulo">Registrar Nuevo Gasto</h3>
-        <form id="form-gasto">
-            <input type="hidden" id="gasto-id">
-            
-            <div class="form-grid-3-col">
-                <div class="form-group">
-                    <label for="gasto-fecha">Fecha:</label>
-                    <input type="datetime-local" id="gasto-fecha" class="form-control" required>
+    <!-- Navegación por Pestañas -->
+    <ul class="nav nav-pills mb-4" id="pills-tab-gastos" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold text-uppercase" id="tab-historial-gastos" data-bs-toggle="pill"
+                data-bs-target="#panel-historial" type="button" role="tab">
+                <i class="fas fa-history me-2"></i> Historial
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold text-uppercase" id="tab-analisis-gastos" data-bs-toggle="pill"
+                data-bs-target="#panel-analisis" type="button" role="tab" onclick="cargarEstadisticasGastos()">
+                <i class="fas fa-chart-pie me-2"></i> Análisis
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="pills-tabContent-gastos">
+
+        <!-- PANEL: HISTORIAL -->
+        <div class="tab-pane fade show active" id="panel-historial" role="tabpanel">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-3">
+                            <h5 class="mb-0 fw-bold text-dark">Últimos Movimientos</h5>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="date" id="filtro-gasto-desde" class="form-control form-control-sm"
+                                title="Desde">
+                        </div>
+                        <div class="col-md-2">
+                            <input type="date" id="filtro-gasto-hasta" class="form-control form-control-sm"
+                                title="Hasta">
+                        </div>
+                        <div class="col-md-3 d-flex gap-1">
+                            <button class="btn btn-sm btn-primary" onclick="cargarGastos(true)">
+                                <i class="fas fa-search"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="limpiarFiltrosGastos()"
+                                title="Limpiar">
+                                <i class="fas fa-undo"></i>
+                            </button>
+                            <div class="ms-auto d-flex gap-1">
+                                <button id="btn-exportar-gastos-excel" class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-file-excel"></i>
+                                </button>
+                                <button id="btn-exportar-gastos-pdf" class="btn btn-sm btn-outline-danger">
+                                    <i class="fas fa-file-pdf"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-
-                <div class="form-group">
-                    <label for="gasto-categoria">Categoría:</label>
-                    <select id="gasto-categoria" class="form-control" required>
-                        <option value="">Cargando categorías...</option>
-                    </select>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" id="tabla-gastos">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-3">Fecha</th>
+                                    <th>Categoría</th>
+                                    <th>Descripción</th>
+                                    <th>Monto</th>
+                                    <th>Pago</th>
+                                    <th>Estado</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-
-                <div class="form-group">
-                    <label for="gasto-monto">Monto ($):</label>
-                    <input type="number" id="gasto-monto" class="form-control" step="0.01" required>
+                <!-- Paginación Inteligente -->
+                <div class="card-footer bg-white py-3">
+                    <div id="paginacion-gastos" class="d-flex justify-content-between align-items-center"
+                        style="display:none !important;">
+                        <button class="btn btn-sm btn-outline-secondary px-3" onclick="cambiarPaginaGastos(-1)"
+                            id="btn-prev-gastos">
+                            <i class="fas fa-chevron-left me-1"></i> Anterior
+                        </button>
+                        <span id="label-pagina-gastos" class="small fw-bold text-muted text-uppercase"
+                            style="letter-spacing: 1px;">Página 1</span>
+                        <button class="btn btn-sm btn-outline-secondary px-3" onclick="cambiarPaginaGastos(1)"
+                            id="btn-next-gastos">
+                            Siguiente <i class="fas fa-chevron-right ms-1"></i>
+                        </button>
+                    </div>
                 </div>
-
-                <div class="form-group grid-col-span-2">
-                    <label for="gasto-descripcion">Descripción (Opcional):</label>
-                    <input type="text" id="gasto-descripcion" class="form-control">
-                </div>
-
-                <div class="form-group">
-                    <label for="gasto-metodo-pago">Método de Pago:</label>
-                    <select id="gasto-metodo-pago" class="form-control">
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia">Transferencia</option>
-                        <option value="Tarjeta">Tarjeta</option>
-                        <option value="Otro">Otro</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="gasto-estado">Estado:</label>
-                    <select id="gasto-estado" class="form-control">
-                        <option value="Pagado">Pagado</option>
-                        <option value="Pendiente">Pendiente</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Guardar Gasto</button>
-                <button type="button" id="btn-cancelar-edicion-gasto" class="btn btn-secondary" style="display: none;">Cancelar</button>
-            </div>
-        </form>
-    </div>
-
-    <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin: 0;">Últimos Gastos Registrados</h3>
-            <div class="form-actions" style="margin: 0;">
-                <button id="btn-exportar-gastos-excel" class="btn btn-success"><i class="fas fa-file-excel"></i> Excel</button>
-                <button id="btn-exportar-gastos-pdf" class="btn btn-danger"><i class="fas fa-file-pdf"></i> PDF</button>
             </div>
         </div>
-        
-        <div class="tabla-contenedor">
-            <table class="table" id="tabla-gastos">
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Categoría</th>
-                        <th>Descripción</th>
-                        <th>Monto</th>
-                        <th>Método Pago</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Se llena con JS -->
-                </tbody>
-            </table>
+
+        <!-- PANEL: ANÁLISIS -->
+        <div class="tab-pane fade" id="panel-analisis" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-body text-center py-4">
+                            <div class="rounded-circle bg-light d-inline-flex align-items-center justify-content-center mb-3"
+                                style="width: 60px; height: 60px;">
+                                <i class="fas fa-wallet fa-2x text-primary"></i>
+                            </div>
+                            <h6 class="text-muted text-uppercase small fw-bold">Total Mes Actual</h6>
+                            <h2 class="fw-bold mb-0" id="stat-gasto-mes-actual">$ 0.00</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-white py-3">
+                            <h6 class="mb-0 fw-bold"><i class="fas fa-chart-line me-2 text-info"></i> Evolución Mensual
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="chart-evolucion-gastos" style="max-height: 250px;"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-3">
+                            <h6 class="mb-0 fw-bold"><i class="fas fa-chart-pie me-2 text-warning"></i> Distribución por
+                                Categoría</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="chart-distribucion-gastos" style="max-height: 300px;"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-3">
+                            <h6 class="mb-0 fw-bold"><i class="fas fa-list-ul me-2 text-success"></i> Ranking de Egresos
+                            </h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <ul class="list-group list-group-flush" id="lista-ranking-gastos">
+                                <!-- Dinámico -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PREMIUM: REGISTRO DE GASTO -->
+<div class="premium-modal-overlay" id="modal-gasto" style="display: none;">
+    <div class="premium-modal-content" style="max-width: 600px;">
+        <div class="premium-modal-header">
+            <h5 class="mb-0" id="modal-gasto-titulo">
+                <i class="fas fa-file-invoice-dollarto me-2"></i> Registrar Gasto
+            </h5>
+            <button class="premium-modal-close" onclick="cerrarModalGasto()">&times;</button>
+        </div>
+        <div class="premium-modal-body">
+            <form id="form-gasto">
+                <input type="hidden" id="gasto-id">
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Fecha del Gasto</label>
+                        <input type="datetime-local" id="gasto-fecha" class="form-control" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Categoría</label>
+                        <select id="gasto-categoria" class="form-select" required>
+                            <option value="">Cargando...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Monto ($)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light fw-bold">$</span>
+                            <input type="number" id="gasto-monto" class="form-control fw-bold" step="0.01"
+                                placeholder="0.00" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Método de Pago</label>
+                        <select id="gasto-metodo-pago" class="form-select">
+                            <option value="Efectivo">💵 Efectivo</option>
+                            <option value="Transferencia">🏦 Transferencia</option>
+                            <option value="Tarjeta">💳 Tarjeta / QR</option>
+                            <option value="Otro">❓ Otro</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Descripción / Concepto</label>
+                        <textarea id="gasto-descripcion" class="form-control" rows="2"
+                            placeholder="Ej: Compra de insumos de limpieza..."></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Estado</label>
+                        <div class="d-flex gap-3 mt-1">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="gasto-estado" id="estado-pagado"
+                                    value="Pagado" checked>
+                                <label class="form-check-label text-success fw-bold" for="estado-pagado">PAGADO</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="gasto-estado" id="estado-pendiente"
+                                    value="Pendiente">
+                                <label class="form-check-label text-warning fw-bold"
+                                    for="estado-pendiente">PENDIENTE</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="premium-modal-footer">
+            <button type="button" class="btn btn-outline-secondary px-4" onclick="cerrarModalGasto()">Cancelar</button>
+            <button type="submit" form="form-gasto" class="btn btn-primary px-5 shadow-sm">
+                <i class="fas fa-save me-2"></i> <span id="btn-save-gasto-text">Guardar Gasto</span>
+            </button>
         </div>
     </div>
 </div>

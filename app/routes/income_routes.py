@@ -133,6 +133,73 @@ def registrar_ingreso(current_user, negocio_id):
         return jsonify({'error': f'Ocurrió un error al registrar el ingreso: {str(e)}'}), 500
 
 
+@bp.route('/negocios/<int:negocio_id>/proveedores/<int:proveedor_id>/comprobante', methods=['POST'])
+@token_required
+def registrar_comprobante(current_user, negocio_id, proveedor_id):
+    """
+    Registra un comprobante (factura, remito, etc.) que NO modifica stock.
+    Solo afecta la cuenta corriente del proveedor.
+    """
+    data = request.get_json()
+    
+    factura_tipo = data.get('factura_tipo')
+    factura_prefijo = data.get('factura_prefijo')
+    factura_numero = data.get('factura_numero')
+    total_factura = data.get('total')
+    referencia = data.get('referencia')
+    fecha_str = data.get('fecha') # Opcional, si no viene usamos ahora
+
+    if not all([factura_tipo, factura_prefijo, factura_numero, total_factura]):
+        return jsonify({'error': 'Faltan datos obligatorios (tipo, prefijo, número, total)'}), 400
+    
+    try:
+        total_factura = float(total_factura)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'El total debe ser un número válido'}), 400
+
+    db = get_db()
+    try:
+        if fecha_str:
+            try:
+                # Intentamos parsear la fecha si viene del frontend (YYYY-MM-DD)
+                fecha = datetime.datetime.strptime(fecha_str, '%Y-%m-%d')
+            except ValueError:
+                fecha = datetime.datetime.now(datetime.timezone.utc)
+        else:
+            fecha = datetime.datetime.now(datetime.timezone.utc)
+
+        # 1. Crear el registro en ingresos_mercaderia con afecta_stock = False
+        db.execute(
+            """
+            INSERT INTO ingresos_mercaderia 
+                (negocio_id, proveedor_id, referencia, fecha, usuario_id, 
+                 factura_tipo, factura_prefijo, factura_numero, total_factura, afecta_stock, estado_pago) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            """,
+            (negocio_id, proveedor_id, referencia, fecha, current_user['id'],
+             factura_tipo, factura_prefijo, factura_numero, total_factura, False, 'pendiente')
+        )
+        ingreso_id = db.fetchone()['id']
+
+        # 2. Actualizar el saldo del proveedor
+        db.execute(
+            'UPDATE proveedores SET saldo_cta_cte = saldo_cta_cte + %s WHERE id = %s',
+            (total_factura, proveedor_id)
+        )
+
+        g.db_conn.commit()
+        return jsonify({
+            'message': 'Comprobante registrado correctamente en la cuenta corriente.', 
+            'id': ingreso_id
+        }), 201
+        
+    except Exception as e:
+        g.db_conn.rollback()
+        print(f"Error en registrar_comprobante: {e}")
+        traceback.print_exc()
+        return jsonify({'error': f'Ocurrió un error al registrar el comprobante: {str(e)}'}), 500
+
+
 @bp.route('/negocios/<int:negocio_id>/ingresos', methods=['GET'])
 @token_required
 def get_historial_ingresos(current_user, negocio_id):

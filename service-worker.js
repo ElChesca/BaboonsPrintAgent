@@ -4,12 +4,12 @@
 // ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
 // ✨ ¡DEBE SER IDÉNTICA a la de tu main.js!
 // ✨ ========================================================================
-const APP_VERSION = "1.4.5";
+const APP_VERSION = "1.6.0";
 // HISTORIAL DE VERSIONES:
-// 1.4.5: Force Refresh Historial Ajustes
+// 1.6.0: Fix fetchData global and SW auto-update
+// 1.5.9: Fix login_secure cache and centering
+// 1.5.8: Force Refresh Historial Ajustes
 // 1.4.4: Reportes Premium y Paginación Historial
-// 1.4.3: Fix de CORS Leaflet y Búsqueda Pedidos
-// 1.4.2: Agregando eventos.css
 // ==========================================================================
 
 const v = `?v=${APP_VERSION}`;
@@ -24,6 +24,7 @@ const urlsToCache = [
     // --- Archivos Principales (versionados) ---
     `/static/css/global.css${v}`,
     `/static/css/app_types.css${v}`,
+    `/static/css/login_secure.css${v}`,
     `/static/css/pedidos.css${v}`,
     `/static/js/main.js${v}`,
     `/static/js/api.js${v}`,
@@ -34,7 +35,7 @@ const urlsToCache = [
     `/static/js/modules/hoja_ruta.js${v}`,
 
     // --- Páginas HTML (versionadas) ---
-    `/static/login.html${v}`,
+    `/static/login_secure.html${v}`,
     `/static/home_retail.html${v}`,
     `/static/home_consorcio.html${v}`,
     `/static/home_distribuidora.html${v}`,
@@ -53,6 +54,10 @@ const urlsToCache = [
 // --- Evento 'install': Guarda el "App Shell" en la caché ---
 self.addEventListener('install', (event) => {
     console.log(`[Service Worker] Instalando v${APP_VERSION}...`);
+    
+    // Forza al SW a activarse inmediatamente
+    self.skipWaiting();
+
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
