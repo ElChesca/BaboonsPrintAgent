@@ -534,5 +534,6 @@ export const Bancos = (() => {
     return { init, cerrarModal, cargarKPIs };
 })();
 
-// Exportado para que main.js pueda llamar Bancos.init()
+// Exponer globalmente para que los onclick en el HTML funcionen
+window.Bancos = Bancos;
 
