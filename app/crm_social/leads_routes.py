@@ -6,7 +6,7 @@ bp = Blueprint('crm_leads', __name__)
 
 
 def ensure_crm_table():
-    """Crea la tabla crm_leads si no existe. Llamar al inicio de cada endpoint."""
+    """Crea la tabla crm_leads si no existe y agrega columnas faltantes."""
     db = get_db()
     db.execute("""
         CREATE TABLE IF NOT EXISTS crm_leads (
@@ -18,13 +18,18 @@ def ensure_crm_table():
             estado          VARCHAR(50) DEFAULT 'nuevo',
             origen          VARCHAR(100) DEFAULT 'manual',
             notas           TEXT,
-            fecha_baja      TIMESTAMPTZ,
-            ultima_actividad TIMESTAMPTZ DEFAULT NOW(),
-            cliente_erp_id  INT,
-            reserva_cliente_id INT,
-            fecha_nacimiento DATE
+            fecha_baja      TIMESTAMPTZ
         )
     """)
+    # Columnas que pueden faltar en tablas creadas con esquemas anteriores
+    alter_cols = [
+        "ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS ultima_actividad TIMESTAMPTZ DEFAULT NOW()",
+        "ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS cliente_erp_id INT",
+        "ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS reserva_cliente_id INT",
+        "ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS fecha_nacimiento DATE",
+    ]
+    for stmt in alter_cols:
+        db.execute(stmt)
     # Indice unico por email+negocio (ignora NULLs)
     db.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_crm_leads_email_negocio
