@@ -80,24 +80,25 @@ def descargar_plantilla_contactos(negocio_id):
 def importar_contactos_crm(negocio_id):
     """
     Importa contactos desde un .xlsx o .csv al CRM (tabla crm_leads).
-    Deduplicación por email + negocio_id.
+    Deduplicacion por email + negocio_id.
     """
     if 'file' not in request.files:
-        return jsonify({'error': 'No se envió ningún archivo'}), 400
+        return jsonify({'error': 'No se envio ningun archivo'}), 400
 
     file = request.files['file']
     if not file.filename:
-        return jsonify({'error': 'Nombre de archivo vacío'}), 400
+        return jsonify({'error': 'Nombre de archivo vacio'}), 400
 
     ext = file.filename.rsplit('.', 1)[-1].lower()
     if ext not in ('xlsx', 'xls', 'csv'):
-        return jsonify({'error': 'Formato no soportado. Usá .xlsx o .csv'}), 400
+        return jsonify({'error': 'Formato no soportado. Usa .xlsx o .csv'}), 400
 
     try:
         import pandas as pd
 
+        ensure_crm_table()
+
         if ext == 'csv':
-            # Intentar detectar el separador automáticamente
             content = file.read().decode('utf-8-sig', errors='replace')
             sep = ';' if content.count(';') > content.count(',') else ','
             df = pd.read_csv(io.StringIO(content), sep=sep, on_bad_lines='skip')
@@ -107,14 +108,16 @@ def importar_contactos_crm(negocio_id):
         # Normalizar nombres de columnas
         df.columns = df.columns.astype(str).str.strip().str.lower()
 
-        # Mapeo flexible de columnas (alias → clave interna)
+        current_app.logger.info(f"[CRM Import] Columnas detectadas: {list(df.columns)} - Filas: {len(df)}")
+
+        # Mapeo flexible de columnas (alias -> clave interna)
         COL_ALIASES = {
-            'nombre':           ['nombre', 'name', 'contacto', 'apellido y nombre', 'razón social'],
+            'nombre':           ['nombre', 'name', 'contacto', 'apellido y nombre', 'razon social', 'razon_social'],
             'email':            ['email', 'correo', 'e-mail', 'mail'],
-            'telefono':         ['telefono', 'teléfono', 'celular', 'phone', 'tel'],
+            'telefono':         ['telefono', 'telefono', 'celular', 'phone', 'tel'],
             'origen':           ['origen', 'fuente', 'source', 'canal'],
             'notas':            ['notas', 'nota', 'observaciones', 'obs', 'comentario'],
-            'fecha_nacimiento': ['fecha nacimiento', 'fecha_nacimiento', 'nacimiento', 'birthday', 'cumpleaños'],
+            'fecha_nacimiento': ['fecha nacimiento', 'fecha_nacimiento', 'nacimiento', 'birthday', 'cumpleanos'],
         }
 
         def find_col(aliases):
@@ -124,6 +127,7 @@ def importar_contactos_crm(negocio_id):
             return None
 
         col_map = {k: find_col(v) for k, v in COL_ALIASES.items()}
+        current_app.logger.info(f"[CRM Import] Mapeo de columnas: {col_map}")
 
         def get_val(row, key, default=''):
             col = col_map.get(key)
@@ -141,8 +145,6 @@ def importar_contactos_crm(negocio_id):
 
         for idx, row in df.iterrows():
             try:
-                db.execute("SAVEPOINT crm_row")
-
                 nombre = get_val(row, 'nombre') or f"Contacto Importado {idx + 1}"
                 email_raw = get_val(row, 'email')
                 email = email_raw.strip().lower() if email_raw else None
@@ -159,20 +161,18 @@ def importar_contactos_crm(negocio_id):
                         fecha_nac = None
 
                 if email:
-                    # Buscar lead existente por email
                     db.execute(
                         "SELECT id FROM crm_leads WHERE email = %s AND negocio_id = %s AND fecha_baja IS NULL",
                         (email, negocio_id)
                     )
                     existente = db.fetchone()
                     if existente:
-                        # Actualizar datos faltantes sin pisar lo que ya hay
                         db.execute("""
                             UPDATE crm_leads
                             SET telefono = COALESCE(telefono, %s),
                                 notas = COALESCE(notas, %s),
                                 fecha_nacimiento = COALESCE(fecha_nacimiento, %s),
-                                ultima_actividad = COALESCE(ultima_actividad, NOW())
+                                ultima_actividad = NOW()
                             WHERE id = %s
                         """, (telefono, notas, fecha_nac, existente['id']))
                         actualizados += 1
@@ -184,7 +184,6 @@ def importar_contactos_crm(negocio_id):
                         """, (negocio_id, nombre, email, telefono, origen, notas, fecha_nac))
                         creados += 1
                 else:
-                    # Sin email: crear igualmente pero sin deduplicar
                     db.execute("""
                         INSERT INTO crm_leads
                             (negocio_id, nombre, telefono, estado, origen, notas, fecha_nacimiento, ultima_actividad)
@@ -192,29 +191,29 @@ def importar_contactos_crm(negocio_id):
                     """, (negocio_id, nombre, telefono, origen, notas, fecha_nac))
                     creados += 1
 
-                db.execute("RELEASE SAVEPOINT crm_row")
-
             except Exception as row_err:
-                try:
-                    db.execute("ROLLBACK TO SAVEPOINT crm_row")
-                except Exception:
-                    pass
+                current_app.logger.warning(f"[CRM Import] Fila {idx+2} error: {row_err}")
                 errores.append({'fila': idx + 2, 'error': str(row_err)})
                 omitidos += 1
 
+        # Commit explicito (psycopg2 no tiene autocommit por defecto)
         g.db_conn.commit()
 
+        current_app.logger.info(f"[CRM Import] Resultado: creados={creados}, actualizados={actualizados}, omitidos={omitidos}")
+
         return jsonify({
-            'message': 'Importación completada',
+            'message': 'Importacion completada',
             'creados': creados,
             'actualizados': actualizados,
             'omitidos': omitidos,
-            'errores': errores[:10]  # Mostrar hasta 10 errores detallados
+            'errores': errores[:10]
         }), 200
 
     except Exception as e:
-        current_app.logger.error(f"[CRM Import] Error crítico: {e}")
+        current_app.logger.error(f"[CRM Import] Error critico: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
+
+
 
 
 

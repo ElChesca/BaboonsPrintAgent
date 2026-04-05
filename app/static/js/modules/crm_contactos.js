@@ -334,30 +334,72 @@ async function importarArchivo() {
     const f = document.getElementById('crm-file-input')?.files[0];
     if (!f) return;
     const btn = document.getElementById('crm-btn-upload');
+    const res = document.getElementById('crm-import-resultado');
+
+    // Mostrar barra de progreso
+    const progressWrap = document.getElementById('crm-import-progress');
+    const progressBar  = document.getElementById('crm-import-progress-bar');
+    if (progressWrap) progressWrap.style.display = 'block';
+    if (progressBar)  { progressBar.style.width = '0%'; progressBar.textContent = '0%'; }
+    if (res) res.className = 'd-none';
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Importando...'; }
+
     const fd = new FormData();
     fd.append('file', f);
     const token = localStorage.getItem('jwt_token');
-    try {
-        const r = await fetch(`${API}/negocios/${negocioId}/crm/contactos/importar`, {
-            method: 'POST', headers: token ? { 'Authorization': 'Bearer ' + token } : {}, body: fd
+
+    return new Promise(resolve => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${API}/negocios/${negocioId}/crm/contactos/importar`);
+        if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+
+        // Progreso de subida
+        xhr.upload.addEventListener('progress', e => {
+            if (!e.lengthComputable) return;
+            const pct = Math.round((e.loaded / e.total) * 85); // hasta 85% en upload
+            if (progressBar) { progressBar.style.width = pct + '%'; progressBar.textContent = pct + '%'; }
         });
-        const data = await r.json();
-        const res  = document.getElementById('crm-import-resultado');
-        if (res) {
-            res.className = `alert alert-${r.ok ? 'success' : 'danger'} py-2 px-3 small mb-3`;
-            res.innerHTML = r.ok
-                ? `<i class="fas fa-check-circle me-2"></i><strong>${data.creados}</strong> nuevos · <strong>${data.actualizados}</strong> actualizados · <strong>${data.omitidos}</strong> omitidos.`
-                : `<i class="fas fa-exclamation-circle me-2"></i>${data.error || 'Error al importar.'}`;
-        }
-        if (r.ok) loadLeads();
-    } catch(e) {
-        const res = document.getElementById('crm-import-resultado');
-        if (res) { res.className = 'alert alert-danger py-2 px-3 small mb-3'; res.textContent = 'Error de conexión: ' + e.message; }
-    } finally {
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-upload me-1"></i> Importar'; }
-    }
+
+        // Upload completo → "Procesando..."
+        xhr.upload.addEventListener('load', () => {
+            if (progressBar) { progressBar.style.width = '92%'; progressBar.textContent = 'Procesando...'; }
+        });
+
+        xhr.addEventListener('load', () => {
+            // Progreso completo
+            if (progressBar) { progressBar.style.width = '100%'; progressBar.textContent = '100%'; }
+            setTimeout(() => { if (progressWrap) progressWrap.style.display = 'none'; }, 1200);
+
+            try {
+                const data = JSON.parse(xhr.responseText);
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    let html = `<i class="fas fa-check-circle me-2"></i><strong>${data.creados}</strong> nuevos · <strong>${data.actualizados}</strong> actualizados · <strong>${data.omitidos}</strong> omitidos.`;
+                    if (data.errores && data.errores.length) {
+                        html += `<br><small class="text-muted">Errores: ${data.errores.map(e => `Fila ${e.fila}: ${e.error}`).join(' | ')}</small>`;
+                    }
+                    if (res) { res.className = 'alert alert-success py-2 px-3 small mb-3'; res.innerHTML = html; }
+                    loadLeads();
+                } else {
+                    if (res) { res.className = 'alert alert-danger py-2 px-3 small mb-3'; res.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>${data.error || 'Error al importar.'}`; }
+                }
+            } catch(e) {
+                if (res) { res.className = 'alert alert-danger py-2 px-3 small mb-3'; res.textContent = 'Respuesta invalida del servidor.'; }
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-upload me-1"></i> Importar'; }
+            resolve();
+        });
+
+        xhr.addEventListener('error', () => {
+            if (progressWrap) progressWrap.style.display = 'none';
+            if (res) { res.className = 'alert alert-danger py-2 px-3 small mb-3'; res.textContent = 'Error de conexion.'; }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-upload me-1"></i> Importar'; }
+            resolve();
+        });
+
+        xhr.send(fd);
+    });
 }
+
 
 function descargarPlantilla() {
     const token = localStorage.getItem('jwt_token');
