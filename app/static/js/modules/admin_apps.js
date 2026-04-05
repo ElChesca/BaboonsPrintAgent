@@ -35,9 +35,11 @@ export async function inicializarAdminApps() {
             if (toolsBar) toolsBar.style.setProperty('display', 'flex', 'important');
 
             if (isBusinessMode) {
-                document.getElementById('negocio-selector-container').style.display = 'flex';
+                const wrap = document.getElementById('negocio-selector-wrap');
+                if (wrap) wrap.style.display = 'flex';
             } else {
-                document.getElementById('negocio-selector-container').style.display = 'none';
+                const wrap = document.getElementById('negocio-selector-wrap');
+                if (wrap) wrap.style.display = 'none';
             }
             
             cambiarTabAdmin(currentType);
@@ -65,6 +67,9 @@ export async function inicializarAdminApps() {
 
     // Inicializar listeners de nuevos modales
     inicializarModalesSuscripcion();
+
+    // Exponer recarga de pagos para el modal de confirmación
+    window._adminRecargarPagos = cargarPagosSuscripciones;
 
     await cargarDatosIniciales();
 }
@@ -216,18 +221,26 @@ async function cargarPagosSuscripciones() {
 }
 
 window.registrarPagoSuscripcion = async (id, nombre, cuota) => {
-    document.getElementById('reg-pago-negocio-id').value = id;
-    document.getElementById('reg-pago-negocio-nombre').value = nombre;
-    document.getElementById('reg-pago-monto').value = cuota || 0;
+    const elId    = document.getElementById('reg-pago-negocio-id');
+    const elNom   = document.getElementById('reg-pago-negocio-nombre');
+    const elMonto = document.getElementById('reg-pago-monto');
+    const elDisp  = document.getElementById('reg-pago-negocio-nombre-display');
+    const elMes   = document.getElementById('reg-pago-mes');
+    const elAnio  = document.getElementById('reg-pago-anio');
+
+    if (!elId) { mostrarNotificacion('Modal de pago no encontrado en el DOM', 'error'); return; }
+
+    elId.value    = id;
+    if (elNom)  elNom.value   = nombre;
+    if (elDisp) elDisp.textContent = nombre;
+    if (elMonto) elMonto.value = cuota || 0;
 
     const hoy = new Date();
-    document.getElementById('reg-pago-mes').value = hoy.getMonth() + 1;
-    document.getElementById('reg-pago-anio').value = hoy.getFullYear();
+    if (elMes)  elMes.value  = hoy.getMonth() + 1;
+    if (elAnio) elAnio.value = hoy.getFullYear();
 
-    const modalEl = document.getElementById('modalRegistrarPago');
-    let modal = bootstrap.Modal.getInstance(modalEl);
-    if (!modal) modal = new bootstrap.Modal(modalEl);
-    modal.show();
+    const modal = document.getElementById('admin-modal-pago');
+    if (modal) modal.classList.add('open');
 }
 
 async function confirmarRegistroPago() {
@@ -259,31 +272,29 @@ window.verHistorialPagos = async (id, nombre) => {
     try {
         const pagos = await fetchData(`/api/admin/negocios/${id}/pagos-historial`);
 
-        document.getElementById('historial-negocio-nombre').textContent = `Historial de Pagos: ${nombre}`;
+        const titleEl = document.getElementById('historial-negocio-nombre');
+        if (titleEl) titleEl.textContent = `Historial: ${nombre}`;
         const tbody = document.getElementById('tbody-historial-pagos');
+        if (!tbody) return;
         tbody.innerHTML = '';
 
-        if (pagos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center">No hay pagos registrados</td></tr>';
+        if (!pagos || pagos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No hay pagos registrados</td></tr>';
         } else {
             pagos.forEach(p => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${p.mes}/${p.anio}</td>
-                    <td>$${p.monto}</td>
-                    <td>${new Date(p.fecha_registro).toLocaleString()}</td>
-                    <td>${p.registrador || 'Desconocido'}</td>
+                    <td class="fw-bold">$${p.monto}</td>
+                    <td>${new Date(p.fecha_registro).toLocaleDateString('es-AR')}</td>
+                    <td>${p.registrador || 'Sistema'}</td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        const modalEl = document.getElementById('modalHistorialPagos');
-        let modal = bootstrap.Modal.getInstance(modalEl);
-        if (!modal) {
-            modal = new bootstrap.Modal(modalEl);
-        }
-        modal.show();
+        const modal = document.getElementById('admin-modal-historial');
+        if (modal) modal.classList.add('open');
 
     } catch (error) {
         console.error(error);
@@ -388,16 +399,14 @@ function renderModules() {
         col.className = 'col';
 
         let html = `
-            <div class="glass-card h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-secondary pb-2">
-                        <h6 class="m-0 fw-bold text-accent">${cat.toUpperCase()}</h6>
-                        <div class="d-flex gap-2">
-                             <span class="text-info small cursor-pointer" onclick="toggleCategory('${cat}', true)">M</span>
-                             <span class="text-danger small cursor-pointer" onclick="toggleCategory('${cat}', false)">D</span>
-                        </div>
+            <div class="admin-cat-card h-100">
+                <div class="admin-cat-header">
+                    <span class="admin-cat-title">${cat}</span>
+                    <div class="admin-cat-actions">
+                        <button class="admin-micro-btn on" onclick="window.toggleCategory('${cat}', true)">M</button>
+                        <button class="admin-micro-btn off" onclick="window.toggleCategory('${cat}', false)">D</button>
                     </div>
-                    <div class="module-items-list">
+                </div>
         `;
 
         modulesToShow.forEach(mod => {
@@ -406,25 +415,24 @@ function renderModules() {
             const iconHtml = registryEntry ? `<img src="${registryEntry.icon}" style="width: 18px; margin-right: 8px; opacity: 0.8;">` : '';
 
             html += `
-                <div class="module-item d-flex align-items-center justify-content-between py-2 px-1 rounded hover-bg-dark">
-                    <div class="d-flex align-items-center overflow-hidden">
-                        ${iconHtml}
-                        <label class="form-check-label text-truncate" for="mod-${mod.code}" style="cursor: pointer; font-size: 13px;">
-                            ${mod.name}
-                            <div class="text-muted" style="font-size: 10px; opacity: 0.6;">${mod.code}</div>
-                        </label>
-                    </div>
-                    <div class="form-check form-switch m-0">
-                        <input class="form-check-input module-checkbox" type="checkbox" name="modules" 
+                <div class="module-row">
+                    <label class="module-row-label" for="mod-${mod.code}" style="cursor:pointer;">
+                        ${iconHtml ? `<img src="${registryEntry.icon}" class="module-icon">` : '<span style="width:22px;"></span>'}
+                        <div>
+                            <div class="module-name">${mod.name}</div>
+                            <div class="module-code">${mod.code}</div>
+                        </div>
+                    </label>
+                    <label class="admin-switch">
+                        <input class="module-checkbox" type="checkbox" name="modules"
                                data-category="${cat}" value="${mod.code}" id="mod-${mod.code}" ${isChecked}>
-                    </div>
+                        <span class="admin-slider"></span>
+                    </label>
                 </div>
             `;
         });
 
         html += `
-                    </div>
-                </div>
             </div>
         `;
 

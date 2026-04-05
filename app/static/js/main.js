@@ -1044,7 +1044,7 @@ async function inicializarModulo(page) {
                 break;
 
             default:
-                console.warn(`No se encontr├│ l├│gica de inicializaci├│n para: ${pageName}`);
+                console.warn(`No se encontró lógica de inicialización para: ${pageName}`);
         }
     } catch (error) {
         console.error(`Error m├│dulo ${pageName}:`, error);
