@@ -201,12 +201,13 @@ function aplicarBloqueoPorMora(mensajeLocal) {
 
 // Mapa de excepciones para rutas que no est├ín en la ra├¡z de static/
 const PATH_MAP = {
-    'login': 'static/login_secure.html', // Ô£¿ Redirigir login est├índar a la versi├│n segura
+    'login': 'static/login_secure.html', // ✅ Redirigir login estándar a la versión segura
     'rentals_dashboard': 'static/rentals/rentals_dashboard.html',
     'rentals_units': 'static/rentals/rentals_units.html',
     'rentals_contracts': 'static/rentals/rentals_contracts.html',
     'crm_social': 'static/crm_social/crm_social.html',
-    'admin_apps': 'static/admin_apps.html' // Ô£¿ Nueva ruta admin
+    'crm_contactos': 'static/crm_social/crm_contactos.html',
+    'admin_apps': 'static/admin_apps.html' // ✅ Nueva ruta admin
 };
 
 // --- NUEVA FUNCI├ôN UI ---
@@ -230,8 +231,8 @@ function loadPageCSS(pageName) {
         link.href = `static/css/${cssPath}.css?v=${APP_VERSION}`;
 
         // Caso especial para rentals si tuvieran CSS espec├¡fico en su carpeta (opcional)
-        // Caso especial: Evitar cargar CSS espec├¡ficos si no existen
-        if (pageName.startsWith('rentals_') || pageName === 'crm_social') {
+        // Caso especial: Evitar cargar CSS específicos si no existen
+        if (pageName.startsWith('rentals_') || pageName === 'crm_social' || pageName === 'crm_contactos') {
             return;
         }
 
@@ -938,6 +939,10 @@ async function inicializarModulo(page) {
             case 'crm_social':
                 const { inicializarCRM } = await import(`../crm_social/js/crm_main.js${v}`);
                 inicializarCRM();
+                break;
+            case 'crm_contactos':
+                // El HTML es self-contained (inicialización interna vía IIFE).
+                // No requiere módulo JS externo.
                 break;
             case 'home_retail':
             case 'home_resto':
