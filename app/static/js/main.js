@@ -941,8 +941,8 @@ async function inicializarModulo(page) {
                 inicializarCRM();
                 break;
             case 'crm_contactos':
-                // El HTML es self-contained (inicialización interna vía IIFE).
-                // No requiere módulo JS externo.
+                const { inicializarCRMContactos } = await import(`./modules/crm_contactos.js${v}`);
+                inicializarCRMContactos();
                 break;
             case 'home_retail':
             case 'home_resto':

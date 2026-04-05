@@ -1,4 +1,4 @@
-<style>
+﻿<style>
   :root {
     --crm-accent: #4f46e5;
     --crm-accent-soft: #ede9fe;
@@ -70,7 +70,7 @@
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
       <h4 class="fw-bold mb-0" style="color:#1e293b;">
-        <i class="fas fa-address-book me-2" style="color:var(--crm-accent);"></i>CRM — Contactos
+        <i class="fas fa-address-book me-2" style="color:var(--crm-accent);"></i>CRM â€” Contactos
       </h4>
       <p class="text-muted small mb-0 mt-1">Todos tus contactos, reservas y leads en un solo lugar</p>
     </div>
@@ -88,26 +88,26 @@
   <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
       <div class="crm-kpi">
-        <div class="kpi-num text-primary" id="kpi-total">—</div>
+        <div class="kpi-num text-primary" id="kpi-total">â€”</div>
         <div class="kpi-label">Total Contactos</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="crm-kpi">
-        <div class="kpi-num" style="color:var(--crm-green);" id="kpi-reservas">—</div>
+        <div class="kpi-num" style="color:var(--crm-green);" id="kpi-reservas">â€”</div>
         <div class="kpi-label">Desde Reservas</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="crm-kpi">
-        <div class="kpi-num text-warning" id="kpi-excel">—</div>
+        <div class="kpi-num text-warning" id="kpi-excel">â€”</div>
         <div class="kpi-label">Importados Excel</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="crm-kpi">
-        <div class="kpi-num" style="color:#8b5cf6;" id="kpi-nuevos">—</div>
-        <div class="kpi-label">Nuevos (últimos 30d)</div>
+        <div class="kpi-num" style="color:#8b5cf6;" id="kpi-nuevos">â€”</div>
+        <div class="kpi-label">Nuevos (Ãºltimos 30d)</div>
       </div>
     </div>
   </div>
@@ -115,7 +115,7 @@
   <!-- TOOLBAR -->
   <div class="crm-toolbar d-flex flex-wrap gap-3 align-items-center justify-content-between">
     <div class="d-flex gap-2 flex-wrap">
-      <input type="text" class="crm-search" id="crm-search" placeholder="🔍  Buscar nombre, email, teléfono...">
+      <input type="text" class="crm-search" id="crm-search" placeholder="ðŸ”  Buscar nombre, email, telÃ©fono...">
       <select class="form-select form-select-sm" id="crm-filter-estado" style="width:auto;border-radius:10px;border:1.5px solid #e2e8f0;font-size:.84rem;">
         <option value="">Todos los estados</option>
         <option value="nuevo">Nuevo</option>
@@ -124,7 +124,7 @@
         <option value="ganado">Ganado</option>
       </select>
       <select class="form-select form-select-sm" id="crm-filter-origen" style="width:auto;border-radius:10px;border:1.5px solid #e2e8f0;font-size:.84rem;">
-        <option value="">Todos los orígenes</option>
+        <option value="">Todos los orÃ­genes</option>
         <option value="reserva">Reserva</option>
         <option value="excel">Excel</option>
         <option value="manual">Manual</option>
@@ -145,10 +145,10 @@
           <tr>
             <th>Contacto</th>
             <th>Email</th>
-            <th>Teléfono</th>
+            <th>TelÃ©fono</th>
             <th>Origen</th>
             <th>Estado</th>
-            <th>Última Actividad</th>
+            <th>Ãšltima Actividad</th>
             <th></th>
           </tr>
         </thead>
@@ -178,12 +178,12 @@
       </div>
       <div class="modal-body px-4 pb-4">
         <p class="text-muted small mb-3">
-          Subí tu Excel o CSV. Si ya existe un contacto con el mismo email, se actualizan sus datos sin pisarlos.
+          SubÃ­ tu Excel o CSV. Si ya existe un contacto con el mismo email, se actualizan sus datos sin pisarlos.
         </p>
         <div class="crm-upload-zone mb-3" id="crm-dropzone">
           <div class="crm-upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
-          <p class="mb-1 fw-bold" style="color:#1e293b;">Arrastrá el archivo acá</p>
-          <p class="text-muted small mb-3">o hacé clic para seleccionarlo</p>
+          <p class="mb-1 fw-bold" style="color:#1e293b;">ArrastrÃ¡ el archivo acÃ¡</p>
+          <p class="text-muted small mb-3">o hacÃ© clic para seleccionarlo</p>
           <input type="file" id="crm-file-input" accept=".xlsx,.xls,.csv" style="display:none;">
           <button class="btn btn-sm btn-outline-primary" onclick="document.getElementById('crm-file-input').click()">
             <i class="fas fa-folder-open me-1"></i> Elegir archivo
@@ -226,7 +226,7 @@
             <input type="email" id="edit-email" class="form-control" style="border-radius:10px;">
           </div>
           <div class="col-6">
-            <label class="form-label small fw-bold">Teléfono</label>
+            <label class="form-label small fw-bold">TelÃ©fono</label>
             <input type="text" id="edit-telefono" class="form-control" style="border-radius:10px;">
           </div>
         </div>
@@ -271,8 +271,8 @@
       <div class="d-flex gap-3 align-items-center">
         <div class="crm-avatar" id="drawer-avatar">?</div>
         <div>
-          <h5 class="fw-bold mb-0" id="drawer-nombre">—</h5>
-          <span class="badge-estado mt-1 d-inline-block" id="drawer-estado-badge">—</span>
+          <h5 class="fw-bold mb-0" id="drawer-nombre">â€”</h5>
+          <span class="badge-estado mt-1 d-inline-block" id="drawer-estado-badge">â€”</span>
         </div>
       </div>
       <button class="btn btn-sm btn-light" id="crm-drawer-close" style="border-radius:8px;">
@@ -285,15 +285,15 @@
       <div class="d-flex flex-column gap-2">
         <div class="d-flex align-items-center gap-2 text-muted small">
           <i class="fas fa-envelope fa-fw" style="color:var(--crm-accent);"></i>
-          <span id="drawer-email">—</span>
+          <span id="drawer-email">â€”</span>
         </div>
         <div class="d-flex align-items-center gap-2 text-muted small">
           <i class="fas fa-phone fa-fw" style="color:var(--crm-green);"></i>
-          <span id="drawer-telefono">—</span>
+          <span id="drawer-telefono">â€”</span>
         </div>
         <div class="d-flex align-items-center gap-2 text-muted small">
           <i class="fas fa-tag fa-fw" style="color:var(--crm-amber);"></i>
-          <span id="drawer-origen">—</span>
+          <span id="drawer-origen">â€”</span>
         </div>
       </div>
     </div>
@@ -306,9 +306,9 @@
       </button>
     </div>
     <div class="mb-4">
-      <label class="form-label small fw-bold text-muted">AGREGAR NOTA RÁPIDA</label>
+      <label class="form-label small fw-bold text-muted">AGREGAR NOTA RÃPIDA</label>
       <div class="d-flex gap-2">
-        <input type="text" id="drawer-nota-input" class="form-control form-control-sm" placeholder="Escribí una nota..." style="border-radius:8px;">
+        <input type="text" id="drawer-nota-input" class="form-control form-control-sm" placeholder="EscribÃ­ una nota..." style="border-radius:8px;">
         <button class="btn btn-sm btn-primary" id="drawer-nota-btn">
           <i class="fas fa-paper-plane"></i>
         </button>
@@ -326,413 +326,3 @@
     </div>
   </div>
 </div>
-
-<script>
-(function() {
-  'use strict';
-  const API = '/api/crm';
-  let negocioId = null;
-  let allLeads = [];
-  let filteredLeads = [];
-  let currentLeadId = null;
-  let currentPage = 1;
-  const PAGE_SIZE = 25;
-
-  // ── Auth-aware fetch ─────────────────────────────────────
-  async function apiFetch(url, opts) {
-    opts = opts || {};
-    const token = localStorage.getItem('jwt_token');
-    const headers = Object.assign({}, opts.headers || {});
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-    const res = await fetch(url, Object.assign({}, opts, { headers }));
-    if (!res.ok) {
-      let msg = res.statusText;
-      try { const j = await res.json(); msg = j.error || j.message || msg; } catch(e) {}
-      throw new Error(msg);
-    }
-    return res.json();
-  }
-
-  // ── Modal helpers (sin Bootstrap.Modal) ─────────────────
-  function showModal(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.display = 'block';
-    el.style.background = 'rgba(0,0,0,.45)';
-  }
-  function hideModal(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.display = '';
-  }
-
-  // ── Esperar appState ─────────────────────────────────────
-  function waitForAppState(cb, tries) {
-    tries = (tries === undefined) ? 40 : tries;
-    const id = (window.appState && window.appState.negocioActivoId)
-               || localStorage.getItem('negocioActivoId');
-    if (id) { cb(id); return; }
-    if (tries <= 0) { showEmpty('No se pudo detectar el negocio activo.'); return; }
-    setTimeout(function() { waitForAppState(cb, tries - 1); }, 200);
-  }
-
-  // ── Init ─────────────────────────────────────────────────
-  function init() {
-    waitForAppState(function(id) {
-      negocioId = id;
-      bindEvents();
-      loadLeads();
-    });
-  }
-
-  function bindEvents() {
-    document.getElementById('crm-refresh-btn').addEventListener('click', loadLeads);
-    document.getElementById('crm-btn-nuevo').addEventListener('click', openNewModal);
-    document.getElementById('crm-btn-importar').addEventListener('click', function() { showModal('modal-importar-crm'); });
-
-    // Cerrar modales con data-crm-close
-    document.querySelectorAll('[data-crm-close]').forEach(function(btn) {
-      var targetId = btn.getAttribute('data-crm-close');
-      btn.addEventListener('click', function() { hideModal(targetId); });
-    });
-    // Cerrar al click fuera del dialog
-    ['modal-importar-crm','modal-nuevo-contacto'].forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el) el.addEventListener('click', function(e) { if (e.target === el) hideModal(id); });
-    });
-
-    // Filtros
-    var st;
-    document.getElementById('crm-search').addEventListener('input', function() {
-      clearTimeout(st); st = setTimeout(applyFilters, 280);
-    });
-    document.getElementById('crm-filter-estado').addEventListener('change', applyFilters);
-    document.getElementById('crm-filter-origen').addEventListener('change', applyFilters);
-
-    // Drawer
-    document.getElementById('crm-overlay').addEventListener('click', closeDrawer);
-    document.getElementById('crm-drawer-close').addEventListener('click', closeDrawer);
-    document.getElementById('drawer-nota-btn').addEventListener('click', addNota);
-    document.getElementById('drawer-btn-editar').addEventListener('click', function() { openEditModal(currentLeadId); });
-    document.getElementById('drawer-btn-eliminar').addEventListener('click', eliminarLead);
-
-    // Modal guardar
-    document.getElementById('edit-guardar-btn').addEventListener('click', guardarLead);
-
-    // Importador
-    var fileInput = document.getElementById('crm-file-input');
-    var dropzone = document.getElementById('crm-dropzone');
-    fileInput.addEventListener('change', onFileSelected);
-    dropzone.addEventListener('dragover', function(e) { e.preventDefault(); dropzone.classList.add('drag-over'); });
-    dropzone.addEventListener('dragleave', function() { dropzone.classList.remove('drag-over'); });
-    dropzone.addEventListener('drop', function(e) {
-      e.preventDefault(); dropzone.classList.remove('drag-over');
-      if (e.dataTransfer.files[0]) { fileInput.files = e.dataTransfer.files; onFileSelected(); }
-    });
-    document.getElementById('crm-btn-upload').addEventListener('click', importarArchivo);
-    document.getElementById('crm-btn-plantilla').addEventListener('click', descargarPlantilla);
-  }
-
-  // ── Carga leads ──────────────────────────────────────────
-  async function loadLeads() {
-    showLoading();
-    try {
-      var data = await apiFetch(API + '/leads?negocio_id=' + negocioId);
-      allLeads = Array.isArray(data) ? data : [];
-      updateKPIs();
-      applyFilters();
-    } catch(e) {
-      showEmpty('Error al cargar contactos: ' + e.message);
-    }
-  }
-
-  function updateKPIs() {
-    document.getElementById('kpi-total').textContent = allLeads.length;
-    document.getElementById('kpi-reservas').textContent = allLeads.filter(function(l){ return l.origen === 'reserva'; }).length;
-    document.getElementById('kpi-excel').textContent = allLeads.filter(function(l){ return (l.origen||'').startsWith('excel'); }).length;
-    var hace30 = new Date(); hace30.setDate(hace30.getDate() - 30);
-    document.getElementById('kpi-nuevos').textContent = allLeads.filter(function(l){
-      var f = l.ultima_actividad || l.fecha_creacion;
-      return f && new Date(f) >= hace30;
-    }).length;
-  }
-
-  function applyFilters() {
-    var q = (document.getElementById('crm-search').value || '').toLowerCase().trim();
-    var est = document.getElementById('crm-filter-estado').value;
-    var ori = document.getElementById('crm-filter-origen').value;
-    filteredLeads = allLeads.filter(function(l) {
-      var mq = !q || (l.nombre||'').toLowerCase().includes(q) || (l.email||'').toLowerCase().includes(q) || (l.telefono||'').includes(q);
-      var me = !est || l.estado === est;
-      var mo = !ori || (l.origen||'').toLowerCase().startsWith(ori);
-      return mq && me && mo;
-    });
-    currentPage = 1;
-    renderTable();
-  }
-
-  // ── Tabla ────────────────────────────────────────────────
-  function renderTable() {
-    var tbody = document.getElementById('crm-tbody');
-    var total = filteredLeads.length;
-    document.getElementById('crm-result-count').textContent = total + ' contacto' + (total !== 1 ? 's' : '');
-    if (!total) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted"><i class="fas fa-user-slash fa-2x mb-3 d-block opacity-30"></i>No se encontraron contactos</td></tr>';
-      renderPagination(0);
-      return;
-    }
-    var start = (currentPage - 1) * PAGE_SIZE;
-    var page = filteredLeads.slice(start, start + PAGE_SIZE);
-    tbody.innerHTML = page.map(function(l) {
-      var initials = (l.nombre || '?').split(' ').map(function(w){ return w[0]; }).slice(0,2).join('').toUpperCase();
-      var ts = l.ultima_actividad || l.fecha_creacion;
-      var act = ts ? new Date(ts).toLocaleDateString('es-AR', {day:'2-digit', month:'short'}) : '—';
-      return '<tr onclick="window.__crmOpenDrawer(' + l.id + ')">' +
-        '<td><div class="d-flex align-items-center gap-2">' +
-        '<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#818cf8);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;color:white;flex-shrink:0;">' + initials + '</div>' +
-        '<span class="fw-semibold" style="font-size:.88rem;">' + escHtml(l.nombre || '—') + '</span></div></td>' +
-        '<td class="text-muted" style="font-size:.83rem;">' + escHtml(l.email || '—') + '</td>' +
-        '<td class="text-muted" style="font-size:.83rem;">' + escHtml(l.telefono || '—') + '</td>' +
-        '<td><span class="badge-origen ' + origenClass(l.origen) + '">' + origenLabel(l.origen) + '</span></td>' +
-        '<td><span class="badge-estado ' + estadoClass(l.estado) + '">' + capitalize(l.estado || 'nuevo') + '</span></td>' +
-        '<td class="text-muted" style="font-size:.8rem;">' + act + '</td>' +
-        '<td><i class="fas fa-chevron-right text-muted opacity-50" style="font-size:.8rem;"></i></td></tr>';
-    }).join('');
-    renderPagination(total);
-  }
-
-  function renderPagination(total) {
-    var totalPages = Math.ceil(total / PAGE_SIZE);
-    var start = Math.min((currentPage-1)*PAGE_SIZE+1, total);
-    var end = Math.min(currentPage*PAGE_SIZE, total);
-    document.getElementById('crm-pag-info').textContent = total ? ('Mostrando ' + start + '–' + end + ' de ' + total) : '';
-    var container = document.getElementById('crm-pag-buttons');
-    if (totalPages <= 1) { container.innerHTML = ''; return; }
-    var html = '<button class="crm-pag-btn"' + (currentPage===1?' disabled':'') + ' onclick="window.__crmChangePage(' + (currentPage-1) + ')"><i class="fas fa-chevron-left"></i></button>';
-    for (var i=1; i<=totalPages; i++) {
-      if (totalPages<=7||i===1||i===totalPages||Math.abs(i-currentPage)<=1) {
-        html += '<button class="crm-pag-btn' + (i===currentPage?' active':'') + '" onclick="window.__crmChangePage(' + i + ')">' + i + '</button>';
-      } else if (Math.abs(i-currentPage)===2) { html += '<span class="text-muted px-1">…</span>'; }
-    }
-    html += '<button class="crm-pag-btn"' + (currentPage===totalPages?' disabled':'') + ' onclick="window.__crmChangePage(' + (currentPage+1) + ')"><i class="fas fa-chevron-right"></i></button>';
-    container.innerHTML = html;
-  }
-
-  window.__crmChangePage = function(p) { currentPage = p; renderTable(); };
-
-  // ── Drawer ───────────────────────────────────────────────
-  window.__crmOpenDrawer = async function(id) {
-    currentLeadId = id;
-    var lead = allLeads.find(function(l){ return l.id === id; });
-    if (!lead) return;
-    var initials = (lead.nombre||'?').split(' ').map(function(w){ return w[0]; }).slice(0,2).join('').toUpperCase();
-    document.getElementById('drawer-avatar').textContent = initials;
-    document.getElementById('drawer-nombre').textContent = lead.nombre || '—';
-    document.getElementById('drawer-email').textContent = lead.email || '—';
-    document.getElementById('drawer-telefono').textContent = lead.telefono || '—';
-    document.getElementById('drawer-origen').textContent = origenLabel(lead.origen);
-    document.getElementById('drawer-estado-badge').textContent = capitalize(lead.estado || 'nuevo');
-    document.getElementById('drawer-estado-badge').className = 'badge-estado mt-1 d-inline-block ' + estadoClass(lead.estado);
-    document.getElementById('crm-overlay').classList.add('open');
-    document.getElementById('crm-drawer').classList.add('open');
-    document.getElementById('drawer-nota-input').value = '';
-    loadTimeline(id);
-  };
-
-  async function loadTimeline(id) {
-    document.getElementById('drawer-timeline').innerHTML = '<div class="text-center py-3 text-muted"><i class="fas fa-spinner fa-spin"></i></div>';
-    try {
-      var items = await apiFetch(API + '/leads/' + id + '/historial');
-      if (!Array.isArray(items) || !items.length) {
-        document.getElementById('drawer-timeline').innerHTML = '<p class="text-muted small text-center py-3">Sin actividad registrada aún.</p>';
-        return;
-      }
-      document.getElementById('drawer-timeline').innerHTML = items.map(function(it) {
-        return '<div class="timeline-item"><div class="timeline-dot ' + (it.tipo_accion||'') + '"></div><div><div class="timeline-text">' + escHtml(it.descripcion||it.tipo_accion) + '</div><div class="timeline-date">' + (it.fecha||'') + '</div></div></div>';
-      }).join('');
-    } catch(e) {
-      document.getElementById('drawer-timeline').innerHTML = '<p class="text-muted small">No se pudo cargar el historial.</p>';
-    }
-  }
-
-  function closeDrawer() {
-    document.getElementById('crm-overlay').classList.remove('open');
-    document.getElementById('crm-drawer').classList.remove('open');
-    currentLeadId = null;
-  }
-
-  async function addNota() {
-    var nota = document.getElementById('drawer-nota-input').value.trim();
-    if (!nota || !currentLeadId) return;
-    try {
-      await apiFetch(API + '/leads/' + currentLeadId, {
-        method: 'PATCH',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ notas: nota })
-      });
-      document.getElementById('drawer-nota-input').value = '';
-      loadTimeline(currentLeadId);
-    } catch(e) { alert('Error al guardar la nota: ' + e.message); }
-  }
-
-  // ── Modales nuevo/editar ─────────────────────────────────
-  function openNewModal() {
-    document.getElementById('edit-lead-id').value = '';
-    document.getElementById('edit-nombre').value = '';
-    document.getElementById('edit-email').value = '';
-    document.getElementById('edit-telefono').value = '';
-    document.getElementById('edit-estado').value = 'nuevo';
-    document.getElementById('edit-origen').value = 'manual';
-    document.getElementById('edit-notas').value = '';
-    document.getElementById('modal-contacto-titulo').innerHTML = '<i class="fas fa-user-plus me-2" style="color:var(--crm-accent);"></i>Nuevo Contacto';
-    showModal('modal-nuevo-contacto');
-  }
-
-  function openEditModal(id) {
-    var lead = allLeads.find(function(l){ return l.id === id; });
-    if (!lead) return;
-    document.getElementById('edit-lead-id').value = lead.id;
-    document.getElementById('edit-nombre').value = lead.nombre || '';
-    document.getElementById('edit-email').value = lead.email || '';
-    document.getElementById('edit-telefono').value = lead.telefono || '';
-    document.getElementById('edit-estado').value = lead.estado || 'nuevo';
-    document.getElementById('edit-origen').value = lead.origen || 'manual';
-    document.getElementById('edit-notas').value = lead.notas || '';
-    document.getElementById('modal-contacto-titulo').innerHTML = '<i class="fas fa-edit me-2" style="color:var(--crm-accent);"></i>Editar Contacto';
-    showModal('modal-nuevo-contacto');
-  }
-
-  async function guardarLead() {
-    var id = document.getElementById('edit-lead-id').value;
-    var nombre = document.getElementById('edit-nombre').value.trim();
-    if (!nombre) { alert('El nombre es obligatorio'); return; }
-    var payload = {
-      negocio_id: parseInt(negocioId),
-      nombre: nombre,
-      email: document.getElementById('edit-email').value.trim(),
-      telefono: document.getElementById('edit-telefono').value.trim(),
-      estado: document.getElementById('edit-estado').value,
-      origen: document.getElementById('edit-origen').value,
-      notas: document.getElementById('edit-notas').value.trim()
-    };
-    try {
-      var method = id ? 'PUT' : 'POST';
-      var url = id ? (API + '/leads/' + id) : (API + '/leads');
-      await apiFetch(url, { method: method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      hideModal('modal-nuevo-contacto');
-      loadLeads();
-    } catch(e) { alert('Error al guardar: ' + e.message); }
-  }
-
-  async function eliminarLead() {
-    if (!currentLeadId) return;
-    var lead = allLeads.find(function(l){ return l.id === currentLeadId; });
-    if (!confirm('¿Dar de baja a ' + (lead && lead.nombre ? lead.nombre : 'este contacto') + '?')) return;
-    try {
-      await apiFetch(API + '/leads/' + currentLeadId, { method: 'DELETE' });
-      closeDrawer();
-      loadLeads();
-    } catch(e) { alert('Error al eliminar: ' + e.message); }
-  }
-
-  // ── Importador ───────────────────────────────────────────
-  function onFileSelected() {
-    var f = document.getElementById('crm-file-input').files[0];
-    var sel = document.getElementById('crm-file-selected');
-    var btn = document.getElementById('crm-btn-upload');
-    if (f) {
-      sel.className = 'alert alert-info py-2 px-3 small mb-3';
-      sel.innerHTML = '<i class="fas fa-file-excel me-2"></i><strong>' + f.name + '</strong> (' + (f.size/1024).toFixed(1) + ' KB)';
-      btn.disabled = false;
-    } else {
-      sel.className = 'alert d-none';
-      btn.disabled = true;
-    }
-    document.getElementById('crm-import-resultado').className = 'd-none';
-  }
-
-  async function importarArchivo() {
-    var f = document.getElementById('crm-file-input').files[0];
-    if (!f) return;
-    var btn = document.getElementById('crm-btn-upload');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Importando...';
-    var fd = new FormData();
-    fd.append('file', f);
-    var token = localStorage.getItem('jwt_token');
-    try {
-      var r = await fetch(API + '/negocios/' + negocioId + '/crm/contactos/importar', {
-        method: 'POST',
-        headers: token ? { 'Authorization': 'Bearer ' + token } : {},
-        body: fd
-      });
-      var data = await r.json();
-      var res = document.getElementById('crm-import-resultado');
-      if (r.ok) {
-        res.className = 'alert alert-success py-2 px-3 small mb-3';
-        res.innerHTML = '<i class="fas fa-check-circle me-2"></i><strong>' + data.creados + '</strong> nuevos · <strong>' + data.actualizados + '</strong> actualizados · <strong>' + data.omitidos + '</strong> omitidos.';
-        loadLeads();
-      } else {
-        res.className = 'alert alert-danger py-2 px-3 small mb-3';
-        res.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>' + (data.error || 'Error al importar.');
-      }
-    } catch(e) {
-      var res2 = document.getElementById('crm-import-resultado');
-      res2.className = 'alert alert-danger py-2 px-3 small mb-3';
-      res2.textContent = 'Error de conexión: ' + e.message;
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-upload me-1"></i> Importar';
-    }
-  }
-
-  function descargarPlantilla() {
-    var token = localStorage.getItem('jwt_token');
-    fetch(API + '/negocios/' + negocioId + '/crm/contactos/plantilla', {
-      headers: token ? { 'Authorization': 'Bearer ' + token } : {}
-    }).then(function(r){ return r.blob(); }).then(function(blob) {
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'plantilla_contactos_crm.xlsx';
-      a.click();
-    }).catch(function(e){ alert('Error al descargar: ' + e.message); });
-  }
-
-  // ── Helpers ──────────────────────────────────────────────
-  function origenClass(o) {
-    o = (o||'').toLowerCase();
-    if (o==='reserva') return 'bg-reserva';
-    if (o.startsWith('excel')) return 'bg-excel';
-    if (o==='erp') return 'bg-erp';
-    return 'bg-manual';
-  }
-  function origenLabel(o) {
-    o = (o||'').toLowerCase();
-    if (o==='reserva') return 'Reserva';
-    if (o==='excel_vita') return 'Excel Vita';
-    if (o.startsWith('excel')) return 'Excel';
-    if (o==='erp') return 'ERP';
-    if (o==='manual') return 'Manual';
-    return capitalize(o) || 'Desconocido';
-  }
-  function estadoClass(e) {
-    var map = {nuevo:'bg-nuevo',contactado:'bg-contactado',interesado:'bg-interesado',ganado:'bg-ganado'};
-    return map[e] || 'bg-nuevo';
-  }
-  function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
-  function escHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-  function showLoading() {
-    document.getElementById('crm-tbody').innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Cargando...</td></tr>';
-  }
-  function showEmpty(msg) {
-    document.getElementById('crm-tbody').innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted">' + msg + '</td></tr>';
-  }
-
-  // ── Run ──────────────────────────────────────────────────
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-})();
-</script>
