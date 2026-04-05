@@ -30,6 +30,17 @@ def ensure_crm_table():
     ]
     for stmt in alter_cols:
         db.execute(stmt)
+    # Tabla de historial de actividad
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS crm_actividades (
+            id          SERIAL PRIMARY KEY,
+            lead_id     INT NOT NULL REFERENCES crm_leads(id) ON DELETE CASCADE,
+            negocio_id  INT NOT NULL,
+            tipo_accion VARCHAR(50) DEFAULT 'nota',
+            descripcion TEXT,
+            fecha_hito  TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
     # Indice unico por email+negocio (ignora NULLs)
     db.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_crm_leads_email_negocio
@@ -289,8 +300,8 @@ def create_lead():
         return jsonify({'error': str(e)}), 500
 
 
-# Busca esta línea en app/crm_social/leads_routes.py
-@bp.route('/leads/<int:lead_id>', methods=['PUT', 'PATCH']) # <-- Agrega 'PATCH' aquí
+# Busca esta linea en app/crm_social/leads_routes.py
+@bp.route('/leads/<int:lead_id>', methods=['PUT'])
 def update_lead(lead_id):
     data = request.get_json()
     # Lista de campos que permitimos actualizar
@@ -352,50 +363,60 @@ def delete_lead(lead_id):
         return jsonify({'error': str(e)}), 500
 
 
-# Función auxiliar para registrar hitos
+# Funcion auxiliar para registrar hitos (sin commit propio - el llamador commitea)
 def registrar_actividad(lead_id, tipo, descripcion, negocio_id):
     db = get_db()
-    query = """
+    db.execute("""
         INSERT INTO crm_actividades (lead_id, tipo_accion, descripcion, negocio_id)
         VALUES (%s, %s, %s, %s)
-    """
-    db.execute(query, (lead_id, tipo, descripcion, negocio_id))
-    g.db_conn.commit()
+    """, (lead_id, tipo, descripcion, negocio_id))
 
 @bp.route('/leads/<int:lead_id>', methods=['PATCH'])
 def patch_lead(lead_id):
     data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Sin datos'}), 400
+
     db = get_db()
-    
-    # 1. Antes de actualizar, traemos el estado actual para comparar
-    db.execute("SELECT estado, notas, negocio_id FROM crm_leads WHERE id = %s", (lead_id,))
-    lead_actual = db.fetchone()
-    
-    # 2. Lógica de actualización (lo que ya tenías)
-    fields = ['estado', 'notas', 'nombre', 'telefono']
-    updates = []
-    values = []
-    for f in fields:
-        if f in data:
-            updates.append(f"{f} = %s")
-            values.append(data[f])
-    
-    if updates:
-        values.append(lead_id)
-        db.execute(f"UPDATE crm_leads SET {', '.join(updates)} WHERE id = %s", values)
-        
-        # 3. REGISTRO DE HISTORIAL (La magia de Kommo)
-        if 'estado' in data and data['estado'] != lead_actual['estado']:
-            registrar_actividad(lead_id, 'movimiento', 
-                               f"Cambiado de {lead_actual['estado']} a {data['estado']}", 
-                               lead_actual['negocio_id'])
-        
-        if 'notas' in data and data['notas'] != lead_actual['notas']:
-            registrar_actividad(lead_id, 'nota', "Nueva nota rápida agregada", lead_actual['negocio_id'])
-            
+    try:
+        ensure_crm_table()
+
+        # Traer estado actual para comparar y registrar actividad
+        db.execute("SELECT estado, notas, negocio_id FROM crm_leads WHERE id = %s", (lead_id,))
+        lead_actual = db.fetchone()
+        if not lead_actual:
+            return jsonify({'error': 'Lead no encontrado'}), 404
+
+        fields = ['estado', 'notas', 'nombre', 'telefono']
+        updates = []
+        values = []
+        for f in fields:
+            if f in data:
+                updates.append(f"{f} = %s")
+                values.append(data[f])
+
+        if updates:
+            updates.append("ultima_actividad = NOW()")
+            values.append(lead_id)
+            db.execute(f"UPDATE crm_leads SET {', '.join(updates)} WHERE id = %s", values)
+
+            # Registrar historial
+            if 'estado' in data and data['estado'] != lead_actual['estado']:
+                registrar_actividad(lead_id, 'movimiento',
+                                   f"Estado: {lead_actual['estado']} -> {data['estado']}",
+                                   lead_actual['negocio_id'])
+
+            if 'notas' in data:
+                texto_nota = str(data['notas']).strip()
+                if texto_nota:
+                    registrar_actividad(lead_id, 'nota', texto_nota, lead_actual['negocio_id'])
+
         g.db_conn.commit()
-    
-    return jsonify({'success': True}), 200
+        return jsonify({'success': True}), 200
+
+    except Exception as e:
+        current_app.logger.error(f"[CRM] patch_lead {lead_id} error: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 # Nueva ruta para traer el historial
 @bp.route('/leads/<int:lead_id>/historial', methods=['GET'])
