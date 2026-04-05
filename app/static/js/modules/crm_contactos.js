@@ -101,62 +101,78 @@ function bindEvents() {
 
     // Exponer apertura de drawer globalmente (para onclick en filas)
     window.__crmOpenDrawer = openDrawer;
-    window.__crmChangePage = p => { currentPage = p; renderTable(); };
+    window.__crmChangePage = p => { currentPage = p; loadLeads(); };
 }
 
 // ── Carga leads ──────────────────────────────────────────────────────────────
 async function loadLeads() {
     showLoading();
     try {
-        const data = await apiFetch(`${API}/leads?negocio_id=${negocioId}`);
-        allLeads = Array.isArray(data) ? data : [];
-        updateKPIs();
-        applyFilters();
+        const q = (val('crm-search') || '').trim();
+        const est = val('crm-filter-estado') || '';
+        const ori = val('crm-filter-origen') || '';
+        const p = currentPage || 1;
+        
+        let url = `${API}/leads?negocio_id=${negocioId}&page=${p}&limit=${PAGE_SIZE}&search=${encodeURIComponent(q)}&estado=${encodeURIComponent(est)}&origen=${encodeURIComponent(ori)}`;
+        
+        const payload = await apiFetch(url);
+        
+        // Handle new paginated format or fallback to flat array if cache hits old structure
+        if (payload && payload.data) {
+            allLeads = payload.data;
+            updateKPIs(payload.kpis);
+            renderTable(payload.total);
+        } else {
+            allLeads = Array.isArray(payload) ? payload : [];
+            updateKPIs();
+            renderTable(allLeads.length);
+        }
     } catch(e) {
         console.error('[CRM] loadLeads error:', e);
         showEmpty(`Error al cargar contactos: ${e.message}`);
     }
 }
 
-function updateKPIs() {
-    setText('kpi-total',    allLeads.length);
-    setText('kpi-reservas', allLeads.filter(l => l.origen === 'reserva').length);
-    setText('kpi-excel',    allLeads.filter(l => (l.origen || '').startsWith('excel')).length);
-    const hace30 = new Date(); hace30.setDate(hace30.getDate() - 30);
-    setText('kpi-nuevos',   allLeads.filter(l => {
-        const f = l.ultima_actividad || l.fecha_creacion;
-        return f && new Date(f) >= hace30;
-    }).length);
+function updateKPIs(kpis) {
+    if (kpis) {
+        setText('kpi-total', kpis.total || 0);
+        setText('kpi-reservas', kpis.reservas || 0);
+        setText('kpi-excel', kpis.excel || 0);
+        setText('kpi-nuevos', kpis.nuevos || 0);
+    } else {
+        // Fallback porsia (cache viejo)
+        setText('kpi-total', allLeads.length);
+        setText('kpi-reservas', allLeads.filter(l => l.origen === 'reserva').length);
+        setText('kpi-excel', allLeads.filter(l => (l.origen || '').startsWith('excel')).length);
+        const hace30 = new Date(); hace30.setDate(hace30.getDate() - 30);
+        setText('kpi-nuevos', allLeads.filter(l => {
+            const f = l.ultima_actividad || l.fecha_creacion;
+            return f && new Date(f) >= hace30;
+        }).length);
+    }
 }
 
 function applyFilters() {
-    const q   = (val('crm-search') || '').toLowerCase().trim();
-    const est = val('crm-filter-estado');
-    const ori = val('crm-filter-origen');
-    filteredLeads = allLeads.filter(l => {
-        const mq  = !q   || (l.nombre||'').toLowerCase().includes(q) || (l.email||'').toLowerCase().includes(q) || (l.telefono||'').includes(q);
-        const me  = !est || l.estado === est;
-        const mo  = !ori || (l.origen||'').toLowerCase().startsWith(ori);
-        return mq && me && mo;
-    });
+    // Al filtrar, siempre volvemos a la página 1
     currentPage = 1;
-    renderTable();
+    loadLeads();
 }
 
 // ── Tabla ────────────────────────────────────────────────────────────────────
-function renderTable() {
+function renderTable(totalBackend) {
     const tbody = document.getElementById('crm-tbody');
     if (!tbody) return;
-    const total = filteredLeads.length;
+    const total = totalBackend || 0;
     setText('crm-result-count', total + ' contacto' + (total !== 1 ? 's' : ''));
-    if (!total) {
+    if (!allLeads || !allLeads.length) {
         tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted"><i class="fas fa-user-slash fa-2x mb-3 d-block opacity-30"></i>No se encontraron contactos</td></tr>';
         renderPagination(0);
         return;
     }
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const page  = filteredLeads.slice(start, start + PAGE_SIZE);
-    tbody.innerHTML = page.map(l => {
+    
+    // El backend ya lo manda paginado, no necesitamos hacer slice() si sabemos que viene de paginacion.
+    // Para simplificar asuminos que allLeads es exacto lo que hay que renderizar.
+    tbody.innerHTML = allLeads.map(l => {
         const initials = (l.nombre || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
         const ts  = l.ultima_actividad || l.fecha_creacion;
         const act = ts ? new Date(ts).toLocaleDateString('es-AR', {day:'2-digit', month:'short'}) : '—';

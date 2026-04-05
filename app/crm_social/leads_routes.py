@@ -231,24 +231,76 @@ def importar_contactos_crm(negocio_id):
 @bp.route('/leads', methods=['GET'])
 def get_leads():
     negocio_id = request.args.get('negocio_id')
+    page_arg = request.args.get('page', 1, type=int)
+    limit_arg = request.args.get('limit', 50, type=int)
+    search_arg = request.args.get('search', '').strip()
+    estado_arg = request.args.get('estado', '').strip()
+    origen_arg = request.args.get('origen', '').strip()
+
     if not negocio_id:
         return jsonify({'error': 'negocio_id es requerido'}), 400
 
     try:
         ensure_crm_table()
         db = get_db()
-        db.execute(
-            """SELECT id, nombre, email, telefono, estado, origen, notas,
+
+        # KPIs Globales (sin filtros de busqueda)
+        db.execute("SELECT COUNT(*) as c FROM crm_leads WHERE negocio_id = %s", (negocio_id,))
+        kpi_total = db.fetchone()['c']
+
+        db.execute("SELECT COUNT(*) as c FROM crm_leads WHERE negocio_id = %s AND origen = 'reserva'", (negocio_id,))
+        kpi_reservas = db.fetchone()['c']
+
+        db.execute("SELECT COUNT(*) as c FROM crm_leads WHERE negocio_id = %s AND origen LIKE 'excel%%'", (negocio_id,))
+        kpi_excel = db.fetchone()['c']
+
+        db.execute("""SELECT COUNT(*) as c FROM crm_leads 
+                      WHERE negocio_id = %s AND COALESCE(ultima_actividad, fecha_creacion, NOW()) >= NOW() - INTERVAL '30 days'""", (negocio_id,))
+        try:
+            kpi_nuevos = db.fetchone()['c']
+        except:
+            kpi_nuevos = 0 # Fallback for old schemas con errores
+
+        # Construir condiciones y valores
+        conditions = ["negocio_id = %s", "fecha_baja IS NULL"]
+        values = [negocio_id]
+
+        if search_arg:
+            search_param = f"%{search_arg}%"
+            conditions.append("(nombre ILIKE %s OR email ILIKE %s OR telefono ILIKE %s)")
+            values.extend([search_param, search_param, search_param])
+            
+        if estado_arg:
+            conditions.append("estado = %s")
+            values.append(estado_arg)
+            
+        if origen_arg:
+            conditions.append("origen ILIKE %s")
+            values.append(f"{origen_arg}%")
+
+        where_clause = " AND ".join(conditions)
+
+        # Contar el total de registros para la paginacion
+        db.execute(f"SELECT COUNT(*) as total FROM crm_leads WHERE {where_clause}", values)
+        total_records = db.fetchone()['total']
+
+        # Consultar la pagina actual
+        offset = (page_arg - 1) * limit_arg
+        values.extend([limit_arg, offset])
+
+        query = f"""
+               SELECT id, nombre, email, telefono, estado, origen, notas,
                       ultima_actividad,
                       COALESCE(
                           to_char(ultima_actividad, 'YYYY-MM-DD"T"HH24:MI:SS'),
                           to_char(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS')
                       ) AS fecha_creacion
                FROM crm_leads
-               WHERE negocio_id = %s AND fecha_baja IS NULL
-               ORDER BY COALESCE(ultima_actividad, NOW()) DESC""",
-            (negocio_id,)
-        )
+               WHERE {where_clause}
+               ORDER BY COALESCE(ultima_actividad, NOW()) DESC
+               LIMIT %s OFFSET %s
+        """
+        db.execute(query, values)
         leads = db.fetchall()
 
         leads_list = []
@@ -265,7 +317,20 @@ def get_leads():
                 'ultima_actividad': str(row['ultima_actividad']) if row['ultima_actividad'] else None,
             })
 
-        return jsonify(leads_list)
+        total_pages = (total_records + limit_arg - 1) // limit_arg
+
+        return jsonify({
+            'data': leads_list,
+            'total': total_records,
+            'page': page_arg,
+            'pages': total_pages,
+            'kpis': {
+                'total': kpi_total,
+                'reservas': kpi_reservas,
+                'excel': kpi_excel,
+                'nuevos': kpi_nuevos
+            }
+        })
 
     except Exception as e:
         current_app.logger.error(f"[CRM] get_leads error: {e}", exc_info=True)
