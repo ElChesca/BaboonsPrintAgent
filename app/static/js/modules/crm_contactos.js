@@ -95,8 +95,9 @@ function bindEvents() {
     }
     safe('crm-btn-upload', 'click', importarArchivo);
     safe('crm-btn-plantilla', 'click', descargarPlantilla);
+    // Boton dentro del dropzone - stopPropagation para evitar doble dialogo
     const chooserBtn = document.querySelector('#crm-dropzone button');
-    if (chooserBtn) chooserBtn.addEventListener('click', () => fileInput && fileInput.click());
+    if (chooserBtn) chooserBtn.addEventListener('click', e => { e.stopPropagation(); fileInput && fileInput.click(); });
 
     // Exponer apertura de drawer globalmente (para onclick en filas)
     window.__crmOpenDrawer = openDrawer;
@@ -336,63 +337,83 @@ async function importarArchivo() {
     const btn = document.getElementById('crm-btn-upload');
     const res = document.getElementById('crm-import-resultado');
 
-    // Mostrar barra de progreso
+    // Barra de progreso
     const progressWrap = document.getElementById('crm-import-progress');
     const progressBar  = document.getElementById('crm-import-progress-bar');
     if (progressWrap) progressWrap.style.display = 'block';
-    if (progressBar)  { progressBar.style.width = '0%'; progressBar.textContent = '0%'; }
+    if (progressBar)  { progressBar.style.width = '0%'; progressBar.textContent = '0%'; progressBar.style.animation = ''; }
     if (res) res.className = 'd-none';
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Importando...'; }
+
+    // Contador de tiempo transcurrido en el boton
+    let elapsed = 0;
+    const tick = setInterval(() => {
+        elapsed++;
+        if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i> Procesando... ${elapsed}s`;
+    }, 1000);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Subiendo...'; }
 
     const fd = new FormData();
     fd.append('file', f);
     const token = localStorage.getItem('jwt_token');
+
+    const cleanup = () => {
+        clearInterval(tick);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-upload me-1"></i> Importar'; }
+        setTimeout(() => { if (progressWrap) progressWrap.style.display = 'none'; }, 1500);
+    };
 
     return new Promise(resolve => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', `${API}/negocios/${negocioId}/crm/contactos/importar`);
         if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
 
-        // Progreso de subida
+        // Progreso de subida del archivo (0-85%)
         xhr.upload.addEventListener('progress', e => {
             if (!e.lengthComputable) return;
-            const pct = Math.round((e.loaded / e.total) * 85); // hasta 85% en upload
+            const pct = Math.round((e.loaded / e.total) * 85);
             if (progressBar) { progressBar.style.width = pct + '%'; progressBar.textContent = pct + '%'; }
+            if (btn) btn.innerHTML = `<i class="fas fa-upload me-1"></i> Subiendo ${pct}%`;
         });
 
-        // Upload completo → "Procesando..."
+        // Upload terminado - servidor procesando
         xhr.upload.addEventListener('load', () => {
-            if (progressBar) { progressBar.style.width = '92%'; progressBar.textContent = 'Procesando...'; }
+            if (progressBar) {
+                progressBar.style.width = '92%';
+                progressBar.textContent = 'Procesando...';
+                progressBar.style.animation = 'shimmer 1.5s infinite';
+            }
+            if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i> Procesando... 0s`;
         });
 
         xhr.addEventListener('load', () => {
-            // Progreso completo
-            if (progressBar) { progressBar.style.width = '100%'; progressBar.textContent = '100%'; }
-            setTimeout(() => { if (progressWrap) progressWrap.style.display = 'none'; }, 1200);
+            if (progressBar) {
+                progressBar.style.animation = '';
+                progressBar.style.width = '100%';
+                progressBar.textContent = 'Listo!';
+            }
+            cleanup();
 
             try {
                 const data = JSON.parse(xhr.responseText);
                 if (xhr.status >= 200 && xhr.status < 300) {
                     let html = `<i class="fas fa-check-circle me-2"></i><strong>${data.creados}</strong> nuevos · <strong>${data.actualizados}</strong> actualizados · <strong>${data.omitidos}</strong> omitidos.`;
                     if (data.errores && data.errores.length) {
-                        html += `<br><small class="text-muted">Errores: ${data.errores.map(e => `Fila ${e.fila}: ${e.error}`).join(' | ')}</small>`;
+                        html += `<br><small class="text-muted">Errores en filas: ${data.errores.map(e => e.fila).join(', ')}</small>`;
                     }
                     if (res) { res.className = 'alert alert-success py-2 px-3 small mb-3'; res.innerHTML = html; }
                     loadLeads();
                 } else {
                     if (res) { res.className = 'alert alert-danger py-2 px-3 small mb-3'; res.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>${data.error || 'Error al importar.'}`; }
                 }
-            } catch(e) {
-                if (res) { res.className = 'alert alert-danger py-2 px-3 small mb-3'; res.textContent = 'Respuesta invalida del servidor.'; }
+            } catch(ex) {
+                if (res) { res.className = 'alert alert-danger py-2 px-3 small mb-3'; res.textContent = 'Error al procesar la respuesta del servidor.'; }
             }
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-upload me-1"></i> Importar'; }
             resolve();
         });
 
         xhr.addEventListener('error', () => {
-            if (progressWrap) progressWrap.style.display = 'none';
+            cleanup();
             if (res) { res.className = 'alert alert-danger py-2 px-3 small mb-3'; res.textContent = 'Error de conexion.'; }
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-upload me-1"></i> Importar'; }
             resolve();
         });
 
