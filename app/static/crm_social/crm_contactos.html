@@ -1,0 +1,742 @@
+<!-- 
+  CRM de Contactos — MultinegocioBaboons
+  Panel premium con importador de Excel/CSV, tabla de contactos, 
+  filtros por origen/estado y drawer de perfil.
+-->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+
+<style>
+  :root {
+    --crm-accent: #4f46e5;
+    --crm-accent-soft: #ede9fe;
+    --crm-green: #10b981;
+    --crm-amber: #f59e0b;
+    --crm-red: #ef4444;
+    --crm-gray-bg: #f8fafc;
+  }
+
+  #crm-contactos-root { font-family: 'Inter', sans-serif; background: var(--crm-gray-bg); min-height: 100vh; }
+
+  /* --- KPI Cards --- */
+  .crm-kpi { background: white; border-radius: 16px; padding: 20px 24px; box-shadow: 0 1px 6px rgba(0,0,0,.07); border: 1px solid #f1f5f9; }
+  .crm-kpi .kpi-num { font-size: 2.2rem; font-weight: 800; line-height: 1; }
+  .crm-kpi .kpi-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; font-weight: 600; margin-top: 4px; }
+
+  /* --- Toolbar --- */
+  .crm-toolbar { background: white; border-radius: 14px; padding: 16px 20px; box-shadow: 0 1px 6px rgba(0,0,0,.06); margin-bottom: 20px; }
+  .crm-search { border-radius: 10px; border: 1.5px solid #e2e8f0; padding: 8px 14px; font-size: 0.88rem; width: 280px; transition: border-color .2s; }
+  .crm-search:focus { outline: none; border-color: var(--crm-accent); box-shadow: 0 0 0 3px var(--crm-accent-soft); }
+
+  /* --- Tabla --- */
+  .crm-table-wrap { background: white; border-radius: 16px; box-shadow: 0 1px 8px rgba(0,0,0,.07); overflow: hidden; }
+  #crm-table thead th { background: #f8fafc; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: #64748b; font-weight: 700; border: none; padding: 14px 16px; }
+  #crm-table tbody td { padding: 13px 16px; border-color: #f1f5f9; vertical-align: middle; font-size: 0.87rem; }
+  #crm-table tbody tr { cursor: pointer; transition: background .15s; }
+  #crm-table tbody tr:hover { background: #f8faff; }
+
+  /* --- Badges --- */
+  .badge-origen { font-size: 0.7rem; border-radius: 20px; padding: 3px 10px; font-weight: 600; }
+  .badge-estado { font-size: 0.7rem; border-radius: 20px; padding: 3px 10px; font-weight: 600; }
+  .bg-reserva   { background: #dbeafe; color: #1d4ed8; }
+  .bg-excel     { background: #dcfce7; color: #15803d; }
+  .bg-manual    { background: #fef9c3; color: #92400e; }
+  .bg-erp       { background: #f3e8ff; color: #7e22ce; }
+  .bg-nuevo     { background: #e0f2fe; color: #0369a1; }
+  .bg-contactado{ background: #fef3c7; color: #92400e; }
+  .bg-interesado{ background: #ede9fe; color: #6d28d9; }
+  .bg-ganado    { background: #dcfce7; color: #15803d; }
+
+  /* --- Upload area --- */
+  .crm-upload-zone { border: 2.5px dashed #c7d2fe; border-radius: 16px; background: #f8f7ff; padding: 36px 24px; text-align: center; transition: all .2s; cursor: pointer; }
+  .crm-upload-zone:hover, .crm-upload-zone.drag-over { border-color: var(--crm-accent); background: var(--crm-accent-soft); }
+  .crm-upload-icon { font-size: 2.5rem; color: var(--crm-accent); margin-bottom: 12px; }
+
+  /* --- Drawer --- */
+  .crm-drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 1050; opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .crm-drawer-overlay.open { opacity: 1; pointer-events: all; }
+  .crm-drawer { position: fixed; top: 0; right: -480px; width: 460px; height: 100vh; background: white; z-index: 1051; box-shadow: -8px 0 40px rgba(0,0,0,.15); transition: right .3s cubic-bezier(.4,0,.2,1); display: flex; flex-direction: column; }
+  .crm-drawer.open { right: 0; }
+  .crm-drawer-header { padding: 24px; border-bottom: 1px solid #f1f5f9; flex-shrink: 0; }
+  .crm-drawer-body { padding: 20px; overflow-y: auto; flex: 1; }
+  .crm-avatar { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 800; color: white; background: linear-gradient(135deg, var(--crm-accent), #818cf8); flex-shrink: 0; }
+
+  /* --- Timeline --- */
+  .timeline-item { display: flex; gap: 12px; margin-bottom: 16px; }
+  .timeline-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--crm-accent); flex-shrink: 0; margin-top: 5px; }
+  .timeline-dot.reserva { background: #3b82f6; }
+  .timeline-dot.nota     { background: #f59e0b; }
+  .timeline-dot.movimiento { background: #10b981; }
+  .timeline-text { font-size: 0.82rem; color: #475569; }
+  .timeline-date { font-size: 0.72rem; color: #94a3b8; }
+
+  /* --- Paginación --- */
+  .crm-pag-btn { border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 5px 12px; font-size: 0.82rem; cursor: pointer; background: white; color: #475569; transition: all .15s; }
+  .crm-pag-btn:hover { border-color: var(--crm-accent); color: var(--crm-accent); }
+  .crm-pag-btn.active { background: var(--crm-accent); color: white; border-color: var(--crm-accent); }
+  .crm-pag-btn:disabled { opacity: .4; cursor: default; }
+</style>
+
+<div id="crm-contactos-root" class="p-4">
+
+  <!-- HEADER -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="fw-bold mb-0" style="color:#1e293b;">
+        <i class="fas fa-address-book me-2" style="color:var(--crm-accent);"></i>CRM — Contactos
+      </h4>
+      <p class="text-muted small mb-0 mt-1">Todos tus contactos, reservas y leads en un solo lugar</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-outline-secondary" id="crm-btn-importar" title="Importar desde Excel/CSV">
+        <i class="fas fa-file-excel me-1"></i> Importar
+      </button>
+      <button class="btn btn-sm btn-primary px-3" id="crm-btn-nuevo" style="border-radius:10px;">
+        <i class="fas fa-plus me-1"></i> Nuevo Contacto
+      </button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="row g-3 mb-4" id="crm-kpis">
+    <div class="col-6 col-md-3">
+      <div class="crm-kpi">
+        <div class="kpi-num text-primary" id="kpi-total">—</div>
+        <div class="kpi-label">Total Contactos</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="crm-kpi">
+        <div class="kpi-num" style="color:var(--crm-green);" id="kpi-reservas">—</div>
+        <div class="kpi-label">Desde Reservas</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="crm-kpi">
+        <div class="kpi-num text-warning" id="kpi-excel">—</div>
+        <div class="kpi-label">Importados Excel</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="crm-kpi">
+        <div class="kpi-num" style="color:#8b5cf6;" id="kpi-nuevos">—</div>
+        <div class="kpi-label">Nuevos (últimos 30d)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="crm-toolbar d-flex flex-wrap gap-3 align-items-center justify-content-between">
+    <div class="d-flex gap-2 flex-wrap">
+      <input type="text" class="crm-search" id="crm-search" placeholder="🔍  Buscar nombre, email, teléfono...">
+
+      <select class="form-select form-select-sm" id="crm-filter-estado" style="width:auto; border-radius:10px; border:1.5px solid #e2e8f0; font-size:.84rem;">
+        <option value="">Todos los estados</option>
+        <option value="nuevo">Nuevo</option>
+        <option value="contactado">Contactado</option>
+        <option value="interesado">Interesado</option>
+        <option value="ganado">Ganado</option>
+      </select>
+
+      <select class="form-select form-select-sm" id="crm-filter-origen" style="width:auto; border-radius:10px; border:1.5px solid #e2e8f0; font-size:.84rem;">
+        <option value="">Todos los orígenes</option>
+        <option value="reserva">Reserva</option>
+        <option value="excel_vita">Excel Vita</option>
+        <option value="manual">Manual</option>
+        <option value="erp">ERP</option>
+      </select>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="text-muted small" id="crm-result-count"></span>
+      <button class="btn btn-sm btn-light" id="crm-refresh-btn" title="Actualizar">
+        <i class="fas fa-sync-alt"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- TABLA -->
+  <div class="crm-table-wrap">
+    <div class="table-responsive">
+      <table class="table mb-0" id="crm-table">
+        <thead>
+          <tr>
+            <th>Contacto</th>
+            <th>Email</th>
+            <th>Teléfono</th>
+            <th>Origen</th>
+            <th>Estado</th>
+            <th>Última Actividad</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="crm-tbody">
+          <tr><td colspan="7" class="text-center py-5 text-muted">
+            <i class="fas fa-spinner fa-spin me-2"></i>Cargando contactos...
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- PAGINACIÓN -->
+    <div class="d-flex justify-content-between align-items-center px-4 py-3 border-top" id="crm-pagination-bar">
+      <span class="small text-muted" id="crm-pag-info"></span>
+      <div class="d-flex gap-2" id="crm-pag-buttons"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL IMPORTAR ===================== -->
+<div class="modal fade" id="modal-importar-crm" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+    <div class="modal-content" style="border-radius:20px; border:none;">
+      <div class="modal-header border-0 pb-0 px-4 pt-4">
+        <h5 class="modal-title fw-bold">
+          <i class="fas fa-file-upload me-2" style="color:var(--crm-accent);"></i>Importar Contactos
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body px-4 pb-4">
+        <p class="text-muted small mb-3">
+          Subí tu Excel o CSV con los contactos de Vita. Si ya existe un contacto con el mismo email, 
+          se actualizan sus datos sin pisarlos.
+        </p>
+
+        <!-- Dropzone -->
+        <div class="crm-upload-zone mb-3" id="crm-dropzone">
+          <div class="crm-upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+          <p class="mb-1 fw-bold" style="color:#1e293b;">Arrastrá el archivo acá</p>
+          <p class="text-muted small mb-3">o hacé clic para seleccionarlo</p>
+          <input type="file" id="crm-file-input" accept=".xlsx,.xls,.csv" style="display:none;">
+          <button class="btn btn-sm btn-outline-primary" onclick="document.getElementById('crm-file-input').click()">
+            <i class="fas fa-folder-open me-1"></i> Elegir archivo
+          </button>
+        </div>
+        <div id="crm-file-selected" class="alert alert-info d-none py-2 px-3 small mb-3" style="border-radius:10px;"></div>
+
+        <!-- Resultado -->
+        <div id="crm-import-resultado" class="d-none alert py-2 px-3 small mb-3" style="border-radius:10px;"></div>
+
+        <div class="d-flex gap-2">
+          <a href="#" id="crm-btn-plantilla" class="btn btn-sm btn-outline-secondary flex-fill">
+            <i class="fas fa-download me-1"></i> Descargar Plantilla
+          </a>
+          <button class="btn btn-sm btn-primary flex-fill" id="crm-btn-upload" disabled>
+            <i class="fas fa-upload me-1"></i> Importar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL NUEVO/EDITAR CONTACTO ===================== -->
+<div class="modal fade" id="modal-nuevo-contacto" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+    <div class="modal-content" style="border-radius:20px; border:none;">
+      <div class="modal-header border-0 pb-0 px-4 pt-4">
+        <h5 class="modal-title fw-bold" id="modal-contacto-titulo">
+          <i class="fas fa-user-plus me-2" style="color:var(--crm-accent);"></i>Nuevo Contacto
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body px-4 pb-4">
+        <input type="hidden" id="edit-lead-id">
+        <div class="mb-3">
+          <label class="form-label small fw-bold">Nombre *</label>
+          <input type="text" id="edit-nombre" class="form-control" placeholder="Nombre y apellido" style="border-radius:10px;">
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <label class="form-label small fw-bold">Email</label>
+            <input type="email" id="edit-email" class="form-control" style="border-radius:10px;">
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-bold">Teléfono</label>
+            <input type="text" id="edit-telefono" class="form-control" style="border-radius:10px;">
+          </div>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <label class="form-label small fw-bold">Estado</label>
+            <select id="edit-estado" class="form-select" style="border-radius:10px;">
+              <option value="nuevo">Nuevo</option>
+              <option value="contactado">Contactado</option>
+              <option value="interesado">Interesado</option>
+              <option value="ganado">Ganado</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-bold">Origen</label>
+            <select id="edit-origen" class="form-select" style="border-radius:10px;">
+              <option value="manual">Manual</option>
+              <option value="reserva">Reserva</option>
+              <option value="excel_vita">Excel Vita</option>
+              <option value="instagram">Instagram</option>
+              <option value="web">Web</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-bold">Notas</label>
+          <textarea id="edit-notas" class="form-control" rows="3" placeholder="Seguimiento, observaciones..." style="border-radius:10px;"></textarea>
+        </div>
+        <button class="btn btn-primary w-100 py-2" id="edit-guardar-btn" style="border-radius:12px;">
+          <i class="fas fa-save me-2"></i>Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== DRAWER DE PERFIL ===================== -->
+<div class="crm-drawer-overlay" id="crm-overlay"></div>
+<div class="crm-drawer" id="crm-drawer">
+  <div class="crm-drawer-header">
+    <div class="d-flex justify-content-between align-items-start">
+      <div class="d-flex gap-3 align-items-center">
+        <div class="crm-avatar" id="drawer-avatar">?</div>
+        <div>
+          <h5 class="fw-bold mb-0" id="drawer-nombre">—</h5>
+          <span class="badge-estado mt-1 d-inline-block" id="drawer-estado-badge">—</span>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-light" id="crm-drawer-close" style="border-radius:8px;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+  <div class="crm-drawer-body">
+    <!-- Info básica -->
+    <div class="mb-4">
+      <div class="d-flex flex-column gap-2" id="drawer-info">
+        <div class="d-flex align-items-center gap-2 text-muted small">
+          <i class="fas fa-envelope fa-fw" style="color:var(--crm-accent);"></i>
+          <span id="drawer-email">—</span>
+        </div>
+        <div class="d-flex align-items-center gap-2 text-muted small">
+          <i class="fas fa-phone fa-fw" style="color:var(--crm-green);"></i>
+          <span id="drawer-telefono">—</span>
+        </div>
+        <div class="d-flex align-items-center gap-2 text-muted small">
+          <i class="fas fa-tag fa-fw" style="color:var(--crm-amber);"></i>
+          <span id="drawer-origen">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Acciones rápidas -->
+    <div class="d-flex gap-2 mb-4">
+      <button class="btn btn-sm btn-outline-primary flex-fill" id="drawer-btn-editar">
+        <i class="fas fa-edit me-1"></i> Editar
+      </button>
+      <button class="btn btn-sm btn-outline-danger" id="drawer-btn-eliminar" title="Dar de baja">
+        <i class="fas fa-user-slash"></i>
+      </button>
+    </div>
+
+    <!-- Nota rápida -->
+    <div class="mb-4">
+      <label class="form-label small fw-bold text-muted">AGREGAR NOTA RÁPIDA</label>
+      <div class="d-flex gap-2">
+        <input type="text" id="drawer-nota-input" class="form-control form-control-sm" placeholder="Escribí una nota..." style="border-radius:8px;">
+        <button class="btn btn-sm btn-primary" id="drawer-nota-btn">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div>
+      <p class="small fw-bold text-muted text-uppercase mb-3">
+        <i class="fas fa-stream me-1"></i> Historial de Actividad
+      </p>
+      <div id="drawer-timeline">
+        <div class="text-center py-4 text-muted">
+          <i class="fas fa-spinner fa-spin me-2"></i>Cargando...
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CRM Contactos — Script Principal
+// ============================================================
+(function() {
+  const API = '/api/crm';
+  let negocioId = null;
+  let allLeads = [];
+  let filteredLeads = [];
+  let currentLeadId = null;
+  let searchTimeout = null;
+  let currentPage = 1;
+  const PAGE_SIZE = 25;
+
+  // ── Inicio ───────────────────────────────────────────────
+  function init() {
+    negocioId = window.appState?.negocioActivoId || localStorage.getItem('negocioActivoId');
+    if (!negocioId) { showEmpty('Seleccioná un negocio para ver los contactos.'); return; }
+    bindEvents();
+    loadLeads();
+  }
+
+  function bindEvents() {
+    document.getElementById('crm-refresh-btn').addEventListener('click', loadLeads);
+    document.getElementById('crm-btn-nuevo').addEventListener('click', openNewModal);
+    document.getElementById('crm-btn-importar').addEventListener('click', () => {
+      new bootstrap.Modal(document.getElementById('modal-importar-crm')).show();
+    });
+
+    // Filtros
+    let searchTimeout;
+    document.getElementById('crm-search').addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(applyFilters, 280);
+    });
+    document.getElementById('crm-filter-estado').addEventListener('change', applyFilters);
+    document.getElementById('crm-filter-origen').addEventListener('change', applyFilters);
+
+    // Drawer
+    document.getElementById('crm-overlay').addEventListener('click', closeDrawer);
+    document.getElementById('crm-drawer-close').addEventListener('click', closeDrawer);
+    document.getElementById('drawer-nota-btn').addEventListener('click', addNota);
+    document.getElementById('drawer-btn-editar').addEventListener('click', () => openEditModal(currentLeadId));
+    document.getElementById('drawer-btn-eliminar').addEventListener('click', eliminarLead);
+
+    // Modal nuevo/editar
+    document.getElementById('edit-guardar-btn').addEventListener('click', guardarLead);
+
+    // Importador
+    const fileInput = document.getElementById('crm-file-input');
+    const dropzone = document.getElementById('crm-dropzone');
+    fileInput.addEventListener('change', onFileSelected);
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault(); dropzone.classList.remove('drag-over');
+      const f = e.dataTransfer.files[0];
+      if (f) { fileInput.files = e.dataTransfer.files; onFileSelected(); }
+    });
+    document.getElementById('crm-btn-upload').addEventListener('click', importarArchivo);
+    document.getElementById('crm-btn-plantilla').addEventListener('click', e => {
+      e.preventDefault();
+      window.open(`${API}/negocios/${negocioId}/crm/contactos/plantilla`, '_blank');
+    });
+  }
+
+  // ── Carga de datos ────────────────────────────────────────
+  async function loadLeads() {
+    showLoading();
+    try {
+      const r = await fetch(`${API}/leads?negocio_id=${negocioId}`);
+      allLeads = await r.json();
+      updateKPIs();
+      applyFilters();
+    } catch(e) {
+      showEmpty('Error al cargar contactos.');
+    }
+  }
+
+  function updateKPIs() {
+    document.getElementById('kpi-total').textContent = allLeads.length;
+    document.getElementById('kpi-reservas').textContent = allLeads.filter(l => l.origen === 'reserva').length;
+    document.getElementById('kpi-excel').textContent = allLeads.filter(l => (l.origen||'').startsWith('excel')).length;
+    const hace30 = new Date(); hace30.setDate(hace30.getDate() - 30);
+    document.getElementById('kpi-nuevos').textContent = allLeads.filter(l => new Date(l.fecha_creacion) >= hace30).length;
+  }
+
+  function applyFilters() {
+    const q = (document.getElementById('crm-search').value || '').toLowerCase().trim();
+    const est = document.getElementById('crm-filter-estado').value;
+    const ori = document.getElementById('crm-filter-origen').value;
+
+    filteredLeads = allLeads.filter(l => {
+      const matchQ = !q || (l.nombre||'').toLowerCase().includes(q) ||
+                     (l.email||'').toLowerCase().includes(q) ||
+                     (l.telefono||'').includes(q);
+      const matchE = !est || l.estado === est;
+      const matchO = !ori || (l.origen||'').startsWith(ori.replace('_vita',''));
+      return matchQ && matchE && matchO;
+    });
+
+    currentPage = 1;
+    renderTable();
+  }
+
+  // ── Renderizado de tabla ──────────────────────────────────
+  function renderTable() {
+    const tbody = document.getElementById('crm-tbody');
+    const total = filteredLeads.length;
+    document.getElementById('crm-result-count').textContent = `${total} contacto${total !== 1 ? 's' : ''}`;
+
+    if (!total) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-muted">
+        <i class="fas fa-user-slash fa-2x mb-3 d-block opacity-30"></i>No se encontraron contactos
+      </td></tr>`;
+      renderPagination(0);
+      return;
+    }
+
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const page = filteredLeads.slice(start, start + PAGE_SIZE);
+
+    tbody.innerHTML = page.map(l => {
+      const initials = (l.nombre || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+      const actividad = l.ultima_actividad ? new Date(l.ultima_actividad).toLocaleDateString('es-AR', {day:'2-digit', month:'short'}) : '—';
+      return `<tr onclick="window.__crmOpenDrawer(${l.id})" id="crmrow-${l.id}">
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#818cf8);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;color:white;flex-shrink:0;">${initials}</div>
+            <span class="fw-semibold" style="font-size:.88rem;">${escHtml(l.nombre || '—')}</span>
+          </div>
+        </td>
+        <td class="text-muted" style="font-size:.83rem;">${escHtml(l.email || '—')}</td>
+        <td class="text-muted" style="font-size:.83rem;">${escHtml(l.telefono || '—')}</td>
+        <td><span class="badge-origen ${origenClass(l.origen)}">${origenLabel(l.origen)}</span></td>
+        <td><span class="badge-estado ${estadoClass(l.estado)}">${capitalize(l.estado || 'nuevo')}</span></td>
+        <td class="text-muted" style="font-size:.8rem;">${actividad}</td>
+        <td><i class="fas fa-chevron-right text-muted opacity-50" style="font-size:.8rem;"></i></td>
+      </tr>`;
+    }).join('');
+
+    renderPagination(total);
+  }
+
+  function renderPagination(total) {
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+    const start = Math.min((currentPage - 1) * PAGE_SIZE + 1, total);
+    const end = Math.min(currentPage * PAGE_SIZE, total);
+    document.getElementById('crm-pag-info').textContent = total ? `Mostrando ${start}–${end} de ${total}` : '';
+    const container = document.getElementById('crm-pag-buttons');
+    if (totalPages <= 1) { container.innerHTML = ''; return; }
+    let html = `<button class="crm-pag-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="window.__crmChangePage(${currentPage-1})"><i class="fas fa-chevron-left"></i></button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      if (totalPages <= 7 || i === 1 || i === totalPages || Math.abs(i - currentPage) <= 1) {
+        html += `<button class="crm-pag-btn ${i===currentPage?'active':''}" onclick="window.__crmChangePage(${i})">${i}</button>`;
+      } else if (Math.abs(i - currentPage) === 2) {
+        html += `<span class="text-muted px-1">…</span>`;
+      }
+    }
+    html += `<button class="crm-pag-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="window.__crmChangePage(${currentPage+1})"><i class="fas fa-chevron-right"></i></button>`;
+    container.innerHTML = html;
+  }
+
+  window.__crmChangePage = (p) => { currentPage = p; renderTable(); };
+
+  // ── Drawer de perfil ─────────────────────────────────────
+  window.__crmOpenDrawer = async (id) => {
+    currentLeadId = id;
+    const lead = allLeads.find(l => l.id === id);
+    if (!lead) return;
+
+    const initials = (lead.nombre || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+    document.getElementById('drawer-avatar').textContent = initials;
+    document.getElementById('drawer-nombre').textContent = lead.nombre || '—';
+    document.getElementById('drawer-email').textContent = lead.email || '—';
+    document.getElementById('drawer-telefono').textContent = lead.telefono || '—';
+    document.getElementById('drawer-origen').textContent = origenLabel(lead.origen);
+    document.getElementById('drawer-estado-badge').textContent = capitalize(lead.estado || 'nuevo');
+    document.getElementById('drawer-estado-badge').className = `badge-estado mt-1 d-inline-block ${estadoClass(lead.estado)}`;
+
+    document.getElementById('crm-overlay').classList.add('open');
+    document.getElementById('crm-drawer').classList.add('open');
+    document.getElementById('drawer-nota-input').value = '';
+
+    loadTimeline(id);
+  };
+
+  async function loadTimeline(id) {
+    document.getElementById('drawer-timeline').innerHTML = `<div class="text-center py-3 text-muted"><i class="fas fa-spinner fa-spin"></i></div>`;
+    try {
+      const r = await fetch(`${API}/leads/${id}/historial`);
+      const items = await r.json();
+      if (!items.length) {
+        document.getElementById('drawer-timeline').innerHTML = `<p class="text-muted small text-center py-3">Sin actividad registrada aún.</p>`;
+        return;
+      }
+      document.getElementById('drawer-timeline').innerHTML = items.map(it => `
+        <div class="timeline-item">
+          <div class="timeline-dot ${it.tipo_accion}"></div>
+          <div>
+            <div class="timeline-text">${escHtml(it.descripcion || it.tipo_accion)}</div>
+            <div class="timeline-date">${it.fecha || ''}</div>
+          </div>
+        </div>
+      `).join('');
+    } catch(e) {
+      document.getElementById('drawer-timeline').innerHTML = `<p class="text-muted small">No se pudo cargar el historial.</p>`;
+    }
+  }
+
+  function closeDrawer() {
+    document.getElementById('crm-overlay').classList.remove('open');
+    document.getElementById('crm-drawer').classList.remove('open');
+    currentLeadId = null;
+  }
+
+  async function addNota() {
+    const nota = document.getElementById('drawer-nota-input').value.trim();
+    if (!nota || !currentLeadId) return;
+    try {
+      await fetch(`${API}/leads/${currentLeadId}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ notas: nota })
+      });
+      document.getElementById('drawer-nota-input').value = '';
+      loadTimeline(currentLeadId);
+    } catch(e) { alert('Error al guardar la nota'); }
+  }
+
+  // ── Modal Nuevo / Editar ──────────────────────────────────
+  function openNewModal() {
+    document.getElementById('edit-lead-id').value = '';
+    document.getElementById('edit-nombre').value = '';
+    document.getElementById('edit-email').value = '';
+    document.getElementById('edit-telefono').value = '';
+    document.getElementById('edit-estado').value = 'nuevo';
+    document.getElementById('edit-origen').value = 'manual';
+    document.getElementById('edit-notas').value = '';
+    document.getElementById('modal-contacto-titulo').innerHTML = '<i class="fas fa-user-plus me-2" style="color:var(--crm-accent);"></i>Nuevo Contacto';
+    new bootstrap.Modal(document.getElementById('modal-nuevo-contacto')).show();
+  }
+
+  function openEditModal(id) {
+    const lead = allLeads.find(l => l.id === id);
+    if (!lead) return;
+    document.getElementById('edit-lead-id').value = lead.id;
+    document.getElementById('edit-nombre').value = lead.nombre || '';
+    document.getElementById('edit-email').value = lead.email || '';
+    document.getElementById('edit-telefono').value = lead.telefono || '';
+    document.getElementById('edit-estado').value = lead.estado || 'nuevo';
+    document.getElementById('edit-origen').value = lead.origen || 'manual';
+    document.getElementById('edit-notas').value = lead.notas || '';
+    document.getElementById('modal-contacto-titulo').innerHTML = '<i class="fas fa-edit me-2" style="color:var(--crm-accent);"></i>Editar Contacto';
+    new bootstrap.Modal(document.getElementById('modal-nuevo-contacto')).show();
+  }
+
+  async function guardarLead() {
+    const id = document.getElementById('edit-lead-id').value;
+    const nombre = document.getElementById('edit-nombre').value.trim();
+    if (!nombre) { alert('El nombre es obligatorio'); return; }
+
+    const payload = {
+      negocio_id: parseInt(negocioId),
+      nombre,
+      email: document.getElementById('edit-email').value.trim(),
+      telefono: document.getElementById('edit-telefono').value.trim(),
+      estado: document.getElementById('edit-estado').value,
+      origen: document.getElementById('edit-origen').value,
+      notas: document.getElementById('edit-notas').value.trim(),
+    };
+
+    try {
+      if (id) {
+        await fetch(`${API}/leads/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      } else {
+        await fetch(`${API}/leads`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      }
+      bootstrap.Modal.getInstance(document.getElementById('modal-nuevo-contacto'))?.hide();
+      loadLeads();
+    } catch(e) { alert('Error al guardar'); }
+  }
+
+  async function eliminarLead() {
+    if (!currentLeadId) return;
+    const lead = allLeads.find(l => l.id === currentLeadId);
+    if (!confirm(`¿Dar de baja a ${lead?.nombre}?`)) return;
+    try {
+      await fetch(`${API}/leads/${currentLeadId}`, { method: 'DELETE' });
+      closeDrawer();
+      loadLeads();
+    } catch(e) { alert('Error al eliminar'); }
+  }
+
+  // ── Importador ────────────────────────────────────────────
+  function onFileSelected() {
+    const f = document.getElementById('crm-file-input').files[0];
+    const sel = document.getElementById('crm-file-selected');
+    const btn = document.getElementById('crm-btn-upload');
+    if (f) {
+      sel.className = 'alert alert-info py-2 px-3 small mb-3';
+      sel.innerHTML = `<i class="fas fa-file-excel me-2"></i><strong>${f.name}</strong> (${(f.size/1024).toFixed(1)} KB)`;
+      btn.disabled = false;
+    } else {
+      sel.className = 'alert d-none';
+      btn.disabled = true;
+    }
+    document.getElementById('crm-import-resultado').className = 'd-none';
+  }
+
+  async function importarArchivo() {
+    const f = document.getElementById('crm-file-input').files[0];
+    if (!f) return;
+    const btn = document.getElementById('crm-btn-upload');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Importando...';
+
+    const fd = new FormData();
+    fd.append('file', f);
+
+    try {
+      const r = await fetch(`${API}/negocios/${negocioId}/crm/contactos/importar`, { method: 'POST', body: fd });
+      const data = await r.json();
+      const res = document.getElementById('crm-import-resultado');
+
+      if (r.ok) {
+        res.className = 'alert alert-success py-2 px-3 small mb-3';
+        res.innerHTML = `<i class="fas fa-check-circle me-2"></i>
+          <strong>${data.creados}</strong> nuevos · <strong>${data.actualizados}</strong> actualizados · <strong>${data.omitidos}</strong> omitidos.
+          ${data.errores?.length ? `<br><small class="text-danger">${data.errores.length} filas con error.</small>` : ''}`;
+        loadLeads();
+      } else {
+        res.className = 'alert alert-danger py-2 px-3 small mb-3';
+        res.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>${data.error || 'Error al importar.'}`;
+      }
+    } catch(e) {
+      document.getElementById('crm-import-resultado').className = 'alert alert-danger py-2 px-3 small mb-3';
+      document.getElementById('crm-import-resultado').textContent = 'Error de conexión.';
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-upload me-1"></i> Importar';
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────
+  function origenClass(o) {
+    o = (o||'').toLowerCase();
+    if (o === 'reserva') return 'bg-reserva';
+    if (o.startsWith('excel')) return 'bg-excel';
+    if (o === 'erp') return 'bg-erp';
+    return 'bg-manual';
+  }
+  function origenLabel(o) {
+    o = (o||'').toLowerCase();
+    if (o === 'reserva') return 'Reserva';
+    if (o === 'excel_vita') return 'Excel Vita';
+    if (o.startsWith('excel')) return 'Excel';
+    if (o === 'erp') return 'ERP';
+    if (o === 'manual') return 'Manual';
+    return capitalize(o) || 'Desconocido';
+  }
+  function estadoClass(e) {
+    const map = { nuevo:'bg-nuevo', contactado:'bg-contactado', interesado:'bg-interesado', ganado:'bg-ganado' };
+    return map[e] || 'bg-nuevo';
+  }
+  function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+  function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function showLoading() {
+    document.getElementById('crm-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Cargando...</td></tr>`;
+  }
+  function showEmpty(msg) {
+    document.getElementById('crm-tbody').innerHTML = `<tr><td colspan="7" class="text-center py-5 text-muted">${msg}</td></tr>`;
+  }
+
+  // ── Run ───────────────────────────────────────────────────
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    setTimeout(init, 100);
+  }
+})();
+</script>

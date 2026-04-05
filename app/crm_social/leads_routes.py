@@ -1,7 +1,190 @@
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, send_file, current_app
 from app.database import get_db
+import io
 
 bp = Blueprint('crm_leads', __name__)
+
+
+# ============================================================
+# --- IMPORTACIÓN DE CONTACTOS ---
+# ============================================================
+
+@bp.route('/negocios/<int:negocio_id>/crm/contactos/plantilla', methods=['GET'])
+def descargar_plantilla_contactos(negocio_id):
+    """Descarga un .xlsx de ejemplo con las columnas para importar contactos al CRM."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Contactos CRM"
+
+    headers = ["Nombre", "Email", "Telefono", "Origen", "Notas", "Fecha Nacimiento (YYYY-MM-DD)"]
+    ws.append(headers)
+
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    # Fila de ejemplo
+    ws.append(["María García", "maria@ejemplo.com", "2664123456", "excel_vita", "Clienta frecuente del restó", "1988-04-15"])
+    ws.append(["Carlos López", "carlos@ejemplo.com", "2664987654", "excel_vita", "", ""])
+
+    for col in ws.columns:
+        ws.column_dimensions[col[0].column_letter].width = 26
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True,
+                     download_name="plantilla_contactos_crm.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+@bp.route('/negocios/<int:negocio_id>/crm/contactos/importar', methods=['POST'])
+def importar_contactos_crm(negocio_id):
+    """
+    Importa contactos desde un .xlsx o .csv al CRM (tabla crm_leads).
+    Deduplicación por email + negocio_id.
+    """
+    if 'file' not in request.files:
+        return jsonify({'error': 'No se envió ningún archivo'}), 400
+
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': 'Nombre de archivo vacío'}), 400
+
+    ext = file.filename.rsplit('.', 1)[-1].lower()
+    if ext not in ('xlsx', 'xls', 'csv'):
+        return jsonify({'error': 'Formato no soportado. Usá .xlsx o .csv'}), 400
+
+    try:
+        import pandas as pd
+
+        if ext == 'csv':
+            # Intentar detectar el separador automáticamente
+            content = file.read().decode('utf-8-sig', errors='replace')
+            sep = ';' if content.count(';') > content.count(',') else ','
+            df = pd.read_csv(io.StringIO(content), sep=sep, on_bad_lines='skip')
+        else:
+            df = pd.read_excel(file, engine='openpyxl')
+
+        # Normalizar nombres de columnas
+        df.columns = df.columns.astype(str).str.strip().str.lower()
+
+        # Mapeo flexible de columnas (alias → clave interna)
+        COL_ALIASES = {
+            'nombre':           ['nombre', 'name', 'contacto', 'apellido y nombre', 'razón social'],
+            'email':            ['email', 'correo', 'e-mail', 'mail'],
+            'telefono':         ['telefono', 'teléfono', 'celular', 'phone', 'tel'],
+            'origen':           ['origen', 'fuente', 'source', 'canal'],
+            'notas':            ['notas', 'nota', 'observaciones', 'obs', 'comentario'],
+            'fecha_nacimiento': ['fecha nacimiento', 'fecha_nacimiento', 'nacimiento', 'birthday', 'cumpleaños'],
+        }
+
+        def find_col(aliases):
+            for a in aliases:
+                if a in df.columns:
+                    return a
+            return None
+
+        col_map = {k: find_col(v) for k, v in COL_ALIASES.items()}
+
+        def get_val(row, key, default=''):
+            col = col_map.get(key)
+            if col and col in row.index:
+                val = row[col]
+                if val is not None and str(val).strip().lower() not in ('nan', 'none', ''):
+                    return str(val).strip()
+            return default
+
+        db = get_db()
+        creados = 0
+        actualizados = 0
+        omitidos = 0
+        errores = []
+
+        for idx, row in df.iterrows():
+            try:
+                db.execute("SAVEPOINT crm_row")
+
+                nombre = get_val(row, 'nombre') or f"Contacto Importado {idx + 1}"
+                email_raw = get_val(row, 'email')
+                email = email_raw.strip().lower() if email_raw else None
+                telefono = get_val(row, 'telefono') or None
+                origen = get_val(row, 'origen') or 'excel_vita'
+                notas = get_val(row, 'notas') or None
+                fecha_nac_raw = get_val(row, 'fecha_nacimiento') or None
+                fecha_nac = None
+                if fecha_nac_raw:
+                    try:
+                        import datetime
+                        fecha_nac = datetime.date.fromisoformat(str(fecha_nac_raw)[:10])
+                    except Exception:
+                        fecha_nac = None
+
+                if email:
+                    # Buscar lead existente por email
+                    db.execute(
+                        "SELECT id FROM crm_leads WHERE email = %s AND negocio_id = %s AND fecha_baja IS NULL",
+                        (email, negocio_id)
+                    )
+                    existente = db.fetchone()
+                    if existente:
+                        # Actualizar datos faltantes sin pisar lo que ya hay
+                        db.execute("""
+                            UPDATE crm_leads
+                            SET telefono = COALESCE(telefono, %s),
+                                notas = COALESCE(notas, %s),
+                                fecha_nacimiento = COALESCE(fecha_nacimiento, %s),
+                                ultima_actividad = COALESCE(ultima_actividad, NOW())
+                            WHERE id = %s
+                        """, (telefono, notas, fecha_nac, existente['id']))
+                        actualizados += 1
+                    else:
+                        db.execute("""
+                            INSERT INTO crm_leads
+                                (negocio_id, nombre, email, telefono, estado, origen, notas, fecha_nacimiento, ultima_actividad)
+                            VALUES (%s, %s, %s, %s, 'nuevo', %s, %s, %s, NOW())
+                        """, (negocio_id, nombre, email, telefono, origen, notas, fecha_nac))
+                        creados += 1
+                else:
+                    # Sin email: crear igualmente pero sin deduplicar
+                    db.execute("""
+                        INSERT INTO crm_leads
+                            (negocio_id, nombre, telefono, estado, origen, notas, fecha_nacimiento, ultima_actividad)
+                        VALUES (%s, %s, %s, 'nuevo', %s, %s, %s, NOW())
+                    """, (negocio_id, nombre, telefono, origen, notas, fecha_nac))
+                    creados += 1
+
+                db.execute("RELEASE SAVEPOINT crm_row")
+
+            except Exception as row_err:
+                try:
+                    db.execute("ROLLBACK TO SAVEPOINT crm_row")
+                except Exception:
+                    pass
+                errores.append({'fila': idx + 2, 'error': str(row_err)})
+                omitidos += 1
+
+        g.db_conn.commit()
+
+        return jsonify({
+            'message': 'Importación completada',
+            'creados': creados,
+            'actualizados': actualizados,
+            'omitidos': omitidos,
+            'errores': errores[:10]  # Mostrar hasta 10 errores detallados
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"[CRM Import] Error crítico: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 
 @bp.route('/leads', methods=['GET'])
 def get_leads():
