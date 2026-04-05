@@ -181,16 +181,22 @@ Desde el **menú hamburguesa (☰)** del mozo, se puede acceder al **Histórico 
 
 ---
 
-## 5. Segmentación por Estación (Cocina vs. Bar) 🍕☕
-El sistema sabe a dónde enviar cada producto basado en su categoría.
+## 5. Segmentación por Estación (Destino KDS) 🍕☕
+El sistema organiza automáticamente a dónde enviar cada producto para su preparación, utilizando un **sistema inteligente de herencia**.
 
-*   **Configuración de Categoría (Admin):**
-    *   En **Gestión de Carta**, al crear o editar una categoría (ej: "Cafetería"), puedes elegir el **"Destino de Preparación"**.
-    *   **Cocina (KDS):** Para platos que requieren elaboración térmica.
-    *   **Bar / Barra (KDS):** Para bebidas, cócteles o despacho rápido.
-*   **Monitor de Producción (KDS):**
-    *   En la pantalla de cocina, encontrarás un selector arriba: **[Cocina]** | **[Bar / Barra]**.
-    *   Cada puesto de trabajo elige su estación para ver solo lo que le corresponde preparar.
+### Estación por Categoría (Configuración Base) 📂
+Al crear o editar una categoría (ej: "Bebidas"), seleccioná su estación de preparación. Todos los productos de esa categoría heredarán este destino automáticamente:
+*   **Cocina (KDS):** Platos elaborados, minutas, parrilla.
+*   **Bar / Barra (KDS):** Cafetería, coctelería, despacho de bebidas.
+
+### Sobrescritura por Plato (Excepciones) ✨
+Si un plato específico debe salir por un lugar distinto al de su categoría (ej: un item de "Postres" que se despacha en Barra), podés configurarlo individualmente:
+*   En la **Gestión de Menú**, editá el plato y completá el campo **"Destino KDS"**.
+*   Si este campo tiene un valor, el sistema ignorará la categoría y enviará el pedido a la estación indicada.
+*   Si el campo está vacío, el plato seguirá "heredando" el destino de su categoría.
+
+### Modificación Masiva de Estaciones ⚡
+Para cambios rápidos (ej: mover todos los platos de una sección a una nueva estación temporal), utilizá el botón **"Destino KDS"** en la barra de acciones masivas tras seleccionar los productos deseados.
 
 ---
 
@@ -210,19 +216,33 @@ El monitor KDS ayuda a priorizar y gestionar los tiempos.
 ---
 
 ## 7. Gestión de Carta y Precios 📋
-Panel central para administrar lo que vendes.
+Panel central para administrar tu oferta gastronómica con un diseño **Glassmorphism Premium**.
 
-*   **Categorías:** Puedes ordenar visualmente las categorías (ej: que Entradas aparezcan primero que Postres) usando el campo "Orden".
-*   **Sincronización de Stock:** En cada plato, puedes marcar si está **"Vinculado a Inventario"**. Si lo está, el sistema descontará automáticamente del stock general cada vez que se venda (ideal para gaseosas, cervezas y productos de preventa).
-*   **Pausado de Productos (Disponibilidad):** 
-    *   Si te quedas sin un ingrediente o un plato no está disponible momentáneamente, puedes presionar el botón de **"Pausar"** (icono de play/pausa) en la Gestión de Menú.
-    *   **Efecto Inmediato:** El producto **desaparecerá automáticamente de la Carta Digital (QR)** que ven los clientes y también de la interfaz del **Mozo**. Esto evita que se vendan productos que no puedes preparar.
-    *   **Categorías Vacías:** Si pausas todos los productos de una categoría (ej: "Postres"), la categoría completa se ocultará automáticamente de la carta para mantener un diseño limpio.
+*   **Categorías:** Puedes ordenar visualmente las secciones (ej: Entradas antes que Postres) usando el campo "Orden".
+*   **Gestión de Precios Dinámica:** 
+    *   Al editar un plato, verás la sección **"Precios por Carta"** con un diseño de tarjetas moderno.
+    *   Cada tarjeta representa una lista de precios distinta (Ej: Carta General vs Carta de Socios).
+    *   Los campos incluyen el símbolo `$` y validación en tiempo real para evitar errores de carga.
+*   **Visualización de Selección:** Al seleccionar productos en la tabla, las filas se resaltan con un borde premium, permitiendo identificar rápidamente qué items estás gestionando mediante acciones masivas.
+*   **Edición Masiva (Bulk Actions):**
+    *   Utilizá los botones rápidos para cambiar **Precios, Categorías o Destinos KDS** de cientos de productos en segundos.
+    *   Podés **Activar** o **Pausar** grupos enteros de platos con un solo clic.
+
+### 🛡️ Seguridad de Precios en Vivo (Snapshots)
+Una de las funciones críticas de seguridad de Baboons es la **congelación de precios por pedido**:
+- **Snapshot Automático:** En el momento exacto en que un mozo confirma un pedido, el sistema "captura" el precio vigente en ese instante y lo guarda en la comanda.
+- **Sin Sorpresas:** Si un administrador cambia el precio de un plato en la Gestión de Carta mientras hay mesas comiendo, **esas mesas NO se verán afectadas**. El cliente pagará el precio que figuraba cuando pidió el plato.
+- **Actualización Transparente:** Los nuevos precios solo aplicarán para los pedidos que se realicen *después* de la modificación.
+
+### Pausado de Productos (Disponibilidad)
+*   Si te quedas sin un ingrediente, puedes presionar el botón de **"Pausar"** en la Gestión de Menú.
+*   **Efecto Inmediato:** El producto desaparecerá de la **Carta Digital (QR)** y de la interfaz del **Mozo** al instante.
+*   **Categorías Vacías:** Si pausas todos los platos de una sección, la categoría completa se ocultará automáticamente para mantener la carta prolija.
 
 ---
 
 ## 8. Generador de QR y Multi-Menú (Cartas Segmentadas) 📱
-El sistema permite generar diferentes versiones de tu carta para distintos públicos (ej: Menú de Socios de Golf, Menú de Eventos, Carta General).
+El sistema permite generar diferentes versiones de tu carta para distintos públicos (ej: VIP, Eventos, Carta General) con total facilidad.
 
 *   **Configuración (Admin):**
     *   En el panel de **Gestión de Carta**, encontrarás el botón **"QR Menú"**.
@@ -286,7 +306,95 @@ El sistema descuenta del inventario en el momento del **Cobro y Cierre de Mesa**
 
 ---
 
+4.  **Carga y Edición en Tabla:** Buscá los productos y clickeá para sumarlos a la grilla.
+    *   **Edición Directa:** Podés modificar la **Cantidad** y el **Costo Unitario Pactado** directamente dentro de las celdas de la tabla. El total se recalcula al instante.
+5.  **Numeración Inteligente:** El sistema asigna un número correlativo (ej: `OC-0001`). Esta numeración es **única por cada Negocio**, permitiendo que cada sucursal lleve su propio control independiente.
+6.  **Guardado y Descarga:** Al confirmar, el sistema registra la OC y genera el documento oficial.
+
+### 📄 Documento de Orden de Compra:
+A diferencia de otros reportes, la OC cuenta con un sistema de **Descarga Segura Autenticada**:
+*   **Descarga Directa:** Al presionar "Ver PDF", el archivo se descarga automáticamente a tu dispositivo (no requiere pasos extra).
+*   **Nombre de Archivo Organizado:** Los archivos se guardan automáticamente con el formato: **`[NUMERO_OC]_[NOMBRE_PROVEEDOR].pdf`**. Esto te permite encontrarlos rápidamente en tu carpeta de descargas sin tener que renombrarlos.
+*   **Diseño Corporativo:** El PDF incluye el logo de tu negocio, datos fiscales, desglose de ítems, totales y espacio para firmas.
+
+---
+
+## 12. Recepción de Mercadería (Integración con OC) 📦
+
+Para ahorrar tiempo y evitar errores de carga manual, el proceso de **Ingreso de Mercadería** está totalmente vinculado con las Órdenes de Compra.
+
+### Importación Inteligente:
+Cuando el proveedor entrega el pedido, ya no es necesario cargar producto por producto:
+1.  Entrá al módulo de **Ingreso de Mercadería**.
+2.  Presioná el botón superior **"Importar desde OC"**.
+3.  Se desplegará una lista de todas las órdenes que están en estado **"Pendiente"**.
+4.  Al seleccionar una OC, el sistema:
+    *   Carga automáticamente al **Proveedor**.
+    *   Pre-puebla la lista de productos con las **Cantidades y Costos** pactados en la orden.
+    *   Añade una referencia automática: *"Importado de OC #XXXX"*.
+
+### Flexibilidad en la Recepción:
+Si lo recibido no coincide exactamente con lo pedido, el sistema permite:
+*   **Combinar:** Sumar los productos de la OC a ítems que ya tenías cargados manualmente en la grilla.
+*   **Reemplazar:** Limpiar la grilla actual y dejar solo lo que indica la OC.
+*   **Modificar:** Una vez importado, podés ajustar cantidades o costos unitarios antes de confirmar el ingreso final.
+
+> [!IMPORTANT]
+> **Actualización de Stock y Deuda:** Al presionar "Registrar Ingreso", el sistema actualizará el stock de los productos, recalculará los costos promedio y registrará la deuda en la **Cuenta Corriente del Proveedor** automáticamente.
+
+---
+
+## 13. Gestión de Reservas de Mesas 📅
+
+El sistema incluye un potente motor de reservas que conecta directamente la intención del cliente con la operación del salón.
+
+### 🏢 Dashboard de Reservas (Administrador)
+- **Vista Diaria**: Permite ver todas las reservas del día, filtrarlas por estado (Pendiente, Confirmada, Cancelada) y asignarles una mesa específica.
+- **Alta Manual**: Posibilidad de registrar reservas que llegan por teléfono o presencialmente, vinculando clientes existentes o creando nuevos sobre la marcha.
+- **Confirmación WhatsApp**: Genera automáticamente un botón para enviar un mensaje pre-formateado al cliente con todos los datos de su reserva.
+
+### ⚙️ Configuración de Turnos y Link Público
+En el botón de **Configuración** (icono de engranaje) podés gestionar:
+1.  **Horarios**: Definí los bloques del día (ej: Almuerzo, Cena), el intervalo entre turnos (ej: cada 30 min) y los días de apertura.
+2.  **Link para Clientes**: El sistema genera un enlace único (`/reservas?t=...`) que podés poner en tu bio de Instagram o enviar por WhatsApp para que los clientes se autogestionen.
+
+### 🛡️ Reglas de Salón (Aviso al Mozo)
+Esta es una función de seguridad crítica para evitar "quemar" mesas reservadas:
+- **Configuración de Alerta**: En la pestaña **"Reglas"**, podés definir con cuánta anticipación debe avisar el sistema al mozo (ej: 60 minutos).
+- **Advertencia en POS**: Si un mozo intenta abrir una mesa libre que tiene una reserva pactada dentro del rango de tiempo elegido:
+    - El sistema interrumpirá la apertura con un **Banner Naranja**.
+    - Mostrará el **nombre del cliente** y la **hora exacta** de la reserva.
+    - El mozo deberá confirmar que es consciente de la reserva antes de poder ocupar la mesa.
+
+## 11. Sistema de Impresión y Ruteo Inteligente 🖨️
+
+Baboons cuenta con un motor de impresión profesional que automatiza el despacho de pedidos y la entrega de cuentas, eliminando la necesidad de interactuar con ventanas del navegador.
+
+### ⚡ Impresión Automática (Sin Diálogos)
+Olvídate de presionar "Aceptar" en la ventana de impresión de Windows. Al confirmar un pedido o pedir la cuenta, el sistema se comunica directamente con tu **Baboons Print Router** local y dispara el ticket al instante. Esto permite una operación mucho más fluida en la que el mozo solo debe preocuparse por atender al cliente.
+
+### 🛰️ Ruteo por Destinos (KDS Print)
+El sistema divide automáticamente los pedidos según su estación de preparación:
+*   **Comanda de Cocina:** Los platos se imprimen en la impresora asignada a la Cocina.
+*   **Comanda de Barra:** Las bebidas y cafetería salen por la impresora de la Barra.
+*   **Ticket de Control:** Al presionar "Pedir Cuenta", el ticket se imprime automáticamente en la **Caja** o impresora principal del negocio.
+
+### 🛠️ Ajustes de Ticket PRO
+Desde el módulo de **[Impresoras]**, los administradores pueden personalizar la experiencia de impresión:
+
+1.  **Ruteo Inteligente (Plan B):**
+    *   Si está **Activo**, el sistema enviará cualquier pedido que no tenga una impresora específica a la impresora principal (para asegurar que ningún pedido se pierda).
+    *   Si está **Desactivado**, solo se imprimirán aquellos ítems que tengan una impresora configurada para su destino exacto.
+2.  **Jerarquía Visual (Tamaños de Fuente):**
+    *   Puedes configurar el **Número de Mesa** en tamaño **Grande o Súper Grande** para que el personal de cocina pueda identificar el destino del plato desde varios metros de distancia.
+    *   Ajusta el tamaño del nombre del **Mozo** y los **Productos** según la legibilidad de tu papel térmico.
+3.  **Leyenda de Ticket:**
+    *   Espacio dedicado para mensajes personalizados al pie del ticket (ej: *"¡Gracias por elegirnos!"*, *"Visitá nuestra web: www.ejemplo.com"*).
+
+---
+
 **Tips para el Administrador:**
+*   **Optimización de Salón**: Usá la pestaña de **Reglas** en Reservas para ajustar el margen de maniobra de tus mozos según la demanda del día.
 *   Siempre asegúrate de que cada nueva categoría tenga asignada su **Estación de Preparación** correcta para que los pedidos no se pierdan en el monitor de cocina.
-*   Revisá periódicamente el **Histórico de Comandas** para detectar patrones de demora o ajustar la capacidad del salón.
-*   Para mozos nuevos: recordar que la **píldora de notificaciones** (🔔) es la forma más rápida de saber qué platos están listos para servir.
+*   Utilizá las **Órdenes de Compra** para tener un control histórico de los aumentos de precios de tus proveedores.
+*   Para mozos nuevos: recordá que la **píldora de notificaciones** (🔔) es la forma más rápida de saber qué platos están listos para servir.

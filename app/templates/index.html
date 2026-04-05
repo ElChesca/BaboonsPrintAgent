@@ -43,6 +43,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}?v={{ range(1, 99999) | random }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/app_types.css') }}?v={{ range(1, 99999) | random }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/login_secure.css') }}?v={{ range(1, 99999) | random }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/proveedores.css') }}?v={{ range(1, 99999) | random }}">
 
     <!-- Leaflet CSS & JS (Fork con rotación integrada) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -71,153 +72,9 @@
 
         <div class="nav-container">
             <nav id="main-nav">
-
-                <a href="#home_retail" onclick="loadContent(event, 'static/home_retail.html', this)"
-                    class="elemento-rol nav-retail">🏠 Home</a>
-                <a href="#ventas" onclick="loadContent(event, 'static/ventas.html', this)"
-                    class="elemento-rol nav-retail">💰 Vender</a>
-                <a href="#historial_ventas" onclick="loadContent(event, 'static/historial_ventas.html', this)"
-                    class="elemento-rol nav-retail">📈 Facturar</a>
-                <a href="#historial_presupuestos"
-                    onclick="loadContent(event, 'static/historial_presupuestos.html', this)"
-                    class="elemento-rol nav-retail">🧾 Presup. Realizados</a>
-
-                <a href="#inventario" onclick="loadContent(event, 'static/inventario.html', this)"
-                    class="elemento-rol nav-retail">📦 Inventario</a>
-
-                <a href="#crm_social" onclick="loadContent(event, 'static/crm_social/crm_social.html', this)"
-                    class="elemento-rol nav-retail">👥 CRM & Redes</a>
-
-                <a href="#bancos" onclick="loadContent(event, 'static/bancos.html', this)"
-                    class="elemento-rol nav-retail">🏦 Bancos</a>
-
-                <div class="dropdown admin-only nav-retail">
-                    <a href="#" class="dropbtn">📊 Reportes ▾</a>
-                    <div class="dropdown-content">
-                        <a href="#reportes" onclick="loadContent(event, 'static/reportes.html', this)">Ventas
-                            Diarias</a>
-                        <a href="#reporte_caja" onclick="loadContent(event, 'static/reporte_caja.html', this)">Reporte
-                            de Caja</a>
-                        <a href="#reporte_ganancias"
-                            onclick="loadContent(event, 'static/reporte_ganancias.html', this)">Reporte de Ganancias</a>
-                        <a href="#historial_inventario"
-                            onclick="loadContent(event, 'static/historial_inventario.html', this)">Historial
-                            Inventario</a>
-                    </div>
-                </div>
-
-                <a href="#home_consorcio" onclick="loadContent(event, 'static/home_consorcio.html', this)"
-                    class="elemento-rol nav-consorcio">🏠 Inicio Consorcio</a>
-                <a href="#reclamos" onclick="loadContent(event, 'static/reclamos.html', this)"
-                    class="elemento-rol nav-consorcio">🔔 Reclamos</a>
-                <a href="#expensas" onclick="loadContent(event, 'static/expensas.html', this)"
-                    class="elemento-rol nav-consorcio">🧾 Expensas</a>
-                <a href="#unidades" onclick="loadContent(event, 'static/unidades.html', this)"
-                    class="elemento-rol nav-consorcio admin-only">🏢 Unidades</a>
-                <a href="#tickets" onclick="loadContent(event, 'static/tickets.html', this)"
-                    class="elemento-rol nav-consorcio">🎫 Tickets</a>
-
-                <a href="#rentals_dashboard" onclick="loadContent(event, 'static/rentals/rentals_dashboard.html', this)"
-                    class="elemento-rol nav-rentals">🏠 Dashboard</a>
-                <a href="#rentals_units" onclick="loadContent(event, 'static/rentals/rentals_units.html', this)"
-                    class="elemento-rol nav-rentals">🏗 Unidades</a>
-                <a href="#rentals_contracts" onclick="loadContent(event, 'static/rentals/rentals_contracts.html', this)"
-                    class="elemento-rol nav-rentals">📜 Contratos</a>
-                <a href="#tickets" onclick="loadContent(event, 'static/tickets.html', this)"
-                    class="elemento-rol nav-rentals">🎫 Tickets</a>
-
-                <a href="#home_distribuidora" onclick="loadContent(event, 'static/home_distribuidora.html', this)"
-                    class="elemento-rol nav-distribuidora">🏠 Home</a>
-
-                <a href="#hoja_ruta" onclick="loadContent(event, 'static/hoja_ruta.html', this)"
-                    class="elemento-rol nav-distribuidora">🚚 Hoja de Ruta</a>
-                <a href="#logistica" onclick="loadContent(event, 'static/logistica.html', this)"
-                    class="elemento-rol nav-distribuidora">🚛 Gestión de Flota</a>
-                <a href="#pedidos" onclick="loadContent(event, 'static/pedidos.html', this)"
-                    class="elemento-rol nav-distribuidora">📦 Pedidos / Preventa</a>
-
-                <div class="dropdown nav-distribuidora">
-                    <a href="#" class="dropbtn">📊 Reportes ▾</a>
-                    <div class="dropdown-content">
-                        <a href="#reportes" onclick="loadContent(event, 'static/reportes.html', this)">Reporte de Ventas
-                            y Logística</a>
-                        <a href="#reporte_caja" onclick="loadContent(event, 'static/reporte_caja.html', this)">Reporte
-                            de Caja</a>
-                        <a href="#reporte_ganancias"
-                            onclick="loadContent(event, 'static/reporte_ganancias.html', this)">Reporte de Ganancias</a>
-                        <a href="#comisiones"
-                            onclick="loadContent(event, 'static/comisiones_admin.html', this)">Liquidación
-                            Comisiones</a>
-                    </div>
-                </div>
-
-                <div class="dropdown nav-distribuidora">
-                    <a href="#" class="dropbtn">📑 Historiales ▾</a>
-                    <div class="dropdown-content">
-                        <a href="#historial_ventas"
-                            onclick="loadContent(event, 'static/historial_ventas.html', this)">Historial Ventas</a>
-                        <a href="#historial_inventario"
-                            onclick="loadContent(event, 'static/historial_inventario.html', this)">Historial
-                            Inventario</a>
-                        <a href="#historial_presupuestos"
-                            onclick="loadContent(event, 'static/historial_presupuestos.html', this)">Historial
-                            Presupuestos</a>
-                        <a href="#historial_ajustes"
-                            onclick="loadContent(event, 'static/historial_ajustes.html', this)">Historial Ajustes
-                            Caja</a>
-                        <a href="#historial_pagos_proveedores"
-                            onclick="loadContent(event, 'static/historial_pagos_proveedores.html', this)">Historial
-                            Pagos Prov.</a>
-                        <a href="#historial_ingresos"
-                            onclick="loadContent(event, 'static/historial_ingresos.html', this)">Historial Ingresos
-                            Stock</a>
-                    </div>
-                </div>
-
-                <!-- MENU RESTO -->
-                <a href="#home_resto" onclick="loadContent(event, 'static/home_resto.html', this)"
-                    class="elemento-rol nav-resto">🏠 Home</a>
-                <a href="#resto_mozo" onclick="loadContent(event, 'static/resto_mozo.html', this)"
-                    class="elemento-rol nav-resto">🍽️ Mozo</a>
-                <a href="#resto_cocina" onclick="loadContent(event, 'static/resto_cocina.html', this)"
-                    class="elemento-rol nav-resto">🍳 Cocina / Bar</a>
-                <a href="#mesas" onclick="loadContent(event, 'static/mesas.html', this)"
-                    class="elemento-rol nav-resto">🪑 Mesas</a>
-
-                <div class="dropdown nav-resto">
-                    <a href="#" class="dropbtn">📊 Reportes ▾</a>
-                    <div class="dropdown-content">
-                        <a href="#reportes" onclick="loadContent(event, 'static/reportes.html', this)">Ventas</a>
-                        <a href="#reporte_caja" onclick="loadContent(event, 'static/reporte_caja.html', this)">Caja</a>
-                        <a href="#reporte_ganancias"
-                            onclick="loadContent(event, 'static/reporte_ganancias.html', this)">Ganancias</a>
-                        <a href="#historial_ventas"
-                            onclick="loadContent(event, 'static/historial_ventas.html', this)">Historial Ventas</a>
-                        <a href="#historial_inventario"
-                            onclick="loadContent(event, 'static/historial_inventario.html', this)">Historial
-                            Inventario</a>
-                        <a href="#historial_ajustes"
-                            onclick="loadContent(event, 'static/historial_ajustes.html', this)">Historial Ajustes</a>
-                    </div>
-                </div>
-
-                <a href="#tickets" onclick="loadContent(event, 'static/tickets.html', this)" class="elemento-rol"
-                    style="border: 1px solid #3a5f3a; background: #1a2e1a; color: #6fcf97;">🎫 Tickets</a>
-
-                <a href="#agente_facturacion" onclick="loadContent(event, 'static/agente_facturacion.html', this)"
-                    class="elemento-rol superadmin-only nav-retail nav-distribuidora"
-                    style="border: 1px dashed #f0a500; background: #2a2000; color: #f0a500;">🤖 Agente Facturas</a>
-
-                <a href="#admin_negocios" onclick="loadContent(event, 'static/admin_negocios.html', this)"
-                    class="elemento-rol superadmin-only" style="border: 1px solid #0d6efd; background: rgba(13, 110, 253, 0.1); color: #8bb9fe;">
-                    <i class="fas fa-building me-2"></i> Panel Corporativo
-                </a>
-
-                <a href="#admin_apps" onclick="loadContent(event, 'static/admin_apps.html', this)"
-                    class="elemento-rol superadmin-only" style="border: 1px solid #555; background: #333;">🛠 Admin
-                    Apps</a>
-
-                <a href="#" id="auth-link"></a>
+                <!-- El menú se genera dinámicamente en main.js -> actualizarVisibilidadMenu() -->
+                <div id="nav-modules-container" style="display: contents;"></div>
+                <a href="#" id="auth-link" class="auth-btn"></a>
             </nav>
         </div>
     </header>

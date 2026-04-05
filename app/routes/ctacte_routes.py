@@ -96,16 +96,18 @@ def registrar_cobro(current_user, negocio_id):
             for metodo, monto in montos_mixtos.items():
                 monto_val = float(monto)
                 if monto_val > 0:
-                    db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-                    proximo_nro_sec = db.fetchone()[0]
+                    db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 as proximo FROM ventas WHERE negocio_id = %s", (negocio_id,))
+                    row_sec = db.fetchone()
+                    proximo_nro_sec = row_sec['proximo'] if row_sec else 1
                     db.execute(
                         """INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, numero_interno) 
                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
                         (negocio_id, cliente_id, current_user['id'], monto_val, metodo, fecha_actual, sesion_id, proximo_nro_sec)
                     )
         else:
-            db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-            proximo_nro = db.fetchone()[0]
+            db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 as proximo FROM ventas WHERE negocio_id = %s", (negocio_id,))
+            row_single = db.fetchone()
+            proximo_nro = row_single['proximo'] if row_single else 1
             db.execute(
                 """INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, numero_interno) 
                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",

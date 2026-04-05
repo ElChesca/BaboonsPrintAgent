@@ -43,3 +43,40 @@ Todas las modificaciones a la estructura de la base de datos deben crearse en la
   - Otros reportes o logs -> `docs/pruebas/` o `docs/otros/`.
 - **Convención de Nombres**: Usar nombres descriptivos en minúsculas sustituyendo espacios por guiones bajos. Ejemplo: `plan_fix_login_error.md`.
 - **Actualización de nav**: Si se crea una categoría nueva, el Agente debe sugerir o realizar la actualización en `mkdocs.yml`.
+
+## 6. Preservación de Integridad Global y Prevención de Regresión
+> [!IMPORTANT]
+> MultinegocioBaboons es un ecosistema compartido (Restó, Distribuidora, Consorcio, etc.). Cualquier cambio "local" TIENE EL POTENCIAL de romper todo el sistema si se tocan archivos centrales.
+
+### 6.1. Integridad de Back-end (`app/__init__.py`)
+- **PROHIBIDO PODA**: Nunca eliminar registros de Blueprints existentes en el bloque de `blueprints = [...]`. Aunque no se esté trabajando en ese módulo, su registro es vital.
+- **Imports**: No agrupar o "limpiar" los imports de rutas si eso implica riesgo de omitir alguno (ej: `ctacte_routes`, `bancos_routes`).
+
+### 6.2. Integridad de Front-end (`main.js`)
+- **Exposición Global (Window Objects)**: Muchos módulos (Logística, Bancos) dependen de que `main.js` asigne clases al objeto global `window` (ej: `window.Bancos = Bancos`). **NO ELIMINAR** estas asignaciones bajo sospecha de "código muerto". Si existe en `main.js`, es porque un HTML viejo lo necesita.
+- **Rutas SPA**: El switch `inicializarModulo` debe mantenerse íntegro. No se debe optimizar eliminando casos de otros negocios.
+
+### 6.3. Coherencia de Datos (`appState`)
+- El objeto `appState` es la única fuente de verdad para el `negocioActivoId`. No se deben crear variables locales que compitan con este estado; siempre referenciarlo para asegurar que el usuario no pierda el contexto de su negocio al cambiar de módulo.
+
+### 6.4. Validación de Cruce
+Antes de cada despliegue o finalización:
+1. Revisar `git diff` en archivos centrales (`main.js`, `__init__.py`).
+2. Si hubo cambios, confirmar que **Distribuidora**, **Restó** y **Retail** conservan sus rutas de inicio.
+
+### 6.5. RESTRICCIÓN DE MODIFICACIÓN NÚCLEO
+- **PROHIBIDO** realizar modificaciones en `app/static/js/main.js`, `app/static/js/modules/erp_registry.js` o archivos "cerebro" del sistema sin que los cambios estén **EXPRESAMENTE DETALLADOS** y justificados en el `implementation_plan.md` aprobado por el usuario. 
+- Cualquier edición accidental o no planificada en estos archivos se considera una violación grave de la integridad del proyecto.
+
+## 7. Protección Estricta de Diseño y Admin Apps
+> [!CAUTION]
+> **EL DISEÑO VISUAL ESTABILIZADO ES INTOCABLE.** 
+
+- **Prohibido Rediseñar**: No se deben aplicar cambios de estilo masivos, temas oscuros (Dark Mode), efectos de glassmorphism o cambios en la paleta de colores sin un pedido explícito y puntual del usuario.
+- **Prioridad de Legibilidad**: El sistema debe permanecer en "Light Mode" (fondo blanco/claro, texto oscuro) para asegurar la operatividad en entornos de trabajo.
+- **Admin Apps**: El módulo de administración de aplicaciones (`admin_apps.html`/`.js`) y el Navbar dinámico son componentes críticos. El Agente solo debe realizar reparaciones funcionales en ellos, manteniendo la estética actual.
+- **Módulos Estabilizados**: Si un módulo ya fue "estabilizado" (como `orden_compra` o `login_secure`), el Agente debe respetar sus clases CSS existentes y su estructura HTML al realizar mejoras lógicas.
+
+## 8. Idioma de Comunicación y Documentación
+- **Idioma Principal**: Toda la comunicación con el usuario, así como la generación de artefactos (`implementation_plan.md`, `walkthrough.md`, `task.md`), DEBE realizarse exclusivamente en **Español**.
+- **Consistencia**: Evitar el uso de términos técnicos en inglés si existe una alternativa clara en español, a menos que se trate de términos de código (ej: variables, funciones).

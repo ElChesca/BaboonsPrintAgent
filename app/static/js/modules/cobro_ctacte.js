@@ -1,372 +1,268 @@
 import { fetchData, sendData } from '../api.js';
 
-// Variables de estado a nivel de módulo para evitar pérdida de referencia en reinicializaciones SPA
+// Variables de estado persistentes en el módulo
 let clienteSeleccionado = null;
 let metodoPagoActual = 'Efectivo';
 
+/**
+ * Inicialización principal del módulo de Cuenta Corriente
+ */
 export async function inicializarCobroCtaCte() {
-    console.log("Inicializando módulo de Cobranza Cta Cte...");
+    console.log("🚀 [CtaCte] Inicializando lógica Premium...");
 
-    // Resetear estado al inicializar la vista
-    clienteSeleccionado = null;
-    metodoPagoActual = 'Efectivo';
+    const appStateRef = (typeof window.appState !== 'undefined') ? window.appState : null;
+    const getActualNegocioId = () => appStateRef?.negocioActivoId || getNegocioIdFromUrl() || 1;
 
-    const negocioId = typeof appState !== 'undefined' ? appState.negocioActivoId : (getNegocioIdFromUrl() || 1);
+    // --- Elementos de la UI ---
+    const UI = {
+        inputBuscar: document.getElementById('buscar-cliente'),
+        listadoResultados: document.getElementById('resultados-busqueda'),
+        infoCliente: document.getElementById('cliente-seleccionado-info'),
+        msgSinCliente: document.getElementById('msg-sin-cliente'),
+        panelCobro: document.getElementById('panel-cobro'),
+        panelInstrucciones: document.getElementById('panel-instrucciones'),
+        
+        infoNombre: document.getElementById('info-cliente-nombre'),
+        infoDireccion: document.getElementById('info-cliente-direccion'),
+        infoDeuda: document.getElementById('info-cliente-deuda'),
+        
+        montoInput: document.getElementById('monto-cobro'),
+        btnCobroTotal: document.getElementById('btn-cobro-total'),
+        btnRegistrar: document.getElementById('btn-registrar-cobro'),
+        observaciones: document.getElementById('observaciones'),
+        
+        metodosCards: document.querySelectorAll('.pago-metodo-card'),
+        camposMixtos: document.getElementById('campos-mixtos'),
+        inputsMixtos: document.querySelectorAll('.input-mixto'),
+        sumaMixtaEl: document.getElementById('suma-mixta')
+    };
 
-    // Elementos UI
-    const inputBuscar = document.getElementById('buscar-cliente');
-    const listadoResultados = document.getElementById('resultados-busqueda');
-    const infoCliente = document.getElementById('cliente-seleccionado-info');
-    const msgSinCliente = document.getElementById('msg-sin-cliente');
-    const panelCobro = document.getElementById('panel-cobro');
-    const panelInstrucciones = document.getElementById('panel-instrucciones');
+    if (!UI.inputBuscar) {
+        console.warn("⚠️ [CtaCte] No se encontró el input de búsqueda. ¿DOM listo?");
+        return;
+    }
 
-    if (!inputBuscar) return; // Salir si los elementos no están en el DOM
-
-    const infoNombre = document.getElementById('info-cliente-nombre');
-    const infoDireccion = document.getElementById('info-cliente-direccion');
-    const infoDeuda = document.getElementById('info-cliente-deuda');
-
-    const montoInput = document.getElementById('monto-cobro');
-    const btnCobroTotal = document.getElementById('btn-cobro-total');
-    const btnRegistrar = document.getElementById('btn-registrar-cobro');
-    const observacionesInput = document.getElementById('observaciones');
-
-    const metodosCards = document.querySelectorAll('.pago-metodo-card');
-    const camposMixtos = document.getElementById('campos-mixtos');
-    const inputsMixtos = document.querySelectorAll('.input-mixto');
-    const sumaMixtaEl = document.getElementById('suma-mixta');
-
-    // --- Búsqueda de Clientes ---
-    inputBuscar.addEventListener('input', debounce(async function (e) {
+    // --- Lógica de Búsqueda de Clientes ---
+    UI.inputBuscar.addEventListener('input', debounce(async function (e) {
         const query = e.target.value.trim();
         if (query.length < 2) {
-            listadoResultados.classList.add('d-none');
+            UI.listadoResultados.classList.add('d-none');
             return;
         }
 
         try {
-            const clientes = await fetchData(`/api/negocios/${negocioId}/ctacte/clientes`);
-            const filtrados = clientes.filter(c =>
+            const actualId = getActualNegocioId();
+            console.log(`🔍 [CtaCte] Buscando clientes para negocio ${actualId}...`);
+            const clientes = await fetchData(`/api/negocios/${actualId}/ctacte/clientes`);
+            
+            const filtrados = (clientes || []).filter(c =>
                 c.nombre.toLowerCase().includes(query.toLowerCase()) ||
                 (c.direccion && c.direccion.toLowerCase().includes(query.toLowerCase()))
             );
 
             renderResultados(filtrados);
         } catch (error) {
-            console.error('Error buscando clientes:', error);
+            console.error('❌ [CtaCte] Error buscando clientes:', error);
+            // Si el error es 404, informar al usuario que no hay clientes con saldo o la ruta falló
+            if (error.message.includes('404')) {
+                UI.listadoResultados.innerHTML = '<div class="list-group-item text-danger small">No se encontró el endpoint de búsqueda. Contacte soporte.</div>';
+                UI.listadoResultados.classList.remove('d-none');
+            }
         }
-    }, 300));
+    }, 400));
 
     function renderResultados(clientes) {
-        listadoResultados.innerHTML = '';
+        UI.listadoResultados.innerHTML = '';
         if (clientes.length === 0) {
-            listadoResultados.innerHTML = '<div class="list-group-item text-muted">No se encontraron clientes con deuda</div>';
+            UI.listadoResultados.innerHTML = '<div class="list-group-item text-muted p-3">No hay clientes con deuda que coincidan</div>';
         } else {
             clientes.forEach(c => {
                 const item = document.createElement('a');
-                item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 border-0 border-bottom';
+                item.style.cursor = 'pointer';
                 item.innerHTML = `
                     <div>
-                        <div class="fw-bold">${c.nombre}</div>
-                        <div class="small text-muted">${c.direccion || 'Sin dirección'}</div>
+                        <div class="fw-bold text-slate-700">${c.nombre}</div>
+                        <div class="small text-muted"><i class="fas fa-map-marker-alt me-1"></i>${c.direccion || 'Sin dirección'}</div>
                     </div>
-                    <span class="badge bg-danger rounded-pill">$${c.saldo.toLocaleString()}</span>
+                    <span class="badge rounded-pill bg-danger-light text-danger fw-bold">$${parseFloat(c.saldo).toLocaleString('es-AR')}</span>
                 `;
                 item.onclick = () => seleccionarCliente(c);
-                listadoResultados.appendChild(item);
+                UI.listadoResultados.appendChild(item);
             });
         }
-        listadoResultados.classList.remove('d-none');
+        UI.listadoResultados.classList.remove('d-none');
     }
 
     function seleccionarCliente(cliente) {
-        console.log("Cliente seleccionado:", cliente);
+        console.log("👤 [CtaCte] Seleccionando:", cliente);
         clienteSeleccionado = cliente;
-        inputBuscar.value = '';
-        listadoResultados.classList.add('d-none');
+        UI.inputBuscar.value = '';
+        UI.listadoResultados.classList.add('d-none');
 
-        infoNombre.innerText = cliente.nombre;
-        infoDireccion.innerText = cliente.direccion || 'Sin dirección';
-        infoDeuda.innerText = `$${cliente.saldo.toLocaleString()}`;
+        if (UI.infoNombre) UI.infoNombre.innerText = cliente.nombre;
+        if (UI.infoDireccion) UI.infoDireccion.innerText = cliente.direccion || 'Sin dirección registrada';
+        if (UI.infoDeuda) UI.infoDeuda.innerText = `$${parseFloat(cliente.saldo).toLocaleString('es-AR')}`;
 
-        infoCliente.classList.remove('d-none');
-        msgSinCliente.classList.add('d-none');
-        panelCobro.classList.remove('d-none');
-        panelInstrucciones.classList.add('d-none');
+        UI.infoCliente.classList.remove('d-none');
+        UI.msgSinCliente.classList.add('d-none');
+        UI.panelCobro.classList.remove('d-none');
+        UI.panelInstrucciones.classList.add('d-none');
 
-        montoInput.value = '';
-        montoInput.focus();
+        if (UI.montoInput) {
+            UI.montoInput.value = '';
+            UI.montoInput.focus();
+        }
     }
 
-    const btnLimpiar = document.getElementById('btn-limpiar-cliente');
-    if (btnLimpiar) {
-        btnLimpiar.onclick = () => {
+    const btnLib = document.getElementById('btn-limpiar-cliente');
+    if (btnLib) {
+        btnLib.onclick = () => {
             clienteSeleccionado = null;
-            infoCliente.classList.add('d-none');
-            msgSinCliente.classList.remove('d-none');
-            panelCobro.classList.add('d-none');
-            panelInstrucciones.classList.remove('d-none');
+            UI.infoCliente.classList.add('d-none');
+            UI.msgSinCliente.classList.remove('d-none');
+            UI.panelCobro.classList.add('d-none');
+            UI.panelInstrucciones.classList.remove('d-none');
         };
     }
 
-    if (btnCobroTotal) {
-        btnCobroTotal.onclick = () => {
+    if (UI.btnCobroTotal) {
+        UI.btnCobroTotal.onclick = () => {
             if (clienteSeleccionado) {
-                montoInput.value = clienteSeleccionado.saldo;
-                montoInput.dispatchEvent(new Event('input'));
+                UI.montoInput.value = parseFloat(clienteSeleccionado.saldo).toFixed(2);
+                UI.montoInput.dispatchEvent(new Event('input'));
             }
         };
     }
 
-    // --- Lógica de Pago ---
-    metodosCards.forEach(card => {
-        card.onclick = () => {
-            metodosCards.forEach(c => {
+    // --- Lógica de Métodos de Pago ---
+    UI.metodosCards.forEach(card => {
+        card.addEventListener('click', () => {
+            UI.metodosCards.forEach(c => {
                 c.classList.remove('active');
-                c.querySelector('.check-icon').classList.add('d-none');
+                c.querySelector('.check-icon')?.classList.add('d-none');
             });
             card.classList.add('active');
-            card.querySelector('.check-icon').classList.remove('d-none');
+            card.querySelector('.check-icon')?.classList.remove('d-none');
 
             metodoPagoActual = card.dataset.metodo;
 
             if (metodoPagoActual === 'Mixto') {
-                camposMixtos.classList.remove('d-none');
+                UI.camposMixtos.classList.remove('d-none');
                 autoCompletarMixto();
             } else {
-                camposMixtos.classList.add('d-none');
+                UI.camposMixtos.classList.add('d-none');
             }
-        };
+        });
     });
 
-    if (montoInput) {
-        montoInput.addEventListener('input', () => {
-            if (metodoPagoActual === 'Mixto') {
-                autoCompletarMixto();
-            }
+    if (UI.montoInput) {
+        UI.montoInput.addEventListener('input', () => {
+            if (metodoPagoActual === 'Mixto') autoCompletarMixto();
         });
     }
 
     function autoCompletarMixto() {
-        const total = parseFloat(montoInput.value) || 0;
-        inputsMixtos.forEach(input => input.value = '');
-        if (inputsMixtos.length > 0) inputsMixtos[0].value = total;
+        const total = parseFloat(UI.montoInput.value) || 0;
+        UI.inputsMixtos.forEach(input => input.value = '');
+        if (UI.inputsMixtos.length > 0) UI.inputsMixtos[0].value = total.toFixed(2);
         actualizarSumaMixta();
     }
 
-    inputsMixtos.forEach(input => {
+    UI.inputsMixtos.forEach(input => {
         input.addEventListener('input', actualizarSumaMixta);
     });
 
     function actualizarSumaMixta() {
         let suma = 0;
-        inputsMixtos.forEach(input => {
+        UI.inputsMixtos.forEach(input => {
             suma += parseFloat(input.value) || 0;
         });
-        if (sumaMixtaEl) {
-            sumaMixtaEl.innerText = `$${suma.toLocaleString()}`;
-            const totalReq = parseFloat(montoInput.value) || 0;
-            if (Math.abs(suma - totalReq) > 0.01) {
-                sumaMixtaEl.className = 'small fw-bold text-danger';
-            } else {
-                sumaMixtaEl.className = 'small fw-bold text-success';
-            }
+        if (UI.sumaMixtaEl) {
+            UI.sumaMixtaEl.innerText = `$${suma.toLocaleString('es-AR')}`;
+            const totalReq = parseFloat(UI.montoInput.value) || 0;
+            UI.sumaMixtaEl.className = (Math.abs(suma - totalReq) > 0.1) ? 'h6 mb-0 fw-bold text-danger' : 'h6 mb-0 fw-bold text-success';
         }
     }
 
-    // --- Registro ---
-    if (btnRegistrar) {
-        btnRegistrar.onclick = async () => {
-            console.log("Click en Registrar. Cliente actual:", clienteSeleccionado);
+    // --- Registro Final ---
+    if (UI.btnRegistrar) {
+        UI.btnRegistrar.onclick = async () => {
             if (!clienteSeleccionado) {
-                Swal.fire('Error', 'Debe seleccionar un cliente', 'warning');
+                Swal.fire({ icon: 'warning', title: 'Atención', text: 'Seleccione un cliente primero' });
                 return;
             }
 
-            const monto = parseFloat(montoInput.value);
-            if (isNaN(monto) || monto <= 0) {
-                Swal.fire('Error', 'Ingrese un monto válido', 'warning');
+            const monto = parseFloat(UI.montoInput.value);
+            if (!monto || monto <= 0) {
+                Swal.fire({ icon: 'warning', title: 'Atención', text: 'Ingrese un monto válido' });
                 return;
-            }
-
-            if (monto > clienteSeleccionado.saldo + 0.01) {
-                const confirm = await Swal.fire({
-                    title: '¿Confirmar cobro mayor?',
-                    text: `El monto ($${monto}) es mayor a la deuda ($${clienteSeleccionado.saldo}). ¿Desea continuar?`,
-                    icon: 'question',
-                    showCancelButton: true
-                });
-                if (!confirm.isConfirmed) return;
             }
 
             let payload = {
                 cliente_id: clienteSeleccionado.id,
                 monto_total: monto,
                 metodo_pago: metodoPagoActual,
-                observaciones: observacionesInput.value,
+                observaciones: UI.observaciones.value,
                 montos_mixtos: {}
             };
 
             if (metodoPagoActual === 'Mixto') {
-                let suma = 0;
-                inputsMixtos.forEach(input => {
+                let sumaMixta = 0;
+                UI.inputsMixtos.forEach(input => {
                     const val = parseFloat(input.value) || 0;
                     if (val > 0) {
                         payload.montos_mixtos[input.dataset.metodo] = val;
-                        suma += val;
+                        sumaMixta += val;
                     }
                 });
-
-                if (Math.abs(suma - monto) > 0.01) {
-                    Swal.fire('Error', 'La suma de los métodos mixtos no coincide con el monto total', 'error');
+                if (Math.abs(sumaMixta - monto) > 0.1) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'La suma del desglose no coincide con el total' });
                     return;
                 }
             }
 
-            btnRegistrar.disabled = true;
-            btnRegistrar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Procesando...';
+            UI.btnRegistrar.disabled = true;
+            UI.btnRegistrar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Registrando...';
 
             try {
-                console.log("Enviando cobro al servidor...", payload);
-                const res = await sendData(`/api/negocios/${negocioId}/ctacte/cobro`, payload);
-                console.log("Respuesta del servidor:", res);
-
+                const actualId = getActualNegocioId();
+                const res = await sendData(`/api/negocios/${actualId}/ctacte/cobro`, payload, 'POST');
+                
                 if (res.error) throw new Error(res.error);
 
-                const datosRecibo = {
-                    cliente: clienteSeleccionado.nombre,
-                    monto: monto,
-                    metodo: metodoPagoActual,
-                    saldo_anterior: clienteSeleccionado.saldo,
-                    nuevo_saldo: res.nuevo_saldo ?? 0,
-                    fecha: new Date().toLocaleString('es-AR'),
-                    observaciones: observacionesInput.value
-                };
-
-                // ✨ Nueva UI de Éxito usando SweetAlert2 (más robusto en SPA)
-                Swal.fire({
-                    title: '¡Cobro Registrado!',
-                    html: `
-                        <div class="py-3">
-                            <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
-                            <h2 class="fw-bold mb-2">$${monto.toLocaleString('es-AR')}</h2>
-                            <p class="text-muted">El pago se ha procesado con éxito.</p>
-                            
-                            <div class="mt-4 p-3 bg-light rounded-3">
-                                <p class="small text-muted mb-3 fw-bold">COMPROBANTE</p>
-                                <div class="d-grid gap-2">
-                                    <button id="swal-btn-pdf" class="btn btn-outline-primary py-2">
-                                        <i class="fas fa-file-pdf me-2"></i>Descargar Recibo PDF
-                                    </button>
-                                    <button id="swal-btn-wa" class="btn btn-outline-success py-2">
-                                        <i class="fab fa-whatsapp me-2"></i>Enviar por WhatsApp
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    `,
-                    showConfirmButton: true,
-                    confirmButtonText: 'Finalizar y Limpiar',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        const btnPdf = document.getElementById('swal-btn-pdf');
-                        const btnWa = document.getElementById('swal-btn-wa');
-                        if (btnPdf) btnPdf.onclick = () => generarReciboPDF(datosRecibo);
-                        if (btnWa) btnWa.onclick = () => compartirWhatsApp(datosRecibo);
-                    }
-                }).then(() => {
-                    // En lugar de reload completo, podemos simplemente resetear la vista si es un SPA
-                    // Pero reload es más seguro para asegurar limpieza de estado.
-                    location.reload();
+                await Swal.fire({
+                    icon: 'success',
+                    title: '¡Cobro Exitoso!',
+                    text: `Se registraron $${monto.toLocaleString('es-AR')} a la cuenta de ${clienteSeleccionado.nombre}`,
+                    confirmButtonText: 'Genial',
+                    background: '#ffffff',
+                    borderRadius: '20px'
                 });
 
+                location.reload(); // Recargar para limpiar todo
+
             } catch (error) {
-                console.error('Error al registrar cobro:', error);
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire('Error', error.message || 'Error al procesar el pago', 'error');
-                } else {
-                    alert('Error: ' + (error.message || 'Error al procesar el pago'));
-                }
+                console.error("❌ Error registrando cobro:", error);
+                Swal.fire({ icon: 'error', title: 'Error de Servidor', text: error.message });
             } finally {
-                btnRegistrar.disabled = false;
-                btnRegistrar.innerHTML = '<i class="fas fa-save me-2"></i>Registrar Cobro';
-                console.log("Proceso de registro finalizado.");
+                UI.btnRegistrar.disabled = false;
+                UI.btnRegistrar.innerHTML = '<i class="fas fa-check-circle me-2"></i>REGISTRAR COBRO';
             }
         };
     }
+}
 
-    function generarReciboPDF(datos) {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({
-            unit: 'mm',
-            format: [80, 150] // Formato ticket (80mm ancho)
-        });
+// Helpers
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
 
-        // Diseño del Recibo (Simplificado y Elegante)
-        doc.setFontSize(16);
-        doc.setTextColor(40, 40, 40);
-        doc.text("RECIBO DE PAGO", 40, 15, { align: 'center' });
-
-        doc.setDrawColor(200, 200, 200);
-        doc.line(5, 20, 75, 20);
-
-        doc.setFontSize(10);
-        doc.text(`Fecha: ${datos.fecha}`, 5, 28);
-        doc.text(`Cliente: ${datos.cliente}`, 5, 34);
-
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.text(`MONTO: $${datos.monto.toLocaleString('es-AR')}`, 5, 45);
-
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        doc.text(`Método: ${datos.metodo}`, 5, 52);
-
-        if (datos.observaciones) {
-            doc.text(`Obs: ${datos.observaciones}`, 5, 58, { maxWidth: 70 });
-        }
-
-        doc.line(5, 75, 75, 75);
-
-        doc.setFontSize(11);
-        doc.setFont(undefined, 'bold');
-        doc.text(`SALDO ACTUAL: $${datos.nuevo_saldo.toLocaleString('es-AR')}`, 5, 85);
-
-        doc.setFontSize(8);
-        doc.setFont(undefined, 'italic');
-        doc.text("¡Muchas gracias por su pago!", 40, 100, { align: 'center' });
-
-        doc.save(`Recibo_${datos.cliente.replace(/\s/g, '_')}.pdf`);
-    }
-
-    function compartirWhatsApp(datos) {
-        const mensaje =
-            `*COMPROBANTE DE PAGO*\n\n` +
-            `Hola *${datos.cliente}*,\n` +
-            `Hemos registrado tu pago de *$${datos.monto.toLocaleString('es-AR')}*.\n\n` +
-            `*Detalles:*\n` +
-            `📅 Fecha: ${datos.fecha}\n` +
-            `💳 Método: ${datos.metodo}\n` +
-            `📉 *Saldo Actual: $${datos.nuevo_saldo.toLocaleString('es-AR')}*\n\n` +
-            `¡Muchas gracias!`;
-
-        const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
-        window.open(url, '_blank');
-    }
-
-    // Helper: Debounce para búsqueda
-    function debounce(func, wait) {
-        let timeout;
-        return function (...args) {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(this, args), wait);
-        };
-    }
-
-    // Helper: Obtener Negocio ID de la URL
-    function getNegocioIdFromUrl() {
-        const params = new URLSearchParams(window.location.search);
-        return params.get('id');
-    }
+function getNegocioIdFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('id') || params.get('negocio_id');
 }

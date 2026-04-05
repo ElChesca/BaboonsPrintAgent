@@ -1,71 +1,106 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>{{ og_title }}</title>
-    
-    <!-- Meta Tags for Social Media -->
+
     <meta property="og:title" content="{{ og_title }}">
     <meta property="og:image" content="{{ og_image }}">
-    <meta property="og:description" content="Explora nuestra carta digital y deléitate con nuestra propuesta gastronómica.">
-    <meta name="theme-color" content="#1e293b">
-    
-    <!-- Fonts - Plus Jakarta Sans -->
+    <meta property="og:description" content="Explora nuestra carta digital y vive la dolce vita.">
+    <meta name="theme-color" content="#18254f">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- Bootstrap & Icons -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Lora:ital,wght@0,400;0,500;1,400&family=Playfair+Display:ital,wght@0,400;0,600;0,800;1,400&display=swap"
+        rel="stylesheet">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+
     <style>
         :root {
-            --primary-color: #4361ee;
-            --accent-color: #ff4757;
-            --dark-navy: #0f172a;
-            --soft-bg: #f8fafc;
-            --glass-bg: rgba(255, 255, 255, 0.85);
-            --card-shadow: 0 10px 30px rgba(0,0,0,0.06);
-            --header-height: 220px;
+            /* Paleta Vita Club Oficial */
+            --vita-navy: #18254f;
+            --vita-brown: #7f4d2a;
+            --vita-bordeau: #560d14;
+            --vita-teal: #95b3ba;
+            --vita-cream: #eceae4;
+            --vita-white: #ffffff;
+
+            /* Asignación funcional */
+            --primary-color: var(--vita-bordeau);
+            --accent-color: var(--vita-brown);
+            --dark-navy: var(--vita-navy);
+            --soft-bg: var(--vita-cream);
+            --glass-bg: rgba(236, 234, 228, 0.95);
+            /* Crema con ligera transparencia */
+            --header-height: 260px;
         }
 
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'Lora', serif;
             background-color: var(--soft-bg);
             color: var(--dark-navy);
-            margin: 0; padding: 0;
+            margin: 0;
+            padding: 0;
             overflow-x: hidden;
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Loading State - Premium */
+        /* Tipografías Especiales */
+        .font-title {
+            font-family: 'Playfair Display', serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .font-script {
+            font-family: 'Great Vibes', cursive;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
+        /* Loading State - Premium & Slow */
         #loading {
             position: fixed;
             inset: 0;
-            background: white;
+            background: var(--soft-bg);
             z-index: 2000;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            transition: opacity 0.5s, visibility 0.5s;
+            transition: opacity 0.8s, visibility 0.8s;
         }
-        .spinner-elegant {
-            width: 60px; height: 60px;
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid var(--primary-color);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Header Layout - Luxury Feel */
+        .spinner-elegant {
+            width: 50px;
+            height: 50px;
+            border: 2px solid rgba(24, 37, 79, 0.1);
+            border-top: 2px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1.5s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Header Layout - Clásico */
         .hero-banner {
             height: var(--header-height);
-            background: linear-gradient(rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.9)), url('{{ lista.banner_url or negocio.fondo_url_resto or og_image }}');
+            background: linear-gradient(rgba(24, 37, 79, 0.5), rgba(24, 37, 79, 0.8)),
+            url('{{ lista.banner_url or negocio.fondo_url_resto or og_image }}');
             background-size: cover;
             background-position: center;
             display: flex;
@@ -73,330 +108,393 @@
             justify-content: center;
             align-items: center;
             text-align: center;
-            color: white;
+            color: var(--vita-cream);
             padding: 20px;
             position: relative;
         }
 
-        .logo-circle {
-            width: 90px; height: 90px;
-            background: white;
-            border-radius: 24px;
-            padding: 10px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        .logo-box {
+            width: 100px;
+            height: 100px;
+            background: transparent;
             margin-bottom: 15px;
             transform: translateY(20px);
-            animation: fadeInUp 0.8s forwards;
+            animation: fadeInUp 1s forwards;
             object-fit: contain;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
         }
 
         .restaurant-name {
-            font-weight: 800;
-            font-size: 1.8rem;
-            letter-spacing: -0.5px;
+            font-weight: 600;
+            font-size: 2rem;
             margin-bottom: 5px;
             transform: translateY(10px);
             opacity: 0;
-            animation: fadeInUp 0.8s 0.2s forwards;
-        }
-
-        .restaurant-meta {
-            font-size: 0.85rem;
-            opacity: 0;
-            animation: fadeInUp 0.8s 0.4s forwards;
-            background: rgba(255,255,255,0.1);
-            padding: 4px 15px;
-            border-radius: 20px;
-            backdrop-filter: blur(5px);
+            animation: fadeInUp 1s 0.3s forwards;
         }
 
         .special-menu-badge {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 800;
+            background: var(--accent-color);
+            color: var(--vita-cream);
+            font-size: 0.8rem;
+            font-weight: 600;
             padding: 4px 16px;
-            border-radius: 20px;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 10px;
-            box-shadow: 0 4px 15px rgba(217, 119, 6, 0.4);
-            animation: bounceIn 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            letter-spacing: 2px;
+            margin-top: 15px;
             display: inline-block;
-            margin-bottom: 5px;
+            animation: fadeInScale 1s 0.6s backwards;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        @keyframes bounceIn {
-            0% { transform: scale(0.3); opacity: 0; }
-            50% { transform: scale(1.05); }
-            70% { transform: scale(0.9); }
-            100% { transform: scale(1); opacity: 1; }
+        /* Buscador Vita Club */
+        .search-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px 20px 5px 20px;
+            position: relative;
+            background: var(--soft-bg);
         }
 
-        @keyframes fadeInUp {
-            to { transform: translateY(0); opacity: 1; }
+        #searchInput {
+            width: 100%;
+            padding: 12px 15px 12px 45px;
+            border: 1px solid rgba(24, 37, 79, 0.2);
+            border-radius: 4px;
+            background: var(--vita-white);
+            font-family: 'Lora', serif;
+            color: var(--dark-navy);
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.3s ease;
         }
 
-        /* Sticky Categories Nav - Glassmorphism */
+        #searchInput:focus {
+            border-color: var(--vita-brown);
+            box-shadow: 0 0 0 3px rgba(127, 77, 42, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 35px;
+            top: 60%;
+            transform: translateY(-50%);
+            color: var(--vita-teal);
+            font-size: 1.1rem;
+        }
+
+        /* Sticky Categories Nav - Editorial */
         .sticky-category-nav {
             position: sticky;
             top: 0;
             z-index: 1000;
             background: var(--glass-bg);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border-bottom: 1px solid rgba(0,0,0,0.05);
-            padding: 12px 0;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(24, 37, 79, 0.1);
+            padding: 15px 0;
             display: flex;
             overflow-x: auto;
             scrollbar-width: none;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.02);
             transition: all 0.3s;
         }
-        .sticky-category-nav::-webkit-scrollbar { display: none; }
+
+        .sticky-category-nav::-webkit-scrollbar {
+            display: none;
+        }
 
         .cat-pill {
-            padding: 8px 20px;
-            margin: 0 6px;
+            padding: 8px 16px;
+            margin: 0 10px;
             background: transparent;
-            border-radius: 30px;
-            color: #64748b;
-            font-weight: 700;
-            font-size: 0.9rem;
+            color: var(--dark-navy);
+            font-family: 'Playfair Display', serif;
+            text-transform: uppercase;
+            font-weight: 600;
+            font-size: 0.85rem;
             white-space: nowrap;
             text-decoration: none;
-            transition: all 0.2s;
-            border: 1px solid transparent;
+            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
         }
+
         .cat-pill.active {
-            background: var(--primary-color);
-            color: white !important;
-            box-shadow: 0 8px 15px rgba(67, 97, 238, 0.25);
+            color: var(--primary-color) !important;
+            border-bottom: 2px solid var(--primary-color);
         }
-        .cat-pill:first-child { margin-left: 20px; }
-        .cat-pill:last-child { margin-right: 20px; }
+
+        .cat-pill:first-child {
+            margin-left: 20px;
+        }
+
+        .cat-pill:last-child {
+            margin-right: 20px;
+        }
 
         /* Menu Content Area */
         .menu-container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 10px 15px 100px;
+            padding: 10px 20px 100px;
         }
 
         .category-section {
-            padding-top: 20px;
-            margin-bottom: 40px;
+            padding-top: 40px;
+            margin-bottom: 30px;
         }
 
         .category-title {
-            font-weight: 800;
-            font-size: 1.4rem;
-            margin-bottom: 20px;
-            padding-left: 5px;
-            border-left: 4px solid var(--primary-color);
-            line-height: 1;
+            font-size: 1.8rem;
+            margin-bottom: 25px;
+            text-align: center;
+            position: relative;
+            color: var(--dark-navy);
         }
 
-        /* Item Card - Modern List Style */
+        /* Línea decorativa a los lados del título */
+        .category-title::before,
+        .category-title::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 20%;
+            height: 1px;
+            background-color: var(--vita-teal);
+            opacity: 0.5;
+        }
+
+        .category-title::before {
+            left: 0;
+        }
+
+        .category-title::after {
+            right: 0;
+        }
+
+        /* Item Card - Estilo Menú Físico */
         .menu-item-row {
-            background: white;
-            border-radius: 24px;
-            padding: 12px;
-            margin-bottom: 18px;
+            background: transparent;
+            padding: 15px 0;
+            margin-bottom: 0;
             display: flex;
-            align-items: center;
-            box-shadow: var(--card-shadow);
-            transition: all 0.3s;
-            border: 1px solid rgba(0,0,0,0.02);
-            animation: fadeInScale 0.6s backwards;
+            align-items: flex-start;
+            border-bottom: 1px solid rgba(24, 37, 79, 0.08);
+            transition: background-color 0.3s;
         }
-        .menu-item-row:active { transform: scale(0.97); }
 
-        .item-image-box {
-            width: 100px; height: 100px;
-            border-radius: 18px;
-            overflow: hidden;
-            flex-shrink: 0;
-            background: #f1f5f9;
-        }
-        .item-image-box img {
-            width: 100%; height: 100%;
-            object-fit: cover;
+        .menu-item-row:last-child {
+            border-bottom: none;
         }
 
         .item-details {
             flex-grow: 1;
-            padding-left: 15px;
-            overflow: hidden;
+            padding-right: 15px;
         }
 
-        .item-name {
-            font-weight: 800;
-            font-size: 1.05rem;
-            margin-bottom: 4px;
-            color: var(--dark-navy);
-        }
-
-        .item-description {
-            font-size: 0.82rem;
-            color: #64748b;
-            line-height: 1.3;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
             margin-bottom: 6px;
         }
 
-        .item-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .item-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--dark-navy);
+            margin: 0;
         }
 
         .item-price {
-            font-weight: 800;
-            font-size: 1.15rem;
+            font-weight: 600;
+            font-size: 1.1rem;
             color: var(--primary-color);
+            font-family: 'Playfair Display', serif;
+            white-space: nowrap;
+            margin-left: 10px;
         }
 
-        .btn-add-item {
-            width: 32px; height: 32px;
-            background: #f1f5f9;
-            border-radius: 10px;
-            display: flex;
-            align-items: center; justify-content: center;
-            color: #475569;
-            font-size: 0.8rem;
+        .item-description {
+            font-size: 0.9rem;
+            color: #555;
+            line-height: 1.5;
+            font-style: italic;
+            margin-bottom: 8px;
         }
 
-        /* Floating Order Bar (Opcional, Da look de app) */
+        .item-image-box {
+            width: 80px;
+            height: 80px;
+            border-radius: 4px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: rgba(24, 37, 79, 0.05);
+            border: 1px solid rgba(24, 37, 79, 0.1);
+        }
+
+        .item-image-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Floating Order Bar */
         .floating-cta {
             position: fixed;
-            bottom: 25px; left: 20px; right: 20px;
+            bottom: 0;
+            left: 0;
+            right: 0;
             background: var(--dark-navy);
-            color: white;
-            border-radius: 20px;
+            color: var(--vita-cream);
             padding: 15px 25px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
             z-index: 1010;
-            animation: slideInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            border-top: 2px solid var(--accent-color);
+        }
+
+        /* Vita Club Pattern Divider */
+        .vita-divider {
+            height: 12px;
+            background: repeating-linear-gradient(-45deg,
+                    var(--dark-navy),
+                    var(--dark-navy) 4px,
+                    var(--soft-bg) 4px,
+                    var(--soft-bg) 8px);
+            opacity: 0.8;
         }
 
         /* Footer Styles */
         footer {
-            background: white;
-            padding-bottom: 120px !important; /* Space for floating CTA */
+            background: var(--soft-bg);
+            padding-bottom: 100px !important;
         }
+
         .btn-outline-dark {
-            border-color: #e2e8f0;
-            color: #475569;
-            transition: all 0.3s;
+            border-color: var(--dark-navy);
+            color: var(--dark-navy);
+            border-radius: 0 !important;
         }
+
         .btn-outline-dark:hover {
-            background: var(--primary-color);
-            border-color: var(--primary-color);
-            color: white;
-            transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(67, 97, 238, 0.2);
-        }
-        footer .container {
-            position: relative;
-            z-index: 1;
+            background: var(--dark-navy);
+            color: var(--vita-cream);
         }
 
         /* Keyframes */
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeInScale { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-        @keyframes slideInUp { from { transform: translateY(100px); } to { transform: translateY(0); } }
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
 
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
     </style>
 </head>
+
 <body>
 
-    <!-- Premium Loader -->
     <div id="loading">
-        <div class="spinner-elegant"></div>
-        <h5 class="mt-4 fw-800 animate__animated animate__pulse animate__infinite" style="color: #475569">Cocinando el Menú...</h5>
+        <div class="spinner-elegant mb-4"></div>
+        <h4 class="font-script animate__animated animate__pulse animate__infinite"
+            style="color: var(--dark-navy); font-size: 2.2rem;">Preparando la experiencia...</h4>
     </div>
 
-    <!-- Hero Header -->
     <section class="hero-banner">
-        <img class="logo-circle" src="{{ negocio.logo_url_resto or og_image }}" alt="Logo" onerror="this.src='/static/img/icons/reportes.png'">
-        <h1 class="restaurant-name">{{ negocio.nombre }}</h1>
+        <img class="logo-box" src="{{ negocio.logo_url_resto or og_image }}" alt="Logo"
+            onerror="this.style.display='none'">
+        <h1 class="restaurant-name font-title">{{ negocio.nombre }}</h1>
         {% if lista.mensaje_banner %}
-            <div class="special-menu-badge">
-                <i class="fas fa-star me-2"></i>{{ lista.mensaje_banner }}
-            </div>
-        {% endif %}
-        <div class="restaurant-meta">
-            <i class="fas fa-clock me-1 text-warning"></i> Abierto ahora • <i class="fas fa-star text-warning me-1 ms-2"></i> 4.8 
+        <div class="special-menu-badge font-title">
+            {{ lista.mensaje_banner }}
         </div>
+        {% endif %}
     </section>
 
-    <!-- Sticky Nav -->
+    <div class="search-container">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="searchInput" placeholder="Buscar plato, bebida o ingrediente..."
+            onkeyup="buscarEnMenu()">
+    </div>
+
     <nav class="sticky-category-nav" id="cat-nav">
         <a href="#" class="cat-pill active">Todos</a>
-        <!-- Dynamic Tabs -->
     </nav>
 
-    <!-- Menu Content -->
     <main class="menu-container">
         <div id="menu-content">
-            <!-- Dynamic Sections -->
         </div>
     </main>
 
-    <!-- Floating Footer (Call to mozo / WiFi info) -->
     <div class="floating-cta">
         <div>
-            <span class="d-block x-small opacity-50 fw-600">{{ negocio.nombre }} - MENÚ DIGITAL</span>
-            <span class="fw-800">¡Bienvenidos!</span>
+            <span class="d-block small" style="opacity: 0.7; font-family: 'Playfair Display', serif;">VIVE LA DOLCE
+                VITA</span>
+            <span class="font-script" style="font-size: 1.4rem;">¡Benvenuti!</span>
         </div>
-        <button class="btn btn-primary rounded-pill px-4 fw-800" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
-            <i class="fas fa-arrow-up me-2"></i> INICIO
+        <button class="btn font-title"
+            style="background-color: var(--primary-color); color: var(--vita-cream); border-radius: 0; font-size: 0.85rem; padding: 10px 20px;"
+            onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+            <i class="fas fa-chevron-up me-2"></i> INICIO
         </button>
     </div>
 
-    <!-- Final Footer con Info Comercial -->
-    <footer class="bg-white pt-5 pb-5 mt-5 border-top">
+    <div class="vita-divider"></div>
+
+    <footer class="pt-5 pb-5">
         <div class="container text-center">
-            <img class="mb-4" src="{{ negocio.logo_url_resto or og_image }}" alt="Logo" style="height: 60px; object-fit: contain; border-radius: 12px;" onerror="this.style.display='none'">
-            <h4 class="fw-800 mb-2">{{ negocio.nombre }}</h4>
-            
+            <h4 class="font-title mb-3" style="color: var(--dark-navy);">{{ negocio.nombre }}</h4>
+
             {% if negocio.direccion_resto %}
-            <p class="text-muted small mb-1">
-                <i class="fas fa-map-marker-alt me-2 text-primary"></i>{{ negocio.direccion_resto }}
+            <p class="small mb-1" style="color: #555;">
+                <i class="fas fa-map-marker-alt me-2" style="color: var(--accent-color);"></i>{{ negocio.direccion_resto
+                }}
             </p>
             {% endif %}
 
             {% if negocio.telefono_resto %}
-            <p class="text-muted small mb-4">
-                <i class="fas fa-phone me-2 text-primary"></i>{{ negocio.telefono_resto }}
+            <p class="small mb-4" style="color: #555;">
+                <i class="fas fa-phone me-2" style="color: var(--accent-color);"></i>{{ negocio.telefono_resto }}
             </p>
             {% endif %}
 
             <div class="d-flex justify-content-center gap-3 mb-5">
                 {% if negocio.instagram_url_resto %}
-                <a href="{{ negocio.instagram_url_resto }}" target="_blank" class="btn btn-outline-dark rounded-circle" style="width: 45px; height: 45px; display: flex; align-items: center; justify-content: center;">
-                    <i class="fab fa-instagram fa-lg"></i>
+                <a href="{{ negocio.instagram_url_resto }}" target="_blank" class="btn btn-outline-dark"
+                    style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fab fa-instagram"></i>
                 </a>
                 {% endif %}
-                
+
                 {% if negocio.facebook_url_resto %}
-                <a href="{{ negocio.facebook_url_resto }}" target="_blank" class="btn btn-outline-dark rounded-circle" style="width: 45px; height: 45px; display: flex; align-items: center; justify-content: center;">
-                    <i class="fab fa-facebook-f fa-lg"></i>
+                <a href="{{ negocio.facebook_url_resto }}" target="_blank" class="btn btn-outline-dark"
+                    style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fab fa-facebook-f"></i>
                 </a>
                 {% endif %}
             </div>
 
-            <div class="opacity-25 mt-4">
-                <img src="/static/img/logo.png" height="20" alt="Baboons">
-                <p class="x-small fw-700 mt-2 mb-0">POWERED BY BABOONS</p>
+            <div class="mt-4 pt-4 border-top" style="border-color: rgba(24, 37, 79, 0.1) !important;">
+                <p class="small mb-0"
+                    style="color: var(--vita-teal); font-family: 'Playfair Display', serif; letter-spacing: 1px;">
+                    POWERED BY BABOONS</p>
             </div>
         </div>
     </footer>
@@ -410,31 +508,30 @@
         async function init() {
             try {
                 const itemsUrl = `/api/negocios/${NEGOCIO_ID}/menu/items` + (LISTA_ID ? `?lista_id=${LISTA_ID}` : '');
-                
+
                 const [catsData, itemsData] = await Promise.all([
                     fetch(`/api/negocios/${NEGOCIO_ID}/menu/categorias`).then(r => r.json()),
                     fetch(itemsUrl).then(r => r.json())
                 ]);
 
                 categorias = catsData;
-                // Filtrar solo items disponibles para el público
                 items = itemsData.filter(i => i.disponible === true || i.disponible === 1 || i.disponible === "true");
 
                 renderMenu();
-                
-                // Hide loader with fade
+
+                // Hide loader
                 const loader = document.getElementById('loading');
                 loader.style.opacity = '0';
-                setTimeout(() => loader.style.display = 'none', 500);
+                setTimeout(() => loader.style.display = 'none', 800);
 
             } catch (error) {
                 console.error("Error:", error);
                 document.getElementById('loading').innerHTML = `
                     <div class="text-center px-4">
-                        <i class="fas fa-wifi fa-3x text-danger mb-4"></i>
-                        <h4 class="fw-800">Algo salió mal</h4>
-                        <p class="text-muted">No pudimos conectar con la cocina. Por favor, reintentá escaneando el código de nuevo.</p>
-                        <button class="btn btn-primary px-5 rounded-pill" onclick="location.reload()">REINTENTAR</button>
+                        <i class="fas fa-wine-glass-empty fa-3x mb-4" style="color: var(--primary-color);"></i>
+                        <h4 class="font-title">Algo salió mal</h4>
+                        <p class="font-italic">No pudimos conectar con la cocina. Por favor, reintentá escaneando el código de nuevo.</p>
+                        <button class="btn mt-3" style="background-color: var(--dark-navy); color: var(--vita-cream); border-radius: 0;" onclick="location.reload()">REINTENTAR</button>
                     </div>
                 `;
             }
@@ -444,52 +541,91 @@
             const nav = document.getElementById('cat-nav');
             const content = document.getElementById('menu-content');
 
-            // 1. Group items first to know which categories have content
-            const grouped = {};
+            // 1. Agrupar categorías por su campo "grupo"
+            // Si el grupo es null/vacío, se usa el nombre de la categoría como su propio grupo
+            const groupedByCategory = {};
             items.forEach(i => {
-                if (!grouped[i.categoria_id]) grouped[i.categoria_id] = [];
-                grouped[i.categoria_id].push(i);
+                if (!groupedByCategory[i.categoria_id]) groupedByCategory[i.categoria_id] = [];
+                groupedByCategory[i.categoria_id].push(i);
             });
 
-            // 2. Categorías Nav (Solo mostrar si tienen items y la categoría está activa)
-            let navHtml = '<a href="#" class="cat-pill active" onclick="filtrar(event, \'all\')">Todos</a>';
+            const groups = {};
+            const groupOrder = [];
+
             categorias.forEach(c => {
                 const isCatActiva = c.activo === true || c.activo === 1 || c.activo === "true";
-                if (isCatActiva && grouped[c.id] && grouped[c.id].length > 0) {
-                    navHtml += `<a href="#cat-${c.id}" class="cat-pill" onclick="filtrar(event, ${c.id})">${c.nombre}</a>`;
+                const catItems = groupedByCategory[c.id] || [];
+                if (!isCatActiva || catItems.length === 0) return;
+
+                const groupName = c.grupo || c.nombre;
+                const groupKey = groupName.toLowerCase().trim();
+
+                if (!groups[groupKey]) {
+                    groups[groupKey] = {
+                        name: groupName,
+                        categories: [],
+                        minOrden: c.orden || 999
+                    };
+                    groupOrder.push(groupKey);
                 }
+
+                groups[groupKey].categories.push({
+                    id: c.id,
+                    nombre: c.nombre,
+                    items: catItems,
+                    orden: c.orden || 0,
+                    isMain: !c.grupo // Si no tiene grupo, ella es la principal del grupo
+                });
+                
+                if ((c.orden || 999) < groups[groupKey].minOrden) {
+                    groups[groupKey].minOrden = c.orden;
+                }
+            });
+
+            // Ordenar grupos por su orden mínimo
+            groupOrder.sort((a, b) => groups[a].minOrden - groups[b].minOrden);
+
+            // 2. Renderizar Navegación
+            let navHtml = '<a href="#" class="cat-pill active" onclick="filtrar(event, \'all\')">Todos</a>';
+            groupOrder.forEach(key => {
+                const g = groups[key];
+                navHtml += `<a href="#group-${key.replace(/\s+/g, '-')}" class="cat-pill" onclick="filtrar(event, 'group-${key.replace(/\s+/g, '-')}')">${g.name}</a>`;
             });
             nav.innerHTML = navHtml;
 
-            // Sections
+            // 3. Renderizar Contenido
             let sectionsHtml = '';
-            categorias.forEach(c => {
-                const isCatActiva = c.activo === true || c.activo === 1 || c.activo === "true";
-                const catItems = grouped[c.id] || [];
-                if (!isCatActiva || catItems.length === 0) return;
-
+            groupOrder.forEach(key => {
+                const g = groups[key];
+                const cleanKey = key.replace(/\s+/g, '-');
+                
                 sectionsHtml += `
-                    <div id="cat-${c.id}" class="category-section">
-                        <h2 class="category-title animate__animated animate__fadeInLeft">${c.nombre}</h2>
-                        <div class="items-list">
-                            ${catItems.map((item, index) => `
-                                <div class="menu-item-row" style="animation-delay: ${index * 0.1}s">
-                                    <div class="item-image-box">
-                                        <img src="${item.imagen_url || '/static/img/icons/reportes.png'}" alt="${item.nombre}" onerror="this.src='/static/img/icons/reportes.png'">
-                                    </div>
-                                    <div class="item-details">
-                                        <h3 class="item-name">${item.nombre}</h3>
-                                        <p class="item-description">${item.descripcion || 'Especialidad de la casa preparada con ingredientes frescos del día.'}</p>
-                                        <div class="item-footer">
-                                            <div class="item-price">$${parseFloat(item.precio).toLocaleString('es-AR')}</div>
-                                            <div class="btn-add-item">
-                                                <i class="fas fa-plus"></i>
+                    <div id="group-${cleanKey}" class="category-section">
+                        <h2 class="category-title font-title">${g.name}</h2>
+                        
+                        ${g.categories.map(cat => `
+                            <div class="subcategory-wrapper mb-4">
+                                ${!cat.isMain ? `<h4 class="subcategory-title font-script mb-3" style="color: var(--vita-brown); font-size: 1.8rem; border-bottom: 1px solid rgba(127, 77, 42, 0.1); margin-top: 20px;">${cat.nombre}</h4>` : ''}
+                                <div class="items-list">
+                                    ${cat.items.map((item, index) => `
+                                        <div class="menu-item-row" style="animation: fadeInUp 0.6s backwards; animation-delay: ${index * 0.05}s">
+                                            <div class="item-details">
+                                                <div class="item-header">
+                                                    <h3 class="item-name font-title">${item.nombre}</h3>
+                                                    <div class="item-price">$${parseFloat(item.precio).toLocaleString('es-AR')}</div>
+                                                </div>
+                                                <p class="item-description">${item.descripcion || ''}</p>
                                             </div>
+                                            ${item.imagen_url ? `
+                                            <div class="item-image-box">
+                                                <img src="${item.imagen_url}" alt="${item.nombre}" loading="lazy" onerror="this.style.display='none'">
+                                            </div>
+                                            ` : ''}
                                         </div>
-                                    </div>
+                                    `).join('')}
                                 </div>
-                            `).join('')}
-                        </div>
+                            </div>
+                        `).join('')}
                     </div>
                 `;
             });
@@ -498,21 +634,66 @@
         }
 
         function filtrar(e, id) {
+            e.preventDefault();
+            document.getElementById('searchInput').value = '';
+            buscarEnMenu();
+
             if (id === 'all') {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                const element = document.getElementById(id);
+                if (element) {
+                    const y = element.getBoundingClientRect().top + window.scrollY - 120;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                }
             }
+
             document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
             e.currentTarget.classList.add('active');
         }
 
-        // Scroll Spy refined
+        // Función del Buscador Manual
+        function buscarEnMenu() {
+            const input = document.getElementById('searchInput');
+            const filtro = input.value.toLowerCase();
+            const categorias = document.querySelectorAll('.category-section');
+            const navPills = document.querySelectorAll('.cat-pill');
+
+            if (filtro.length > 0) {
+                navPills.forEach(p => p.classList.remove('active'));
+            }
+
+            categorias.forEach(categoria => {
+                const items = categoria.querySelectorAll('.menu-item-row');
+                let tieneItemsVisibles = false;
+
+                items.forEach(item => {
+                    const textoItem = item.innerText.toLowerCase();
+
+                    if (textoItem.includes(filtro)) {
+                        item.style.display = '';
+                        tieneItemsVisibles = true;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                if (tieneItemsVisibles) {
+                    categoria.style.display = 'block';
+                } else {
+                    categoria.style.display = 'none';
+                }
+            });
+        }
+
+        // Scroll Spy refinado
         window.addEventListener('scroll', () => {
             const sections = document.querySelectorAll('.category-section');
             let current = '';
-            
+
             sections.forEach(s => {
                 const sectionTop = s.offsetTop;
-                if (window.scrollY >= sectionTop - 120) {
+                if (window.scrollY >= sectionTop - 150) {
                     current = s.id;
                 }
             });
@@ -520,9 +701,8 @@
             if (current) {
                 document.querySelectorAll('.cat-pill').forEach(p => {
                     p.classList.remove('active');
-                    if (p.getAttribute('href') === `#${current}`) {
+                    if (p.getAttribute('onclick').includes(current)) {
                         p.classList.add('active');
-                        // Center active tab
                         p.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                     }
                 });
@@ -532,4 +712,5 @@
         init();
     </script>
 </body>
+
 </html>

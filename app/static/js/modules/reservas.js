@@ -5,9 +5,13 @@ import { appState } from '../main.js';
 
 let reservasCache = [];
 let mesasCache = [];
+let waConfig = { wa_template: null };
 let filtroEstado = 'all';
 let fechaActual = new Date().toISOString().split('T')[0];
 let updateInterval = null;
+
+const DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const SECTORES = ["Salon", "Terraza", "VIP", "Barra", "Patio", "Entrepiso"];
 
 export function inicializarReservas() {
     const input = document.getElementById('res-fecha-input');
@@ -17,12 +21,13 @@ export function inicializarReservas() {
     }
     cargarReservas();
     cargarMesasParaSelect();
+    cargarWAConfig(); // Cargar config de WhatsApp al inicio
     
     if (updateInterval) clearInterval(updateInterval);
     updateInterval = setInterval(actualizarBadgePendientes, 30000);
     actualizarBadgePendientes();
 
-    // Attach global functions to window so the HTML onclick handlers work
+    // Attach global functions to window
     window.cambiarFecha = cambiarFecha;
     window.cargarReservas = cargarReservas;
     window.filtrarEstado = filtrarEstado;
@@ -34,40 +39,43 @@ export function inicializarReservas() {
     window.cerrarModal = cerrarModal;
     window.guardarReservaManual = guardarReservaManual;
     window.compartirPortal = compartirPortal;
-    window.abrirModalConfigTurnos = abrirModalConfigTurnos;
-    window.guardarConfigTurnos = guardarConfigTurnos;
-    window.duplicarLunesATodos = duplicarLunesATodos;
+    window.abrirModalConfigGeneral = abrirModalConfigGeneral;
+    window.guardarConfigGeneral = guardarConfigGeneral;
+    window.switchConfigTab = switchConfigTab;
     
     document.addEventListener('keydown', handleEscapeKey);
-    document.addEventListener('change', handleFechaChange);
+    // delegación para cambios de fecha en form
+    document.addEventListener('change', e => {
+        if (e.target && e.target.id === 'nr-fecha') cargarHorasDisponibles();
+    });
 }
 
-function compartirPortal() {
-    const baseUrl = window.location.origin;
-    const portalUrl = `${baseUrl}/reservas?id=${appState.negocioActivoId}`;
-    const msg = encodeURIComponent(`¡Hola! 👋 Podés hacer tu reserva online en nuestro local haciendo clic en este link: \n\n${portalUrl}\n\n¡Te esperamos!`);
+async function cargarWAConfig() {
+    try {
+        const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/reservas/config`);
+        waConfig = data;
+    } catch (e) { console.error("Error loading WA config", e); }
+}
+
+function switchConfigTab(tab) {
+    console.log("📂 Cambiando tab configuración a:", tab);
+    document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.config-tab-content').forEach(c => c.style.display = 'none');
     
-    // Intentar copiar al portapapeles
-    navigator.clipboard.writeText(portalUrl).then(() => {
-        mostrarNotificacion('¡Link copiado al portapapeles! 📋', 'success');
-        // Abrir WhatsApp
-        window.open(`https://wa.me/?text=${msg}`, '_blank');
-    }).catch(() => {
-        // Fallback si no hay portapapeles (raro en navegadores modernos)
-        window.open(`https://wa.me/?text=${msg}`, '_blank');
-    });
+    // Buscar el botón que tiene el onclick que contiene el nombre del tab
+    const activeBtn = Array.from(document.querySelectorAll('.config-tab')).find(b => b.getAttribute('onclick')?.includes(tab));
+    if (activeBtn) activeBtn.classList.add('active');
+    
+    const content = document.getElementById(`tab-config-${tab}`);
+    if (content) content.style.display = 'block';
 }
 
 function handleEscapeKey(e) {
     if (e.key === 'Escape') cerrarModal();
 }
 
-function handleFechaChange(e) {
-    if (e.target && e.target.id === 'nr-fecha') cargarHorasDisponibles();
-}
-
 function cambiarFecha(delta) {
-    const d = new Date(fechaActual);
+    const d = new Date(fechaActual + 'T12:00:00');
     d.setDate(d.getDate() + delta);
     fechaActual = d.toISOString().split('T')[0];
     const input = document.getElementById('res-fecha-input');
@@ -109,28 +117,18 @@ function renderReservas() {
     const container = document.getElementById('res-list-container');
     if (!container) return;
 
-    const lista = filtroEstado === 'all'
-        ? reservasCache
-        : reservasCache.filter(r => r.estado === filtroEstado);
+    const lista = filtroEstado === 'all' ? reservasCache : reservasCache.filter(r => r.estado === filtroEstado);
 
-    const statTotal = document.getElementById('stat-total-reservas');
-    if (statTotal) statTotal.innerText = lista.length;
-    const statPax = document.getElementById('stat-total-pax');
-    if (statPax) statPax.innerText = lista.reduce((s, r) => s + parseInt(r.num_comensales || 0), 0);
-    
-    const pendientes = reservasCache.filter(r => r.estado === 'pendiente').length;
-    const statPend = document.getElementById('stat-pendientes');
-    if (statPend) statPend.innerText = pendientes;
+    document.getElementById('stat-total-reservas').innerText = lista.length;
+    document.getElementById('stat-total-pax').innerText = lista.reduce((s, r) => s + parseInt(r.num_comensales || 0), 0);
+    document.getElementById('stat-pendientes').innerText = reservasCache.filter(r => r.estado === 'pendiente').length;
 
     if (lista.length === 0) {
         container.innerHTML = `
         <div class="res-empty">
           <i class="fas fa-calendar-times"></i>
           <p style="font-size:1.1rem; font-weight:700; color:#64748b;">No hay reservas para esta fecha</p>
-          <p style="color:#475569;">¿Querés cargar una manualmente?</p>
-          <button class="btn-res-primary" style="margin:12px auto 0;display:inline-flex;" onclick="window.abrirModalNuevaReserva()">
-            <i class="fas fa-plus"></i> Nueva Reserva
-          </button>
+          <button class="btn-res-primary" style="margin-top:12px;" onclick="window.abrirModalNuevaReserva()">+ Nueva Reserva</button>
         </div>`;
         return;
     }
@@ -155,7 +153,7 @@ const ORIGEN_ICONS = { telefono: '📞', whatsapp: '💬', portal: '🌐', prese
 function renderCard(r) {
     const nombre = r.nombre_cliente || `${r.cliente_nombre_reg || ''} ${r.cliente_apellido || ''}`.trim() || 'Sin nombre';
     const icon = ORIGEN_ICONS[r.origen] || '✏️';
-    const mesa = r.mesa_numero ? `Mesa ${r.mesa_numero}` : 'Sin mesa asignada';
+    const mesa = r.mesa_numero ? `Mesa ${r.mesa_numero}` : 'Sin mesa';
     return `
       <div class="res-card ${r.estado}" onclick="window.verDetalleReserva(${r.id})">
         <div class="res-card-hora">${r.hora_reserva}</div>
@@ -164,14 +162,13 @@ function renderCard(r) {
           <div class="res-card-meta">
             <span><i class="fas fa-users"></i> ${r.num_comensales} pax</span>
             <span><i class="fas fa-chair"></i> ${mesa}</span>
-            ${r.telefono ? `<span><i class="fas fa-phone"></i> ${r.telefono}</span>` : ''}
-            <span title="${r.origen}">${icon} ${r.origen}</span>
+            <span><i class="fas fa-map-marker-alt"></i> ${r.sector_preferido || 'Salon'}</span>
+            <span title="${r.origen}">${icon}</span>
           </div>
-          ${r.notas ? `<p style="color:#94a3b8; font-size:0.8rem; margin:6px 0 0; font-style:italic;">"${r.notas}"</p>` : ''}
         </div>
         <div class="res-card-right">
           <span class="res-estado-badge badge-${r.estado}">${r.estado}</span>
-          <span class="res-pax-icon"><i class="fas fa-chevron-right" style="color:#475569;"></i></span>
+          <span class="res-pax-icon"><i class="fas fa-chevron-right"></i></span>
         </div>
       </div>`;
 }
@@ -184,42 +181,61 @@ function verDetalleReserva(id) {
     const actions = document.getElementById('detalle-reserva-actions');
     if (!content || !actions) return;
 
+    const waMsg = getWhatsAppLink(r);
+
     content.innerHTML = `
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        <div><label style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;">Cliente</label>
-          <p style="color:#f1f5f9;font-weight:700;margin:4px 0;">${nombre}</p></div>
-        <div><label style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;">Fecha</label>
-          <p style="color:#f1f5f9;font-weight:700;margin:4px 0;">${r.fecha_reserva} • ${r.hora_reserva}</p></div>
-        <div><label style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;">Comensales</label>
-          <p style="color:#f1f5f9;font-weight:700;margin:4px 0;">${r.num_comensales} personas</p></div>
-        <div><label style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;">Teléfono</label>
-          <p style="color:#f1f5f9;font-weight:700;margin:4px 0;">${r.telefono || '—'}</p></div>
-        ${r.notas ? `<div style="grid-column:1/-1;"><label style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;">Notas</label>
-          <p style="color:#f1f5f9;font-weight:600;margin:4px 0;font-style:italic;">"${r.notas}"</p></div>` : ''}
-        <div><label style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;">Asignar Mesa</label>
-          <select id="detalle-mesa-select" class="res-input" style="margin-top:4px;">
-            <option value="">— sin asignar —</option>
-            ${mesasCache.map(m => `<option value="${m.id}" ${r.mesa_id == m.id ? 'selected' : ''}>${m.numero} — ${m.zona || 'Principal'}</option>`).join('')}
-          </select>
+        <div class="res-detail-item"><label>Cliente</label><p>${nombre}</p></div>
+        <div class="res-detail-item"><label>Fecha/Hora</label><p>${r.fecha_reserva} • ${r.hora_reserva} hs</p></div>
+        <div class="res-detail-item"><label>Pax / Sector</label><p>${r.num_comensales} personas • ${r.sector_preferido || 'Salon'}</p></div>
+        <div class="res-detail-item"><label>Teléfono</label><p>${r.telefono || '—'}</p></div>
+        <div class="res-detail-item"><label>Cumpleaños</label><p>${r.fecha_nacimiento || '—'}</p></div>
+        <div class="res-detail-item"><label>Estado</label><p><span class="res-estado-badge badge-${r.estado}">${r.estado}</span></p></div>
+        ${r.notas ? `<div style="grid-column:1/-1;"><label>Notas</label><p style="font-style:italic;">"${r.notas}"</p></div>` : ''}
+        
+        <div style="grid-column:1/-1;">
+            <label>Asignar Mesa</label>
+            <select id="detalle-mesa-select" class="res-input">
+                <option value="">— sin asignar —</option>
+                ${mesasCache.map(m => `<option value="${m.id}" ${r.mesa_id == m.id ? 'selected' : ''}>Mesa ${m.numero} (${m.zona || 'Principal'})</option>`).join('')}
+            </select>
         </div>
       </div>
       ${r.telefono ? `
-        <div class="wa-link-box" style="margin-top:16px;">
-          <p class="wa-link-label"><i class="fab fa-whatsapp"></i> Contactar al cliente</p>
-          <a href="https://wa.me/54${r.telefono.replace(/\D/g,'')}?text=${encodeURIComponent(`Hola ${(nombre||'').split(' ')[0]}! ✅ Tu reserva en nuestro local está confirmada para el ${r.fecha_reserva} a las ${r.hora_reserva} hs para ${r.num_comensales} personas. ¡Te esperamos!`)}" target="_blank" class="wa-link-btn">
-            <i class="fab fa-whatsapp"></i> Enviar Confirmación
+        <div class="wa-link-box" style="margin-top:20px;">
+          <p class="wa-link-label"><i class="fab fa-whatsapp"></i> Acción de WhatsApp</p>
+          <a href="${waMsg}" target="_blank" class="wa-link-btn">
+            <i class="fab fa-whatsapp"></i> Enviar Mensaje de Confirmación
           </a>
         </div>` : ''}`;
 
     actions.innerHTML = `
       <button class="btn-res-secondary" onclick="window.cerrarModal()">Cerrar</button>
-      ${r.estado === 'pendiente' ? `<button class="btn-res-primary" style="background:linear-gradient(135deg,#10b981,#059669);" onclick="window.cambiarEstadoReserva(${r.id},'confirmada')"><i class="fas fa-check"></i> Confirmar</button>` : ''}
-      ${r.estado !== 'cancelada' && r.estado !== 'completada' ? `<button class="btn-res-primary" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);" onclick="window.asignarMesaReserva(${r.id})"><i class="fas fa-chair"></i> Asignar Mesa</button>` : ''}
-      ${r.estado === 'confirmada' ? `<button class="btn-res-primary" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);" onclick="window.cambiarEstadoReserva(${r.id},'completada')"><i class="fas fa-check-double"></i> Completada</button>` : ''}
-      ${r.estado !== 'cancelada' ? `<button class="btn-res-secondary" style="color:#f87171;border-color:rgba(248,113,113,0.3);" onclick="window.confirmarCancelar(${r.id})"><i class="fas fa-times"></i> Cancelar</button>` : ''}`;
+      ${r.estado === 'pendiente' ? `<button class="btn-res-primary" style="background:#10b981;" onclick="window.cambiarEstadoReserva(${r.id},'confirmada')">Confirmar</button>` : ''}
+      ${r.estado !== 'cancelada' ? `<button class="btn-res-primary" onclick="window.asignarMesaReserva(${r.id})">Guardar Mesa</button>` : ''}
+      ${r.estado === 'confirmada' ? `<button class="btn-res-primary" style="background:#0ea5e9;" onclick="window.cambiarEstadoReserva(${r.id},'completada')">Marcar Completada</button>` : ''}
+      ${r.estado !== 'cancelada' ? `<button class="btn-res-secondary" style="color:#ef4444;" onclick="window.confirmarCancelar(${r.id})">Cancelar</button>` : ''}`;
 
-    const modal = document.getElementById('modal-detalle-reserva');
-    if (modal) modal.style.display = 'flex';
+    document.getElementById('modal-detalle-reserva').style.display = 'flex';
+}
+
+function getWhatsAppLink(r) {
+    const nombreFull = r.nombre_cliente || `${r.cliente_nombre_reg || ''} ${r.cliente_apellido || ''}`.trim();
+    const nombre = nombreFull.split(' ')[0];
+    const negocioObj = appState.negociosCache.find(n => String(n.id) === String(appState.negocioActivoId));
+    const negocio = negocioObj ? negocioObj.nombre : 'el local';
+    
+    let template = waConfig.wa_template || "¡Hola {nombre}! ✅ Tu reserva en {negocio} está confirmada para el {fecha} a las {hora} hs para {pax} personas. ¡Te esperamos!";
+    
+    let msg = template
+        .replace(/{nombre}/g, nombre)
+        .replace(/{negocio}/g, negocio)
+        .replace(/{fecha}/g, r.fecha_reserva)
+        .replace(/{hora}/g, r.hora_reserva)
+        .replace(/{pax}/g, r.num_comensales)
+        .replace(/{sector}/g, r.sector_preferido || 'Salón');
+        
+    return `https://wa.me/54${(r.telefono || '').replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`;
 }
 
 async function asignarMesaReserva(id) {
@@ -232,12 +248,10 @@ async function cambiarEstadoReserva(id, estado, extra = {}) {
         const payload = { ...extra };
         if (estado) payload.estado = estado;
         await sendData(`/api/negocios/${appState.negocioActivoId}/reservas/${id}`, payload, 'PATCH');
-        mostrarNotificacion(`Reserva ${estado ? 'actualizada' : 'guardada'} ✓`, 'success');
+        mostrarNotificacion('Reserva actualizada ✓', 'success');
         cerrarModal();
         cargarReservas();
-    } catch (e) {
-        mostrarNotificacion('Error al actualizar', 'error');
-    }
+    } catch (e) { mostrarNotificacion('Error al actualizar', 'error'); }
 }
 
 function confirmarCancelar(id) {
@@ -245,45 +259,33 @@ function confirmarCancelar(id) {
 }
 
 function abrirModalNuevaReserva() {
-    const fechaInput = document.getElementById('nr-fecha');
-    if (fechaInput) fechaInput.value = fechaActual;
-    const waLink = document.getElementById('wa-link-container');
-    if (waLink) waLink.style.display = 'none';
-    const modal = document.getElementById('modal-nueva-reserva');
-    if (modal) modal.style.display = 'flex';
+    document.getElementById('nr-fecha').value = fechaActual;
+    document.getElementById('wa-link-container').style.display = 'none';
+    document.getElementById('modal-nueva-reserva').style.display = 'flex';
     cargarHorasDisponibles();
 }
 
 function cerrarModal() {
-    const m1 = document.getElementById('modal-nueva-reserva');
-    if (m1) m1.style.display = 'none';
-    const m2 = document.getElementById('modal-detalle-reserva');
-    if (m2) m2.style.display = 'none';
-    const m3 = document.getElementById('modal-config-turnos');
-    if (m3) m3.style.display = 'none';
+    document.querySelectorAll('.res-modal-overlay').forEach(m => m.style.display = 'none');
 }
 
 async function cargarHorasDisponibles() {
     const fecha = document.getElementById('nr-fecha')?.value;
-    if (!fecha) return;
     const select = document.getElementById('nr-hora');
-    if (!select) return;
+    if (!fecha || !select) return;
     
     select.innerHTML = `<option value="">Cargando...</option>`;
     try {
         const data = await fetchData(`/api/public/reservas/${appState.negocioActivoId}/disponibilidad?fecha=${fecha}`);
-        select.innerHTML = `<option value="">— elegir horario —</option>`;
-        (data.slots || []).forEach(slot => {
+        select.innerHTML = (data.slots || []).length > 0 ? `<option value="">— elegir horario —</option>` : `<option value="">Sin turnos</option>`;
+        data.slots.forEach(slot => {
             const opt = document.createElement('option');
             opt.value = slot.hora;
             opt.innerText = `${slot.hora} (${slot.libres} libres)`;
             opt.disabled = !slot.disponible;
             select.appendChild(opt);
         });
-        if ((data.slots || []).length === 0) select.innerHTML = `<option value="">Sin turnos disponibles</option>`;
-    } catch (e) {
-        select.innerHTML = `<option value="">Error al cargar</option>`;
-    }
+    } catch (e) { select.innerHTML = `<option value="">Error carga</option>`; }
 }
 
 async function guardarReservaManual() {
@@ -293,38 +295,35 @@ async function guardarReservaManual() {
     const telefono = document.getElementById('nr-telefono')?.value?.trim();
 
     if (!nombre || !fecha || !hora) {
-        mostrarNotificacion('Nombre, fecha y hora son obligatorios', 'error');
+        mostrarNotificacion('Nombre, fecha y hora obligatorios', 'error');
         return;
     }
 
     const payload = {
         nombre_cliente: nombre,
         telefono,
-        email: document.getElementById('nr-email')?.value?.trim(),
+        email: document.getElementById('nr-email')?.value,
+        fecha_nacimiento: document.getElementById('nr-cumpleanios')?.value || null,
+        sector_preferido: document.getElementById('nr-sector')?.value,
         fecha_reserva: fecha,
         hora_reserva: hora,
-        num_comensales: parseInt(document.getElementById('nr-comensales')?.value) || 2,
-        mesa_id: document.getElementById('nr-mesa')?.value || null,
-        notas: document.getElementById('nr-notas')?.value?.trim(),
-        origen: document.getElementById('nr-origen')?.value || 'manual'
+        num_comensales: parseInt(document.getElementById('nr-comensales').value) || 2,
+        mesa_id: document.getElementById('nr-mesa').value || null,
+        notas: document.getElementById('nr-notas').value,
+        origen: document.getElementById('nr-origen').value
     };
 
     try {
-        await sendData(`/api/negocios/${appState.negocioActivoId}/reservas`, payload);
-        mostrarNotificacion('¡Reserva creada exitosamente!', 'success');
-
+        const res = await sendData(`/api/negocios/${appState.negocioActivoId}/reservas`, payload);
+        mostrarNotificacion('¡Reserva creada!', 'success');
         if (telefono) {
-            const msg = encodeURIComponent(`Hola ${nombre.split(' ')[0]}! ✅ Tu reserva está confirmada para el ${fecha} a las ${hora} hs para ${payload.num_comensales} personas. ¡Te esperamos!`);
-            const waLink = document.getElementById('wa-link');
-            if (waLink) waLink.href = `https://wa.me/54${telefono.replace(/\D/g,'')}?text=${msg}`;
-            const waContainer = document.getElementById('wa-link-container');
-            if (waContainer) waContainer.style.display = 'block';
+            const link = getWhatsAppLink({ ...payload, id: res.id });
+            const btn = document.getElementById('wa-link');
+            if (btn) btn.href = link;
+            document.getElementById('wa-link-container').style.display = 'block';
         }
-        
         cargarReservas();
-    } catch (e) {
-        mostrarNotificacion('Error al crear reserva: ' + e.message, 'error');
-    }
+    } catch (e) { mostrarNotificacion('Error: ' + e.message, 'error'); }
 }
 
 async function cargarMesasParaSelect() {
@@ -332,102 +331,167 @@ async function cargarMesasParaSelect() {
         mesasCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/mesas`);
         const select = document.getElementById('nr-mesa');
         if (!select) return;
-        select.innerHTML = `<option value="">— asignar después —</option>`;
-        mesasCache.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.id;
-            opt.innerText = `Mesa ${m.numero} (${m.zona || 'Principal'}) — cap. ${m.capacidad || '?'}`;
-            select.appendChild(opt);
-        });
-    } catch (e) { /* silencioso */ }
+        select.innerHTML = `<option value="">— asignar después —</option>` + 
+            mesasCache.map(m => `<option value="${m.id}">Mesa ${m.numero} (${m.zona || 'Salon'})</option>`).join('');
+    } catch (e) {}
 }
 
 async function actualizarBadgePendientes() {
     try {
         const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/reservas/pendientes-count`);
         const badge = document.getElementById('badge-pendientes');
-        if (!badge) return;
-        const count = data.pendientes || 0;
-        badge.innerText = count > 99 ? '+99' : count;
-        if (count > 0) badge.classList.add('visible');
-        else badge.classList.remove('visible');
-    } catch (e) { /* silencioso */ }
+        if (badge) {
+            badge.innerText = data.pendientes || 0;
+            badge.style.display = data.pendientes > 0 ? 'inline-block' : 'none';
+        }
+    } catch (e) {}
 }
 
-const DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+// --- CONFIGURACIÓN GENERAL (NUEVO GESTOR DE BLOQUES) ---
 
-async function abrirModalConfigTurnos() {
-    const list = document.getElementById('turnos-config-list');
+let turnosTemporales = []; // Estado local para el gestor de bloques
+
+async function abrirModalConfigGeneral() {
+    const list = document.getElementById('lista-bloques-horarios');
+    const waInput = document.getElementById('wa-template-input');
     if (!list) return;
-    list.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;">Cargando configuración...</td></tr>`;
+    
+    list.innerHTML = `<p style="text-align:center;padding:20px;">Cargando configuración...</p>`;
+    document.getElementById('modal-config-general').style.display = 'flex';
+    switchConfigTab('turnos');
 
     try {
-        const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/reservas/turnos`);
+        const [turnosData, configData] = await Promise.all([
+            fetchData(`/api/negocios/${appState.negocioActivoId}/reservas/turnos`),
+            fetchData(`/api/negocios/${appState.negocioActivoId}/reservas/config`)
+        ]);
         
-        // El backend devuelve un objeto { "0": {...}, "1": {...} }
-        let html = '';
-        DIAS_SEMANA.forEach((nombre, i) => {
-            const t = data[i] || { activo: true, hora_inicio: "20:00", hora_fin: "23:30", intervalo_min: 30 };
-            html += `
-            <tr class="res-turn-row ${!t.activo ? 'inactive' : ''}" data-dia="${i}">
-                <td class="day-name">${nombre}</td>
-                <td>
-                    <label class="res-switch">
-                        <input type="checkbox" class="turn-activo" id="act-${i}" ${t.activo ? 'checked' : ''} onchange="this.closest('tr').classList.toggle('inactive', !this.checked)">
-                        <span class="res-slider"></span>
-                    </label>
-                </td>
-                <td><input type="time" class="res-input turn-inicio" value="${t.hora_inicio}"></td>
-                <td><input type="time" class="res-input turn-fin" value="${t.hora_fin}"></td>
-                <td><input type="number" class="res-input turn-intervalo" value="${t.intervalo_min}" min="5" step="5" style="width:60px;"></td>
-            </tr>`;
+        waConfig = configData;
+        if (waInput) waInput.value = configData.wa_template || '';
+        
+        const selAviso = document.getElementById('config-aviso-min');
+        if (selAviso) selAviso.value = configData.aviso_apertura_min || 60;
+
+        // Cargar link público
+        const publicLinkInput = document.getElementById('res-public-link-input');
+        if (publicLinkInput) {
+            publicLinkInput.value = configData.reserva_token 
+                ? `${window.location.origin}/reservas?t=${configData.reserva_token}`
+                : `${window.location.origin}/reservas?id=${appState.negocioActivoId}`;
+        }
+
+        // Convertir data del servidor a nuestro array plano de bloques
+        turnosTemporales = [];
+        Object.keys(turnosData).forEach(dia => {
+            if (Array.isArray(turnosData[dia])) {
+                turnosData[dia].forEach(t => {
+                    turnosTemporales.push({
+                        dia_semana: parseInt(dia),
+                        hora_inicio: t.hora_inicio,
+                        hora_fin: t.hora_fin,
+                        intervalo_min: t.intervalo_min || 30
+                    });
+                });
+            }
         });
-        list.innerHTML = html;
-        document.getElementById('modal-config-turnos').style.display = 'flex';
-    } catch (e) {
-        mostrarNotificacion('Error al cargar turnos', 'error');
+
+        renderizarListaTurnos();
+    } catch (e) { 
+        console.error("[Reservas] Error al cargar:", e);
+        mostrarNotificacion('Error al cargar configuración', 'error'); 
     }
 }
 
-function duplicarLunesATodos() {
-    const firstRow = document.querySelector('.res-turn-row[data-dia="0"]');
-    if (!firstRow) return;
-    
-    const activo = firstRow.querySelector('.turn-activo').checked;
-    const inicio = firstRow.querySelector('.turn-inicio').value;
-    const fin = firstRow.querySelector('.turn-fin').value;
-    const intervalo = firstRow.querySelector('.turn-intervalo').value;
+function renderizarListaTurnos() {
+    const container = document.getElementById('lista-bloques-horarios');
+    if (!container) return;
 
-    document.querySelectorAll('.res-turn-row').forEach((row, i) => {
-        if (i === 0) return; // No pisar el lunes a sí mismo
-        row.querySelector('.turn-activo').checked = activo;
-        row.querySelector('.turn-inicio').value = inicio;
-        row.querySelector('.turn-fin').value = fin;
-        row.querySelector('.turn-intervalo').value = intervalo;
-        row.classList.toggle('inactive', !activo);
-    });
-    mostrarNotificacion('Configuración copiada a toda la semana', 'success');
+    if (turnosTemporales.length === 0) {
+        container.innerHTML = `<p style="text-align:center; padding:40px; color:#64748b; font-style:italic; grid-column: 1 / -1;">No hay turnos configurados aún. ¡Agregá el primero arriba!</p>`;
+        return;
+    }
+
+    // Ordenar por día (0-Lunes a 6-Domingo) y luego por hora de inicio
+    turnosTemporales.sort((a, b) => (a.dia_semana - b.dia_semana) || a.hora_inicio.localeCompare(b.hora_inicio));
+
+    container.innerHTML = turnosTemporales.map((t, index) => `
+        <div class="res-bloque-card">
+            <div class="res-bloque-info">
+                <span class="res-bloque-dia">${DIAS_SEMANA[t.dia_semana]}</span>
+                <span class="res-bloque-horas">${t.hora_inicio} a ${t.hora_fin}</span>
+                <span class="res-bloque-int">Intervalo: ${t.intervalo_min} min</span>
+            </div>
+            <button class="btn-remove-bloque" onclick="window.eliminarTurnoBloque(${index})" title="Eliminar este bloque">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `).join('');
 }
 
-async function guardarConfigTurnos() {
-    const rows = document.querySelectorAll('.res-turn-row');
-    const payload = [];
-    
-    rows.forEach(row => {
-        payload.push({
-            dia_semana: parseInt(row.dataset.dia),
-            activo: row.querySelector('.turn-activo').checked,
-            hora_inicio: row.querySelector('.turn-inicio').value,
-            hora_fin: row.querySelector('.turn-fin').value,
-            intervalo_min: parseInt(row.querySelector('.turn-intervalo').value)
+function agregarBloqueTurno() {
+    const diaVal = document.getElementById('new-turno-dia').value;
+    const inicio = document.getElementById('new-turno-inicio').value;
+    const fin = document.getElementById('new-turno-fin').value;
+    const intervalo = parseInt(document.getElementById('new-turno-int').value);
+
+    if (!inicio || !fin || !intervalo) {
+        mostrarNotificacion('Completá todos los campos del nuevo turno', 'warning');
+        return;
+    }
+
+    const diasAAgregar = diaVal === 'all' ? [0,1,2,3,4,5,6] : [parseInt(diaVal)];
+
+    diasAAgregar.forEach(d => {
+        turnosTemporales.push({
+            dia_semana: d,
+            hora_inicio: inicio,
+            hora_fin: fin,
+            intervalo_min: intervalo
         });
     });
+
+    renderizarListaTurnos();
+    mostrarNotificacion('Turno añadido a la lista exitosamente', 'success');
+}
+
+function eliminarTurnoBloque(index) {
+    turnosTemporales.splice(index, 1);
+    renderizarListaTurnos();
+}
+
+async function guardarConfigGeneral() {
+    const configPayload = {
+        wa_template: document.getElementById('wa-template-input').value,
+        aviso_apertura_min: parseInt(document.getElementById('config-aviso-min').value) || 60
+    };
 
     try {
-        await sendData(`/api/negocios/${appState.negocioActivoId}/reservas/turnos`, payload);
-        mostrarNotificacion('Configuración de turnos guardada ✓', 'success');
+        await Promise.all([
+            sendData(`/api/negocios/${appState.negocioActivoId}/reservas/turnos`, turnosTemporales),
+            sendData(`/api/negocios/${appState.negocioActivoId}/reservas/config`, configPayload)
+        ]);
+        if (waConfig) {
+            waConfig.wa_template = configPayload.wa_template;
+            waConfig.aviso_apertura_min = configPayload.aviso_apertura_min;
+        }
+        mostrarNotificacion('¡Configuración guardada correctamente! ✓', 'success');
         cerrarModal();
-    } catch (e) {
-        mostrarNotificacion('Error al guardar configuración', 'error');
+    } catch (e) { 
+        console.error("[Reservas] Error al guardar:", e);
+        mostrarNotificacion('Error al guardar la configuración', 'error'); 
     }
 }
+
+function compartirPortal() {
+    const input = document.getElementById('res-public-link-input');
+    const url = input ? input.value : `${window.location.origin}/reservas?id=${appState.negocioActivoId}`;
+    navigator.clipboard.writeText(url);
+    mostrarNotificacion('Link del portal copiado al portapapeles 📋', 'success');
+}
+
+// --- EXPOSICIÓN GLOBAL ---
+window.abrirModalConfigGeneral = abrirModalConfigGeneral;
+window.agregarBloqueTurno = agregarBloqueTurno;
+window.eliminarTurnoBloque = eliminarTurnoBloque;
+window.guardarConfigGeneral = guardarConfigGeneral;
+window.compartirPortal = compartirPortal;

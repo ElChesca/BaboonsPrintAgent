@@ -2,13 +2,43 @@ import { fetchData, sendData } from '../api.js';
 import { mostrarNotificacion } from './notifications.js';
 import { appState } from '../main.js';
 import { getCurrentUser } from './auth.js';
-import { abrirModoRepartidor, abrirModalEntrega, cerrarModalEntrega, confirmarEntregaBackend } from './logistica.js';
+// Dynamic version-safe lazy loaders for cross-module features
+const vMod = new URL(import.meta.url).search || "";
+async function getLogistica() { return await import(`./logistica.js${vMod}`); }
 
-// Exponer funciones del Modo Repartidor GLOBALMENTE
-window.abrirModoRepartidor = abrirModoRepartidor;
-window.abrirModalEntrega = abrirModalEntrega;
-window.cerrarModalEntrega = cerrarModalEntrega;
-window.confirmarEntregaBackend = confirmarEntregaBackend;
+window.abrirModoRepartidor = async (hrId) => (await getLogistica()).abrirModoRepartidor(hrId);
+window.cerrarModoRepartidor = async () => (await getLogistica()).cerrarModoRepartidor();
+window.abrirModalEntrega = async (...args) => (await getLogistica()).abrirModalEntrega(...args);
+window.cerrarModalEntrega = async () => (await getLogistica()).cerrarModalEntrega();
+window.confirmarEntregaBackend = async () => (await getLogistica()).confirmarEntregaBackend();
+
+window.cerrarModalLiquidacion = () => {
+    const modal = document.getElementById('modal-liquidacion-hr');
+    if (modal) modal.style.setProperty('display', 'none', 'important');
+};
+
+// ✨ ASIGNACIONES GLOBALES AL INICIO: Asegura que las funciones existan incluso antes de inicializar
+window.abrirModalHojaRuta = abrirModalHojaRuta;
+window.cerrarModalHojaRuta = cerrarModalHojaRuta;
+window.verDetalleHR = verDetalleHR;
+window.volverListaHR = volverListaHR;
+window.marcarVisitado = marcarVisitado;
+window.limpiarRutaTemporal = limpiarRutaTemporal;
+window.quitarDeRuta = quitarDeRuta;
+window.moverParada = moverParada;
+window.agregarARuta = agregarARuta;
+window.confirmarReparto = confirmarReparto;
+window.cargarHojasRuta = cargarHojasRuta;
+window.abrirModalLiquidacion = abrirModalLiquidacion;
+window.finalizarLiquidacion = finalizarLiquidacion;
+window.exportarPickingPDF = exportarPickingPDF;
+window.verPedidoCliente = verPedidoCliente;
+window.repetirHojaRuta = repetirHojaRuta;
+window.editarHojaRuta = editarHojaRuta;
+window.cambiarPaginaHR = cambiarPaginaHR;
+window.eliminarHojaRuta = eliminarHojaRuta;
+window.abrirMapaRecorrido = abrirMapaRecorrido;
+window.exportarPickingHR_PDF = exportarPickingHR_PDF;
 
 let hojasRuta = [];
 let vendedoresCache = [];
@@ -55,29 +85,11 @@ async function inicializarMapaHojaRuta() {
 }
 
 export async function inicializarHojaRuta() {
-    // ✨ ASIGNACIONES GLOBALES AL INICIO: Asegura que las funciones existan incluso si falla el resto
-    window.abrirModalHojaRuta = abrirModalHojaRuta;
-    window.cerrarModalHojaRuta = cerrarModalHojaRuta;
-    window.verDetalleHR = verDetalleHR;
-    window.volverListaHR = volverListaHR;
-    window.marcarVisitado = marcarVisitado;
-    window.limpiarRutaTemporal = limpiarRutaTemporal;
-    window.quitarDeRuta = quitarDeRuta;
-    window.moverParada = moverParada;
-    window.agregarARuta = agregarARuta;
-    window.confirmarReparto = confirmarReparto;
-    window.cargarHojasRuta = cargarHojasRuta;
-    window.abrirModalLiquidacion = abrirModalLiquidacion;
-    window.finalizarLiquidacion = finalizarLiquidacion;
-    window.exportarPickingPDF = exportarPickingPDF;
-    window.verPedidoCliente = verPedidoCliente;
-    window.repetirHojaRuta = repetirHojaRuta;
-    window.editarHojaRuta = editarHojaRuta;
-    window.cambiarPaginaHR = cambiarPaginaHR;
-    window.eliminarHojaRuta = eliminarHojaRuta;
-
     const filtroFecha = document.getElementById('filtro-fecha-hr');
-    if (!filtroFecha) return;
+    if (filtroFecha) {
+        filtroFecha.value = "";
+        filtroFecha.onchange = cargarHojasRuta;
+    }
 
     // Bind Main Hoja Ruta Tabs
     const mainTabs = document.querySelectorAll('#hojaRutaTabs .nav-link');
@@ -364,10 +376,10 @@ function renderHojasRuta() {
             </td>
             <td><span class="badge ${badgeClass}">${hr.estado.toUpperCase()}</span></td>
             <td>
-                <button class="btn btn-sm btn-primary" onclick="verDetalleHR(${hr.id})" title="Ver Reparto"><i class="fas fa-eye"></i></button>
-                ${(hr.estado === 'borrador' || hr.estado === 'activa') ? `<button class="btn btn-sm btn-outline-warning" onclick="editarHojaRuta(${hr.id})" title="Editar"><i class="fas fa-edit"></i></button>` : ''}
-                <button class="btn btn-sm btn-outline-secondary" onclick="repetirHojaRuta(${hr.id})" title="Repetir esta ruta"><i class="fas fa-copy"></i></button>
-                ${hr.cant_pedidos === 0 ? `<button class="btn btn-sm btn-outline-danger" onclick="eliminarHojaRuta(${hr.id})" title="Eliminar"><i class="fas fa-trash"></i></button>` : ''}
+                <button class="btn btn-sm btn-primary" onclick="window.verDetalleHR(${hr.id})" title="Ver Reparto"><i class="fas fa-eye"></i></button>
+                ${(hr.estado === 'borrador' || hr.estado === 'activa') ? `<button class="btn btn-sm btn-outline-warning" onclick="window.editarHojaRuta(${hr.id})" title="Editar"><i class="fas fa-edit"></i></button>` : ''}
+                <button class="btn btn-sm btn-outline-secondary" onclick="window.repetirHojaRuta(${hr.id})" title="Repetir esta ruta"><i class="fas fa-copy"></i></button>
+                ${hr.cant_pedidos === 0 ? `<button class="btn btn-sm btn-outline-danger" onclick="window.eliminarHojaRuta(${hr.id})" title="Eliminar"><i class="fas fa-trash"></i></button>` : ''}
             </td>
         `;
         tbody.appendChild(tr);
@@ -611,10 +623,10 @@ function renderListaTemporal() {
             </div>
             <div class="d-flex gap-1 ms-2">
                 <div class="btn-group-vertical">
-                    <span class="btn-orden" onclick="moverParada(${index}, -1)"><i class="fas fa-chevron-up"></i></span>
-                    <span class="btn-orden" onclick="moverParada(${index}, 1)"><i class="fas fa-chevron-down"></i></span>
+                    <span class="btn-orden" onclick="window.moverParada(${index}, -1)"><i class="fas fa-chevron-up"></i></span>
+                    <span class="btn-orden" onclick="window.moverParada(${index}, 1)"><i class="fas fa-chevron-down"></i></span>
                 </div>
-                <button type="button" class="btn btn-sm btn-link text-danger" onclick="quitarDeRuta(${index})">
+                <button type="button" class="btn btn-sm btn-link text-danger" onclick="window.quitarDeRuta(${index})">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -769,13 +781,13 @@ async function verDetalleHR(id) {
             headerAcciones.innerHTML = `
                 <span class="badge ${badgeClass} me-2">${detalle.estado.toUpperCase()}</span>
                 ${detalle.estado === 'borrador' ? `
-                    <button class="btn btn-sm btn-${detalle.carga_actual.peso_kg > 0 ? 'success' : 'primary'}" onclick="confirmarReparto(${id}, ${detalle.carga_actual.peso_kg})">
+                    <button class="btn btn-sm btn-${detalle.carga_actual.peso_kg > 0 ? 'success' : 'primary'}" onclick="window.confirmarReparto(${id}, ${detalle.carga_actual.peso_kg})">
                         <i class="fas ${detalle.carga_actual.peso_kg > 0 ? 'fa-boxes' : 'fa-truck'}"></i> 
                         ${detalle.carga_actual.peso_kg > 0 ? 'Preparar Picking y Salida' : 'Iniciar Recorrido / Salida'}
                     </button>
                 ` : ''}
                 <div class="d-flex gap-1 flex-wrap">
-                    <button class="btn btn-sm btn-outline-dark" onclick="exportarPickingHR_PDF(${id})" title="Imprimir PDF"><i class="fas fa-print"></i></button>
+                    <button class="btn btn-sm btn-outline-dark" onclick="window.exportarPickingHR_PDF(${id})" title="Imprimir PDF"><i class="fas fa-print"></i></button>
                     <button class="btn btn-sm btn-outline-primary fw-bold" onclick="window.abrirMapaRecorrido(${id})">
                         <i class="fas fa-map-marked-alt me-1"></i> Ver Mapa
                     </button>
@@ -783,9 +795,9 @@ async function verDetalleHR(id) {
                     <button class="btn btn-sm btn-success fw-bold px-3 shadow-sm" onclick="window.abrirModoRepartidor(${id})">
                         <i class="fas fa-motorcycle me-2"></i>Modo Repartidor
                     </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="abrirModalLiquidacion(${id}, 'activa')"><i class="fas fa-flag-checkered"></i> Liquidar</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="window.abrirModalLiquidacion(${id}, 'activa')"><i class="fas fa-flag-checkered"></i> Liquidar</button>
                 ` : ''}
-                ${detalle.estado === 'finalizada' ? `<button class="btn btn-sm btn-outline-success" onclick="abrirModalLiquidacion(${id}, 'finalizada')"><i class="fas fa-check-double"></i> Ver Liquidación</button>` : ''}
+                ${detalle.estado === 'finalizada' ? `<button class="btn btn-sm btn-outline-success" onclick="window.abrirModalLiquidacion(${id}, 'finalizada')"><i class="fas fa-check-double"></i> Ver Liquidación</button>` : ''}
                 </div>
             `;
         }
@@ -1045,9 +1057,17 @@ async function abrirMapaRecorrido(id) {
     try {
         const detalle = await fetchData(`/api/hoja_ruta/${id}`);
         const modal = document.getElementById('modal-mapa-recorrido');
+        if (!modal) {
+            console.error("❌ No se encontró #modal-mapa-recorrido");
+            return;
+        }
         modal.style.display = 'block';
 
-        await cargarLeafletJS();
+        if (!window.L) {
+            console.error("❌ Leaflet (L) no está cargado globalmente.");
+            mostrarNotificacion("Error: Librería de mapas no disponible", "error");
+            return;
+        }
 
         if (mapFullRecorrido) {
             try { mapFullRecorrido.remove(); } catch (e) { }
@@ -1114,53 +1134,98 @@ async function abrirMapaRecorrido(id) {
 
 window.abrirMapaRecorrido = abrirMapaRecorrido;
 
-// ✨ NUEVA FUNCIÓN: Ver Pedido
-// ✨ NUEVA FUNCIÓN: Ver Pedido
-// ✨ NUEVA FUNCIÓN: Ver Pedido
+window.cerrarModalVerPedido = function() {
+    const modal = document.getElementById('modal-ver-pedido');
+    if (modal) {
+        modal.style.setProperty('display', 'none', 'important');
+    }
+};
+
 async function verPedidoCliente(clienteId, hojaRutaId) {
     try {
-        // 1. Buscar el pedido asociado a esta ruta y cliente
-        const urlBusqueda = `/api/negocios/${appState.negocioActivoId}/pedidos?hoja_ruta_id=${hojaRutaId}&cliente_id=${clienteId}`;
+        console.log("🛠️ [DEBUG] verPedidoCliente iniciado:", { clienteId, hojaRutaId });
+        
+        const modal = document.getElementById('modal-ver-pedido');
+        if (!modal) {
+            console.error("❌ [DEBUG] No se encontró el modal #modal-ver-pedido");
+            mostrarNotificacion("Error técnico: Modal no encontrado", "error");
+            return;
+        }
+
+        // Limpiar contenido previo
+        document.getElementById('ver-pedido-items').innerHTML = '<tr><td colspan="4" class="text-center py-4"><i class="fas fa-spinner fa-spin me-2"></i> Cargando detalles...</td></tr>';
+        document.getElementById('ver-pedido-id').innerText = '...';
+        document.getElementById('ver-pedido-total').innerText = '$ 0.00';
+
+        // Asegurar que esté en el body para el z-index
+        document.body.appendChild(modal);
+
+        modal.style.setProperty('display', 'flex', 'important');
+        modal.style.zIndex = "9999";
+        
+        console.log("🛠️ [DEBUG] Modal display set to flex. Consultando API...");
+
+        const negocioId = appState.negocioActivoId;
+        if (!negocioId) {
+            console.error("❌ [DEBUG] negocioActivoId es nulo");
+        }
+
+        const urlBusqueda = `/api/negocios/${negocioId}/pedidos?hoja_ruta_id=${hojaRutaId}&cliente_id=${clienteId}`;
         const res = await fetchData(urlBusqueda);
         const pedidos = res.pedidos || [];
 
         if (!pedidos || pedidos.length === 0) {
+            modal.style.setProperty('display', 'none', 'important');
             mostrarNotificacion('No se encontró el pedido vinculado.', 'warning');
             return;
         }
 
-        // ✨ MANEJO DE MÚLTIPLES PEDIDOS
-        let pedidoIdParaVer = pedidos[0].id;
+        const selectorContainer = document.getElementById('ver-pedido-selector-container');
+        const selectorList = document.getElementById('ver-pedido-selector-list');
+
+        // ✨ MANEJO DE MÚLTIPLES PEDIDOS (AQUÍ EN LA VISTA)
         if (pedidos.length > 1) {
-            const { value: selectedId } = await Swal.fire({
-                title: 'Múltiples Pedidos',
-                text: `El cliente tiene ${pedidos.length} pedidos en esta ruta. Seleccione cuál desea ver:`,
-                input: 'select',
-                inputOptions: Object.fromEntries(pedidos.map(p => [p.id, `Pedido #${p.id} - $${p.total.toLocaleString()}`])),
-                inputPlaceholder: 'Seleccione un pedido',
-                showCancelButton: true,
-                confirmButtonText: 'Ver Detalle'
-            });
-            if (!selectedId) return;
-            pedidoIdParaVer = selectedId;
+            selectorList.innerHTML = pedidos.map(p => `
+                <button class="btn btn-sm rounded-pill px-3 fw-bold btn-selector-pedido" 
+                        id="btn-sel-pedido-${p.id}"
+                        onclick="cargarDetallePedidoIndividual(${p.id})">
+                    #${p.id}
+                </button>
+            `).join('');
+            selectorContainer.style.display = 'block';
+        } else {
+            selectorContainer.style.display = 'none';
         }
 
-        // 2. Obtener detalle completo
-        const pedido = await fetchData(`/api/pedidos/${pedidoIdParaVer}`);
+        // Cargar el primero por defecto
+        await cargarDetallePedidoIndividual(pedidos[0].id);
 
-        // 3. Renderizar en Modal
+    } catch (error) {
+        console.error("Error en verPedidoCliente:", error);
+        mostrarNotificacion(error.message || 'Error cargando detalle del pedido', 'error');
+        // Ocultar si falló la carga inicial
         const modal = document.getElementById('modal-ver-pedido');
-        if (!modal) {
-            console.error("Error interno: No se encuentra el modal de pedido.");
-            return;
-        }
+        if (modal) modal.style.display = 'none';
+    }
+}
 
+// Función auxiliar para cargar un pedido específico en el modal abierto
+async function cargarDetallePedidoIndividual(pedidoId) {
+    try {
+        const pedido = await fetchData(`/api/pedidos/${pedidoId}`);
+        
+        // Actualizar UI básica
         document.getElementById('ver-pedido-id').innerText = pedido.id;
         document.getElementById('ver-pedido-cliente').innerText = pedido.cliente_nombre;
         document.getElementById('ver-pedido-fecha').innerText = new Date(pedido.fecha).toLocaleString();
-        document.getElementById('ver-pedido-total').innerText = `$ ${pedido.total.toLocaleString()}`;
+        
+        // ✨ Defensa contra total nulo o indefinido
+        const totalFinal = typeof pedido.total === 'number' ? pedido.total : parseFloat(pedido.total || 0);
+        document.getElementById('ver-pedido-total').innerText = `$ ${totalFinal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+        
         document.getElementById('ver-pedido-obs').innerText = pedido.observaciones || 'Sin observaciones';
 
+        // Actualizar Tabla
         const tbody = document.getElementById('ver-pedido-items');
         tbody.innerHTML = '';
 
@@ -1168,47 +1233,37 @@ async function verPedidoCliente(clienteId, hojaRutaId) {
             pedido.detalles.forEach(d => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${d.producto_nombre || 'Producto'}</td>
-                    <td class="text-center">${d.cantidad}</td>
-                    <td class="text-end">$${d.precio_unitario}</td>
-                    <td class="text-end">$${d.subtotal}</td>
+                    <td class="ps-4">${d.producto_nombre || 'Producto'}</td>
+                    <td class="text-center fw-bold">${d.cantidad}</td>
+                    <td class="text-end text-muted small">$${parseFloat(d.precio_unitario).toLocaleString()}</td>
+                    <td class="text-end pe-4 fw-bold">$${parseFloat(d.subtotal).toLocaleString()}</td>
                 `;
                 tbody.appendChild(tr);
             });
         } else {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin items</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">Este pedido no tiene productos registrados</td></tr>';
         }
 
-        // ✨ FORCE VISIBILITY STYLES (En caso de que falte CSS global)
-        document.body.appendChild(modal); // Move to body to avoid hidden parents
-
-        modal.style.display = 'flex';
-        modal.style.position = 'fixed';
-        modal.style.top = '0';
-        modal.style.left = '0';
-        modal.style.width = '100%';
-        modal.style.height = '100%';
-        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
-        modal.style.zIndex = '9999999'; // Very high
-        modal.style.alignItems = 'center';
-        modal.style.justifyContent = 'center';
-
-        // Asegurar que el contenido tenga fondo blanco y z-index correcto
-        const content = modal.querySelector('.modal-content');
-        if (content) {
-            content.style.backgroundColor = '#fff';
-            content.style.borderRadius = '8px';
-            content.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-            content.style.zIndex = '10000';
-            content.style.maxHeight = '90vh';
-            content.style.overflowY = 'auto';
+        // Resaltar botón en el selector si existe
+        document.querySelectorAll('.btn-selector-pedido').forEach(btn => {
+            btn.classList.replace('btn-primary', 'btn-outline-primary');
+            btn.classList.add('btn-outline-primary');
+        });
+        const activeBtn = document.getElementById(`btn-sel-pedido-${pedidoId}`);
+        if (activeBtn) {
+            activeBtn.classList.remove('btn-outline-primary');
+            activeBtn.classList.add('btn-primary');
         }
 
     } catch (e) {
-        console.error("Error al ver pedido", e);
-        mostrarNotificacion('Error cargando detalle del pedido', 'error');
+        console.error("Error al cargar detalle individual", e);
+        mostrarNotificacion('No se pudo cargar el detalle del pedido seleccionado', 'error');
     }
 }
+
+// Globalizar la función de carga individual para el onclick
+window.cargarDetallePedidoIndividual = cargarDetallePedidoIndividual;
+
 
 // ✨ ASIGNAR CHOFER DIRECTO EN RUTA ACTIVA
 window.asignarChoferDirecto = async function (choferId) {
@@ -1296,7 +1351,8 @@ function iniciarRefrescoTracking(detalle) {
 
     console.log("🚛 Iniciando refresco de tracking para HR #" + detalle.id);
     trackingRefreshInterval = setInterval(async () => {
-        if (document.getElementById('detalle-hoja-ruta').style.display === 'none') {
+        const detalleEl = document.getElementById('detalle-hoja-ruta');
+        if (!detalleEl || detalleEl.style.display === 'none') {
             detenerRefrescoTracking();
             return;
         }
@@ -1412,11 +1468,11 @@ async function editarHojaRuta(id) {
     }
 }
 
-// Globalizar
-window.editarHojaRuta = editarHojaRuta;
-window.confirmarReparto = (id, peso = 0) => abrirModalPicking(id, peso);
-window.actualizarCargaEnPicking = actualizarCargaEnPicking;
-window.ejecutarConfirmarReparto = ejecutarConfirmarReparto;
+// Globalizar (YA ESTÁN ARRIBA, PERO SE MANTIENEN ALGUNOS POR COMPATIBILIDAD)
+function confirmarReparto(id, peso = 0) {
+    return abrirModalPicking(id, peso);
+}
+// Las demás ya son funciones y fueron globalizadas al inicio del archivo.
 
 let pickingCargaReferencia = { peso: 0, vol: 0 };
 
@@ -1729,12 +1785,40 @@ async function abrirModalLiquidacion(id, estadoActual) {
     const btnFinalizar = document.getElementById('btn-finalizar-liq');
     if (btnFinalizar) btnFinalizar.style.display = estadoActual === 'activa' ? 'block' : 'none';
 
-    const modal = document.getElementById('modal-liquidacion-hr');
-    const tbody = document.querySelector('#tabla-liq-productos tbody');
-    tbody.innerHTML = '<tr><td colspan="2" class="text-center">Calculando...</td></tr>';
+    let modal = document.getElementById('modal-liquidacion-hr');
+    if (!modal) {
+        console.error("❌ No se encontró #modal-liquidacion-hr");
+        mostrarNotificacion("Error: Modal de liquidación no encontrado", "error");
+        return;
+    }
 
-    // Abrir modal y subir al tope de la página para que el overlay se vea bien
-    modal.style.display = 'flex';
+    // Reparent to body if not already there
+    if (modal.parentElement !== document.body) {
+        console.log("📍 [Liquidar] Reparenting modal to body...");
+        document.body.appendChild(modal);
+    }
+
+    const tbody = document.querySelector('#tabla-liq-productos tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="2" class="text-center">Calculando...</td></tr>';
+
+    // Abrir modal y asegurar visibilidad absoluta
+    console.log("📑 [Liquidar] Abriendo modal...");
+    modal.style.setProperty('display', 'flex', 'important');
+    modal.style.setProperty('opacity', '1', 'important');
+    modal.style.setProperty('visibility', 'visible', 'important');
+    modal.style.setProperty('z-index', '9999', 'important');
+    modal.style.setProperty('background', 'rgba(15, 23, 42, 0.85)', 'important');
+    modal.style.setProperty('backdrop-filter', 'blur(10px)', 'important');
+    modal.style.setProperty('padding', '20px', 'important');
+
+    const inner = modal.querySelector('.modal-content') || modal.firstElementChild;
+    if (inner) {
+        inner.style.setProperty('max-width', '1200px', 'important');
+        inner.style.setProperty('width', '100%', 'important');
+        inner.style.setProperty('margin', 'auto', 'important');
+        inner.style.setProperty('border-radius', '20px', 'important');
+    }
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
     resumenLiqActual = null;
 
@@ -2404,24 +2488,24 @@ function renderHojasRutaCargaHR(hojas) {
     const html = hojas.map(hr => {
         const yaAsignada = hr.vehiculo_asignado !== null && hr.vehiculo_asignado !== undefined;
         const disabledAttr = yaAsignada ? 'disabled' : '';
-        const cardClass = yaAsignada ? 'card mb-2 border-success' : 'card mb-2';
+        const cardClass = yaAsignada ? 'card mb-2 border-success opacity-75' : 'card mb-2 hover-shadow-sm cursor-pointer';
 
         return `
-        <div class="${cardClass}">
+        <div class="${cardClass}" id="card-hr-${hr.id}" onclick="event.target.type !== 'checkbox' && !${yaAsignada} && window.toggleHojaRutaHR(${hr.id}, true)">
             <div class="card-body p-3">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="hr-${hr.id}" value="${hr.id}" onchange="toggleHojaRutaHR(${hr.id})" ${disabledAttr}>
                     <label class="form-check-label w-100" for="hr-${hr.id}">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <strong>HR #${hr.id}</strong> - ${hr.vendedor_nombre}
-                                ${yaAsignada ? `<span class="badge bg-success ms-2">✓ Asignada a: ${hr.vehiculo_asignado}</span>` : ''}
+                                <strong class="text-primary-dark">HR #${hr.id}</strong> - ${hr.vendedor_nombre}
+                                ${yaAsignada ? `<span class="badge bg-success ms-2"><i class="fas fa-check"></i> Asignada a: ${hr.vehiculo_asignado}</span>` : ''}
                                 <br>
-                                <small class="text-muted">Fecha: ${hr.fecha} | Estado: ${hr.estado.toUpperCase()} | Pedidos: ${hr.cantidad_pedidos || 0}</small>
+                                <small class="text-muted"><i class="far fa-calendar-alt me-1"></i>${hr.fecha} | <i class="fas fa-info-circle me-1"></i>${hr.estado.toUpperCase()} | <i class="fas fa-shopping-cart me-1"></i>Pedidos: ${hr.cantidad_pedidos || 0}</small>
                             </div>
                             <div class="text-end">
-                                <div><span class="badge bg-secondary">${hr.peso_kg.toFixed(0)} Kg</span></div>
-                                <div><span class="badge bg-info">${hr.volumen_m3.toFixed(2)} m³</span></div>
+                                <div><span class="badge bg-dark rounded-pill">${hr.peso_kg.toFixed(0)} Kg</span></div>
+                                <div><span class="badge bg-info rounded-pill text-dark">${hr.volumen_m3.toFixed(2)} m³</span></div>
                             </div>
                         </div>
                     </label>
@@ -2437,12 +2521,20 @@ function renderHojasRutaCargaHR(hojas) {
     window.toggleHojaRutaHR = toggleHojaRutaHR;
 }
 
-function toggleHojaRutaHR(hojaRutaId) {
+function toggleHojaRutaHR(hojaRutaId, fromClick = false) {
     const checkbox = document.getElementById(`hr-${hojaRutaId}`);
+    const card = document.getElementById(`card-hr-${hojaRutaId}`);
+
+    if (fromClick) {
+        checkbox.checked = !checkbox.checked;
+    }
+
     if (checkbox.checked) {
         cargaStateHR.hojasRutaSeleccionadas.push(hojaRutaId);
+        if (card) card.classList.add('table-active', 'border-primary');
     } else {
         cargaStateHR.hojasRutaSeleccionadas = cargaStateHR.hojasRutaSeleccionadas.filter(id => id !== hojaRutaId);
+        if (card) card.classList.remove('table-active', 'border-primary');
     }
     actualizarCapacidadHR();
 }
@@ -2454,14 +2546,28 @@ function actualizarCapacidadHR() {
     // Calcular totales de las HR seleccionadas
     let pesoTotal = 0;
     let volumenTotal = 0;
+    const listaBadges = document.getElementById('lista-badges-hrs');
+    const panelResumen = document.getElementById('resumen-hrs-seleccionadas');
 
+    listaBadges.innerHTML = '';
+    
     cargaStateHR.hojasRutaSeleccionadas.forEach(id => {
         const hr = cargaStateHR.hojasRutaDisponibles.find(h => h.id === id);
         if (hr) {
             pesoTotal += parseFloat(hr.peso_kg || 0);
             volumenTotal += parseFloat(hr.volumen_m3 || 0);
+
+            // Crear badge dinámico en el panel de la izquierda
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-primary-light text-primary border border-primary-soft shadow-sm';
+            badge.style.cursor = 'default';
+            badge.innerHTML = `<i class="fas fa-file-invoice me-1"></i>#${id}`;
+            listaBadges.appendChild(badge);
         }
     });
+
+    // Mostrar panel si hay algo o no
+    panelResumen.style.display = (cargaStateHR.hojasRutaSeleccionadas.length > 0) ? 'block' : 'none';
 
     const capPeso = parseFloat(vehiculo.capacidad_kg || 0);
     const capVolumen = parseFloat(vehiculo.capacidad_volumen_m3 || 0);

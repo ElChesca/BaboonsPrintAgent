@@ -3,17 +3,31 @@ import { fetchData, sendData } from '../api.js'; // Asegúrate que sendData est�
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
 
-let stagedIncomeItems = []; // [{ producto_id, nombre, cantidad, precio_costo }]
+let stagedIncomeItems = []; 
 let productosCache = [];
+let selectedOCId = null; // Para vincular con OC al registrar
 
 // Helper para formatear moneda
 const formatCurrency = (value) => {
-    // Maneja null o undefined devolviendo un string vacío o un placeholder
-    if (value === null || typeof value === 'undefined') {
-        return '-'; 
+    if (value === null || typeof value === 'undefined' || isNaN(value)) {
+        return '$ 0,00'; 
     }
     return value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 };
+
+// Helper para calcular neto de un item
+function calcularNetoItem(cantidad, costoBruto, dto1, dto2) {
+    const qty = parseFloat(cantidad) || 0;
+    const bruto = parseFloat(costoBruto) || 0;
+    const d1 = parseFloat(dto1) || 0;
+    const d2 = parseFloat(dto2) || 0;
+    
+    // Aplicar descuentos en cascada
+    let neto = bruto * (1 - (d1 / 100));
+    neto = neto * (1 - (d2 / 100));
+    
+    return neto * qty;
+}
 
 async function poblarSelectores() {
     try {
@@ -24,19 +38,14 @@ async function poblarSelectores() {
         
         productosCache = productos;
         const selProv = document.getElementById('ingreso-proveedor-selector');
-        const selProd = document.getElementById('ingreso-producto-selector');
         
-        if (!selProv || !selProd) {
-             console.error("Selectores de proveedor o producto no encontrados.");
+        if (!selProv) {
+             console.error("Selector de proveedor no encontrado.");
              return;
         }
 
         selProv.innerHTML = '<option value="">Seleccione un proveedor...</option>';
         proveedores.forEach(p => selProv.innerHTML += `<option value="${p.id}">${p.nombre}</option>`);
-
-        selProd.innerHTML = '<option value="">Seleccione un producto...</option>';
-        // Asumiendo que 'productos' es un array de objetos {id, nombre}
-        productos.forEach(p => selProd.innerHTML += `<option value="${p.id}">${p.nombre} (ID: ${p.id})</option>`);
         
     } catch (error) {
         mostrarNotificacion('No se pudieron cargar proveedores o productos.', 'error');
@@ -46,32 +55,108 @@ async function poblarSelectores() {
 
 function renderStagedIncomeItems() {
     const tbody = document.querySelector('#staged-items-ingreso tbody');
-    const alertasContainer = document.getElementById('alertas-precios-container');
-    const listaAlertas = document.getElementById('lista-alertas-precios');
-
     if (!tbody) return;
-    tbody.innerHTML = ''; // Limpiar tabla
-
-    // Limpiar alertas anteriores si las hubiera
-    if (alertasContainer) alertasContainer.classList.add('hidden');
-    if (listaAlertas) listaAlertas.innerHTML = '';
+    tbody.innerHTML = ''; 
 
     if (stagedIncomeItems.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Añada productos...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-5 text-muted">Añada productos para comenzar.</td></tr>';
+        actualizarTotalesGlobales();
         return;
     }
 
     stagedIncomeItems.forEach((item, index) => {
-        // --- CAMBIO AQUÍ: Mostramos el precio_costo ---
-        tbody.innerHTML += `
-            <tr data-index="${index}">
-                <td>${item.nombre} (ID: ${item.producto_id})</td>
-                <td>${item.cantidad}</td>
-                <td>${formatCurrency(item.precio_costo)}</td> 
-                <td><button type="button" class="btn btn-danger btn-sm btn-quitar">Quitar</button></td> 
-            </tr>
+        const neto = calcularNetoItem(item.cantidad, item.precio_costo, item.descuento_1, item.descuento_2);
+        const tr = document.createElement('tr');
+        
+        tr.innerHTML = `
+            <td>
+                <input type="checkbox" class="form-check-input check-recibido" data-index="${index}" ${item.recibido ? 'checked' : ''}>
+            </td>
+            <td>
+                <div class="fw-bold">${item.nombre}</div>
+                <div class="text-muted small">IVA: ${item.iva_porcentaje}%</div>
+            </td>
+            <td class="text-end">
+                <input type="number" class="form-control form-control-sm edit-cantidad text-end" data-index="${index}" value="${item.cantidad}" style="width: 80px; display: inline-block;">
+            </td>
+            <td class="text-end">
+                <input type="number" class="form-control form-control-sm edit-costo text-end" data-index="${index}" value="${item.precio_costo || ''}" style="width: 100px; display: inline-block;">
+            </td>
+            <td class="text-center small">
+                <div class="d-flex gap-1 justify-content-center">
+                    <input type="number" class="form-control form-control-sm edit-dto1" data-index="${index}" value="${item.descuento_1}" style="width: 50px;" title="Dto 1">
+                    <input type="number" class="form-control form-control-sm edit-dto2" data-index="${index}" value="${item.descuento_2}" style="width: 50px;" title="Dto 2">
+                </div>
+            </td>
+            <td class="text-end small opacity-75">
+                ${item.iva_porcentaje}%
+            </td>
+            <td class="text-end fw-bold">
+                ${formatCurrency(neto)}
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-link text-danger p-0 btn-quitar" data-index="${index}">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </td>
         `;
+        tbody.appendChild(tr);
     });
+
+    actualizarTotalesGlobales();
+}
+
+function actualizarTotalesGlobales() {
+    let netoGravado = 0;
+    let totalsByIVA = { "21": 0, "10.5": 0 };
+    let descuentosTotales = 0;
+
+    stagedIncomeItems.forEach(item => {
+        if (!item.recibido) return;
+        
+        const subtotalBruto = (item.precio_costo || 0) * item.cantidad;
+        const netoItem = calcularNetoItem(item.cantidad, item.precio_costo, item.descuento_1, item.descuento_2);
+        
+        netoGravado += netoItem;
+        descuentosTotales += (subtotalBruto - netoItem);
+        
+        // Calcular IVA proporcional
+        const ivaKey = item.iva_porcentaje.toString();
+        const ivaMonto = netoItem * (item.iva_porcentaje / 100);
+        
+        if (ivaKey.includes("21")) totalsByIVA["21"] += ivaMonto;
+        if (ivaKey.includes("10.5")) totalsByIVA["10.5"] += ivaMonto;
+    });
+
+    // Actualizar UI
+    document.getElementById('total-neto-gravado').innerText = formatCurrency(netoGravado);
+    document.getElementById('total-descuentos').innerText = formatCurrency(descuentosTotales);
+    
+    // Solo actualizar si el usuario no los está editando (o siempre si prefieres auto-calc)
+    // Dejamos que el usuario pueda corregir si hay redondeos en la factura física
+    const iva21Input = document.getElementById('tax-iva-21');
+    const iva105Input = document.getElementById('tax-iva-105');
+    
+    if (iva21Input && !iva21Input.matches(':focus')) iva21Input.value = totalsByIVA["21"].toFixed(2);
+    if (iva105Input && !iva105Input.matches(':focus')) iva105Input.value = totalsByIVA["10.5"].toFixed(2);
+
+    recalcularTotalFactura();
+}
+
+function recalcularTotalFactura() {
+    const neto = parseFloat(document.getElementById('total-neto-gravado').innerText.replace(/[^0-9,-]+/g,"").replace(",", ".")) || 0;
+    
+    const iva21 = parseFloat(document.getElementById('tax-iva-21')?.value) || 0;
+    const iva105 = parseFloat(document.getElementById('tax-iva-105')?.value) || 0;
+    const iibb = parseFloat(document.getElementById('tax-iibb')?.value) || 0;
+    const piva = parseFloat(document.getElementById('tax-percep-iva')?.value) || 0;
+    const exento = parseFloat(document.getElementById('tax-exento')?.value) || 0;
+    const noGravado = parseFloat(document.getElementById('tax-no-gravado')?.value) || 0;
+
+    const total = neto + iva21 + iva105 + iibb + piva + exento + noGravado;
+    
+    const display = document.getElementById('total-comprobante-display');
+    if (display) display.innerText = formatCurrency(total);
 }
 
 // --- Función para mostrar las alertas de precios ---
@@ -117,48 +202,226 @@ export function inicializarLogicaIngresos() {
     // Listener para añadir ítem
     formAddItem.addEventListener('submit', (e) => {
         e.preventDefault();
-        const productoId = document.getElementById('ingreso-producto-selector').value;
+        const productoId = document.getElementById('ingreso-producto-id-hidden').value;
         const cantidadInput = document.getElementById('ingreso-item-cantidad');
-        const costoInput = document.getElementById('ingreso-item-costo'); // El nuevo input
+        const costoInput = document.getElementById('ingreso-item-costo');
+        const dto1Input = document.getElementById('ingreso-item-dto1');
+        const dto2Input = document.getElementById('ingreso-item-dto2');
         
         const cantidad = parseFloat(cantidadInput.value);
-        // --- CAMBIO AQUÍ: Capturamos el precio_costo ---
-        const precio_costo_str = costoInput.value.trim();
-        const precio_costo = precio_costo_str !== '' ? parseFloat(precio_costo_str) : null; // null si está vacío
+        const precio_costo = parseFloat(costoInput.value) || 0;
+        const dto1 = parseFloat(dto1Input.value) || 0;
+        const dto2 = parseFloat(dto2Input.value) || 0;
 
         if (!productoId || !cantidad || cantidad <= 0) {
-            return mostrarNotificacion('Seleccione un producto válido y una cantidad mayor a cero.', 'warning');
-        }
-        if (precio_costo !== null && precio_costo < 0) {
-            return mostrarNotificacion('El precio de costo no puede ser negativo.', 'warning');
+            return mostrarNotificacion('Seleccione un producto y cantidad válida.', 'warning');
         }
         
         const productoSel = productosCache.find(p => p.id == productoId);
+        if (!productoSel) return;
 
-        if (!productoSel) {
-            return mostrarNotificacion('Error: Producto no encontrado en la lista local.', 'error');
-        }
-
-        // Evitar duplicados (opcional, podrías sumar cantidades en vez de error)
-        if (stagedIncomeItems.some(item => item.producto_id == productoId)) {
-             return mostrarNotificacion('Ese producto ya está en la lista. Quítelo si desea modificarlo.', 'warning');
-        }
+        // IVA Predeterminado (intentar obtener de productoSel o defecto 21)
+        const ivaP = productoSel.iva_porcentaje || 21.0;
 
         stagedIncomeItems.push({
             producto_id: productoId,
-            nombre: productoSel.nombre, // Asegúrate que la API devuelva el nombre
+            nombre: productoSel.nombre,
             cantidad: cantidad,
-            precio_costo: precio_costo // Guardamos el costo (puede ser null)
+            precio_costo: precio_costo,
+            descuento_1: dto1,
+            descuento_2: dto2,
+            iva_porcentaje: ivaP,
+            recibido: true
         });
         
         renderStagedIncomeItems();
-        // Limpiar solo los campos de cantidad y costo, no el producto
-        cantidadInput.value = '';
-        costoInput.value = ''; 
-        // Opcional: Poner el foco de vuelta en cantidad
-        // cantidadInput.focus(); 
-         document.getElementById('ingreso-producto-selector').value = ''; // Resetear selector producto
+        formAddItem.reset();
+        limpiarSeleccionProducto();
     });
+
+    // --- LÓGICA MODAL BÚSQUEDA PRODUCTO ---
+    const btnAbrirBusqueda = document.getElementById('btn-abrir-busqueda-producto');
+    const displayProducto = document.getElementById('ingreso-producto-nombre-display');
+    const overlayBusqueda = document.getElementById('overlay-buscar-producto');
+    const btnCerrarBusqueda = document.getElementById('btn-cerrar-modal-busqueda-prod');
+    const inputBusquedaModal = document.getElementById('input-busqueda-modal-prod');
+    const formCrearExpress = document.getElementById('form-crear-producto-express');
+
+    const abrirBusqueda = async () => {
+        const overlay = document.getElementById('overlay-buscar-producto');
+        const input = document.getElementById('input-busqueda-modal-prod');
+        if (overlay) {
+            overlay.style.display = 'flex';
+            if (input) {
+                setTimeout(() => input.focus(), 100);
+            }
+            // Poblar categorías si están vacías
+            const selCat = document.getElementById('exp-prod-categoria');
+            if (selCat && selCat.options.length <= 1) {
+                try {
+                    const categorias = await fetchData(`/api/negocios/${appState.negocioActivoId}/categorias`);
+                    if (categorias) {
+                        selCat.innerHTML = '<option value="">Seleccione...</option>';
+                        categorias.forEach(c => selCat.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
+                    }
+                } catch (e) { console.error("Error cargando categorías", e); }
+            }
+        } else {
+            console.error("No se encontró el overlay del modal.");
+        }
+    };
+    window.abrirModalBusquedaProducto = abrirBusqueda;
+
+    const inputGroupProducto = document.querySelector('.product-input-premium-wrapper');
+
+    if (btnAbrirBusqueda) btnAbrirBusqueda.addEventListener('click', abrirBusqueda);
+    if (displayProducto) {
+        displayProducto.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            abrirBusqueda();
+        });
+        displayProducto.addEventListener('keydown', (e) => {
+            // Si el usuario empieza a escribir, abrir modal y pasarle el foco
+            if (e.key.length === 1 || e.key === 'Backspace') {
+                abrirBusqueda();
+            }
+        });
+        displayProducto.addEventListener('input', (e) => {
+            const val = e.target.value;
+            if (val) {
+                const modalInput = document.getElementById('input-busqueda-modal-prod');
+                if (modalInput) {
+                    modalInput.value = val;
+                    // Disparar evento input en el modal para que busque
+                    modalInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                e.target.value = ''; // Limpiar el del fondo
+            }
+        });
+    }
+    if (inputGroupProducto) {
+        inputGroupProducto.addEventListener('click', abrirBusqueda);
+    }
+    
+    if (btnCerrarBusqueda) {
+        btnCerrarBusqueda.addEventListener('click', () => {
+            overlayBusqueda.style.display = 'none';
+        });
+    }
+
+    if (inputBusquedaModal) {
+        inputBusquedaModal.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const wrapper = document.getElementById('wrapper-resultados-prod');
+            
+            if (!term) {
+                wrapper.innerHTML = '<div class="text-center py-5 text-muted"><p>Escriba para buscar...</p></div>';
+                return;
+            }
+
+            let matches = productosCache.filter(p => 
+                p.nombre.toLowerCase().includes(term) || 
+                (p.sku && p.sku.toLowerCase().includes(term)) ||
+                (p.id.toString().includes(term))
+            ).slice(0, 15);
+
+            const renderMatches = (items) => {
+                if (items.length === 0) {
+                    wrapper.innerHTML = '<div class="text-center py-5 text-muted"><p>No se encontraron productos.</p></div>';
+                    return;
+                }
+                wrapper.innerHTML = items.map(p => `
+                    <div class="product-result-item p-3 border-bottom d-flex justify-content-between align-items-center" 
+                         style="cursor:pointer;" data-id="${p.id}">
+                        <div>
+                            <div class="fw-bold text-dark">${p.nombre}</div>
+                            <div class="text-muted small">ID: ${p.id} ${p.sku ? '| SKU: '+p.sku : ''}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="badge bg-primary-subtle text-primary">$ ${p.precio_venta || 0}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                wrapper.querySelectorAll('.product-result-item').forEach(item => {
+                    item.onclick = () => {
+                        const pid = item.dataset.id;
+                        const p = productosCache.find(x => x.id == pid) || items.find(x => x.id == pid);
+                        seleccionarProducto(p);
+                    };
+                });
+            };
+
+            if (matches.length === 0 && term.length > 2) {
+                // Fallback a API si no hay en cache y el término es largo
+                fetchData(`/api/negocios/${appState.negocioActivoId}/productos/buscar?q=${term}`)
+                    .then(res => renderMatches(res || []))
+                    .catch(e => console.error("Error buscando:", e));
+            } else {
+                renderMatches(matches);
+            }
+        });
+    }
+
+    function seleccionarProducto(p) {
+        document.getElementById('ingreso-producto-nombre-display').value = p.nombre;
+        document.getElementById('ingreso-producto-id-hidden').value = p.id;
+        document.getElementById('ingreso-item-costo').value = p.precio_costo || "";
+        document.getElementById('overlay-buscar-producto').style.display = 'none';
+        document.getElementById('ingreso-item-cantidad').focus();
+    }
+
+    function limpiarSeleccionProducto() {
+        document.getElementById('ingreso-producto-nombre-display').value = '';
+        document.getElementById('ingreso-producto-id-hidden').value = '';
+    }
+
+    // --- CREACIÓN EXPRESS ---
+    if (formCrearExpress) {
+        formCrearExpress.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msg = document.getElementById('msg-creacion-prod');
+            const btn = formCrearExpress.querySelector('button[type="submit"]');
+            
+            const payload = {
+                nombre: document.getElementById('exp-prod-nombre').value,
+                categoria_id: document.getElementById('exp-prod-categoria').value,
+                unidad_medida: document.getElementById('exp-prod-unidad').value,
+                precio_venta: parseFloat(document.getElementById('exp-prod-precio-v').value),
+                sku: document.getElementById('exp-prod-sku').value || null,
+                precio_costo: 0, // Se definirá en la carga del ingreso
+                stock: 0
+            };
+
+            try {
+                btn.disabled = true;
+                msg.classList.remove('hidden');
+                const nuevoP = await sendData(`/api/negocios/${appState.negocioActivoId}/productos`, payload);
+                
+                // Actualizar cache local
+                productosCache.push(nuevoP);
+                seleccionarProducto(nuevoP);
+                formCrearExpress.reset();
+                mostrarNotificacion('Producto creado y seleccionado.', 'success');
+            } catch (err) {
+                mostrarNotificacion('Error al crear producto: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                msg.classList.add('hidden');
+            }
+        });
+    }
+
+    // Listeners para recalcular totales al editar tasas globales
+    document.querySelectorAll('.tax-input').forEach(input => {
+        input.addEventListener('input', recalcularTotalFactura);
+    });
+
+    // El botón Confirmar Carga (nuevo ID en HTML premium)
+    const btnConfirmar = document.getElementById('btn-registrar-ingreso-final');
+    if (btnConfirmar) {
+        btnConfirmar.addEventListener('click', () => formFinalize.requestSubmit());
+    }
 
     // Listener para finalizar ingreso
     formFinalize.addEventListener('submit', async (e) => {
@@ -167,81 +430,268 @@ export function inicializarLogicaIngresos() {
             return mostrarNotificacion('Añada al menos un producto al ingreso.', 'warning');
         }
         
-        // --- CAMBIO AQUÍ: Recolectamos datos de la factura ---
         const proveedorId = document.getElementById('ingreso-proveedor-selector').value;
-        const facturaTipo = document.getElementById('ingreso-factura-tipo').value.trim();
-        const facturaPrefijo = document.getElementById('ingreso-factura-prefijo').value.trim();
-        const facturaNumero = document.getElementById('ingreso-factura-numero').value.trim();
-        const referencia = document.getElementById('ingreso-referencia').value.trim();
+        const facturaTipo = document.getElementById('ingreso-factura-tipo').value;
+        const fechaEmision = document.getElementById('ingreso-fecha-emision').value;
+        const puntoVenta = document.getElementById('ingreso-punto-venta').value;
+        const facturaNumero = document.getElementById('ingreso-factura-numero').value;
+        const referencia = document.getElementById('ingreso-referencia').value;
+        const cae = document.getElementById('ingreso-cae').value;
+        const caeVenc = document.getElementById('ingreso-cae-vencimiento').value;
 
-        if (!proveedorId) return mostrarNotificacion('Seleccione un proveedor.', 'warning');
-        if (!facturaTipo || !facturaPrefijo || !facturaNumero) {
-             return mostrarNotificacion('Ingrese los datos completos de la factura (Tipo, Prefijo, Número).', 'warning');
+        // Impuestos
+        const iva21 = parseFloat(document.getElementById('tax-iva-21')?.value) || 0;
+        const iva105 = parseFloat(document.getElementById('tax-iva-105')?.value) || 0;
+        const iibb = parseFloat(document.getElementById('tax-iibb')?.value) || 0;
+        const piva = parseFloat(document.getElementById('tax-percep-iva')?.value) || 0;
+        const exento = parseFloat(document.getElementById('tax-exento')?.value) || 0;
+        const noGravado = parseFloat(document.getElementById('tax-no-gravado')?.value) || 0;
+        const neto = parseFloat(document.getElementById('total-neto-gravado').innerText.replace(/[^0-9,-]+/g,"").replace(",", ".")) || 0;
+
+        const totalComprobante = neto + iva21 + iva105 + iibb + piva + exento + noGravado;
+
+        if (!proveedorId || !facturaTipo || !facturaNumero || !fechaEmision || !puntoVenta) {
+             return mostrarNotificacion('Complete los datos obligatorios del comprobante.', 'warning');
         }
+
+        const finalItems = stagedIncomeItems.filter(i => i.recibido);
 
         const payload = {
             proveedor_id: proveedorId,
             referencia: referencia || null,
             factura_tipo: facturaTipo,
-            factura_prefijo: facturaPrefijo,
+            punto_venta: puntoVenta,
             factura_numero: facturaNumero,
-            detalles: stagedIncomeItems.map(item => ({ // Asegurarse que solo mandamos lo necesario
+            fecha_emision: fechaEmision,
+            cae: cae || null,
+            cae_vencimiento: caeVenc || null,
+            iva_21: iva21,
+            iva_105: iva105,
+            iva_percepcion: piva,
+            iibb_percepcion: iibb,
+            neto_gravado: neto,
+            exento: exento,
+            no_gravado: noGravado,
+            total_factura: totalComprobante,
+            orden_compra_id: selectedOCId,
+            detalles: finalItems.map(item => ({ 
                  producto_id: item.producto_id,
                  cantidad: item.cantidad,
-                 precio_costo: item.precio_costo 
+                 precio_costo: item.precio_costo,
+                 descuento_1: item.descuento_1,
+                 descuento_2: item.descuento_2,
+                 iva_porcentaje: item.iva_porcentaje
             }))
         };
         
         // Deshabilitar botón para evitar doble envío
-        const submitButton = formFinalize.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = 'Registrando...';
+        const submitButton = document.getElementById('btn-registrar-ingreso-final');
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Registrando...';
+        }
 
         try {
-            const response = await sendData(`/api/negocios/${appState.negocioActivoId}/ingresos`, payload); // Usar sendData
+            const response = await sendData(`/api/negocios/${appState.negocioActivoId}/ingresos`, payload); 
             
             mostrarNotificacion(response.message || 'Ingreso registrado con éxito.', 'success');
             
-            // --- CAMBIO AQUÍ: Mostramos las alertas de precios ---
             if (response.alertas_precios && response.alertas_precios.length > 0) {
                  mostrarAlertasDePrecios(response.alertas_precios);
-                 // Opcional: Añadir un botón o link para ir a "Listas de Precios"
             } else {
-                 // Si no hay alertas, nos aseguramos que el contenedor esté oculto
                  const alertasContainer = document.getElementById('alertas-precios-container');
                  if(alertasContainer) alertasContainer.classList.add('hidden');
             }
 
-            // Limpiamos todo
-            stagedIncomeItems = [];
-            renderStagedIncomeItems(); // Limpia la tabla visualmente
-            formFinalize.reset(); // Limpia proveedor, factura, referencia
-            formAddItem.reset(); // Limpia producto, cantidad, costo del otro form
-            poblarSelectores(); // Recarga los selectores por si hubo cambios
+            limpiarFormularioIngreso();
+            poblarSelectores(); 
             
         } catch (error) {
             mostrarNotificacion(error.message || 'Ocurrió un error al registrar el ingreso.', 'error');
             console.error("Error al finalizar ingreso:", error);
         } finally {
              // Volver a habilitar el botón
-             submitButton.disabled = false;
-             submitButton.textContent = 'Registrar Ingreso y Actualizar Stock';
+             const submitButton = document.getElementById('btn-registrar-ingreso-final');
+             if (submitButton) {
+                 submitButton.disabled = false;
+                 submitButton.innerHTML = '<i class="fas fa-save me-2"></i>GUARDAR INGRESO';
+             }
         }
     });
 
-    // Listener único para quitar ítems (Delegación)
+    // --- EVENTOS DE LA TABLA (Delegación) ---
+    tablaItemsBody.addEventListener('change', (e) => {
+        const index = e.target.dataset.index;
+        if (typeof index === 'undefined') return;
+        
+        const item = stagedIncomeItems[index];
+        if (e.target.classList.contains('check-recibido')) {
+            item.recibido = e.target.checked;
+        } else if (e.target.classList.contains('edit-cantidad')) {
+            item.cantidad = parseFloat(e.target.value) || 0;
+        } else if (e.target.classList.contains('edit-costo')) {
+            item.precio_costo = parseFloat(e.target.value) || 0;
+        } else if (e.target.classList.contains('edit-dto1')) {
+            item.descuento_1 = parseFloat(e.target.value) || 0;
+        } else if (e.target.classList.contains('edit-dto2')) {
+            item.descuento_2 = parseFloat(e.target.value) || 0;
+        }
+        renderStagedIncomeItems(); 
+    });
+
     tablaItemsBody.addEventListener('click', (e) => {
-        if (e.target.classList.contains('btn-quitar')) {
-            const fila = e.target.closest('tr');
-            if (fila && typeof fila.dataset.index !== 'undefined') { // Chequeo extra
-                 const index = parseInt(fila.dataset.index, 10);
-                 if (!isNaN(index) && index >= 0 && index < stagedIncomeItems.length) {
-                    stagedIncomeItems.splice(index, 1);
-                    renderStagedIncomeItems();
-                 } else {
-                     console.error("Índice inválido al intentar quitar ítem:", fila.dataset.index);
-                 }
+        const target = e.target.closest('.btn-quitar');
+        if (target) {
+            const index = target.dataset.index;
+            if (typeof index !== 'undefined') {
+                stagedIncomeItems.splice(index, 1);
+                renderStagedIncomeItems();
             }
         }
     });
+
+    // Listener para abrir modal de importar OC
+    const btnImportarOC = document.getElementById('btn-importar-oc');
+    if (btnImportarOC) {
+        btnImportarOC.addEventListener('click', async () => {
+            await cargarOCPendientes();
+            const modal = new bootstrap.Modal(document.getElementById('modal-importar-oc'));
+            modal.show();
+        });
+    }
+
+    // --- BOTÓN CANCELAR ---
+    const btnCancelar = document.getElementById('btn-cancelar-ingreso');
+    if (btnCancelar) {
+        btnCancelar.addEventListener('click', () => {
+            if (stagedIncomeItems.length > 0 || selectedOCId) {
+                if (confirm('¿Está seguro de cancelar la carga actual? Se perderán todos los datos ingresados.')) {
+                    limpiarFormularioIngreso();
+                    mostrarNotificacion('Carga cancelada.', 'info');
+                }
+            } else {
+                limpiarFormularioIngreso();
+            }
+        });
+    }
+
+function limpiarFormularioIngreso() {
+    stagedIncomeItems = [];
+    selectedOCId = null;
+    renderStagedIncomeItems();
+    if (formFinalize) formFinalize.reset();
+    if (formAddItem) formAddItem.reset();
+    
+    const alertasContainer = document.getElementById('alertas-precios-container');
+    if (alertasContainer) alertasContainer.classList.add('hidden');
+
+    const submitButton = document.getElementById('btn-registrar-ingreso-final');
+    if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.innerHTML = '<i class="fas fa-save me-2"></i>GUARDAR INGRESO';
+    }
 }
+}
+
+async function cargarOCPendientes() {
+    try {
+        const ordenes = await fetchData(`/api/negocios/${appState.negocioActivoId}/compras/ordenes?estado=abierta`);
+        const tbody = document.getElementById('lista-importar-oc-body');
+        
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (ordenes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">No hay órdenes abiertas.</td></tr>';
+            return;
+        }
+
+        ordenes.forEach(oc => {
+            const fechaFmt = new Date(oc.fecha).toLocaleDateString('es-AR');
+            const totalFmt = oc.total_estimado.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="fw-bold">${oc.numero_oc}</td>
+                <td>${fechaFmt}</td>
+                <td>${oc.proveedor_nombre}</td>
+                <td>${totalFmt}</td>
+                <td class="text-center">
+                    <button class="btn btn-primary btn-sm" onclick="importarOC(${oc.id})">
+                        Importar
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error("Error cargando OCs:", error);
+    }
+}
+
+window.importarOC = async (id) => {
+    selectedOCId = id; // IMPORTANTE: Guardamos el ID de la OC vinculada
+    try {
+        const oc = await fetchData(`/api/negocios/${appState.negocioActivoId}/compras/orden/${id}`);
+        
+        if (!oc) throw new Error("No se pudo obtener el detalle de la orden.");
+
+        // Limpiar items actuales (opcional)
+        if (stagedIncomeItems.length > 0) {
+            const confirm = await Swal.fire({
+                title: '¿Combinar ítems?',
+                text: 'Ya tienes productos en la lista. ¿Deseas agregar los de la OC o reemplazar la lista actual?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Combinar',
+                cancelButtonText: 'Reemplazar',
+                reverseButtons: true
+            });
+            if (!confirm.isConfirmed) stagedIncomeItems = [];
+        } else {
+            stagedIncomeItems = [];
+        }
+
+        // Setear proveedor
+        const selProv = document.getElementById('ingreso-proveedor-selector');
+        if (selProv) selProv.value = oc.proveedor_id;
+
+        // Setear referencia con el nro de OC / Referencia
+        const refInput = document.getElementById('ingreso-referencia');
+        if (refInput) refInput.value = oc.referencia || '';
+
+        // Añadir items
+        oc.detalles.forEach(d => {
+            // Evitar duplicados si combinamos
+            const existing = stagedIncomeItems.find(i => i.producto_id == d.producto_id);
+            if (existing) {
+                existing.cantidad += d.cantidad;
+                existing.precio_costo = d.precio_costo;
+            } else {
+                stagedIncomeItems.push({
+                    producto_id: d.producto_id,
+                    nombre: d.producto_nombre,
+                    cantidad: d.cantidad,
+                    precio_costo: d.precio_costo,
+                    precio_oc: d.precio_costo, // Referencia de la OC
+                    descuento_1: 0,
+                    descuento_2: 0,
+                    iva_porcentaje: 21.0,
+                    recibido: true
+                });
+            }
+        });
+
+        renderStagedIncomeItems();
+        
+        // Cerrar modal
+        const modalEl = document.getElementById('modal-importar-oc');
+        const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modal.hide();
+        
+        mostrarNotificacion(`Datos de la OC importados con éxito.`, 'success');
+
+    } catch (error) {
+        mostrarNotificacion(error.message, 'error');
+    }
+};

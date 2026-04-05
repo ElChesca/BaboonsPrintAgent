@@ -15,8 +15,8 @@
       <button class="btn-res-secondary" onclick="window.compartirPortal()">
         <i class="fab fa-whatsapp"></i> Compartir Link
       </button>
-      <button class="btn-res-secondary" onclick="window.abrirModalConfigTurnos()">
-        <i class="fas fa-clock"></i> Turnos
+      <button class="btn-res-secondary" onclick="window.abrirModalConfigGeneral()">
+        <i class="fas fa-cog"></i> Configuración
       </button>
     </div>
   </div>
@@ -91,13 +91,8 @@
           <input type="email" id="nr-email" placeholder="cliente@email.com" class="res-input">
         </div>
         <div class="res-form-group">
-          <label>Origen *</label>
-          <select id="nr-origen" class="res-input">
-            <option value="telefono">📞 Teléfono</option>
-            <option value="whatsapp">💬 WhatsApp</option>
-            <option value="presencial">🚶 Presencial</option>
-            <option value="manual">✏️ Manual</option>
-          </select>
+          <label>Fecha de Nacimiento</label>
+          <input type="date" id="nr-cumpleanios" class="res-input">
         </div>
       </div>
       <div class="res-form-row">
@@ -116,6 +111,28 @@
         <div class="res-form-group">
           <label>Comensales *</label>
           <input type="number" id="nr-comensales" value="2" min="1" max="50" class="res-input">
+        </div>
+        <div class="res-form-group">
+          <label>Sector Preferido</label>
+          <select id="nr-sector" class="res-input">
+            <option value="Salon">Salón Principal</option>
+            <option value="Terraza">Terraza / Exterior</option>
+            <option value="VIP">Sector VIP</option>
+            <option value="Barra">Barra</option>
+            <option value="Patio">Patio</option>
+            <option value="Entrepiso">Entrepiso</option>
+          </select>
+        </div>
+      </div>
+      <div class="res-form-row">
+        <div class="res-form-group">
+          <label>Origen *</label>
+          <select id="nr-origen" class="res-input">
+            <option value="telefono">📞 Teléfono</option>
+            <option value="whatsapp">💬 WhatsApp</option>
+            <option value="presencial">🚶 Presencial</option>
+            <option value="manual">✏️ Manual</option>
+          </select>
         </div>
         <div class="res-form-group">
           <label>Mesa (opcional)</label>
@@ -162,44 +179,318 @@
   </div>
 </div>
 
-<!-- MODAL: CONFIGURACIÓN DE TURNOS -->
-<div id="modal-config-turnos" class="res-modal-overlay" style="display:none;">
-  <div class="res-modal-box" style="max-width: 700px;">
+<!-- MODAL: CONFIGURACIÓN GENERAL (TABS: TURNOS, WHATSAPP) -->
+<div id="modal-config-general" class="res-modal-overlay" style="display:none;">
+  <div class="res-modal-box" style="max-width: 800px; width: 95%;">
     <div class="res-modal-header">
-      <h2><i class="fas fa-clock"></i> Configuración de Turnos y Días</h2>
+      <h2><i class="fas fa-cog"></i> Configuración de Reservas</h2>
       <button class="res-modal-close" onclick="cerrarModal()"><i class="fas fa-times"></i></button>
     </div>
+    
+    <!-- TABS NAV -->
+    <div class="res-config-tabs">
+        <button class="config-tab active" onclick="switchConfigTab('turnos')"><i class="fas fa-clock"></i> Turnos y Días</button>
+        <button class="config-tab" onclick="switchConfigTab('whatsapp')"><i class="fab fa-whatsapp"></i> Mensaje WhatsApp</button>
+        <button class="config-tab" onclick="switchConfigTab('reglas')"><i class="fas fa-shield-alt"></i> Reglas</button>
+    </div>
+
     <div class="res-modal-body">
-      <p style="color:#94a3b8; font-size:0.85rem; margin-bottom:16px;">
-        Configurá los horarios en los que tu local acepta reservas. Los slots se generarán automáticamente.
-      </p>
       
-      <div style="text-align:right; margin-bottom:10px;">
-        <button class="res-btn-mini" onclick="window.duplicarLunesATodos()" title="Copia el horario de Lunes a todos los demás días">
-           <i class="fas fa-copy"></i> Copiar Lunes a todos los días
-        </button>
+      <!-- TAB: TURNOS -->
+      <div id="tab-config-turnos" class="config-tab-content active">
+          <div class="res-info-box">
+            <p>Definí los rangos horarios para las reservas. Podés agregar múltiples turnos por día (ej: Almuerzo y Cena).</p>
+          </div>
+          
+          <!-- LINK PÚBLICO SECCION -->
+          <div class="res-link-section">
+            <label><i class="fas fa-link"></i> Link para Clientes (Portal Público)</label>
+            <div class="res-copy-group">
+                <input type="text" id="res-public-link-input" readonly class="res-input" style="background:#f1f5f9;">
+                <button class="btn-res-primary" onclick="window.compartirPortal()"><i class="fas fa-copy"></i> Copiar</button>
+            </div>
+          </div>
+
+          <div class="res-config-form-alta">
+            <h3 style="font-size:1rem; margin-bottom:15px; color:var(--primary);">Agregar Nuevo Bloque Horario</h3>
+            <div class="res-grid-alta">
+                <div class="res-form-group">
+                    <label>Día de la Semana</label>
+                    <select id="new-turno-dia" class="res-input">
+                        <option value="0">Lunes</option>
+                        <option value="1">Martes</option>
+                        <option value="2">Miércoles</option>
+                        <option value="3">Jueves</option>
+                        <option value="4">Viernes</option>
+                        <option value="5">Sábado</option>
+                        <option value="6">Domingo</option>
+                        <option value="all">Todos los días</option>
+                    </select>
+                </div>
+                <div class="res-form-group">
+                    <label>Inicio</label>
+                    <input type="time" id="new-turno-inicio" class="res-input" value="20:00">
+                </div>
+                <div class="res-form-group">
+                    <label>Cierre</label>
+                    <input type="time" id="new-turno-fin" class="res-input" value="23:30">
+                </div>
+                <div class="res-form-group">
+                    <label>Int (m)</label>
+                    <input type="number" id="new-turno-int" class="res-input" value="30" min="15" step="15">
+                </div>
+                <div class="res-form-group" style="display:flex; align-items:flex-end;">
+                    <button class="btn-res-primary" style="width:100%; height:44px;" onclick="window.agregarBloqueTurno()">
+                        <i class="fas fa-plus"></i> Agregar
+                    </button>
+                </div>
+            </div>
+          </div>
+
+          <div class="res-turnos-lista-wrapper">
+              <h3 style="font-size:1rem; margin:25px 0 10px 0; color:var(--text-main); border-bottom:1px solid #eee; padding-bottom:10px;">Turnos Configurados</h3>
+              <div id="lista-bloques-horarios" class="res-bloques-grid">
+                  <!-- Se cargará dinámicamente -->
+                  <p style="text-align:center; padding:20px; color:#64748b; font-style:italic;">No hay turnos configurados aún.</p>
+              </div>
+          </div>
       </div>
 
-      <table class="res-turn-table">
-        <thead>
-          <tr>
-            <th>Día</th>
-            <th>Activo</th>
-            <th>Inicio</th>
-            <th>Fin</th>
-            <th>Intervalo</th>
-          </tr>
-        </thead>
-        <tbody id="turnos-config-list">
-          <!-- Cargado dinámicamente -->
-        </tbody>
-      </table>
+      <!-- TAB: WHATSAPP -->
+      <div id="tab-config-whatsapp" class="config-tab-content" style="display:none;">
+          <p style="color:#64748b; font-size:0.85rem; margin-bottom:12px;">
+            Personalizá el mensaje que se envía al cliente al confirmar una reserva manualmente.
+          </p>
+          
+          <div class="res-form-group">
+            <label>Plantilla del Mensaje</label>
+            <textarea id="wa-template-input" class="res-input" rows="6" placeholder="¡Hola {nombre}! Tu reserva..."></textarea>
+          </div>
+
+          <div class="wa-placeholders-hint">
+            <strong>Variables disponibles:</strong><br>
+            <code>{nombre}</code>, <code>{negocio}</code>, <code>{fecha}</code>, <code>{hora}</code>, <code>{pax}</code>, <code>{sector}</code>
+          </div>
+      </div>
+
+      <!-- TAB: REGLAS -->
+      <div id="tab-config-reglas" class="config-tab-content" style="display:none;">
+          <h4 style="font-size:1rem; margin-bottom:15px; color:#1e293b;"><i class="fas fa-shield-alt me-2 text-primary"></i> Gestión de Salón</h4>
+          <p style="color:#64748b; font-size:0.85rem; margin-bottom:20px;">
+            Ajustá las advertencias para los mozos cuando intentan ocupar mesas con una reserva cercana.
+          </p>
+          
+          <div class="res-form-group">
+            <label class="fw-bold text-dark">Anticipación de Alerta</label>
+            <select id="config-aviso-min" class="res-input">
+                <option value="15">15 minutos antes</option>
+                <option value="30">30 minutos antes</option>
+                <option value="45">45 minutos antes</option>
+                <option value="60" selected>60 minutos antes (Normal)</option>
+                <option value="90">90 minutos antes</option>
+                <option value="120">120 minutos antes (2hs)</option>
+            </select>
+            <small style="color:#94a3b8; display:block; margin-top:8px;">
+                Si el mozo intenta abrir la mesa dentro de este tiempo previo a una reserva, el sistema le pedirá confirmación.
+            </small>
+          </div>
+      </div>
+
     </div>
+
     <div class="res-modal-footer">
-      <button class="btn-res-secondary" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn-res-primary" onclick="window.guardarConfigTurnos()">
+      <button class="btn-res-secondary" onclick="cerrarModal()">Cerrar</button>
+      <button class="btn-res-primary" onclick="window.guardarConfigGeneral()">
         <i class="fas fa-save"></i> Guardar Cambios
       </button>
     </div>
   </div>
 </div>
+
+<style>
+/* Estilos específicos para el nuevo sistema de configuración y Light Mode */
+.res-modal-box {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    border-radius: 20px;
+}
+
+/* 🧹 LIMPIEZA DE FONDOS OSCUROS - MODO CLARO PREMIUM */
+.res-input, .res-date-input, select.res-input {
+    background-color: #ffffff !important;
+    color: #334155 !important; /* Slate 700 */
+    border: 1.5px solid #e2e8f0 !important;
+    padding: 10px 15px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    width: 100%;
+    transition: all 0.2s ease;
+    box-shadow: none !important;
+}
+
+.res-input:focus, .res-date-input:focus {
+    border-color: #6366f1 !important;
+    background-color: #f8fafc !important;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
+}
+
+.res-detail-item label {
+    color: #64748b;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.res-detail-item p {
+    color: #1e293b;
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin: 0;
+}
+.config-tab {
+    padding: 12px 20px;
+    border: none;
+    background: none;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+.config-tab.active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+    background: #fff;
+}
+
+.res-info-box {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    color: #1e40af;
+    font-size: 0.85rem;
+}
+
+.res-link-section {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+.res-link-section label {
+    display: block;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    color: #475569;
+}
+.res-copy-group {
+    display: flex;
+    gap: 10px;
+}
+
+.res-turnos-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.dia-row {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.dia-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.dia-label {
+    font-weight: 800;
+    color: #334155;
+    font-size: 1rem;
+}
+.turnos-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.turno-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s;
+}
+.turno-item:hover {
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+}
+.turno-item input {
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.9rem;
+    color: #334155;
+    background: white;
+}
+.btn-add-turno {
+    color: #2563eb;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-add-turno:hover {
+    background: #dbeafe;
+    border-color: #3b82f6;
+}
+.btn-remove-turno {
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 5px;
+    border-radius: 4px;
+}
+.btn-remove-turno:hover {
+    background: #fee2e2;
+}
+
+.wa-placeholders-hint {
+    margin-top: 15px;
+    font-size: 0.85rem;
+    color: #475569;
+    background: #f8fafc;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+.wa-placeholders-hint code {
+    background: #ffffff;
+    padding: 2px 6px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    color: #2563eb;
+    font-family: monospace;
+    font-weight: 600;
+}
+</style>

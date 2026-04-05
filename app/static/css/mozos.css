@@ -1,0 +1,79 @@
+/* app/static/css/mozos.css */
+:root {
+    --primary-soft: rgba(79, 70, 229, 0.1);
+    --primary-main: #4f46e5;
+    --danger-soft: rgba(239, 68, 68, 0.1);
+    --danger-main: #ef4444;
+}
+
+.search-group {
+    transition: all 0.3s ease;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #f1f5f9;
+}
+
+.search-group:focus-within {
+    border-color: var(--primary-main);
+    box-shadow: 0 0 0 4px var(--primary-soft);
+}
+
+#mozo-search:focus {
+    box-shadow: none;
+    background-color: #fff !important;
+}
+
+.btn-icon-only {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.btn-light-primary {
+    background: var(--primary-soft);
+    color: var(--primary-main);
+}
+
+.btn-light-primary:hover {
+    background: var(--primary-main);
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+.btn-light-danger {
+    background: var(--danger-soft);
+    color: var(--danger-main);
+}
+
+.btn-light-danger:hover {
+    background: var(--danger-main);
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+.avatar-circle {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    border: 2px solid #fff;
+}
+
+.status-dot {
+    display: inline-block;
+}
+
+.fw-500 {
+    font-weight: 500;
+}
+
+/* Animación para la tabla */
+#tabla-mozos tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+#tabla-mozos tbody tr:hover {
+    background-color: #f8fafc !important;
+}

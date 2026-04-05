@@ -5,6 +5,7 @@ import { mostrarNotificacion } from './notifications.js';
 // Asegúrate de que XLSX esté disponible globalmente (cargado en index.html)
 
 let form, tituloForm, idInput, nombreInput, contactoInput, telefonoInput, emailInput, btnCancelar;
+let cuitInput, condicionFiscalInput, datosBancariosInput, condicionesPagoInput, filtroInput;
 let proveedoresCache = [];
 
 let modalCtaCte, closeModalCtaCte, tituloModalCtaCte, proveedorIdInputCtaCte,
@@ -47,7 +48,7 @@ async function cargarProveedores() {
     if (!appState.negocioActivoId) {
         mostrarNotificacion('Seleccione un negocio activo.', 'warning');
         const tbody = document.querySelector('#tabla-proveedores tbody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Seleccione un negocio activo.</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Seleccione un negocio activo.</td></tr>';
         return;
     }
     try {
@@ -64,25 +65,56 @@ function renderizarTabla() {
     if (!tbody) return;
     tbody.innerHTML = '';
     if (!proveedoresCache || proveedoresCache.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay proveedores para mostrar.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No hay proveedores para mostrar.</td></tr>';
         return;
     }
-    proveedoresCache.forEach(p => {
+    
+    const busqueda = filtroInput?.value.toLowerCase() || '';
+    const filtrados = proveedoresCache.filter(p => 
+        (p.nombre || '').toLowerCase().includes(busqueda) || 
+        (p.cuit || '').includes(busqueda) ||
+        (p.contacto || '').toLowerCase().includes(busqueda)
+    );
+
+    if (filtrados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No se encontraron resultados para la búsqueda.</td></tr>';
+        return;
+    }
+
+    filtrados.forEach(p => {
         tbody.innerHTML += `
             <tr data-proveedor-id="${p.id}" data-proveedor-nombre="${p.nombre || ''}">
-                <td>${p.nombre || 'Sin Nombre'}</td>
-                <td>${p.contacto || '-'}</td>
-                <td>${p.telefono || '-'}</td>
-                <td>${p.email || '-'}</td>
-                <td>${formatCurrency(p.saldo_cta_cte)}</td>
                 <td>
-                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                        <button class="btn btn-warning btn-sm btn-cta-cte" data-id="${p.id}" title="Ver Cuenta Corriente">Cta. Cte.</button>
-                        <button class="btn btn-success btn-sm btn-registrar-pago" data-id="${p.id}" title="Registrar Pago"><i class="fas fa-hand-holding-usd"></i> Pagar</button>
-                        <button class="btn btn-dark btn-sm btn-cargar-comprobante" data-id="${p.id}" title="Cargar Comprobante">Comp.</button>
-                        <button class="btn btn-info btn-sm btn-ver-ingresos" data-id="${p.id}" title="Ver Ingresos">Ingresos</button>
-                        <button class="btn btn-secondary btn-sm btn-edit" data-id="${p.id}" title="Editar"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-danger btn-sm btn-delete" data-id="${p.id}" title="Borrar"><i class="fas fa-trash"></i></button>
+                    <div style="font-weight: bold; color: #1d2671;">${p.nombre || 'Sin Nombre'}</div>
+                    <div style="font-size: 0.8rem; color: #666;">${p.email || ''}</div>
+                </td>
+                <td>
+                    <div class="badge-premium badge-cuit">${p.cuit || 'Sin CUIT'}</div>
+                    <div style="font-size: 0.75rem; color: #888; margin-top: 4px;">${p.condicion_fiscal || '-'}</div>
+                </td>
+                <td>
+                    <div>${p.contacto || '-'}</div>
+                    <div style="font-size: 0.8rem; color: #00b894;"><i class="fas fa-phone-alt"></i> ${p.telefono || '-'}</div>
+                </td>
+                <td style="text-align: right; font-weight: bold; color: ${p.saldo_cta_cte < 0 ? '#e74c3c' : '#2d3436'};">
+                    ${formatCurrency(p.saldo_cta_cte)}
+                </td>
+                <td>
+                    <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                        <button class="btn btn-warning btn-sm btn-cta-cte" data-id="${p.id}" title="Cuenta Corriente"><i class="fas fa-file-invoice"></i></button>
+                        <button class="btn btn-success btn-sm btn-registrar-pago" data-id="${p.id}" title="Pagar"><i class="fas fa-hand-holding-usd"></i></button>
+                        <button class="btn btn-dark btn-sm btn-cargar-comprobante" data-id="${p.id}" title="Cargar Deuda"><i class="fas fa-plus"></i></button>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item btn-ver-ingresos" data-id="${p.id}" href="#"><i class="fas fa-history"></i> Historial Ingresos</a></li>
+                                <li><a class="dropdown-item btn-edit" data-id="${p.id}" href="#"><i class="fas fa-edit"></i> Editar</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item btn-delete text-danger" data-id="${p.id}" href="#"><i class="fas fa-trash"></i> Eliminar</a></li>
+                            </ul>
+                        </div>
                     </div>
                 </td>
             </tr>
@@ -104,9 +136,13 @@ async function guardarProveedor(e) {
     const id = idInput.value;
     const data = {
         nombre: nombreInput.value.trim(),
+        cuit: cuitInput.value.trim(),
+        condicion_fiscal: condicionFiscalInput.value,
         contacto: contactoInput.value.trim(),
         telefono: telefonoInput.value.trim(),
-        email: emailInput.value.trim()
+        email: emailInput.value.trim(),
+        condiciones_pago: condicionesPagoInput.value.trim(),
+        datos_bancarios: datosBancariosInput.value.trim()
     };
     if (!data.nombre) return mostrarNotificacion('El nombre es obligatorio.', 'warning');
 
@@ -134,9 +170,13 @@ function editarProveedor(id) {
     tituloForm.textContent = 'Editar Proveedor';
     idInput.value = proveedor.id;
     nombreInput.value = proveedor.nombre || '';
+    cuitInput.value = proveedor.cuit || '';
+    condicionFiscalInput.value = proveedor.condicion_fiscal || '';
     contactoInput.value = proveedor.contacto || '';
     telefonoInput.value = proveedor.telefono || '';
     emailInput.value = proveedor.email || '';
+    condicionesPagoInput.value = proveedor.condiciones_pago || '';
+    datosBancariosInput.value = proveedor.datos_bancarios || '';
     btnCancelar.style.display = 'inline-block';
     form.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -647,17 +687,23 @@ async function handleConfirmarPago(e) {
 // --- Lógica de Inicialización ---
 function handleTablaClick(e) {
     const target = e.target;
+    // Prevenir el comportamiento por defecto de los enlaces con href="#"
+    if (target.closest('a[href="#"]')) {
+        e.preventDefault();
+    }
+
     const proveedorRow = target.closest('tr');
     const proveedorId = proveedorRow?.dataset.proveedorId;
     if (!proveedorId) return;
     const id = parseInt(proveedorId);
-    if (target.classList.contains('btn-edit')) editarProveedor(id);
-    else if (target.classList.contains('btn-delete')) borrarProveedor(id);
-    else if (target.classList.contains('btn-ver-ingresos')) window.location.hash = `#historial_ingresos?proveedor=${id}`;
-    else if (target.classList.contains('btn-ver-pagos')) window.location.hash = `#historial_pagos_proveedores?proveedor=${id}`;
-    else if (target.classList.contains('btn-cta-cte')) abrirModalCtaCte(id);
-    else if (target.classList.contains('btn-cargar-comprobante')) abrirModalComprobante(id);
-    else if (target.classList.contains('btn-registrar-pago')) abrirModalPagoProveedor(id);
+
+    if (target.closest('.btn-edit')) editarProveedor(id);
+    else if (target.closest('.btn-delete')) borrarProveedor(id);
+    else if (target.closest('.btn-ver-ingresos')) window.location.hash = `#historial_ingresos?proveedor=${id}`;
+    else if (target.closest('.btn-ver-pagos')) window.location.hash = `#historial_pagos_proveedores?proveedor=${id}`;
+    else if (target.closest('.btn-cta-cte')) abrirModalCtaCte(id);
+    else if (target.closest('.btn-cargar-comprobante')) abrirModalComprobante(id);
+    else if (target.closest('.btn-registrar-pago')) abrirModalPagoProveedor(id);
 }
 function closeModalCtaCteHandler() { if (modalCtaCte) modalCtaCte.style.display = 'none'; }
 
@@ -699,12 +745,22 @@ export function inicializarLogicaProveedores() {
     tituloForm = document.getElementById('form-proveedor-titulo');
     idInput = document.getElementById('proveedor-id');
     nombreInput = document.getElementById('proveedor-nombre');
+    cuitInput = document.getElementById('proveedor-cuit');
+    condicionFiscalInput = document.getElementById('proveedor-condicion-fiscal');
     contactoInput = document.getElementById('proveedor-contacto');
     telefonoInput = document.getElementById('proveedor-telefono');
     emailInput = document.getElementById('proveedor-email');
+    condicionesPagoInput = document.getElementById('proveedor-condiciones-pago');
+    datosBancariosInput = document.getElementById('proveedor-datos-bancarios');
     btnCancelar = document.getElementById('btn-cancelar-edicion');
-    if (!tituloForm || !idInput || !nombreInput || !contactoInput || !telefonoInput || !emailInput || !btnCancelar) {
+    filtroInput = document.getElementById('filtro-proveedor');
+
+    if (!tituloForm || !idInput || !nombreInput || !btnCancelar) {
         console.error("Faltan elementos internos en el formulario.");
+    }
+
+    if (filtroInput) {
+        filtroInput.addEventListener('input', renderizarTabla);
     }
 
     // Limpiar listeners

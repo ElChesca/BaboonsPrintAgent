@@ -294,6 +294,9 @@ function abrirModalCorreccionPagoVenta(ventaId, metodoActual, total) {
     document.getElementById('mixto-efectivo-venta').value = 0;
     document.getElementById('mixto-mp-venta').value = 0;
     document.getElementById('mixto-cta-cte-venta').value = 0;
+    document.getElementById('mixto-tarjeta-venta').value = 0;
+    document.getElementById('mixto-debito-venta').value = 0;
+    document.getElementById('mixto-transferencia-venta').value = 0;
     document.getElementById('mixto-error-venta').style.display = 'none';
 
     if (modal) modal.style.display = 'block';
@@ -325,7 +328,11 @@ async function confirmarCorreccionPagoVenta() {
         const ef = parseFloat(document.getElementById('mixto-efectivo-venta').value) || 0;
         const mp = parseFloat(document.getElementById('mixto-mp-venta').value) || 0;
         const cc = parseFloat(document.getElementById('mixto-cta-cte-venta').value) || 0;
-        const totalIngresado = ef + mp + cc;
+        const tar = parseFloat(document.getElementById('mixto-tarjeta-venta').value) || 0;
+        const deb = parseFloat(document.getElementById('mixto-debito-venta').value) || 0;
+        const tra = parseFloat(document.getElementById('mixto-transferencia-venta').value) || 0;
+        
+        const totalIngresado = ef + mp + cc + tar + deb + tra;
 
         if (Math.abs(totalIngresado - ventaTotalParaCorregir) > 0.01) {
             const errorEl = document.getElementById('mixto-error-venta');
@@ -336,6 +343,9 @@ async function confirmarCorreccionPagoVenta() {
         payload.monto_efectivo = ef;
         payload.monto_mp = mp;
         payload.monto_cta_cte = cc;
+        payload.monto_tarjeta = tar;
+        payload.monto_debito = deb;
+        payload.monto_transferencia = tra;
     }
 
     const btn = document.getElementById('btn-confirmar-correccion-pago');

@@ -5,12 +5,14 @@ import { appState } from '../main.js';
 
 let mesasCache = [];
 let mozosCache = [];
+let sectoresCache = []; // Nuevo: Cache de sectores oficiales
+let reservasHoy = []; 
 let seleccionados = new Set();
+let currentSector = 'todos'; // Nuevo: Filtro actual
 
 export async function inicializarMesas() {
-    console.log("🚀 Inicializando Módulo de Mesas...");
+    console.log("🚀 Inicializando Módulo de Mesas (v2 Sectores)...");
 
-    // Bind UI Events
     const btnNueva = document.getElementById('btn-nueva-mesa');
     const btnNuevaEmpty = document.getElementById('btn-nueva-mesa-empty');
     const btnCerrar = document.getElementById('btn-cerrar-modal-mesa');
@@ -19,16 +21,7 @@ export async function inicializarMesas() {
 
     if (form) form.onsubmit = guardarMesa;
 
-    if (btnNueva) {
-        console.log("✅ Botón Nueva Mesa encontrado");
-        btnNueva.onclick = (e) => {
-            e.preventDefault();
-            window.abrirModalMesa();
-        };
-    } else {
-        console.warn("⚠️ Botón Nueva Mesa NO encontrado en el DOM");
-    }
-
+    if (btnNueva) btnNueva.onclick = () => window.abrirModalMesa();
     if (btnNuevaEmpty) btnNuevaEmpty.onclick = () => window.abrirModalMesa();
     if (btnCerrar) btnCerrar.onclick = () => window.cerrarModalMesa();
     if (btnCancelar) btnCancelar.onclick = () => window.cerrarModalMesa();
@@ -48,6 +41,7 @@ export async function inicializarMesas() {
     }
 
     await cargarMozos();
+    await cargarSectores();
     await cargarMesas();
 }
 
@@ -67,6 +61,65 @@ async function cargarMozos() {
     }
 }
 
+async function cargarSectores() {
+    try {
+        const idNegocio = appState.negocioActivoId;
+        sectoresCache = await fetchData(`/api/negocios/${idNegocio}/sectores`);
+        
+        // Si no hay sectores, crear uno por defecto? Por ahora dejar vacío.
+        renderizarSectoresTabs();
+        actualizarSelectSectores();
+    } catch (error) {
+        console.error("Error cargando sectores:", error);
+    }
+}
+
+function renderizarSectoresTabs() {
+    const container = document.getElementById('mesas-sector-tabs');
+    if (!container) return;
+
+    let html = `
+        <li class="nav-item">
+            <button class="nav-link ${currentSector === 'todos' ? 'active' : ''}" 
+                style="border-radius: 10px; font-weight: 600; padding: 8px 16px;"
+                onclick="window.filtrarPorSector('todos')">Todos</button>
+        </li>
+    `;
+
+    sectoresCache.forEach(s => {
+        html += `
+            <li class="nav-item">
+                <button class="nav-link ${currentSector === s.nombre ? 'active' : ''}" 
+                    style="border-radius: 10px; font-weight: 600; padding: 8px 16px;"
+                    onclick="window.filtrarPorSector('${s.nombre}')">${s.nombre}</button>
+            </li>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+window.filtrarPorSector = (sector) => {
+    currentSector = sector;
+    renderizarSectoresTabs();
+    renderizarTabla();
+};
+
+function actualizarSelectSectores() {
+    const selects = document.querySelectorAll('.sector-select-dropdown');
+    selects.forEach(select => {
+        let html = '<option value="">Seleccione sector...</option>';
+        sectoresCache.forEach(s => {
+            html += `<option value="${s.nombre}">${s.nombre}</option>`;
+        });
+        // Agregar opción por defecto si no hay
+        if (sectoresCache.length === 0) {
+            html += '<option value="Salon">Salón Principal</option>';
+        }
+        select.innerHTML = html;
+    });
+}
+
 async function cargarMesas() {
     const loading = document.getElementById('loading-mesas');
     const noMesas = document.getElementById('no-mesas');
@@ -78,7 +131,15 @@ async function cargarMesas() {
 
     try {
         const idNegocio = appState.negocioActivoId;
-        mesasCache = await fetchData(`/api/negocios/${idNegocio}/mesas`);
+        const hoy = new Date().toISOString().split('T')[0];
+        
+        const [mesas, reservas] = await Promise.all([
+            fetchData(`/api/negocios/${idNegocio}/mesas`),
+            fetchData(`/api/negocios/${idNegocio}/reservas?fecha=${hoy}`)
+        ]);
+
+        mesasCache = mesas;
+        reservasHoy = reservas;
 
         if (loading) loading.style.display = 'none';
 
@@ -101,11 +162,15 @@ function renderizarTabla() {
     if (!tbody) return;
 
     tbody.innerHTML = '';
-    mesasCache.forEach(m => {
+    
+    const mesasFiltradas = currentSector === 'todos' 
+        ? mesasCache 
+        : mesasCache.filter(m => m.zona === currentSector);
+
+    mesasFiltradas.forEach(m => {
         const tr = document.createElement('tr');
         const isSelected = seleccionados.has(m.id);
 
-        // Estado Badge
         let badgeClass = 'bg-success';
         let estadoLabel = 'Libre';
 
@@ -118,6 +183,21 @@ function renderizarTabla() {
         }
 
         const mozoNombre = m.mozo_fijo_nombre || '<span class="text-muted small">No asignado</span>';
+        const reserva = reservasHoy.find(r => r.mesa_id === m.id && r.estado !== 'cancelada');
+        
+        let colReserva = '<span class="text-muted small">-</span>';
+        let colInfoReserva = '<span class="text-muted small">-</span>';
+
+        if (reserva) {
+            const estadoRes = reserva.estado === 'confirmada' ? 'text-success' : 'text-warning';
+            colReserva = `<span class="fw-bold ${estadoRes}"><i class="fas fa-calendar-check me-1"></i> Reservada</span>`;
+            colInfoReserva = `
+                <div class="d-flex flex-column" style="line-height: 1.2;">
+                    <span class="fw-bold text-dark">${reserva.hora_reserva} <small class="text-muted">(+15m)</small></span>
+                    <span class="small text-muted"><i class="fas fa-users me-1"></i> (${reserva.num_comensales} Pax)</span>
+                </div>
+            `;
+        }
 
         tr.innerHTML = `
             <td style="padding-left: 20px;">
@@ -128,7 +208,9 @@ function renderizarTabla() {
             <td><strong>Mesa ${m.numero}</strong></td>
             <td>${m.nombre || '-'}</td>
             <td><i class="fas fa-users me-1 text-muted"></i> ${m.capacidad} pers.</td>
-            <td><span class="badge bg-light text-dark border" style="font-weight: 500;">${m.zona || 'Salon'}</span></td>
+            <td>${colReserva}</td>
+            <td>${colInfoReserva}</td>
+            <td><span class="badge bg-light text-dark border" style="font-weight: 500;">${m.zona || 'Sin Sector'}</span></td>
             <td><i class="fas fa-user-tie me-1 text-muted small"></i> ${mozoNombre}</td>
             <td><span class="badge ${badgeClass}" style="min-width: 80px; padding: 6px;">${estadoLabel}</span></td>
             <td style="text-align: right; padding-right: 25px;">
@@ -147,13 +229,6 @@ function renderizarTabla() {
 export function toggleSeleccionMesa(id, checked) {
     if (checked) seleccionados.add(id);
     else seleccionados.delete(id);
-    
-    // Actualizar select-all si corresponde
-    const selectAll = document.getElementById('select-all-mesas');
-    if (selectAll) {
-        selectAll.checked = (seleccionados.size === mesasCache.length && mesasCache.length > 0);
-    }
-    
     actualizarBarraMasivaMesas();
 }
 window.toggleSeleccionMesa = toggleSeleccionMesa;
@@ -161,92 +236,22 @@ window.toggleSeleccionMesa = toggleSeleccionMesa;
 export function actualizarBarraMasivaMesas() {
     const bar = document.getElementById('bulk-actions-bar-mesas');
     const label = document.getElementById('selected-mesas-count');
-    
-    if (seleccionados.size > 0) {
-        if (bar) bar.style.display = 'flex';
-        if (label) label.innerText = seleccionados.size;
-    } else {
-        if (bar) bar.style.display = 'none';
-    }
+    if (bar) bar.style.display = seleccionados.size > 0 ? 'flex' : 'none';
+    if (label) label.innerText = seleccionados.size;
 }
 
 export function deseleccionarTodasMesas() {
     seleccionados.clear();
     const selectAll = document.getElementById('select-all-mesas');
     if (selectAll) selectAll.checked = false;
-    
-    const checkboxes = document.querySelectorAll('.select-mesa');
-    checkboxes.forEach(cb => cb.checked = false);
-    
+    document.querySelectorAll('.select-mesa').forEach(cb => cb.checked = false);
     actualizarBarraMasivaMesas();
 }
 window.deseleccionarTodasMesas = deseleccionarTodasMesas;
 
-export async function asignarSectorMasivo() {
-    const { value: zona } = await Swal.fire({
-        title: 'Asignar Sector',
-        input: 'select',
-        inputOptions: {
-            'Salon': 'Salón Principal',
-            'Terraza': 'Terraza / Exterior',
-            'VIP': 'Sector VIP',
-            'Barra': 'Barra',
-            'Patio': 'Patio',
-            'Entrepiso': 'Entrepiso'
-        },
-        inputPlaceholder: 'Seleccione un sector',
-        showCancelButton: true,
-        confirmButtonText: 'Aplicar a Selección',
-        cancelButtonText: 'Cancelar'
-    });
+// --- MODALES Y ACCIONES ---
 
-    if (zona) {
-        await ejecutarAccionMasiva({ zona });
-    }
-}
-window.asignarSectorMasivo = asignarSectorMasivo;
-
-export async function asignarMozoMasivo() {
-    const options = { "": "Sin mozo (Limpiar)" };
-    mozosCache.forEach(m => options[m.id] = m.nombre);
-
-    const { value: mozo_id } = await Swal.fire({
-        title: 'Asignar Mozo Responsable',
-        input: 'select',
-        inputOptions: options,
-        inputPlaceholder: 'Seleccione un mozo',
-        showCancelButton: true,
-        confirmButtonText: 'Aplicar a Selección',
-        cancelButtonText: 'Cancelar'
-    });
-
-    if (mozo_id !== undefined) {
-        await ejecutarAccionMasiva({ mozo_id: mozo_id === "" ? "" : parseInt(mozo_id) });
-    }
-}
-window.asignarMozoMasivo = asignarMozoMasivo;
-
-async function ejecutarAccionMasiva(data) {
-    try {
-        const idNegocio = appState.negocioActivoId;
-        const payload = {
-            ids: Array.from(seleccionados),
-            ...data
-        };
-        
-        await sendData(`/api/negocios/${idNegocio}/mesas/bulk`, payload, 'PATCH');
-        mostrarNotificacion('Cambios aplicados correctamente', 'success');
-        
-        deseleccionarTodasMesas();
-        await cargarMesas();
-    } catch (error) {
-        mostrarNotificacion(error.message || 'Error al aplicar cambios masivos', 'error');
-    }
-}
-
-// Ventanas globales expuestas para botones onclick (en tabla dinámica)
 export function abrirModalMesa() {
-    console.log("🎯 abriendo modal mesa...");
     const modal = document.getElementById('modal-mesa');
     if (modal) {
         modal.style.display = 'flex';
@@ -266,7 +271,6 @@ window.cerrarModalMesa = cerrarModalMesa;
 export function editarMesa(id) {
     const mesa = mesasCache.find(m => m.id === id);
     if (!mesa) return;
-
     const modal = document.getElementById('modal-mesa');
     if (modal) {
         modal.style.display = 'flex';
@@ -275,7 +279,7 @@ export function editarMesa(id) {
         document.getElementById('mesa-numero').value = mesa.numero;
         document.getElementById('mesa-nombre').value = mesa.nombre || '';
         document.getElementById('mesa-capacidad').value = mesa.capacidad;
-        document.getElementById('mesa-zona').value = mesa.zona || 'Salon';
+        document.getElementById('mesa-zona').value = mesa.zona || '';
         document.getElementById('mesa-mozo-id').value = mesa.mozo_id || '';
     }
 }
@@ -283,9 +287,6 @@ window.editarMesa = editarMesa;
 
 async function guardarMesa(e) {
     e.preventDefault();
-    const btnSubmit = e.target.querySelector('button[type="submit"]');
-    if (btnSubmit) btnSubmit.disabled = true;
-
     const id = document.getElementById('mesa-id').value;
     const data = {
         numero: parseInt(document.getElementById('mesa-numero').value),
@@ -295,41 +296,134 @@ async function guardarMesa(e) {
         mozo_id: document.getElementById('mesa-mozo-id').value === "" ? null : parseInt(document.getElementById('mesa-mozo-id').value)
     };
 
-    const idNegocio = appState.negocioActivoId;
-    const url = id ? `/api/mesas/${id}` : `/api/negocios/${idNegocio}/mesas`;
-    const method = id ? 'PUT' : 'POST';
-
     try {
-        await sendData(url, data, method);
-        mostrarNotificacion(id ? 'Mesa actualizada correctamente' : 'Mesa creada con éxito', 'success');
-        cerrarModalMesa();
+        const idNegocio = appState.negocioActivoId;
+        const url = id ? `/api/mesas/${id}` : `/api/negocios/${idNegocio}/mesas`;
+        await sendData(url, data, id ? 'PUT' : 'POST');
+        mostrarNotificacion('Mesa guardada', 'success');
+        window.cerrarModalMesa();
         await cargarMesas();
     } catch (error) {
-        mostrarNotificacion(error.message || 'Error al guardar mesa', 'error');
-    } finally {
-        if (btnSubmit) btnSubmit.disabled = false;
+        mostrarNotificacion(error.message, 'error');
     }
 }
 
 export async function eliminarMesa(id) {
-    const result = await Swal.fire({
-        title: '¿Eliminar mesa?',
-        text: 'Si la mesa tiene pedidos activos no podrá ser eliminada.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
-    });
-
-    if (result.isConfirmed) {
+    if (confirm('¿Eliminar mesa?')) {
         try {
             await sendData(`/api/mesas/${id}`, {}, 'DELETE');
-            mostrarNotificacion('Mesa eliminada correctamente', 'success');
+            mostrarNotificacion('Mesa eliminada', 'success');
             await cargarMesas();
         } catch (error) {
-            mostrarNotificacion(error.message || 'No se pudo eliminar la mesa', 'error');
+            mostrarNotificacion(error.message, 'error');
         }
     }
 }
 window.eliminarMesa = eliminarMesa;
+
+// --- GESTIÓN DE SECTORES ---
+
+window.abrirModalSectores = () => {
+    const modal = document.getElementById('modal-sectores');
+    if (modal) {
+        modal.style.display = 'flex';
+        renderizarListaSectoresEdicion();
+    }
+};
+
+window.cerrarModalSectores = () => {
+    const modal = document.getElementById('modal-sectores');
+    if (modal) modal.style.display = 'none';
+};
+
+function renderizarListaSectoresEdicion() {
+    const container = document.getElementById('sectores-list-container');
+    if (!container) return;
+
+    let html = '';
+    sectoresCache.forEach((s, index) => {
+        html += `
+            <div class="d-flex align-items-center gap-2 mb-2 p-2 border-bottom">
+                <input type="text" class="form-control sector-edit-input" data-index="${index}" value="${s.nombre}">
+                <button class="btn btn-sm btn-outline-danger" onclick="window.quitarFilaSector(${index})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+    });
+    
+    if (sectoresCache.length === 0) {
+        html = '<p class="text-muted text-center py-3">No hay sectores definidos.</p>';
+    }
+    
+    container.innerHTML = html;
+}
+
+window.agregarFilaSector = () => {
+    const input = document.getElementById('nuevo-sector-nombre');
+    const nombre = input.value.trim();
+    if (!nombre) return;
+
+    sectoresCache.push({ nombre, orden: sectoresCache.length });
+    input.value = '';
+    renderizarListaSectoresEdicion();
+};
+
+window.quitarFilaSector = (index) => {
+    sectoresCache.splice(index, 1);
+    renderizarListaSectoresEdicion();
+};
+
+window.guardarSectores = async () => {
+    // Actualizar nombres desde inputs
+    const inputs = document.querySelectorAll('.sector-edit-input');
+    inputs.forEach(inp => {
+        const idx = parseInt(inp.dataset.index);
+        sectoresCache[idx].nombre = inp.value.trim();
+    });
+
+    try {
+        const idNegocio = appState.negocioActivoId;
+        await sendData(`/api/negocios/${idNegocio}/sectores`, { sectores: sectoresCache }, 'POST');
+        mostrarNotificacion('Sectores actualizados', 'success');
+        window.cerrarModalSectores();
+        await cargarSectores(); // Recargar oficial
+    } catch (error) {
+        mostrarNotificacion(error.message, 'error');
+    }
+};
+
+// --- CREACIÓN MASIVA ---
+
+window.abrirModalBulkMesas = () => {
+    const modal = document.getElementById('modal-bulk-mesas');
+    if (modal) {
+        modal.style.display = 'flex';
+        actualizarSelectSectores();
+    }
+};
+
+window.cerrarModalBulkMesas = () => {
+    const modal = document.getElementById('modal-bulk-mesas');
+    if (modal) modal.style.display = 'none';
+};
+
+window.ejecutarBulkCreate = async (e) => {
+    e.preventDefault();
+    const data = {
+        desde: parseInt(document.getElementById('bulk-desde').value),
+        hasta: parseInt(document.getElementById('bulk-hasta').value),
+        capacidad: parseInt(document.getElementById('bulk-capacidad').value),
+        zona: document.getElementById('bulk-zona').value
+    };
+
+    try {
+        const idNegocio = appState.negocioActivoId;
+        await sendData(`/api/negocios/${idNegocio}/mesas/bulk-create`, data, 'POST');
+        mostrarNotificacion('Mesas creadas correctamente', 'success');
+        window.cerrarModalBulkMesas();
+        await cargarMesas();
+    } catch (error) {
+        mostrarNotificacion(error.message, 'error');
+    }
+};

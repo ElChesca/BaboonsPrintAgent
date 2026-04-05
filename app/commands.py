@@ -69,6 +69,35 @@ def init_rentals_db_command():
         except Exception as e2:
             click.echo(f'Error creating tables: {e2}')
 
+@click.command('init-compras-db')
+@with_appcontext
+def init_compras_db_command():
+    """Creates the Purchase Orders tables in the database."""
+    db = get_db()
+    click.echo('Initializing Purchase Orders database...')
+
+    # Build path relative to the app root (one level up from app/)
+    migration_path = os.path.join(current_app.root_path, '..', 'migrations', 'add_ordenes_compra.sql')
+    click.echo(f"Reading migration from: {migration_path}")
+    
+    try:
+        with open(migration_path, 'r', encoding='utf-8') as f:
+            sql_content = f.read()
+    except Exception as e:
+        click.echo(f"Error loading file: {e}")
+        return
+
+    try:
+        db.execute(sql_content)
+        from flask import g
+        if hasattr(g, 'db_conn'):
+             g.db_conn.commit()
+             click.echo('Purchase Orders tables created successfully.')
+        else:
+             click.echo('Warning: Could not commit transaction. g.db_conn not found.')
+    except Exception as e:
+        click.echo(f'Error creating tables: {e}')
+
 @click.command('migrate-db')
 @with_appcontext
 def migrate_db_command():

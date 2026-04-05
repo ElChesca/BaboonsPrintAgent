@@ -55,7 +55,12 @@ def _migrate_reservas():
             )
         """)
 
-        # 3. Tabla de configuración de turnos
+        # 3. MIGRACION: Nuevas columnas para reservas
+        db.execute("ALTER TABLE mesas_reservas ADD COLUMN IF NOT EXISTS fecha_nacimiento DATE")
+        db.execute("ALTER TABLE mesas_reservas ADD COLUMN IF NOT EXISTS sector_preferido VARCHAR(50)")
+        db.execute("ALTER TABLE reservas_clientes ADD COLUMN IF NOT EXISTS fecha_nacimiento DATE")
+
+        # 4. Tabla de configuración de turnos (mejorada para múltiples rangos)
         db.execute("""
             CREATE TABLE IF NOT EXISTS resto_turnos_config (
                 id SERIAL PRIMARY KEY,
@@ -64,10 +69,33 @@ def _migrate_reservas():
                 hora_inicio TIME NOT NULL DEFAULT '20:00',
                 hora_fin TIME NOT NULL DEFAULT '23:30',
                 intervalo_min INT NOT NULL DEFAULT 30,
-                activo BOOLEAN DEFAULT TRUE,
-                UNIQUE (negocio_id, dia_semana)
+                activo BOOLEAN DEFAULT TRUE
             )
         """)
+        # Remover constraint vieja si existe
+        db.execute("ALTER TABLE resto_turnos_config DROP CONSTRAINT IF EXISTS resto_turnos_config_negocio_id_dia_semana_key")
+        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_resto_turns_unique ON resto_turnos_config (negocio_id, dia_semana, hora_inicio)")
+
+        # 5. Tabla de configuración de reservas (WhatsApp template, aviso apertura, etc)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS resto_reservas_config (
+                negocio_id INT PRIMARY KEY REFERENCES negocios(id) ON DELETE CASCADE,
+                wa_template TEXT,
+                aviso_apertura_min INT DEFAULT 60,
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+        db.execute("ALTER TABLE resto_reservas_config ADD COLUMN IF NOT EXISTS aviso_apertura_min INT DEFAULT 60")
+
+        # 6. MIGRACION: Columna de token de reserva en tabla negocios
+        db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS reserva_token VARCHAR(100)")
+        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_negocios_reserva_token ON negocios(reserva_token)")
+        
+        # Poblar tokens nulos
+        db.execute("SELECT id FROM negocios WHERE reserva_token IS NULL")
+        for row in db.fetchall():
+            new_token = uuid.uuid4().hex[:12]
+            db.execute("UPDATE negocios SET reserva_token = %s WHERE id = %s", (new_token, row['id']))
 
         g.db_conn.commit()
     except Exception as e:
@@ -92,11 +120,13 @@ def _generar_slots(hora_inicio, hora_fin, intervalo_min):
 def _serialize_reserva(r):
     """Convierte un row de la BD en un diccionario serializable."""
     res = dict(r)
-    if r.get('fecha_reserva'):
+    if 'fecha_reserva' in r and r['fecha_reserva']:
         res['fecha_reserva'] = r['fecha_reserva'].isoformat()
-    if r.get('hora_reserva'):
+    if 'hora_reserva' in r and r['hora_reserva']:
         res['hora_reserva'] = str(r['hora_reserva'])[:5]
-    if r.get('created_at'):
+    if 'fecha_nacimiento' in r and r['fecha_nacimiento']:
+        res['fecha_nacimiento'] = r['fecha_nacimiento'].isoformat()
+    if 'created_at' in r and r['created_at']:
         res['created_at'] = r['created_at'].isoformat()
     return res
 
@@ -105,7 +135,7 @@ def _ensure_default_turns(negocio_id):
     """Asegura que el negocio tenga turnos base configurados (Lunes a Domingo 20:00-23:30)."""
     db = get_db()
     try:
-        db.execute("SELECT 1 FROM resto_turnos_config WHERE negocio_id = %s", (negocio_id,))
+        db.execute("SELECT 1 FROM resto_turnos_config WHERE negocio_id = %s LIMIT 1", (negocio_id,))
         if not db.fetchone():
             # Crear turnos para todos los días de la semana
             for dia in range(7):
@@ -118,16 +148,14 @@ def _ensure_default_turns(negocio_id):
         g.db_conn.rollback()
         current_app.logger.error(f"Error seeding default turns: {e}")
 
-def _serialize_reserva(r):
-    """Convierte una fila de reserva a dict serializable."""
-    d = dict(r)
-    if d.get('fecha_reserva'):
-        d['fecha_reserva'] = d['fecha_reserva'].isoformat()
-    if d.get('hora_reserva'):
-        d['hora_reserva'] = str(d['hora_reserva'])[:5]
-    if d.get('created_at'):
-        d['created_at'] = d['created_at'].isoformat()
-    return d
+
+def _get_negocio_id_by_token(token):
+    """Retorna el ID del negocio correspondiente a un token público."""
+    if not token: return None
+    db = get_db()
+    db.execute("SELECT id FROM negocios WHERE reserva_token = %s", (token,))
+    row = db.fetchone()
+    return row['id'] if row else None
 
 
 # ============================================================
@@ -144,6 +172,7 @@ def portal_register(negocio_id):
     email = data.get('email', '').strip().lower()
     celular = data.get('celular', '').strip()
     password = data.get('password', '').strip()
+    fecha_nac = data.get('fecha_nacimiento')
 
     if not nombre or not apellido or not email or not password:
         return jsonify({'error': 'Nombre, Apellido, Email y Contraseña son obligatorios'}), 400
@@ -155,22 +184,16 @@ def portal_register(negocio_id):
         if db.fetchone():
             return jsonify({'error': 'Ya existe una cuenta con este email. Por favor iniciá sesión.'}), 409
 
-        # Verificar que el negocio existe y es tipo resto
-        db.execute("SELECT id, nombre FROM negocios WHERE id = %s AND tipo_app = 'resto'", (negocio_id,))
-        negocio = db.fetchone()
-        if not negocio:
-            return jsonify({'error': 'Negocio no encontrado'}), 404
-
         pw_hash = bcrypt.generate_password_hash(password).decode('utf-8')
 
         db.execute("""
-            INSERT INTO reservas_clientes (negocio_id, nombre, apellido, email, celular, password_hash)
-            VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
-        """, (negocio_id, nombre, apellido, email, celular, pw_hash))
+            INSERT INTO reservas_clientes (negocio_id, nombre, apellido, email, celular, password_hash, fecha_nacimiento)
+            VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+        """, (negocio_id, nombre, apellido, email, celular, pw_hash, fecha_nac))
         nuevo_id = db.fetchone()['id']
         g.db_conn.commit()
 
-        # Generar token de sesión simple (JWT no necesario para invitados)
+        # Generar token de sesión simple
         import jwt, time
         token = jwt.encode(
             {'id': nuevo_id, 'negocio_id': negocio_id, 'email': email, 'exp': time.time() + 86400 * 7},
@@ -184,72 +207,58 @@ def portal_register(negocio_id):
         }), 201
     except Exception as e:
         g.db_conn.rollback()
-        current_app.logger.error(f"Error registro reserva invitado: {e}")
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/public/reservas/<int:negocio_id>/login', methods=['POST'])
-def portal_login(negocio_id):
-    """Login de cuenta invitado en el portal de reservas."""
-    _migrate_reservas()
-    data = request.get_json() or {}
-    email = data.get('email', '').strip().lower()
-    password = data.get('password', '').strip()
-
-    if not email or not password:
-        return jsonify({'error': 'Email y contraseña requeridos'}), 400
-
-    db = get_db()
-    db.execute("SELECT * FROM reservas_clientes WHERE negocio_id = %s AND email = %s", (negocio_id, email))
-    cliente = db.fetchone()
-
-    if not cliente or not bcrypt.check_password_hash(cliente['password_hash'], password):
-        return jsonify({'error': 'Email o contraseña incorrectos'}), 401
-
-    import jwt, time
-    token = jwt.encode(
-        {'id': cliente['id'], 'negocio_id': negocio_id, 'email': email, 'exp': time.time() + 86400 * 7},
-        current_app.config['SECRET_KEY'], algorithm='HS256'
-    )
-    return jsonify({
-        'token': token,
-        'cliente': {'id': cliente['id'], 'nombre': cliente['nombre'], 'apellido': cliente['apellido'], 'email': email}
-    })
-
-
 @bp.route('/public/reservas/<int:negocio_id>/disponibilidad', methods=['GET'])
-def portal_disponibilidad(negocio_id):
-    """Devuelve los slots disponibles para una fecha dada."""
+def portal_disponibilidad_admin(negocio_id):
+    """Versión para uso administrativo o interno por ID directo."""
+    return _procesar_disponibilidad(negocio_id)
+
+@bp.route('/public/reservas/disponibilidad', methods=['GET'])
+def portal_disponibilidad_v2():
+    """Versión que usa token público 't'."""
+    token = request.args.get('t')
+    negocio_id = _get_negocio_id_by_token(token)
+    if not negocio_id:
+        return jsonify({'error': 'Negocio no encontrado o link inválido'}), 404
+    return _procesar_disponibilidad(negocio_id)
+
+def _procesar_disponibilidad(negocio_id):
     try:
         _migrate_reservas()
         _ensure_default_turns(negocio_id)
         fecha_str = request.args.get('fecha')
         if not fecha_str:
-            return jsonify({'error': 'Parámetro fecha requerido (YYYY-MM-DD)'}), 400
+            return jsonify({'error': 'Parámetro fecha requerido'}), 400
 
         try:
             fecha = datetime.date.fromisoformat(fecha_str)
         except ValueError:
             return jsonify({'error': 'Formato de fecha inválido'}), 400
 
-        dia_semana = fecha.weekday()  # 0=Lun, 6=Dom
-
+        dia_semana = fecha.weekday()
         db = get_db()
 
-        # Obtener configuración de turnos
+        # Obtener TODOS los rangos configurados para ese día
         db.execute("""
             SELECT hora_inicio, hora_fin, intervalo_min
             FROM resto_turnos_config
             WHERE negocio_id = %s AND dia_semana = %s AND activo = TRUE
+            ORDER BY hora_inicio ASC
         """, (negocio_id, dia_semana))
-        config = db.fetchone()
+        configs = db.fetchall()
 
-        if not config:
+        all_slots_generated = []
+        for config in configs:
+            slots = _generar_slots(config['hora_inicio'], config['hora_fin'], config['intervalo_min'])
+            all_slots_generated.extend(slots)
+        
+        all_slots_generated = sorted(list(set(all_slots_generated)))
+
+        if not all_slots_generated:
             return jsonify({'slots': [], 'message': 'No hay turnos disponibles para este día'})
 
-        all_slots = _generar_slots(config['hora_inicio'], config['hora_fin'], config['intervalo_min'])
-
-        # Obtener reservas ya existentes en esa fecha
         db.execute("""
             SELECT hora_reserva::text, COUNT(*) as cantidad
             FROM mesas_reservas
@@ -258,200 +267,120 @@ def portal_disponibilidad(negocio_id):
         """, (negocio_id, fecha))
         reservas_existentes = {str(r['hora_reserva'])[:5]: r['cantidad'] for r in db.fetchall()}
 
-        # Obtener cantidad de mesas disponibles
         db.execute("SELECT COUNT(*) as total FROM mesas WHERE negocio_id = %s", (negocio_id,))
-        total_mesas_row = db.fetchone()
-        total_mesas = total_mesas_row['total'] if total_mesas_row else 5  # default
+        row_m = db.fetchone()
+        total_mesas = row_m['total'] if row_m else 5
 
         slots_disponibles = []
-        for slot in all_slots:
-            ocupadas = reservas_existentes.get(slot, 0)
-            disponible = ocupadas < total_mesas
+        for s in all_slots_generated:
+            ocupadas = reservas_existentes.get(s, 0)
             slots_disponibles.append({
-                'hora': slot,
-                'disponible': disponible,
+                'hora': s,
+                'disponible': ocupadas < total_mesas,
                 'ocupadas': ocupadas,
                 'libres': max(0, total_mesas - ocupadas)
             })
 
         return jsonify({'slots': slots_disponibles, 'fecha': fecha_str})
     except Exception as e:
-        current_app.logger.error(f"Error en portal_disponibilidad: {e}")
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/public/reservas/<int:negocio_id>', methods=['POST'])
-def portal_crear_reserva(negocio_id):
-    """Crea una reserva desde el portal público (requiere token de invitado)."""
+@bp.route('/public/reservas/crear', methods=['POST'])
+def portal_crear_reserva_v2():
+    """Crea una reserva desde el portal público usando token 't'."""
     _migrate_reservas()
-    auth = request.headers.get('Authorization', '')
-    token_str = auth.replace('Bearer ', '')
-
-    cliente_id = None
-    nombre_cliente = None
-    email_cliente = None
-
-    if token_str:
-        try:
-            import jwt
-            payload = jwt.decode(token_str, current_app.config['SECRET_KEY'], algorithms=['HS256'])
-            cliente_id = payload.get('id')
-            email_cliente = payload.get('email')
-            db_temp = get_db()
-            db_temp.execute("SELECT nombre, apellido, email, celular FROM reservas_clientes WHERE id = %s", (cliente_id,))
-            c = db_temp.fetchone()
-            if c:
-                nombre_cliente = f"{c['nombre']} {c['apellido']}"
-                email_cliente = c['email']
-        except Exception:
-            return jsonify({'error': 'Sesión inválida o expirada. Por favor ingresá nuevamente.'}), 401
-    else:
-        return jsonify({'error': 'Debes iniciar sesión para hacer una reserva'}), 401
-
     data = request.get_json() or {}
-    fecha_str = data.get('fecha')
-    hora_str = data.get('hora')
-    num_comensales = int(data.get('num_comensales', 2))
-    notas = data.get('notas', '')
-
-    if not fecha_str or not hora_str:
-        return jsonify({'error': 'Fecha y hora son obligatorias'}), 400
-
-    try:
-        fecha = datetime.date.fromisoformat(fecha_str)
-        hora = datetime.time.fromisoformat(hora_str)
-    except ValueError:
-        return jsonify({'error': 'Formato de fecha u hora inválido'}), 400
-
-    token_reserva = uuid.uuid4().hex
+    token_negocio = data.get('t')
+    negocio_id = _get_negocio_id_by_token(token_negocio)
+    
+    if not negocio_id:
+        return jsonify({'error': 'Negocio no identificado'}), 404
 
     db = get_db()
     try:
+        nombre = data.get('nombre', '').strip()
+        telefono = data.get('telefono', '').strip()
+        email = data.get('email', '').strip()
+        fecha_res = data.get('fecha')
+        hora_res = data.get('hora')
+
+        if not nombre or not fecha_res or not hora_res:
+            return jsonify({'error': 'Nombre, fecha y hora son obligatorios'}), 400
+        
+        fecha = datetime.date.fromisoformat(fecha_res)
+        hora = datetime.time.fromisoformat(hora_res)
+        token_conf = uuid.uuid4().hex
+
         db.execute("""
             INSERT INTO mesas_reservas
-            (negocio_id, reserva_cliente_id, nombre_cliente, email, fecha_reserva, hora_reserva, num_comensales, notas, token_confirmacion, origen, estado)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'portal', 'pendiente')
+            (negocio_id, nombre_cliente, telefono, email, fecha_reserva, hora_reserva, 
+             num_comensales, notas, token_confirmacion, origen, estado, fecha_nacimiento, sector_preferido)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'portal', 'pendiente', %s, %s)
             RETURNING id
-        """, (negocio_id, cliente_id, nombre_cliente, email_cliente, fecha, hora, num_comensales, notas, token_reserva))
-
-        nueva_id = db.fetchone()['id']
+        """, (negocio_id, nombre, telefono, email, fecha, hora,
+              data.get('num_comensales', 2), data.get('notas', ''), token_conf, 
+              data.get('fecha_nacimiento'), data.get('sector_preferido')))
+        
+        rid = db.fetchone()['id']
         g.db_conn.commit()
-
-        return jsonify({
-            'message': '¡Reserva solicitada con éxito! El local se comunicará para confirmarla.',
-            'reserva_id': nueva_id,
-            'token': token_reserva,
-            'fecha': fecha_str,
-            'hora': hora_str,
-            'num_comensales': num_comensales
-        }), 201
+        return jsonify({'message': '¡Reserva recibida exitosamente!', 'id': rid}), 201
     except Exception as e:
         g.db_conn.rollback()
-        current_app.logger.error(f"Error creando reserva: {e}")
         return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/public/reservas/mis-reservas', methods=['GET'])
-def portal_mis_reservas():
-    """Devuelve las reservas del cliente logueado en el portal."""
-    auth = request.headers.get('Authorization', '')
-    token_str = auth.replace('Bearer ', '')
-    if not token_str:
-        return jsonify({'error': 'No autorizado'}), 401
-    try:
-        import jwt
-        payload = jwt.decode(token_str, current_app.config['SECRET_KEY'], algorithms=['HS256'])
-        cliente_id = payload.get('id')
-    except Exception:
-        return jsonify({'error': 'Sesión inválida'}), 401
-
-    db = get_db()
-    db.execute("""
-        SELECT r.*, m.numero as mesa_numero
-        FROM mesas_reservas r
-        LEFT JOIN mesas m ON r.mesa_id = m.id
-        WHERE r.reserva_cliente_id = %s
-        ORDER BY r.fecha_reserva DESC, r.hora_reserva DESC
-        LIMIT 20
-    """, (cliente_id,))
-    reservas = [_serialize_reserva(r) for r in db.fetchall()]
-    return jsonify(reservas)
 
 
 # ============================================================
-# --- ENDPOINTS ADMIN (Token ERP requerido) ---
+# --- ENDPOINTS ADMIN ---
 # ============================================================
 
 @bp.route('/negocios/<int:negocio_id>/reservas', methods=['GET'])
 @token_required
 def admin_list_reservas(current_user, negocio_id):
-    """Lista de reservas con filtros de fecha y estado."""
     _migrate_reservas()
-    _ensure_default_turns(negocio_id)
     db = get_db()
     fecha = request.args.get('fecha', datetime.date.today().isoformat())
     estado = request.args.get('estado', 'all')
-
+    
     query = """
-        SELECT r.*, m.numero as mesa_numero,
-               rc.nombre as cliente_nombre_reg, rc.apellido as cliente_apellido, rc.celular as cliente_celular_reg
+        SELECT r.*, m.numero as mesa_numero, 
+               rc.nombre as cliente_nombre_reg, rc.apellido as cliente_apellido
         FROM mesas_reservas r
         LEFT JOIN mesas m ON r.mesa_id = m.id
         LEFT JOIN reservas_clientes rc ON r.reserva_cliente_id = rc.id
         WHERE r.negocio_id = %s AND r.fecha_reserva = %s
     """
     params = [negocio_id, fecha]
-
     if estado != 'all':
         query += " AND r.estado = %s"
         params.append(estado)
-
     query += " ORDER BY r.hora_reserva ASC"
-
+    
     db.execute(query, params)
-    reservas = [_serialize_reserva(r) for r in db.fetchall()]
-    return jsonify(reservas)
+    return jsonify([_serialize_reserva(r) for r in db.fetchall()])
 
 
 @bp.route('/negocios/<int:negocio_id>/reservas', methods=['POST'])
 @token_required
 def admin_crear_reserva(current_user, negocio_id):
-    """Crea una reserva manual (teléfono, WhatsApp, presencial)."""
     _migrate_reservas()
     data = request.get_json() or {}
-    nombre_cliente = data.get('nombre_cliente', '').strip()
-    telefono = data.get('telefono', '').strip()
-    email = data.get('email', '').strip()
-    fecha_str = data.get('fecha_reserva')
-    hora_str = data.get('hora_reserva')
-    num_comensales = int(data.get('num_comensales', 2))
-    notas = data.get('notas', '')
-    origen = data.get('origen', 'manual')
-    mesa_id = data.get('mesa_id')
-
-    if not nombre_cliente or not fecha_str or not hora_str:
-        return jsonify({'error': 'Nombre, fecha y hora son obligatorios'}), 400
-
-    try:
-        fecha = datetime.date.fromisoformat(fecha_str)
-        hora = datetime.time.fromisoformat(hora_str)
-    except ValueError:
-        return jsonify({'error': 'Formato de fecha u hora inválido'}), 400
-
-    token_reserva = uuid.uuid4().hex
     db = get_db()
     try:
+        token = uuid.uuid4().hex
         db.execute("""
             INSERT INTO mesas_reservas
-            (negocio_id, nombre_cliente, telefono, email, fecha_reserva, hora_reserva,
-             num_comensales, mesa_id, notas, token_confirmacion, origen, estado)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'confirmada')
+            (negocio_id, nombre_cliente, telefono, email, fecha_reserva, hora_reserva, num_comensales, 
+             mesa_id, notas, token_confirmacion, origen, estado, fecha_nacimiento, sector_preferido)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'confirmada', %s, %s)
             RETURNING id
-        """, (negocio_id, nombre_cliente, telefono, email, fecha, hora, num_comensales,
-              mesa_id or None, notas, token_reserva, origen))
-        nueva_id = db.fetchone()['id']
+        """, (negocio_id, data.get('nombre_cliente'), data.get('telefono'), data.get('email'),
+              data.get('fecha_reserva'), data.get('hora_reserva'), data.get('num_comensales'),
+              data.get('mesa_id'), data.get('notas'), token, data.get('origen', 'manual'),
+              data.get('fecha_nacimiento'), data.get('sector_preferido')))
+        rid = db.fetchone()['id']
         g.db_conn.commit()
-        return jsonify({'id': nueva_id, 'token': token_reserva, 'message': 'Reserva creada'}), 201
+        return jsonify({'id': rid, 'message': 'Reserva manual creada'}), 201
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
@@ -460,25 +389,22 @@ def admin_crear_reserva(current_user, negocio_id):
 @bp.route('/negocios/<int:negocio_id>/reservas/<int:reserva_id>', methods=['PATCH'])
 @token_required
 def admin_update_reserva(current_user, negocio_id, reserva_id):
-    """Actualiza estado, asigna mesa, agrega notas a una reserva."""
     data = request.get_json() or {}
     db = get_db()
     try:
         fields = []
         values = []
-        for field in ['estado', 'mesa_id', 'notas', 'hora_reserva', 'num_comensales']:
-            if field in data:
-                fields.append(f"{field} = %s")
-                values.append(data[field])
-
-        if not fields:
-            return jsonify({'error': 'No hay campos para actualizar'}), 400
-
+        valid_fields = ['estado', 'mesa_id', 'notas', 'hora_reserva', 'num_comensales', 
+                        'fecha_nacimiento', 'sector_preferido', 'telefono', 'nombre_cliente']
+        for f in valid_fields:
+            if f in data:
+                fields.append(f"{f} = %s")
+                values.append(data[f])
+        
+        if not fields: return jsonify({'error': 'Nada que actualizar'}), 400
+        
         values.extend([negocio_id, reserva_id])
-        db.execute(f"""
-            UPDATE mesas_reservas SET {', '.join(fields)}
-            WHERE negocio_id = %s AND id = %s
-        """, values)
+        db.execute(f"UPDATE mesas_reservas SET {', '.join(fields)} WHERE negocio_id = %s AND id = %s", values)
         g.db_conn.commit()
         return jsonify({'message': 'Reserva actualizada'})
     except Exception as e:
@@ -489,15 +415,11 @@ def admin_update_reserva(current_user, negocio_id, reserva_id):
 @bp.route('/negocios/<int:negocio_id>/reservas/<int:reserva_id>', methods=['DELETE'])
 @token_required
 def admin_cancelar_reserva(current_user, negocio_id, reserva_id):
-    """Cancela (marca como cancelada) una reserva."""
     db = get_db()
     try:
-        db.execute("""
-            UPDATE mesas_reservas SET estado = 'cancelada'
-            WHERE negocio_id = %s AND id = %s
-        """, (negocio_id, reserva_id))
+        db.execute("UPDATE mesas_reservas SET estado = 'cancelada' WHERE negocio_id = %s AND id = %s", (negocio_id, reserva_id))
         g.db_conn.commit()
-        return jsonify({'message': 'Reserva cancelada'})
+        return jsonify({'message': 'Cancelada'})
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
@@ -506,65 +428,107 @@ def admin_cancelar_reserva(current_user, negocio_id, reserva_id):
 @bp.route('/negocios/<int:negocio_id>/reservas/pendientes-count', methods=['GET'])
 @token_required
 def admin_pendientes_count(current_user, negocio_id):
-    """Devuelve la cantidad de reservas pendientes del día para el badge."""
     db = get_db()
     try:
-        _migrate_reservas()
-        hoy = datetime.date.today()
-        db.execute("""
-            SELECT COUNT(*) as total
-            FROM mesas_reservas
-            WHERE negocio_id = %s AND fecha_reserva = %s AND estado = 'pendiente'
-        """, (negocio_id, hoy))
-        row = db.fetchone()
-        return jsonify({'pendientes': row['total'] if row else 0})
-    except Exception:
+        db.execute("SELECT COUNT(*) as total FROM mesas_reservas WHERE negocio_id = %s AND estado = 'pendiente'", (negocio_id,))
+        return jsonify({'pendientes': db.fetchone()['total']})
+    except:
         return jsonify({'pendientes': 0})
 
 
 # ============================================================
-# --- CONFIGURACIÓN DE TURNOS (Admin) ---
+# --- CONFIGURACIÓN (Admin) ---
 # ============================================================
 
 @bp.route('/negocios/<int:negocio_id>/reservas/turnos', methods=['GET'])
 @token_required
 def admin_get_turnos(current_user, negocio_id):
-    """Obtiene la configuración de turnos del negocio."""
     _migrate_reservas()
     db = get_db()
-    db.execute("SELECT * FROM resto_turnos_config WHERE negocio_id = %s ORDER BY dia_semana", (negocio_id,))
+    db.execute("SELECT * FROM resto_turnos_config WHERE negocio_id = %s ORDER BY dia_semana, hora_inicio", (negocio_id,))
     rows = db.fetchall()
+    
+    # Agrupar por día de semana
     result = {}
     for r in rows:
-        result[r['dia_semana']] = {
+        dia = r['dia_semana']
+        if dia not in result: result[dia] = []
+        result[dia].append({
             'id': r['id'],
             'hora_inicio': str(r['hora_inicio'])[:5],
             'hora_fin': str(r['hora_fin'])[:5],
             'intervalo_min': r['intervalo_min'],
             'activo': r['activo']
-        }
+        })
     return jsonify(result)
 
 
 @bp.route('/negocios/<int:negocio_id>/reservas/turnos', methods=['POST'])
 @token_required
 def admin_save_turnos(current_user, negocio_id):
-    """Guarda la configuración de turnos (upsert por día de semana)."""
+    """Guarda configuración de turnos (reemplaza los del negocio)."""
     data = request.get_json() or []
     db = get_db()
     try:
-        for turno in data:
-            dia = turno.get('dia_semana')
+        # Borrar configuración vieja
+        db.execute("DELETE FROM resto_turnos_config WHERE negocio_id = %s", (negocio_id,))
+        
+        for t in data:
             db.execute("""
                 INSERT INTO resto_turnos_config (negocio_id, dia_semana, hora_inicio, hora_fin, intervalo_min, activo)
                 VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (negocio_id, dia_semana)
-                DO UPDATE SET hora_inicio = EXCLUDED.hora_inicio, hora_fin = EXCLUDED.hora_fin,
-                              intervalo_min = EXCLUDED.intervalo_min, activo = EXCLUDED.activo
-            """, (negocio_id, dia, turno.get('hora_inicio', '20:00'), turno.get('hora_fin', '23:30'),
-                  turno.get('intervalo_min', 30), turno.get('activo', True)))
+            """, (negocio_id, t['dia_semana'], t['hora_inicio'], t['hora_fin'], t.get('intervalo_min', 30), t.get('activo', True)))
+        
         g.db_conn.commit()
-        return jsonify({'message': 'Turnos guardados correctamente'})
+        return jsonify({'message': 'Configuración de turnos guardada'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/negocios/<int:negocio_id>/reservas/config', methods=['GET', 'POST'])
+@token_required
+def admin_reserva_config(current_user, negocio_id):
+    _migrate_reservas()
+    db = get_db()
+    if request.method == 'GET':
+        db.execute("""
+            SELECT c.wa_template, c.aviso_apertura_min, n.reserva_token 
+            FROM resto_reservas_config c
+            JOIN negocios n ON c.negocio_id = n.id
+            WHERE c.negocio_id = %s
+        """, (negocio_id,))
+        res = db.fetchone()
+        if not res:
+            # Si no hay config, al menos devolvemos el token del negocio
+            db.execute("SELECT reserva_token FROM negocios WHERE id = %s", (negocio_id,))
+            res = db.fetchone()
+            return jsonify({
+                'wa_template': None, 
+                'aviso_apertura_min': 60, 
+                'reserva_token': res['reserva_token'] if res else None
+            })
+            
+        return jsonify({
+            'wa_template': res['wa_template'], 
+            'aviso_apertura_min': res['aviso_apertura_min'], 
+            'reserva_token': res['reserva_token']
+        })
+    
+    data = request.get_json() or {}
+    wa_template = data.get('wa_template')
+    aviso_min = data.get('aviso_apertura_min', 60)
+    try:
+        db.execute("""
+            INSERT INTO resto_reservas_config (negocio_id, wa_template, aviso_apertura_min)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (negocio_id) DO UPDATE 
+            SET wa_template = EXCLUDED.wa_template, 
+                aviso_apertura_min = EXCLUDED.aviso_apertura_min,
+                updated_at = NOW()
+        """, (negocio_id, wa_template, aviso_min))
+        g.db_conn.commit()
+        return jsonify({'message': 'Configuración guardada'})
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500

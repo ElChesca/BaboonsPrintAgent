@@ -337,3 +337,227 @@ def importar_clientes(current_user, negocio_id):
     except Exception as e:
         print(f"CRITICAL: {e}")
         return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/importar/productos', methods=['POST'])
+@token_required
+def importar_productos(current_user, negocio_id):
+    # --- 1. RESTRICCIÓN DE SEGURIDAD (Solo Super Admin) ---
+    if current_user['rol'] != 'superadmin':
+        return jsonify({'error': 'Solo el Super Administrador puede realizar importaciones masivas.'}), 403
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No se envió ningún archivo'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'Nombre de archivo vacío'}), 400
+
+    try:
+        import pandas as pd
+        import io
+        
+        # Leer Excel
+        df = pd.read_excel(file, engine='openpyxl')
+        
+        # Normalizar columnas (lowercase + strip)
+        df.columns = df.columns.astype(str).str.strip().str.lower()
+        
+        # Mapeo de columnas según el Excel del usuario
+        # Mapa: Interno -> Alias en el Excel
+        MAPEO = {
+            'categoria': ['categoría', 'categoria'],
+            'nombre':    ['producto', 'nombre'],
+            'alias':     ['alias'],
+            'sku':       ['sku'],
+            'stock':     ['stock', 'cantidad'],
+            'unidad':    ['unidad', 'medida'],
+            'precio':    ['precio base', 'precio'],
+            'tipo':      ['tipo']
+        }
+
+        def find_col(aliases):
+            for a in aliases:
+                if a in df.columns: return a
+            return None
+
+        col_map = {k: find_col(v) for k, v in MAPEO.items()}
+        
+        db = get_db()
+        productos_creados = 0
+        
+        # Cache de categorías para reducir queries
+        db.execute("SELECT id, lower(nombre) as nombre FROM productos_categoria WHERE negocio_id = %s", (negocio_id,))
+        cat_cache = {row['nombre']: row['id'] for row in db.fetchall()}
+
+        for index, row in df.iterrows():
+            try:
+                db.execute("SAVEPOINT row_prod")
+                
+                # --- Extracción y Limpieza ---
+                nombre = str(row[col_map['nombre']]) if col_map['nombre'] else f"Producto {index}"
+                sku = str(row[col_map['sku']]) if col_map['sku'] else None
+                alias = str(row[col_map['alias']]) if col_map['alias'] else None
+                stock = float(row[col_map['stock']]) if col_map['stock'] else 0
+                unidad = str(row[col_map['unidad']]) if col_map['unidad'] else 'un'
+                
+                # Normalización de Precios (Manejo de miles/decimales si vienen como string)
+                precio_val = 0
+                if col_map['precio']:
+                    raw_p = str(row[col_map['precio']])
+                    # Limpiamos símbolos de moneda y espacios
+                    raw_p = raw_p.replace('$', '').strip()
+                    # Si tiene un punto y luego una coma (X.XXX,XX)
+                    if '.' in raw_p and ',' in raw_p:
+                        raw_p = raw_p.replace('.', '').replace(',', '.')
+                    # Si solo tiene coma como decimal
+                    elif ',' in raw_p:
+                        raw_p = raw_p.replace(',', '.')
+                    
+                    try: precio_val = float(raw_p)
+                    except: precio_val = 0
+
+                # Tipo de Producto (Default: producto_final si no está o es inválido)
+                tipo_raw = str(row[col_map['tipo']]).lower().strip() if col_map['tipo'] else 'producto_final'
+                # Normalización de tipos para el usuario
+                if 'materia' in tipo_raw: tipo_prod = 'materia_prima'
+                elif 'insumo' in tipo_raw: tipo_prod = 'insumo'
+                else: tipo_prod = 'producto_final'
+
+                # --- Manejo de Categoría ---
+                cat_nombre_raw = str(row[col_map['categoria']]).strip() if col_map['categoria'] else 'General'
+                cat_nombre_low = cat_nombre_raw.lower()
+                
+                if cat_nombre_low not in cat_cache:
+                    db.execute(
+                        "INSERT INTO productos_categoria (negocio_id, nombre) VALUES (%s, %s) RETURNING id",
+                        (negocio_id, cat_nombre_raw)
+                    )
+                    cat_id = db.fetchone()['id']
+                    cat_cache[cat_nombre_low] = cat_id
+                else:
+                    cat_id = cat_cache[cat_nombre_low]
+
+                # --- UPSERT Lógica ---
+                db.execute("SELECT id FROM productos WHERE negocio_id = %s AND (sku = %s OR lower(nombre) = lower(%s))", (negocio_id, sku, nombre))
+                existing = db.fetchone()
+
+                if existing:
+                    db.execute("""
+                        UPDATE productos SET
+                            alias = %s, stock = %s, precio_venta = %s, unidad_medida = %s,
+                            categoria_id = %s, tipo_producto = %s
+                        WHERE id = %s
+                    """, (alias, stock, precio_val, unidad, cat_id, tipo_prod, existing['id']))
+                else:
+                    db.execute("""
+                        INSERT INTO productos (negocio_id, nombre, alias, sku, stock, unidad_medida, precio_venta, categoria_id, tipo_producto)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (negocio_id, nombre, alias, sku, stock, unidad, precio_val, cat_id, tipo_prod))
+
+                db.execute("RELEASE SAVEPOINT row_prod")
+                productos_creados += 1
+
+            except Exception as row_e:
+                db.execute("ROLLBACK TO SAVEPOINT row_prod")
+                print(f"Error importando fila {index}: {row_e}")
+
+        db.connection.commit()
+        return jsonify({'message': 'Importación de productos exitosa', 'total': productos_creados}), 200
+
+    except Exception as e:
+        print(f"CRITICAL PROD IMPORT: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/importar/productos/batch', methods=['POST'])
+@token_required
+def importar_productos_batch(current_user, negocio_id):
+    """
+    Endpoint para importar productos en lotes (JSON).
+    Procesado optimizado para grandes volúmenes.
+    """
+    if current_user.get('rol') != 'superadmin':
+        return jsonify({'error': 'Acceso restringido a Super Administradores'}), 403
+
+    data = request.get_json()
+    if not data or 'items' not in data:
+        return jsonify({'error': 'No se proporcionaron items'}), 400
+
+    items = data['items']
+    db = get_db()
+    
+    procesados = 0
+    errores = []
+
+    # Cache de categorías para evitar consultas repetitivas
+    categorias_cache = {}
+
+    try:
+        for item in items:
+            try:
+                # Normalización de datos (similar a la lógica de Excel)
+                categoria_nombre = str(item.get('Categoría', item.get('Categoria', ''))).strip()
+                producto_nombre = str(item.get('Producto', item.get('Nombre', ''))).strip()
+                alias = str(item.get('Alias', '')).strip()
+                sku = str(item.get('SKU', '')).strip()
+                stock = item.get('Stock', 0)
+                unidad = str(item.get('Unidad', 'un')).strip()
+                precio_v = item.get('Precio Base', item.get('Precio Venta', 0))
+                tipo = str(item.get('Tipo', 'producto_final')).strip()
+
+                if not producto_nombre:
+                    continue
+
+                # 1. Manejo de Categoría
+                cat_id = None
+                if categoria_nombre:
+                    if categoria_nombre in categorias_cache:
+                        cat_id = categorias_cache[categoria_nombre]
+                    else:
+                        db.execute("SELECT id FROM productos_categoria WHERE negocio_id = %s AND LOWER(nombre) = LOWER(%s)", 
+                                   (negocio_id, categoria_nombre))
+                        exist_cat = db.fetchone()
+                        if exist_cat:
+                            cat_id = exist_cat['id']
+                        else:
+                            db.execute("INSERT INTO productos_categoria (negocio_id, nombre) VALUES (%s, %s) RETURNING id", 
+                                       (negocio_id, categoria_nombre))
+                            cat_id = db.fetchone()['id']
+                        categorias_cache[categoria_nombre] = cat_id
+
+                # 2. UPSERT por SKU o Nombre
+                db.execute("""
+                    SELECT id FROM productos 
+                    WHERE negocio_id = %s AND ( (sku = %s AND sku <> '') OR (nombre = %s) )
+                """, (negocio_id, sku, producto_nombre))
+                
+                prod_existente = db.fetchone()
+
+                if prod_existente:
+                    db.execute("""
+                        UPDATE productos 
+                        SET nombre = %s, alias = %s, sku = %s, stock = %s, 
+                            unidad_medida = %s, precio_venta = %s, tipo_producto = %s,
+                            categoria_id = %s
+                        WHERE id = %s
+                    """, (producto_nombre, alias, sku, stock, unidad, precio_v, tipo, cat_id, prod_existente['id']))
+                else:
+                    db.execute("""
+                        INSERT INTO productos (negocio_id, nombre, alias, sku, stock, unidad_medida, precio_venta, tipo_producto, categoria_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (negocio_id, producto_nombre, alias, sku, stock, unidad, precio_v, tipo, cat_id))
+
+                procesados += 1
+
+            except Exception as e:
+                errores.append({'item': item, 'error': str(e)})
+
+        g.db_conn.commit()
+        return jsonify({
+            'message': 'Lote procesado',
+            'total': procesados,
+            'errores': errores
+        })
+
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500

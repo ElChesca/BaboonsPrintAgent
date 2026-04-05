@@ -1,67 +1,128 @@
-/* CSS para el módulo de Logística */
+/* CSS para el módulo de Logística - PREMIUM BABOONS EDITION */
 
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    /* Fondo más oscuro para enfoque */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 2000;
-    backdrop-filter: blur(3px);
-    /* Efecto profesional */
+:root {
+    --premium-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    --premium-glass: rgba(255, 255, 255, 0.95);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.modal-content {
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-    opacity: 1 !important;
-    padding: 0 !important;
-    border-radius: 12px !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
-    width: 100%;
-    max-width: 500px;
-    border: none !important;
+.modal-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(15, 23, 42, 0.6) !important;
+    display: none; /* Se maneja por JS */
+    justify-content: center;
+    align-items: center;
+    z-index: 3000 !important;
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    animation: fadeInOverlay 0.4s ease-out;
+}
+
+@keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.baboons-modal {
+    background: var(--premium-glass) !important;
+    border-radius: 28px !important;
+    box-shadow: var(--premium-shadow) !important;
+    border: 1px solid rgba(255,255,255,0.4) !important;
+    animation: slideUpModal 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+    max-height: 95vh;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
-    color: var(--text-main) !important;
+}
+
+@keyframes slideUpModal {
+    from { transform: translateY(30px) scale(0.98); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Payment Cards Premium */
+.payment-card {
+    border: 2px solid #edf2f7 !important;
+    border-radius: 18px !important;
+    transition: all 0.25s ease !important;
+    background: white !important;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    padding: 1rem !important;
+}
+
+.payment-card:hover {
+    border-color: var(--primary-color) !important;
+    background: #f8fafc !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.05);
+}
+
+.btn-check:checked + .payment-card {
+    border-color: var(--success-color, #28a745) !important;
+    background: rgba(40, 167, 69, 0.05) !important;
+}
+
+.btn-check:checked + .payment-card[for="pago-mp"] {
+    border-color: var(--primary-color, #007bff) !important;
+    background: rgba(0, 123, 255, 0.05) !important;
+}
+
+.btn-check:checked + .payment-card .check-status {
+    opacity: 1 !important;
+    transform: scale(1.1);
+}
+
+.payment-icon-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    margin-right: 1rem;
+}
+
+/* Specific button styles */
+.hover-scale {
+    transition: transform 0.2s;
+}
+.hover-scale:hover {
+    transform: scale(1.02);
+}
+
+/* Scrollbar customization */
+.modal-body::-webkit-scrollbar,
+#entrega-resumen-items::-webkit-scrollbar {
+    width: 6px;
+}
+.modal-body::-webkit-scrollbar-thumb,
+#entrega-resumen-items::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 10px;
+}
+
+/* Redefine standard modal if needed for compatibility */
+.modal-content {
+    border-radius: 20px !important;
+    border: none !important;
+    box-shadow: var(--premium-shadow) !important;
 }
 
 .modal-header {
-    background: var(--bg-light);
-    padding: 20px 25px !important;
-    border-bottom: 1px solid var(--border-color) !important;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-header h3 {
-    margin: 0;
-    font-size: 1.4rem;
-    color: var(--text-main);
-    font-weight: 600;
-}
-
-.modal-body {
-    padding: 25px !important;
-}
-
-.modal-body label {
-    font-weight: 600;
-    color: #444;
-    margin-bottom: 8px;
+    border-bottom: 1px solid #f1f5f9 !important;
+    padding: 1.5rem !important;
 }
 
 .modal-footer {
-    padding: 15px 25px !important;
-    border-top: 1px solid var(--border-color) !important;
-    background: var(--bg-light);
-    display: flex;
-    gap: 15px;
+    border-top: 1px solid #f1f5f9 !important;
+    padding: 1.5rem !important;
 }
 
 .btn-close-modal {
@@ -70,12 +131,12 @@
     font-size: 30px;
     line-height: 1;
     cursor: pointer;
-    color: var(--text-muted);
+    color: #94a3b8;
     transition: color 0.2s;
 }
 
 .btn-close-modal:hover {
-    color: var(--danger-color);
+    color: var(--danger-color, #ef4444);
 }
 
 /* Forzar que no haya subrayados en el nav si bootstrap los puso */

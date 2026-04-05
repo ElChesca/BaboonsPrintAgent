@@ -14,8 +14,8 @@
                 <label class="small text-muted fw-bold mb-1"><i class="fas fa-filter me-1"></i> Filtrar
                     Recorridos</label>
                 <select id="filtro-rutas-pedidos" class="form-select border-0 shadow-sm rounded-3">
+                    <option value="con_pedidos" selected>Solo con Pedidos Pendientes</option>
                     <option value="todas">Todas las Hojas de Ruta</option>
-                    <option value="con_pedidos">Solo con Pedidos Pendientes</option>
                 </select>
             </div>
 
@@ -37,10 +37,16 @@
             <!-- Mapa del Chofer -->
             <div class="d-flex justify-content-between align-items-center mb-2 px-1">
                 <span class="text-muted small fw-bold">Mapa de Paradas</span>
-                <button id="btn-toggle-lineas" class="btn btn-sm btn-outline-secondary rounded-pill"
-                    onclick="window.toggleLineasChofer()">
-                    <i class="fas fa-eye-slash"></i> Ocultar Líneas
-                </button>
+                <div class="d-flex gap-2">
+                    <button id="btn-filter-pending" class="btn btn-sm btn-outline-primary rounded-pill"
+                        onclick="window.toggleFilterPending()">
+                        <i class="fas fa-filter"></i> Solo Pendientes
+                    </button>
+                    <button id="btn-toggle-lineas" class="btn btn-sm btn-outline-secondary rounded-pill"
+                        onclick="window.toggleLineasChofer()">
+                        <i class="fas fa-eye-slash"></i> Ocultar Líneas
+                    </button>
+                </div>
             </div>
             <div id="map-chofer-ruta" class="shadow-sm mb-3" style="height: 300px; border-radius: 12px; z-index: 1;">
             </div>
@@ -213,7 +219,7 @@
         width: 100%;
         height: 100%;
         background: white;
-        z-index: 3000;
+        z-index: 1000;
         display: none;
         flex-direction: column;
     }

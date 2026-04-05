@@ -38,21 +38,19 @@
                 <h2>Bienvenido</h2>
                 <p class="login-subtitle">Ingresa tus credenciales para continuar</p>
                 
+
                 <div id="login-error-message" class="alert alert-danger" style="display: none; margin-bottom: 1rem; border-radius: 8px; font-size: 0.9rem;"></div>
                 <form id="login-form" method="POST" action="javascript:void(0);">
-                    <div class="form-group">
-                        <label for="email">Corre Electrónico</label>
-                        <div class="input-wrapper">
-                            <i class="fas fa-envelope"></i>
-                            <input type="email" id="email" name="email" placeholder="ejemplo@correo.com" required autocomplete="username">
-                        </div>
+                    <div class="input-group">
+                        <label for="email"><i class="fas fa-envelope"></i> Correo Electrónico</label>
+                        <input type="email" id="email" name="email" placeholder="ejemplo@correo.com" required autocomplete="username">
                     </div>
 
-                    <div class="form-group">
-                        <label for="password">Contraseña</label>
+                    <div class="input-group">
+                        <label for="password"><i class="fas fa-lock"></i> Contraseña</label>
                         <div class="password-wrapper">
                             <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password">
-                            <button type="button" id="toggle-password" class="toggle-btn">
+                            <button type="button" id="toggle-password" class="toggle-btn" title="Mostrar/Ocultar contraseña">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>
@@ -72,9 +70,67 @@
                 </form>
             </div>
             
+
             <div class="login-footer">
                 <p>&copy; 2024 Baboons ERP. Todos los derechos reservados.</p>
+            </div>
         </div>
     </div>
+
+    <!-- Login Logic -->
+    <script>
+        document.getElementById('toggle-password').addEventListener('click', function() {
+            const passwordInput = document.getElementById('password');
+            const eyeIcon = this.querySelector('i');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.classList.remove('fa-eye');
+                eyeIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.classList.remove('fa-eye-slash');
+                eyeIcon.classList.add('fa-eye');
+            }
+        });
+
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('login-error-message');
+            
+            // Simulación o envio real:
+            // Por ahora vamos a intentar el redireccionamiento para que el usuario pueda entrar.
+            // Si el login real es via POST a /login, este script puede manejarlo.
+            
+            fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(new FormData(this))
+            })
+            .then(response => {
+                if(response.redirected) {
+                    window.location.href = response.url;
+                } else if (!response.ok) {
+                    return response.json();
+                } else {
+                    window.location.href = '/'; 
+                }
+            })
+            .then(data => {
+                if(data && data.error) {
+                    errorMessage.textContent = data.error;
+                    errorMessage.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Fallback for simple demo logins
+                errorMessage.textContent = 'Credenciales inválidas o error de servidor.';
+                errorMessage.style.display = 'block';
+            });
+        });
+    </script>
 </body>
 </html>

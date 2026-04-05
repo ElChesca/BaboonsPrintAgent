@@ -16,6 +16,16 @@ def get_resto_stats(current_user, negocio_id):
         # Asegurar columna para tiempos de demora
         try:
             db.execute("ALTER TABLE comandas_detalle ADD COLUMN IF NOT EXISTS fecha_estado_cambiado TIMESTAMP WITH TIME ZONE")
+            # Crear tabla de cola de impresión si no existe (PostgreSQL)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS resto_cola_impresion (
+                    id SERIAL PRIMARY KEY,
+                    negocio_id INTEGER NOT NULL,
+                    payload JSONB NOT NULL,
+                    estado VARCHAR(20) DEFAULT 'pendiente',
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             g.db_conn.commit()
         except:
             pass
@@ -142,8 +152,116 @@ def setup_default_menu(current_user, negocio_id):
             if not db.fetchone():
                 db.execute("INSERT INTO menu_categorias (negocio_id, nombre, orden) VALUES (%s, %s, %s)", (negocio_id, nombre, orden))
         
+        # 4. Tabla de Impresoras (Relación KDS)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS resto_impresoras (
+                id SERIAL PRIMARY KEY,
+                negocio_id INTEGER REFERENCES negocios(id),
+                nombre VARCHAR(100),
+                ip VARCHAR(50),
+                estacion VARCHAR(50), -- Link con cat.estacion (cocina, barra, etc.)
+                es_caja BOOLEAN DEFAULT FALSE,
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        try:
+            db.execute("ALTER TABLE resto_impresoras ADD COLUMN IF NOT EXISTS es_caja BOOLEAN DEFAULT FALSE")
+            g.db_conn.commit()
+        except:
+            g.db_conn.rollback()
         g.db_conn.commit()
         return jsonify({'message': 'Entorno de Restó configurado correctamente'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# --- CONFIGURACIÓN DE IMPRESORAS ---
+
+@bp.route('/negocios/<int:negocio_id>/impresoras', methods=['GET'])
+@token_required
+def get_impresoras(current_user, negocio_id):
+    db = get_db()
+    try:
+        db.execute("SELECT * FROM resto_impresoras WHERE negocio_id = %s ORDER BY nombre", (negocio_id,))
+        return jsonify([dict(r) for r in db.fetchall()])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/impresoras', methods=['POST'])
+@token_required
+def save_impresora(current_user, negocio_id):
+    data = request.get_json()
+    nombre = data.get('nombre')
+    ip = data.get('ip')
+    estacion = data.get('estacion', 'cocina') # barra, cocina, postre, etc.
+    es_caja = data.get('es_caja', False)
+
+    if not nombre or not ip:
+        return jsonify({'error': 'Nombre e IP son obligatorios'}), 400
+
+    db = get_db()
+    try:
+        # Si es_caja = True, desactivar otros para este negocio
+        if es_caja:
+            db.execute("UPDATE resto_impresoras SET es_caja = FALSE WHERE negocio_id = %s", (negocio_id,))
+
+        db.execute(
+            "INSERT INTO resto_impresoras (negocio_id, nombre, ip, estacion, es_caja) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+            (negocio_id, nombre, ip, estacion, es_caja)
+        )
+        nuevo_id = db.fetchone()['id']
+        g.db_conn.commit()
+        return jsonify({'id': nuevo_id, 'message': 'Impresora registrada'}), 201
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/impresoras/<int:id>', methods=['PUT', 'DELETE'])
+@token_required
+def manage_impresora(current_user, id):
+    db = get_db()
+    if request.method == 'DELETE':
+        try:
+            db.execute("DELETE FROM resto_impresoras WHERE id = %s", (id,))
+            g.db_conn.commit()
+            return jsonify({'message': 'Impresora eliminada'})
+        except Exception as e:
+            g.db_conn.rollback()
+            return jsonify({'error': str(e)}), 500
+
+    # PUT
+    data = request.get_json()
+    campos = []
+    valores = []
+    
+    # Obtener el negocio_id de esta impresora para el manejo de es_caja
+    db.execute("SELECT negocio_id FROM resto_impresoras WHERE id = %s", (id,))
+    imp_row = db.fetchone()
+    if not imp_row:
+        return jsonify({'error': 'Impresora no encontrada'}), 404
+    negocio_id = imp_row['negocio_id']
+
+    if data.get('es_caja') == True:
+        db.execute("UPDATE resto_impresoras SET es_caja = FALSE WHERE negocio_id = %s", (negocio_id,))
+        campos.append("es_caja = %s")
+        valores.append(True)
+    elif 'es_caja' in data:
+        campos.append("es_caja = %s")
+        valores.append(data['es_caja'])
+
+    for k in ['nombre', 'ip', 'estacion']:
+        if k in data:
+            campos.append(f"{k} = %s")
+            valores.append(data[k])
+    
+    if not campos:
+        return jsonify({'error': 'Sin campos para editar'}), 400
+        
+    valores.append(id)
+    try:
+        db.execute(f"UPDATE resto_impresoras SET {', '.join(campos)} WHERE id = %s", tuple(valores))
+        g.db_conn.commit()
+        return jsonify({'message': 'Impresora actualizada'})
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
@@ -161,7 +279,16 @@ def get_menu_listas(current_user, negocio_id):
         pass
     
     db.execute("SELECT * FROM menu_listas WHERE negocio_id = %s AND activa = TRUE ORDER BY es_default DESC, nombre", (negocio_id,))
-    return jsonify([dict(r) for r in db.fetchall()])
+    listas = db.fetchall()
+    
+    if not listas:
+        # Auto-crear lista por defecto si no hay ninguna activa
+        db.execute("INSERT INTO menu_listas (negocio_id, nombre, es_default, activa) VALUES (%s, 'General', TRUE, TRUE)", (negocio_id,))
+        g.db_conn.commit()
+        db.execute("SELECT * FROM menu_listas WHERE negocio_id = %s AND activa = TRUE ORDER BY es_default DESC, nombre", (negocio_id,))
+        listas = db.fetchall()
+        
+    return jsonify([dict(r) for r in listas])
 
 @bp.route('/negocios/<int:negocio_id>/menu/listas', methods=['POST'])
 @token_required
@@ -169,7 +296,7 @@ def add_menu_lista(current_user, negocio_id):
     data = request.get_json()
     db = get_db()
     try:
-        db.execute("INSERT INTO menu_listas (negocio_id, nombre) VALUES (%s, %s) RETURNING id", (negocio_id, data['nombre']))
+        db.execute("INSERT INTO menu_listas (negocio_id, nombre, activa) VALUES (%s, %s, TRUE) RETURNING id", (negocio_id, data['nombre']))
         new_id = db.fetchone()['id']
         g.db_conn.commit()
         return jsonify({'id': new_id, 'message': 'Lista creada'}), 201
@@ -214,9 +341,18 @@ def manage_menu_lista(current_user, negocio_id, lista_id):
 def get_mesas(current_user, negocio_id):
     db = get_db()
     try:
-        # Migración segura: Añadir mozo_id (vendedor responsable)
+        # Migración segura: Añadir mozo_id y crear tabla de sectores
         try:
             db.execute("ALTER TABLE mesas ADD COLUMN IF NOT EXISTS mozo_id INTEGER REFERENCES vendedores(id)")
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS mesas_sectores (
+                    id SERIAL PRIMARY KEY,
+                    negocio_id INTEGER REFERENCES negocios(id),
+                    nombre VARCHAR(100) NOT NULL,
+                    orden INTEGER DEFAULT 0,
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             g.db_conn.commit()
         except:
             pass
@@ -238,6 +374,51 @@ def get_mesas(current_user, negocio_id):
         mesas = db.fetchall()
         return jsonify([dict(m) for m in mesas])
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# --- SECTORES DE MESAS ---
+
+@bp.route('/negocios/<int:negocio_id>/sectores', methods=['GET'])
+@token_required
+def get_sectores(current_user, negocio_id):
+    db = get_db()
+    try:
+        db.execute("SELECT * FROM mesas_sectores WHERE negocio_id = %s ORDER BY orden, nombre", (negocio_id,))
+        return jsonify([dict(r) for r in db.fetchall()])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/sectores', methods=['POST'])
+@token_required
+def save_sectores(current_user, negocio_id):
+    data = request.get_json()
+    sectores = data.get('sectores', [])
+    db = get_db()
+    try:
+        for s in sectores:
+            if s.get('id'):
+                db.execute("UPDATE mesas_sectores SET nombre = %s, orden = %s WHERE id = %s AND negocio_id = %s",
+                           (s['nombre'], s.get('orden', 0), s['id'], negocio_id))
+            else:
+                db.execute("INSERT INTO mesas_sectores (negocio_id, nombre, orden) VALUES (%s, %s, %s)",
+                           (negocio_id, s['nombre'], s.get('orden', 0)))
+        g.db_conn.commit()
+        return jsonify({'message': 'Sectores guardados correctamente'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/sectores/<int:id>', methods=['DELETE'])
+@token_required
+def delete_sector(current_user, id):
+    db = get_db()
+    try:
+        # Nota: Por ahora no borramos en cascada las mesas, solo quitamos la referencia o el usuario debe borrarlas antes.
+        db.execute("DELETE FROM mesas_sectores WHERE id = %s", (id,))
+        g.db_conn.commit()
+        return jsonify({'message': 'Sector eliminado'})
+    except Exception as e:
+        g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/negocios/<int:negocio_id>/mozos', methods=['GET'])
@@ -273,6 +454,37 @@ def add_mesa(current_user, negocio_id):
         nuevo_id = db.fetchone()['id']
         g.db_conn.commit()
         return jsonify({'id': nuevo_id, 'message': 'Mesa creada con éxito'}), 201
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/mesas/bulk-create', methods=['POST'])
+@token_required
+def bulk_create_mesas(current_user, negocio_id):
+    data = request.get_json()
+    desde = int(data.get('desde', 1))
+    hasta = int(data.get('hasta', 1))
+    capacidad = int(data.get('capacidad', 2))
+    zona = data.get('zona', 'Salon')
+
+    if hasta < desde:
+        return jsonify({'error': 'El número final debe ser mayor o igual al inicial'}), 400
+
+    db = get_db()
+    try:
+        creadas = 0
+        for num in range(desde, hasta + 1):
+            # Verificar si ya existe para evitar duplicados
+            db.execute("SELECT id FROM mesas WHERE negocio_id = %s AND numero = %s", (negocio_id, num))
+            if not db.fetchone():
+                db.execute(
+                    "INSERT INTO mesas (negocio_id, numero, capacidad, zona) VALUES (%s, %s, %s, %s)",
+                    (negocio_id, num, capacidad, zona)
+                )
+                creadas += 1
+        
+        g.db_conn.commit()
+        return jsonify({'message': f'Se crearon {creadas} mesas correctamente', 'total': creadas}), 201
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
@@ -351,6 +563,7 @@ def get_cocina_pendientes(current_user, negocio_id):
         # Primero aseguramos que la columna exista (Migración simple)
         try:
             db.execute("ALTER TABLE menu_categorias ADD COLUMN IF NOT EXISTS estacion VARCHAR(50) DEFAULT 'cocina'")
+            db.execute("ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS destino_kds VARCHAR(50)")
             g.db_conn.commit()
         except:
             pass # Si falla (ej. SQLite no soporta IF NOT EXISTS en ALTER), seguimos con precaución
@@ -513,6 +726,10 @@ def reset_mesa_status(current_user, mesa_id):
 def get_menu_categorias(negocio_id):
     db = get_db()
     try:
+        # Asegurar columna grupo
+        db.execute("ALTER TABLE menu_categorias ADD COLUMN IF NOT EXISTS grupo VARCHAR(100)")
+        g.db_conn.commit()
+
         db.execute("SELECT * FROM menu_categorias WHERE negocio_id = %s ORDER BY orden", (negocio_id,))
         rows = db.fetchall()
         return jsonify([dict(r) for r in rows])
@@ -532,9 +749,10 @@ def add_menu_categoria(current_user, negocio_id):
         
     db = get_db()
     try:
+        grupo = data.get('grupo')
         db.execute(
-            "INSERT INTO menu_categorias (negocio_id, nombre, orden, estacion) VALUES (%s, %s, %s, %s) RETURNING id",
-            (negocio_id, nombre, orden, estacion)
+            "INSERT INTO menu_categorias (negocio_id, nombre, orden, estacion, grupo) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+            (negocio_id, nombre, orden, estacion, grupo)
         )
         nuevo_id = db.fetchone()['id']
         g.db_conn.commit()
@@ -572,6 +790,9 @@ def manage_menu_categoria(current_user, id):
     if 'estacion' in data:
         campos.append("estacion = %s")
         valores.append(data['estacion'])
+    if 'grupo' in data:
+        campos.append("grupo = %s")
+        valores.append(data['grupo'])
         
     if not campos:
         return jsonify({'error': 'No hay campos para actualizar'}), 400
@@ -593,36 +814,188 @@ def get_menu_items(negocio_id):
     lista_id = request.args.get('lista_id') # Opcional: Para traer precios de una lista específica
     
     try:
-        # Si se pasa lista_id, traer el precio de esa lista. Si no, traer el precio base de menu_items.
+        # 1. Definir JOINS base
+        joins = """
+            JOIN menu_categorias mc ON mi.categoria_id = mc.id 
+            LEFT JOIN productos p ON mi.producto_id = p.id
+        """
+        
+        # 2. Definir WHERE base (Filtra por disponible y stock si corresponde)
+        where = """
+            WHERE mi.negocio_id = %s 
+              AND (p.id IS NULL OR p.tipo_producto IN ('producto_final', 'final'))
+              AND mi.precio > 0
+              AND mi.disponible = TRUE
+              AND (mi.stock_control = FALSE OR p.id IS NULL OR p.stock > 0)
+        """
+        params = [negocio_id]
+
+        # 3. Construir query según lista_id
         if lista_id:
-            query = """
-                SELECT mi.*, mc.nombre as categoria_nombre, 
+            query = f"""
+                SELECT mi.*, mc.nombre as categoria_nombre, mc.estacion as categoria_destino, 
                        COALESCE(mip.precio, mi.precio) as precio
                 FROM menu_items mi 
-                JOIN menu_categorias mc ON mi.categoria_id = mc.id 
+                {joins}
                 LEFT JOIN menu_item_precios mip ON mi.id = mip.menu_item_id AND mip.lista_id = %s
-                WHERE mi.negocio_id = %s
+                {where}
             """
+            # El orden de params es: lista_id (para el JOIN), negocio_id (para el WHERE)
             params = [lista_id, negocio_id]
         else:
-            query = """
-                SELECT mi.*, mc.nombre as categoria_nombre 
+            query = f"""
+                SELECT mi.*, mc.nombre as categoria_nombre, mc.estacion as categoria_destino
                 FROM menu_items mi 
-                JOIN menu_categorias mc ON mi.categoria_id = mc.id 
-                WHERE mi.negocio_id = %s
+                {joins}
+                {where}
             """
-            params = [negocio_id]
 
         if cat_id:
             query += " AND mi.categoria_id = %s"
             params.append(cat_id)
             
-        query += " ORDER BY mc.orden, mi.nombre"
+        query += " ORDER BY mc.orden, mc.nombre, mi.nombre"
         
         db.execute(query, tuple(params))
         rows = db.fetchall()
         return jsonify([dict(r) for r in rows])
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/menu/top-pedidos', methods=['GET'])
+@token_required
+def get_top_pedidos(current_user, negocio_id):
+    db = get_db()
+    lista_id = request.args.get('lista_id')
+    try:
+        # 1. Intentar obtener los 20 más pedidos de los últimos 30 días
+        query_top = """
+            SELECT cd.menu_item_id, SUM(cd.cantidad) as total_pedidos
+            FROM comandas_detalle cd
+            JOIN comandas c ON cd.comanda_id = c.id
+            WHERE c.negocio_id = %s 
+              AND c.fecha_apertura >= CURRENT_DATE - INTERVAL '30 days'
+              AND cd.estado != 'anulado'
+            GROUP BY cd.menu_item_id
+            ORDER BY total_pedidos DESC
+            LIMIT 20
+        """
+        db.execute(query_top, (negocio_id,))
+        populares = db.fetchall()
+        top_ids = [r['menu_item_id'] for r in populares]
+
+        # 2. Fallback: Si no hay ventas, traer los primeros 20 items del menú
+        if not top_ids:
+            # Asegurar que la columna 'disponible' existe (MIGRACION RAPIDA)
+            try:
+                db.execute("ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS disponible BOOLEAN DEFAULT TRUE")
+                g.db_conn.commit()
+            except:
+                pass
+                
+            db.execute("SELECT id FROM menu_items WHERE negocio_id = %s AND disponible = TRUE LIMIT 20", (negocio_id,))
+            top_ids = [r['id'] for r in db.fetchall()]
+
+        if not top_ids:
+            return jsonify([])
+
+        # 3. Construir consulta con JOINs correctos
+        # El LEFT JOIN de precios debe ir antes del WHERE
+        if lista_id:
+            query = """
+                SELECT mi.*, mc.nombre as categoria_nombre, mc.estacion as categoria_destino, 
+                       COALESCE(mip.precio, mi.precio) as precio 
+                FROM menu_items mi 
+                JOIN menu_categorias mc ON mi.categoria_id = mc.id 
+                LEFT JOIN productos p ON mi.producto_id = p.id
+                LEFT JOIN menu_item_precios mip ON mi.id = mip.menu_item_id AND mip.lista_id = %s
+                WHERE mi.id IN %s AND mi.disponible = TRUE
+                  AND (mi.stock_control = FALSE OR p.id IS NULL OR p.stock > 0)
+            """
+            db.execute(query, (lista_id, tuple(top_ids)))
+        else:
+            query = """
+                SELECT mi.*, mc.nombre as categoria_nombre, mc.estacion as categoria_destino
+                FROM menu_items mi 
+                JOIN menu_categorias mc ON mi.categoria_id = mc.id 
+                LEFT JOIN productos p ON mi.producto_id = p.id
+                WHERE mi.id IN %s AND mi.disponible = TRUE
+                  AND (mi.stock_control = FALSE OR p.id IS NULL OR p.stock > 0)
+            """
+            db.execute(query, (tuple(top_ids),))
+
+        rows = db.fetchall()
+        
+        # 4. Re-ordenar por la popularidad/orden original
+        order_map = {id: i for i, id in enumerate(top_ids)}
+        sorted_rows = sorted([dict(r) for r in rows], key=lambda x: order_map.get(x['id'], 999))
+        
+        return jsonify(sorted_rows)
+    except Exception as e:
+        print(f"Error en get_top_pedidos: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/menu/sync-inventory/list', methods=['GET'])
+@token_required
+def list_inventory_for_sync(current_user, negocio_id):
+    db = get_db()
+    try:
+        db.execute("""
+            SELECT p.id, p.nombre, c.nombre as cat_nombre, p.precio_venta, p.alias, p.imagen_url
+            FROM productos p 
+            LEFT JOIN productos_categoria c ON p.categoria_id = c.id
+            WHERE p.negocio_id = %s 
+              AND p.tipo_producto IN ('producto_final', 'final') 
+              AND p.activo = TRUE
+              AND p.precio_venta > 0
+        """, (negocio_id,))
+        productos = db.fetchall()
+        return jsonify([dict(p) for p in productos])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/menu/sync-inventory/batch', methods=['POST'])
+@token_required
+def sync_menu_batch(current_user, negocio_id):
+    data = request.get_json()
+    productos = data.get('productos', [])
+    db = get_db()
+    total_sync = 0
+    
+    try:
+        for p in productos:
+            # 1. Asegurar categoría
+            cat_name = p.get('cat_nombre') or 'General'
+            db.execute("SELECT id FROM menu_categorias WHERE negocio_id = %s AND LOWER(nombre) = LOWER(%s)", (negocio_id, cat_name))
+            cat_menu = db.fetchone()
+            
+            if not cat_menu:
+                db.execute("INSERT INTO menu_categorias (negocio_id, nombre) VALUES (%s, %s) RETURNING id", (negocio_id, cat_name))
+                cat_menu_id = db.fetchone()['id']
+            else:
+                cat_menu_id = cat_menu['id']
+            
+            # 2. Sincronizar Item
+            db.execute("SELECT id FROM menu_items WHERE negocio_id = %s AND producto_id = %s", (negocio_id, p['id']))
+            item_existente = db.fetchone()
+            
+            if not item_existente:
+                db.execute("""
+                    INSERT INTO menu_items (negocio_id, categoria_id, nombre, descripcion, precio, imagen_url, stock_control, producto_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, TRUE, %s)
+                """, (negocio_id, cat_menu_id, p['nombre'], p.get('alias') or '', p.get('precio_venta') or 0, p.get('imagen_url') or '', p['id']))
+            else:
+                db.execute("""
+                    UPDATE menu_items 
+                    SET categoria_id = %s, nombre = %s, precio = %s, descripcion = %s
+                    WHERE id = %s
+                """, (cat_menu_id, p['nombre'], p.get('precio_venta') or 0, p.get('alias') or '', item_existente['id']))
+            total_sync += 1
+            
+        g.db_conn.commit()
+        return jsonify({'message': f'Lote de {len(productos)} procesado', 'sync_count': total_sync})
+    except Exception as e:
+        g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/negocios/<int:negocio_id>/menu/items', methods=['POST'])
@@ -687,10 +1060,46 @@ def manage_menu_item(current_user, id):
         except Exception as e:
             g.db_conn.rollback()
             return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/menu/bulk-update', methods=['POST'])
+@token_required
+def bulk_update_menu(current_user, negocio_id):
+    data = request.get_json()
+    ids = data.get('ids', [])
+    field = data.get('field') # 'precio', 'categoria_id', 'disponible'
+    value = data.get('value')
+    
+    if not ids or not field:
+        return jsonify({'error': 'Falta IDs o campo a actualizar'}), 400
+        
+    db = get_db()
+    try:
+        if field == 'precio':
+            str_val = str(value)
+            if '%' in str_val:
+                factor = 1 + (float(str_val.replace('%', '')) / 100)
+                db.execute(f"UPDATE menu_items SET precio = ROUND(precio * %s, 2) WHERE id IN ({','.join(['%s']*len(ids))})", (factor, *ids))
+            else:
+                db.execute(f"UPDATE menu_items SET precio = %s WHERE id IN ({','.join(['%s']*len(ids))})", (value, *ids))
+        
+        elif field == 'categoria_id':
+            db.execute(f"UPDATE menu_items SET categoria_id = %s WHERE id IN ({','.join(['%s']*len(ids))})", (value, *ids))
+            
+        elif field == 'disponible':
+            db.execute(f"UPDATE menu_items SET disponible = %s WHERE id IN ({','.join(['%s']*len(ids))})", (value, *ids))
+            
+        elif field == 'destino_kds':
+            db.execute(f"UPDATE menu_items SET destino_kds = %s WHERE id IN ({','.join(['%s']*len(ids))})", (value, *ids))
+            
+        g.db_conn.commit()
+        return jsonify({'message': f'{len(ids)} items actualizados correctamente'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
             
     # PUT
     data = request.get_json()
-    validos = ['categoria_id', 'nombre', 'descripcion', 'precio', 'imagen_url', 'disponible', 'stock_control', 'producto_id']
+    validos = ['categoria_id', 'nombre', 'descripcion', 'precio', 'imagen_url', 'disponible', 'stock_control', 'producto_id', 'destino_kds']
     campos = [f"{k} = %s" for k in data.keys() if k in validos]
     valores = [v for k, v in data.items() if k in validos]
     
@@ -802,21 +1211,209 @@ def add_items_to_comanda(current_user, id):
     db = get_db()
     try:
         total_a_sumar = 0
+        added_ids = []
         for item in items:
             subt = float(item['cantidad']) * float(item['precio_unitario'])
             total_a_sumar += subt
             
             db.execute(
                 """INSERT INTO comandas_detalle (comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, estado, notas)
-                   VALUES (%s, %s, %s, %s, %s, 'pendiente', %s)""",
+                   VALUES (%s, %s, %s, %s, %s, 'pendiente', %s) RETURNING id""",
                 (id, item['menu_item_id'], item['cantidad'], item['precio_unitario'], subt, item.get('notas', ''))
             )
+            added_ids.append(db.fetchone()['id'])
             
         db.execute("UPDATE comandas SET total = total + %s WHERE id = %s", (total_a_sumar, id))
+        
+        # --- NUEVO: Generar trabajos de impresión ---
+        print_jobs = []
+        if added_ids:
+            # Traer los datos extra de los items agregados (estación y nombres)
+            db.execute("""
+                SELECT 
+                    cd.cantidad, cd.notas, mi.nombre, 
+                    COALESCE(mi.destino_kds, cat.estacion, 'cocina') as destino,
+                    m.numero as mesa_num, v.nombre as mozo_nom, c.num_comensales,
+                    c.negocio_id
+                FROM comandas_detalle cd
+                JOIN menu_items mi ON cd.menu_item_id = mi.id
+                JOIN menu_categorias cat ON mi.categoria_id = cat.id
+                JOIN comandas c ON cd.comanda_id = c.id
+                JOIN mesas m ON c.mesa_id = m.id
+                JOIN vendedores v ON c.mozo_id = v.id
+                WHERE cd.id IN %s
+            """, (tuple(added_ids),))
+            rows = db.fetchall()
+            
+            if rows:
+                negocio_id = rows[0]['negocio_id']
+                pax_val = int(rows[0]['num_comensales'] or 0)
+                header_info = { 'mesa': rows[0]['mesa_num'], 'mozo': rows[0]['mozo_nom'], 'pax': pax_val }
+                
+                # Agrupar items por destino
+                grouped_items = {}
+                for r in rows:
+                    dest = (r['destino'] or 'cocina').lower()
+                    if dest not in grouped_items: grouped_items[dest] = []
+                    grouped_items[dest].append(r)
+
+                # Obtener nombre negocio y configuraciones
+                db.execute("SELECT nombre FROM negocios WHERE id = %s", (negocio_id,))
+                neg_row = db.fetchone()
+                negocio_nombre = neg_row['nombre'] if neg_row else "Baboons Restó"
+
+                db.execute("SELECT clave, valor FROM configuraciones WHERE negocio_id = %s", (negocio_id,))
+                configs = {r['clave']: r['valor'] for r in db.fetchall()}
+                sz_mesa = configs.get('resto_print_sz_mesa', '2')
+                sz_mozo = configs.get('resto_print_sz_mozo', '1')
+
+                # Consultar impresoras
+                db.execute("""
+                    SELECT ip, nombre as printer_name, estacion, es_caja
+                    FROM resto_impresoras 
+                    WHERE negocio_id = %s
+                """, (negocio_id,))
+                impresoras = db.fetchall()
+                
+                for printer in impresoras:
+                    target_estacion = (printer['estacion'] or "").lower()
+                    
+                    items_para_esta_imp = []
+                    if printer['es_caja']:
+                        items_para_esta_imp = rows
+                    elif target_estacion in grouped_items:
+                        items_para_esta_imp = grouped_items[target_estacion]
+
+                    if items_para_esta_imp:
+                        lineas = [
+                            f"[S{sz_mesa}]COMANDA", 
+                            f"[S{sz_mesa}]Mesa: {header_info['mesa']}", 
+                            f"[S{sz_mozo}]Mozo: {header_info['mozo']}", 
+                            f"Pax: {header_info['pax']}",
+                            "-" * 20
+                        ]
+                        items_payload = []
+                        for it in items_para_esta_imp:
+                            cant_float = float(it['cantidad'])
+                            lineas.append(f"[{int(cant_float)}] {it['nombre']}")
+                            if it.get('notas'): lineas.append(f"  > {it['notas']}")
+                            items_payload.append({
+                                'nombre': it['nombre'], 
+                                'cantidad': cant_float, 
+                                'notas': it.get('notas') or ""
+                            })
+
+                        payload = {
+                            'printer_name': printer['printer_name'],
+                            'id_orden': id,
+                            'negocio_nombre': negocio_nombre,
+                            'content': "\n".join(lineas),
+                            'mesa': header_info['mesa'],
+                            'mozo': header_info['mozo'],
+                            'items': items_payload,
+                            'ip_destino': printer['ip'],
+                            'pax': header_info['pax']
+                        }
+                        print_jobs.append({'ip': printer['ip'], 'payload': payload})
+                        
+                        import json
+                        db.execute("INSERT INTO resto_cola_impresion (negocio_id, payload) VALUES (%s, %s)", 
+                                   (negocio_id, json.dumps(payload)))
+
         g.db_conn.commit()
-        return jsonify({'message': 'Items agregados a comanda correctamente'})
+        return jsonify({'message': 'Items agregados correctamente', 'print_jobs': print_jobs})
+
     except Exception as e:
         g.db_conn.rollback()
+        print(f"❌ ERROR AGREGAR ITEMS: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/comandas/<int:id>/reimprimir', methods=['POST'])
+@token_required
+def reimprimir_comanda(current_user, id):
+    db = get_db()
+    try:
+        db.execute("""
+            SELECT 
+                cd.cantidad, cd.notas, mi.nombre, 
+                COALESCE(mi.destino_kds, cat.estacion, 'cocina') as it_dest,
+                m.numero as mesa_num, v.nombre as mozo_nom, 
+                c.num_comensales, c.negocio_id
+            FROM comandas_detalle cd
+            JOIN menu_items mi ON cd.menu_item_id = mi.id
+            JOIN menu_categorias cat ON mi.categoria_id = cat.id
+            JOIN comandas c ON cd.comanda_id = c.id
+            JOIN mesas m ON c.mesa_id = m.id
+            JOIN vendedores v ON c.mozo_id = v.id
+            WHERE cd.comanda_id = %s AND cd.estado != 'borrado'
+        """, (id,))
+        rows = db.fetchall()
+        
+        if not rows: return jsonify({'error': 'No hay items'}), 404
+
+        neg_id = rows[0]['negocio_id']
+        pax_val = int(rows[0].get('num_comensales', 0) or 0)
+        db.execute("SELECT nombre FROM negocios WHERE id = %s", (neg_id,))
+        neg_nom = db.fetchone()['nombre']
+        
+        # Obtener configuraciones de impresión
+        db.execute("SELECT clave, valor FROM configuraciones WHERE negocio_id = %s", (neg_id,))
+        configs = {r['clave']: r['valor'] for r in db.fetchall()}
+        sz_mesa = configs.get('resto_print_sz_mesa', '2')
+        sz_mozo = configs.get('resto_print_sz_mozo', '1')
+
+        # Consultar impresoras (SOLO COLUMNAS REALES)
+        db.execute("SELECT nombre, ip, estacion, es_caja FROM resto_impresoras WHERE negocio_id = %s", (neg_id,))
+        impresoras = db.fetchall() or []
+        
+        # Agrupar items por destino (estandarizar como en add_items)
+        grouped_items = {}
+        for r_it in rows:
+            dest_val = (r_it['it_dest'] or 'cocina').lower()
+            if dest_val not in grouped_items: grouped_items[dest_val] = []
+            grouped_items[dest_val].append(r_it)
+
+        print_jobs = []
+        for printer in impresoras:
+            target_estacion = (printer['estacion'] or "").lower()
+            
+            items_para_esta_imp = []
+            if printer['es_caja']:
+                items_para_esta_imp = rows
+            elif target_estacion in grouped_items:
+                items_para_esta_imp = grouped_items[target_estacion]
+
+            if items_para_esta_imp:
+                lineas = [
+                    f"[S{sz_mesa}]REIMPRESION", 
+                    f"[S{sz_mesa}]Mesa: {rows[0]['mesa_num']}", 
+                    f"[S{sz_mozo}]Mozo: {rows[0]['mozo_nom']}", 
+                    f"Pax: {pax_val}",
+                    "-" * 20
+                ]
+                
+                items_payload = []
+                for it in items_para_esta_imp:
+                    cant_float = float(it['cantidad'])
+                    lineas.append(f"[{int(cant_float)}] {it['nombre']}")
+                    if it['notas']: lineas.append(f"  > {it['notas']}")
+                    items_payload.append({'nombre': it['nombre'], 'cantidad': cant_float, 'notas': it['notas'] or ""})
+                
+                payload = {
+                    'printer_name': printer['nombre'], 'id_orden': id, 'negocio_nombre': neg_nom,
+                    'reprint': True, 'content': "\n".join(lineas), 'mesa': rows[0]['mesa_num'], 'mozo': rows[0]['mozo_nom'],
+                    'items': items_payload, 'ip_destino': printer['ip'], 'pax': pax_val
+                }
+                print_jobs.append({'ip': printer['ip'], 'payload': payload})
+                
+                import json
+                db.execute("INSERT INTO resto_cola_impresion (negocio_id, payload) VALUES (%s, %s)", (neg_id, json.dumps(payload)))
+
+        db.execute("COMMIT")
+        return jsonify({'message': 'Reimpresión enviada', 'print_jobs': print_jobs})
+    except Exception as e:
+        g.db_conn.rollback()
+        print(f"❌ ERROR REIMPRESION: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/comandas/<int:id>/lista', methods=['PUT'])
@@ -1016,18 +1613,115 @@ def get_comandas_pendientes_cobro(current_user, negocio_id):
 def solicitar_cuenta_comanda(current_user, id):
     db = get_db()
     try:
-        # 1. Obtener la comanda para saber qué mesa es
-        db.execute("SELECT mesa_id, negocio_id FROM comandas WHERE id = %s", (id,))
+        # 1. Obtener la coma completa con nombres
+        db.execute("""
+            SELECT c.*, m.numero as mesa_num, v.nombre as mozo_nom, n.nombre as negocio_nom
+            FROM comandas c
+            JOIN mesas m ON c.mesa_id = m.id
+            JOIN vendedores v ON c.mozo_id = v.id
+            JOIN negocios n ON c.negocio_id = n.id
+            WHERE c.id = %s
+        """, (id,))
         comanda = db.fetchone()
         if not comanda:
             return jsonify({'error': 'Comanda no encontrada'}), 404
         
         # 2. Marcar la mesa como 'en_cobro'
-        # Esto permitirá que aparezca en el Monitor de Caja del Adicionista
         db.execute("UPDATE mesas SET estado = 'en_cobro' WHERE id = %s", (comanda['mesa_id'],))
         
+        # 3. Traer detalles para el ticket de cuenta
+        db.execute("""
+            SELECT cd.cantidad, cd.precio_unitario, cd.subtotal, mi.nombre
+            FROM comandas_detalle cd
+            JOIN menu_items mi ON cd.menu_item_id = mi.id
+            WHERE cd.comanda_id = %s AND cd.estado != 'anulado'
+        """, (id,))
+        detalles = db.fetchall()
+
+        # 4. Encontrar impresora de CAJA designada
+        db.execute("SELECT ip, nombre FROM resto_impresoras WHERE negocio_id = %s AND es_caja = TRUE LIMIT 1", (comanda['negocio_id'],))
+        impresora_caja = db.fetchone()
+        
+        # Fallback a estacion='caja' o 'principal' si no hay una marcada como es_caja explicitly
+        if not impresora_caja:
+            db.execute("SELECT ip, nombre FROM resto_impresoras WHERE negocio_id = %s AND (LOWER(estacion) = 'caja' OR LOWER(estacion) = 'principal') LIMIT 1", (comanda['negocio_id'],))
+            impresora_caja = db.fetchone()
+        
+        # Último recurso: cualquiera
+        if not impresora_caja:
+            db.execute("SELECT ip, nombre FROM resto_impresoras WHERE negocio_id = %s LIMIT 1", (comanda['negocio_id'],))
+            impresora_caja = db.fetchone()
+
+        # 5. Obtener configuraciones PRO para el ticket de cuenta
+        db.execute("SELECT clave, valor FROM configuraciones WHERE negocio_id = %s", (comanda['negocio_id'],))
+        configs = {r['clave']: r['valor'] for r in db.fetchall()}
+        legend = configs.get('resto_print_legend', '')
+        sz_mesa = configs.get('resto_print_sz_mesa', '2')
+        sz_mozo = configs.get('resto_print_sz_mozo', '1')
+        ticket_title = configs.get('resto_print_bill_title', 'PEDIDO DE CUENTA').upper()
+
+        print_job = None
+        if impresora_caja:
+            # Formatear contenido con tamaños
+            content = [
+                f"[S2]{ticket_title}",
+                f"*** PRE-CUENTA ***",
+                f"NO VALIDO COMO FACTURA",
+                f"--------------------------------",
+                f"[S{sz_mesa}]Mesa: {comanda['mesa_num']}",
+                f"[S{sz_mozo}]Mozo: {comanda['mozo_nom']}",
+                f"Pax: {comanda.get('num_comensales', 0)}",
+                f"Fecha: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}",
+                "--------------------------------",
+            ]
+            
+            # Detalle itemizado: Nombre x Cant @ $Unit ... $Sub
+            for d in detalles:
+                # Línea 1: Nombre
+                content.append(f"{d['nombre']}")
+                # Línea 2: Cant x Price = Subtotal
+                linea_det = f"  {int(d['cantidad'])} x ${float(d['precio_unitario']):.2f} = ${float(d['subtotal']):.2f}"
+                content.append(linea_det)
+
+            content.append("--------------------------------")
+            content.append(f"[S2]TOTAL: ${float(comanda['total']):.2f}")
+            
+            if legend:
+                content.append("--------------------------------")
+                content.append(legend)
+            
+            content.append("\nGracias por su visita!")
+            content.append("V.1.0")
+
+            print_job = {
+                'ip': impresora_caja['ip'],
+                'payload': {
+                    'printer_name': impresora_caja['nombre'],
+                    'type': 'BILL',
+                    'content': "\n".join(content),
+                    'config': { 'legend': legend, 'size_mesa': sz_mesa, 'size_mozo': sz_mozo },
+                    'mesa': comanda['mesa_num'],
+                    'mozo': comanda['mozo_nom'],
+                    'negocio_nombre': comanda['negocio_nom'],
+                    'pax': comanda['num_comensales'],
+                    'total': float(comanda['total']),
+                    'items': [{ 'nombre': d['nombre'], 'qty': float(d['cantidad']), 'precio': float(d['precio_unitario']), 'subtotal': float(d['subtotal']), 'observaciones': "" } for d in detalles]
+                }
+            }
+
+            # NUEVO: Guardar en la COLA CLOUD (para Tablets)
+            try:
+                import json
+                db.execute("INSERT INTO resto_cola_impresion (negocio_id, payload) VALUES (%s, %s)", 
+                           (comanda['negocio_id'], json.dumps(print_job['payload'])))
+            except Exception as e:
+                print(f"Error guardando en cola (cuenta): {e}")
+        
         g.db_conn.commit()
-        return jsonify({'message': 'Mesa marcada para cobro correctamente'})
+        return jsonify({
+            'message': 'Mesa marcada para cobro. Impresión enviada.',
+            'print_job': print_job
+        })
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
@@ -1409,4 +2103,137 @@ def get_historico_comandas(current_user, negocio_id):
         comandas = db.fetchall()
         return jsonify([dict(c) for c in comandas])
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# --- COLA DE IMPRESIÓN PRO (POLLING) ---
+
+@bp.route('/negocios/<int:negocio_id>/impresion-cola/pendientes', methods=['GET'])
+@token_required
+def get_print_queue_pendientes(current_user, negocio_id):
+    """Endpoint para que el AGENTE consulte trabajos pendientes."""
+    db = get_db()
+    try:
+        # AUTO-CREAR TABLA SI NO EXISTE (Solución para errores 500 en producción)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS resto_cola_impresion (
+                id SERIAL PRIMARY KEY,
+                negocio_id INTEGER NOT NULL,
+                payload JSONB NOT NULL,
+                estado VARCHAR(20) DEFAULT 'pendiente',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        db.execute("""
+            SELECT id, payload FROM resto_cola_impresion 
+            WHERE negocio_id = %s AND estado = 'pendiente'
+            ORDER BY created_at ASC
+        """, (negocio_id,))
+        rows = db.fetchall()
+        return jsonify([dict(r) for r in rows])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/impresion-cola/<int:job_id>/listo', methods=['POST'])
+@token_required
+def mark_print_job_done(current_user, job_id):
+    """Marca un trabajo como impreso."""
+    db = get_db()
+    try:
+        db.execute("UPDATE resto_cola_impresion SET estado = 'impreso' WHERE id = %s", (job_id,))
+        g.db_conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/impresion-cola/limpiar', methods=['POST'])
+@token_required
+def clear_print_queue(current_user, negocio_id):
+    """Limpia la cola (mantenimiento)."""
+    db = get_db()
+    try:
+        db.execute("DELETE FROM resto_cola_impresion WHERE negocio_id = %s AND (estado = 'impreso' OR created_at < NOW() - INTERVAL '2 days')", (negocio_id,))
+        g.db_conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/agente/heartbeat', methods=['POST'])
+@token_required
+def agent_heartbeat(current_user, negocio_id):
+    """Recibe la señal de vida del AGENTE LOCAL."""
+    db = get_db()
+    try:
+        # ASEGURAR TABLA CONFIGURACIONES
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS configuraciones (
+                id SERIAL PRIMARY KEY,
+                negocio_id INTEGER NOT NULL,
+                clave VARCHAR(100),
+                valor TEXT,
+                UNIQUE(negocio_id, clave)
+            )
+        """)
+        
+        # Intentar borrado y re-inserción robusta
+        db.execute("DELETE FROM configuraciones WHERE negocio_id = %s AND clave = 'agente_last_seen'", (negocio_id,))
+        db.execute("INSERT INTO configuraciones (negocio_id, clave, valor) VALUES (%s, 'agente_last_seen', CURRENT_TIMESTAMP::text)", (negocio_id,))
+        g.db_conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        g.db_conn.rollback()
+        print(f"❌ FALLO HEARTBEAT: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/agente/status', methods=['GET'])
+@token_required
+def get_agent_status(current_user, negocio_id):
+    """Informa si el agente está online (visto hace menos de 1 minuto)."""
+    db = get_db()
+    try:
+        db.execute("SELECT valor FROM configuraciones WHERE negocio_id = %s AND clave = 'agente_last_seen'", (negocio_id,))
+        row = db.fetchone()
+        if not row:
+            return jsonify({'status': 'offline'})
+            
+        last_seen = row['valor']
+        # Comparación PostgreSQL
+        db.execute("SELECT (CURRENT_TIMESTAMP - %s::timestamp < INTERVAL '1 minute') as is_online", (last_seen,))
+        res = db.fetchone()
+        is_online = res['is_online'] if res else False
+        
+        return jsonify({'status': 'online' if is_online else 'offline', 'last_seen': last_seen})
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/impresion-cola/test', methods=['POST'])
+@token_required
+def test_print_queue(current_user, negocio_id):
+    """Inserta un trabajo de prueba en la cola cloud."""
+    db = get_db()
+    try:
+        data = request.get_json()
+        payload = data.get('payload')
+        
+        # ASEGURAR TABLAS (Backup por si falla el startup)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS resto_cola_impresion (
+                id SERIAL PRIMARY KEY,
+                negocio_id INTEGER NOT NULL,
+                payload JSONB NOT NULL,
+                estado VARCHAR(20) DEFAULT 'pendiente',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        import json
+        db.execute("INSERT INTO resto_cola_impresion (negocio_id, payload) VALUES (%s, %s)", 
+                   (negocio_id, json.dumps(payload)))
+        g.db_conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        g.db_conn.rollback()
+        print(f"❌ FALLO TEST CLOUD: {str(e)}")
         return jsonify({'error': str(e)}), 500

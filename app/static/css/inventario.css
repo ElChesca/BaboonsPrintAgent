@@ -1,141 +1,296 @@
-/* static/css/inventario.css */
+/* ==========================================================================
+   INVENTARIO.CSS - Baboons Premium Overhaul (Resto Specialized)
+   ========================================================================== */
 
-.inventario-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
+/* --- BABOONS PREMIUM TOKENS --- */
+:root {
+    --baboons-glass: rgba(255, 255, 255, 0.85);
+    --baboons-glass-dark: rgba(15, 23, 42, 0.9);
+    --baboons-blur: 20px;
+    --baboons-accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+    --baboons-shadow-premium: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    --baboons-border-glass: rgba(255, 255, 255, 0.5);
 }
 
-.inventario-header h2 {
-    margin: 0;
-}
-
-/* Estilos para el formulario dentro del modal (Usando Global Premium) */
-#form-producto .form-grid {
-    gap: 20px 25px;
-}
-
-/* Spinner animado para la importación */
-.loader-spinner {
+/* --- MODAL PREMIUM --- */
+.baboons-modal {
     display: none;
-    /* Oculto por defecto */
-    border: 4px solid #f3f3f3;
-    /* Gris claro */
-    border-top: 4px solid #3498db;
-    /* Azul */
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    animation: spin 1s linear infinite;
-    margin: 10px auto;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
 }
 
-@keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-
-    100% {
-        transform: rotate(360deg);
-    }
+.baboons-modal-content.large {
+    width: 90%;
+    max-width: 1000px;
+    background: var(--baboons-glass);
+    backdrop-filter: blur(var(--baboons-blur));
+    -webkit-backdrop-filter: blur(var(--baboons-blur));
+    border: 1px solid var(--baboons-border-glass);
+    border-radius: 20px;
+    box-shadow: var(--baboons-shadow-premium);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: modalPremiumIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-#importar-feedback .lista-errores {
-    max-height: 200px;
-    /* Altura máxima de la lista */
-    overflow-y: auto;
-    /* ¡Añade el scroll vertical! */
-    border: 1px solid #ddd;
-    padding: 10px;
-    background-color: #f9f9f9;
-    font-size: 0.9em;
+@keyframes modalPremiumIn {
+    from { transform: scale(0.95) translateY(20px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
 }
 
-/* Estilos para el resumen de productos */
-.productos-summary {
-    font-size: 0.9em;
-    color: #555;
-    margin-bottom: 15px;
-    padding: 10px;
-    background-color: #f9f9f9;
-    border-radius: 4px;
-}
-
-/* Contenedor de la paginación */
-.pagination-controls {
+.baboons-modal-header {
+    background: var(--baboons-glass-dark);
+    padding: 25px 40px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 0;
-    margin-top: 15px;
-    border-top: 1px solid #eee;
 }
 
-.pagination-controls .page-info {
-    font-size: 0.9em;
-    color: #333;
+.baboons-modal-header h3 {
+    color: white;
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
 }
 
-.pagination-controls button {
-    padding: 8px 12px;
+.close-button {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 28px;
     cursor: pointer;
+    transition: all 0.3s;
 }
 
-.pagination-controls button:disabled {
-    background-color: #f4f4f4;
-    color: #aaa;
-    cursor: not-allowed;
+.close-button:hover {
+    color: #ff4757;
+    transform: rotate(90deg);
 }
 
-/* ✨ ESTILOS ACCIONES MASIVAS ✨ */
-.bulk-actions-bar {
+/* --- FORM BODY & GRID --- */
+.modal-body {
+    padding: 40px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* Personalización del Scrollbar */
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+.modal-body::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 10px;
+}
+
+.form-section-title {
+    grid-column: 1 / -1;
+    font-size: 1rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--secondary-color);
+    margin: 30px 0 15px 0;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    background-color: #e3f2fd;
-    border: 1px solid #90caf9;
-    border-radius: 8px;
-    padding: 10px 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    animation: slideInDown 0.3s ease;
+    gap: 15px;
 }
 
-@keyframes slideInDown {
-    from {
-        transform: translateY(-10px);
-        opacity: 0;
-    }
-
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
+.form-section-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--gray-200);
 }
 
-.bulk-info {
-    font-weight: bold;
-    color: #1976d2;
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 25px;
 }
 
-.bulk-buttons {
+.form-group {
     display: flex;
+    flex-direction: column;
     gap: 10px;
 }
 
-.col-check {
-    width: 40px;
-    text-align: center;
+.form-group label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    padding-left: 5px;
 }
 
-#tabla-productos th:first-child,
-#tabla-productos td:first-child {
-    text-align: center;
+.form-group input, 
+.form-group select {
+    background: white;
+    border: 1px solid var(--gray-300);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
 
-#tabla-productos input[type="checkbox"] {
+.form-group input:focus, 
+.form-group select:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), 0 4px 12px rgba(99, 102, 241, 0.1);
+    outline: none;
+    transform: translateY(-1px);
+}
+
+/* --- BARRA DE FILTROS PREMIUM --- */
+.premium-filter-bar {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 20px;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: nowrap; /* 🔥 Forzamos una sola fila */
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-filter-bar:hover {
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+/* Buscador Dominante */
+.search-wrapper {
+    position: relative;
+    flex: 3;
+    min-width: 300px;
+}
+
+.search-wrapper i {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 1.1rem;
+    transition: color 0.3s;
+}
+
+.search-wrapper input {
+    width: 100%;
+    padding: 14px 20px 14px 50px !important;
+    background: white !important;
+    border: 2px solid #f1f5f9 !important;
+    border-radius: 14px !important;
+    font-size: 1rem !important;
+    font-weight: 500 !important;
+    color: #1e293b !important;
+    transition: all 0.3s !important;
+}
+
+.search-wrapper input:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1) !important;
+}
+
+.search-wrapper input:focus + i {
+    color: #6366f1;
+}
+
+/* Selectores Elegantes */
+.filter-item {
+    position: relative;
+    flex: 1;
+    min-width: 160px;
+}
+
+.filter-item i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+    pointer-events: none;
+    z-index: 5;
+    font-size: 0.9rem;
+}
+
+.premium-select {
+    width: 100%;
+    padding: 12px 15px 12px 40px !important;
+    background: #f8fafc !important;
+    border: 2px solid transparent !important;
+    border-radius: 12px !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    color: #334155 !important;
     cursor: pointer;
-    width: 18px;
-    height: 18px;
+    appearance: none;
+    transition: all 0.3s !important;
+}
+
+.premium-select:hover {
+    background: #f1f5f9 !important;
+}
+
+.premium-select:focus {
+    background: white !important;
+    border-color: #a855f7 !important;
+    box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.1) !important;
+    outline: none;
+}
+
+/* Flecha personalizada para select */
+.filter-item::after {
+    content: '\f107';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+/* 🔥 RESPONSIVE PROFESIONAL 🔥 */
+@media (max-width: 1200px) {
+    .premium-filter-bar {
+        flex-wrap: wrap; /* En tablets bajamos solo si es necesario */
+    }
+    .search-wrapper { flex: 1 1 100%; }
+}
+
+@media (max-width: 768px) {
+    .premium-filter-bar {
+        padding: 15px;
+        gap: 10px;
+    }
+    .filter-item { min-width: calc(50% - 5px); }
+}
+
+/* --- TABLA & SUMMARY --- */
+.productos-summary {
+    background: var(--baboons-glass);
+    border-radius: 12px;
+    padding: 10px 20px;
+    margin-bottom: 15px;
+    font-weight: 600;
+    color: var(--secondary-color);
+    display: inline-block;
+    border: 1px solid var(--baboons-border-glass);
 }

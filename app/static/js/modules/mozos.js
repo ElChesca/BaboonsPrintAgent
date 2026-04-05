@@ -19,6 +19,19 @@ export async function inicializarLogicaMozos() {
     if (btnCancelar) btnCancelar.onclick = () => window.cerrarModalMozo();
     if (form) form.onsubmit = guardarMozo;
 
+    const searchInput = document.getElementById('mozo-search');
+    if (searchInput) {
+        searchInput.oninput = (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtered = mozosCache.filter(m => 
+                m.nombre.toLowerCase().includes(term) || 
+                (m.email && m.email.toLowerCase().includes(term)) ||
+                (m.zona_nombre && m.zona_nombre.toLowerCase().includes(term))
+            );
+            renderizarTabla(filtered);
+        };
+    }
+
     await cargarMozos();
 }
 
@@ -51,30 +64,63 @@ async function cargarMozos() {
     }
 }
 
-function renderizarTabla() {
+function renderizarTabla(lista = null) {
     const tbody = document.querySelector('#tabla-mozos tbody');
     if (!tbody) return;
 
+    const items = lista || mozosCache;
     tbody.innerHTML = '';
-    mozosCache.forEach(v => {
+
+    const roleIcons = {
+        'mozo': { icon: 'fa-user-tie', color: '#4f46e5', bg: '#eef2ff' },
+        'cocinero': { icon: 'fa-utensils', color: '#10b981', bg: '#ecfdf5' },
+        'barman': { icon: 'fa-cocktail', color: '#f59e0b', bg: '#fffbeb' },
+        'adicionista': { icon: 'fa-file-invoice-dollar', color: '#6366f1', bg: '#f5f3ff' },
+        'bachero': { icon: 'fa-sink', color: '#64748b', bg: '#f8fafc' }
+    };
+
+    items.forEach(v => {
+        const rol = v.especialidad_resto || 'mozo';
+        const roleConfig = roleIcons[rol] || roleIcons['mozo'];
+        
         const tr = document.createElement('tr');
+        tr.style.verticalAlign = 'middle';
         tr.innerHTML = `
-            <td style="padding-left: 25px;"><strong>${v.nombre}</strong></td>
-            <td>${v.telefono || '-'}</td>
-            <td><code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #475569;">${v.email || '-'}</code></td>
-            <td><span class="badge bg-light text-dark border">${v.zona_nombre || 'General'}</span></td>
-            <td><span class="badge bg-info text-white" style="text-transform: capitalize;">${v.especialidad_resto || 'mozo'}</span></td>
+            <td style="padding-left: 25px;">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-circle me-3" style="background: ${roleConfig.bg}; color: ${roleConfig.color}; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+                        <i class="fas ${roleConfig.icon}"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold text-dark">${v.nombre}</div>
+                        <small class="text-muted" style="font-size: 0.75rem;">ID: #${String(v.id).padStart(4, '0')}</small>
+                    </div>
+                </div>
+            </td>
+            <td><i class="fas fa-phone-alt me-1 text-muted small"></i> ${v.telefono || '-'}</td>
+            <td><code class="px-2 py-1 rounded bg-light text-secondary small">${v.email || '-'}</code></td>
             <td>
-                <span class="badge ${v.activo ? 'bg-success' : 'bg-secondary'}">
-                    ${v.activo ? 'Activo' : 'Inactivo'}
+                <span class="badge rounded-pill bg-light text-dark border px-3">
+                    <i class="fas fa-map-marker-alt me-1 text-primary small"></i> ${v.zona_nombre || 'General'}
                 </span>
             </td>
+            <td>
+                <span class="badge px-3 py-2" style="background: ${roleConfig.bg}; color: ${roleConfig.color}; border: 1px solid ${roleConfig.color}20; text-transform: capitalize; font-weight: 600;">
+                    <i class="fas ${roleConfig.icon} me-1"></i> ${rol}
+                </span>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <div class="status-dot ${v.activo ? 'bg-success' : 'bg-secondary'} me-2" style="width: 8px; height: 8px; border-radius: 50%;"></div>
+                    <span class="small fw-500 ${v.activo ? 'text-success' : 'text-muted'}">${v.activo ? 'Activo' : 'Inactivo'}</span>
+                </div>
+            </td>
             <td style="text-align: right; padding-right: 25px;">
-                <button class="btn btn-sm btn-outline-primary me-1" onclick="editarMozo(${v.id})">
+                <button class="btn btn-icon-only btn-light-primary rounded-circle me-1" onclick="editarMozo(${v.id})" title="Editar">
                     <i class="fas fa-edit"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="eliminarMozo(${v.id})">
-                    <i class="fas fa-trash"></i>
+                <button class="btn btn-icon-only btn-light-danger rounded-circle" onclick="eliminarMozo(${v.id})" title="Eliminar">
+                    <i class="fas fa-trash-alt"></i>
                 </button>
             </td>
         `;
@@ -82,7 +128,7 @@ function renderizarTabla() {
     });
 }
 
-window.abrirModalMozo = () => {
+export function abrirModalMozo() {
     const modal = document.getElementById('modal-mozo');
     if (modal) {
         modal.style.display = 'flex';
@@ -90,14 +136,16 @@ window.abrirModalMozo = () => {
         document.getElementById('form-mozo').reset();
         document.getElementById('mozo-id').value = '';
     }
-};
+}
+window.abrirModalMozo = abrirModalMozo;
 
-window.cerrarModalMozo = () => {
+export function cerrarModalMozo() {
     const modal = document.getElementById('modal-mozo');
     if (modal) modal.style.display = 'none';
-};
+}
+window.cerrarModalMozo = cerrarModalMozo;
 
-window.editarMozo = (id) => {
+export function editarMozo(id) {
     const mozo = mozosCache.find(m => m.id === id);
     if (!mozo) return;
 
@@ -114,7 +162,8 @@ window.editarMozo = (id) => {
         document.getElementById('mozo-activo').checked = !!mozo.activo;
         document.getElementById('mozo-password').value = '';
     }
-};
+}
+window.editarMozo = editarMozo;
 
 async function guardarMozo(e) {
     e.preventDefault();
@@ -143,7 +192,7 @@ async function guardarMozo(e) {
     }
 }
 
-window.eliminarMozo = async (id) => {
+export async function eliminarMozo(id) {
     const result = await Swal.fire({
         title: '¿Eliminar personal?',
         text: 'Esta acción no se puede deshacer.',
@@ -163,4 +212,5 @@ window.eliminarMozo = async (id) => {
             mostrarNotificacion(error.message || 'No se pudo eliminar', 'error');
         }
     }
-};
+}
+window.eliminarMozo = eliminarMozo;

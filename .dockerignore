@@ -45,4 +45,3 @@ inventory.db
 CertificadosARCA/
 iniciar_manual.bat
 schema_dump.txt
-migrations/

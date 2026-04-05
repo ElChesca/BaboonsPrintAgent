@@ -199,39 +199,33 @@ def eliminar_negocio(current_user, id):
              return jsonify({'error': 'No se puede eliminar el negocio porque tiene datos asociados (Ventas, Productos, Clientes, etc). Debe eliminar esos datos manualmente primero o contactar a soporte para un borrado total.'}), 400
         return jsonify({'error': f'Error al eliminar negocio: {str(e)}'}), 500
 
-@bp.route('/negocios/<int:id>/suscripcion-status', methods=['GET'])
-@token_required
-def get_subscription_status(current_user, id):
+def get_status_suscripcion_internal(negocio_id):
+    """Lógica interna de verificación de suscripción sin dependencia de request/user context."""
     db = get_db()
-    if current_user['rol'] != 'superadmin':
-        db.execute("SELECT 1 FROM usuarios_negocios WHERE usuario_id = %s AND negocio_id = %s", (current_user['id'], id))
-        if not db.fetchone():
-            return jsonify({'message': 'Acceso denegado'}), 403
-
     try:
         import datetime
         hoy = datetime.date.today()
         
         # Verificar si la suscripción está activa para este negocio
-        db.execute("SELECT suscripcion_activa, fecha_alta, acceso_bloqueado FROM negocios WHERE id = %s", (id,))
+        db.execute("SELECT suscripcion_activa, fecha_alta, acceso_bloqueado FROM negocios WHERE id = %s", (negocio_id,))
         negocio = db.fetchone()
         
         if not negocio:
-             return jsonify({'status': 'ok', 'mensaje': ''})
+             return {'status': 'ok', 'mensaje': ''}
 
         if negocio['acceso_bloqueado']:
-             return jsonify({
+             return {
                  'status': 'blocked',
                  'mensaje': 'Acceso Suspendido por Falta de Pago. Comuníquese con la administración.'
-             })
+             }
 
         if not negocio['suscripcion_activa']:
-            return jsonify({'status': 'ok', 'mensaje': ''})
+            return {'status': 'ok', 'mensaje': ''}
 
         fecha_alta = negocio['fecha_alta']
         # Si no tiene fecha de alta o la fecha es futura, no exigimos pago
-        if not fecha_alta or fecha_alta > hoy:
-             return jsonify({'status': 'ok', 'mensaje': ''})
+        if not fecha_alta or (isinstance(fecha_alta, datetime.date) and fecha_alta > hoy):
+             return {'status': 'ok', 'mensaje': ''}
 
         mes_actual = hoy.month
         anio_actual = hoy.year
@@ -240,7 +234,7 @@ def get_subscription_status(current_user, id):
         db.execute("""
             SELECT 1 FROM suscripciones_pagos 
             WHERE negocio_id = %s AND mes = %s AND anio = %s
-        """, (id, mes_actual, anio_actual))
+        """, (negocio_id, mes_actual, anio_actual))
         pago_existente = db.fetchone()
 
         status = "ok"
@@ -254,13 +248,25 @@ def get_subscription_status(current_user, id):
                 status = "pending"
                 mensaje = f"Aviso de Vencimiento: El pago del mes {mes_actual}/{anio_actual} vence el día 10."
 
-        return jsonify({
+        return {
             'status': status,
             'mensaje': mensaje,
             'mes': mes_actual,
             'anio': anio_actual,
             'dia_vencimiento': 10
-        })
-
+        }
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Error en get_status_suscripcion_internal: {e}")
+        return {'status': 'ok', 'mensaje': f'Error verificando: {str(e)}'}
+
+@bp.route('/negocios/<int:id>/suscripcion-status', methods=['GET'])
+@token_required
+def get_subscription_status(current_user, id):
+    if current_user['rol'] != 'superadmin':
+        db = get_db()
+        db.execute("SELECT 1 FROM usuarios_negocios WHERE usuario_id = %s AND negocio_id = %s", (current_user['id'], id))
+        if not db.fetchone():
+            return jsonify({'message': 'Acceso denegado'}), 403
+
+    res = get_status_suscripcion_internal(id)
+    return jsonify(res)

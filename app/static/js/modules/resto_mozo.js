@@ -12,12 +12,17 @@ let listasPreciosCache = []; // NUEVO: Cache para listas de precios
 let mesaSeleccionada = null;
 let orderDraft = []; // Items not yet sent
 let activeComanda = null; // Comanda already in DB
-let currentCategory = 'all';
+let currentCategory = 'popular';
+let isOpeningMesa = false; // ✨ Bloqueo doble click
 
 // Salon Filters
 let currentZone = 'all';
 let filterEstado = 'all';
 let filterMozoId = 'all';
+
+// [NUEVO] Cache de Reservas para Alertas
+let reservasHoyCache = [];
+let avisoMinutosCache = 60; // Default por si falla la carga
 
 export async function inicializarRestoMozo() {
     console.log("🚀 Inicializando Módulo Mozo POS (Comandas)...");
@@ -94,6 +99,9 @@ export async function inicializarRestoMozo() {
     const btnPrintAccount = document.getElementById('btn-print-account');
     if (btnPrintAccount) btnPrintAccount.onclick = () => solicitarCuenta();
 
+    const btnReprintComanda = document.getElementById('btn-reprint-comanda');
+    if (btnReprintComanda) btnReprintComanda.onclick = () => reimprimirComanda();
+
     const btnSplitAccount = document.getElementById('btn-split-account');
     if (btnSplitAccount) btnSplitAccount.onclick = () => abrirModalDivision();
 
@@ -109,10 +117,18 @@ export async function inicializarRestoMozo() {
         };
     }
 
-    // Price List Selector - POS
     const posListaSelector = document.getElementById('pos-lista-selector');
     if (posListaSelector) {
         posListaSelector.onchange = (e) => cambiarListaComanda(e.target.value);
+    }
+
+    // Category Selector - POS [NUEVO]
+    const posCatSelector = document.getElementById('pos-category-selector');
+    if (posCatSelector) {
+        posCatSelector.onchange = (e) => {
+            currentCategory = e.target.value;
+            renderProducts();
+        };
     }
 
     // Show mozo filter only for admin/superadmin
@@ -124,10 +140,12 @@ export async function inicializarRestoMozo() {
 
     // Initial Load
     await Promise.all([
+        cargarSectores(), // Cargar sectores oficiales para las pestañas
         cargarMesas(),
-        cargarListasPrecios(), // Nueva carga inicial
+        cargarListasPrecios(), 
         cargarMenu(),
-        cargarMozos()
+        cargarMozos(),
+        cargarConfigReservasMozo() // Cargar config de alertas
     ]);
 
     // Intervalo de refresco de mesas
@@ -140,12 +158,22 @@ export async function inicializarRestoMozo() {
     }, 10000);
 
     // Intervalo de Notificaciones para Mozos (Aviso de "Listo")
+    await cargarConfigImpresion(); // Cargar la IP del hub configurada
     await cargarNotificaciones(); // Load immediately
     startNotificationPolling();
 }
 
+let printHubIp = '';
+async function cargarConfigImpresion() {
+    try {
+        const configs = await fetchData(`/api/negocios/${appState.negocioActivoId}/configuraciones`, { silent: true });
+        printHubIp = (configs.resto_print_hub_ip || '').trim();
+    } catch (e) { console.warn("No se pudo cargar la configuración de impresión", e); }
+}
+
 let notifiedItems = new Set();
 let notifsCache = [];
+let sectoresCache = []; // Cache de sectores oficiales
 
 function startNotificationPolling() {
     setInterval(async () => {
@@ -166,11 +194,34 @@ async function cargarNotificaciones() {
                 mostrarNotificacion(`🔔 Mesa #${n.mesa_numero}: ¡${n.producto_nombre} LISTO!`, "success");
                 notifiedItems.add(n.id);
                 
+                // 📳 Vibración (4 pulsos)
+                if ("vibrate" in navigator) {
+                    navigator.vibrate([200, 80, 200, 80, 200, 80, 200]);
+                }
+
+                // 🔊 Ding via Web Audio API (sin archivos externos)
                 try {
-                    const audio = new Audio('/static/audio/notification.mp3');
-                    audio.play().catch(e => console.warn("No se pudo reproducir audio de notificación:", e.message));
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const playDing = (startTime) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(880, startTime);
+                        osc.frequency.exponentialRampToValueAtTime(440, startTime + 0.4);
+                        gain.gain.setValueAtTime(0.7, startTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
+                        osc.start(startTime);
+                        osc.stop(startTime + 0.6);
+                    };
+                    // 4 dings separados por 0.4s cada uno
+                    playDing(ctx.currentTime);
+                    playDing(ctx.currentTime + 0.7);
+                    playDing(ctx.currentTime + 1.4);
+                    playDing(ctx.currentTime + 2.1);
                 } catch(e) {
-                    console.warn("Error al inicializar audio:", e.message);
+                    console.warn("Web Audio API no disponible:", e.message);
                 }
             }
         });
@@ -263,10 +314,52 @@ async function cargarMesas(silent = false) {
         if (updatedAt) {
             updatedAt.innerText = `Sincronizado: ${new Date().toLocaleTimeString()}`;
         }
+        
+        // [NUEVO] Refrescar reservas silenciosamente con las mesas
+        refrescarReservasHoy();
     } catch (error) {
         console.error("Error cargando mesas:", error);
         if (!silent) mostrarNotificacion("Error al actualizar salón", "error");
     }
+}
+
+async function cargarConfigReservasMozo() {
+    try {
+        const config = await fetchData(`/api/negocios/${appState.negocioActivoId}/reservas/config`);
+        if (config) avisoMinutosCache = config.aviso_apertura_min || 60;
+    } catch (e) { console.warn("No se pudo cargar config de reservas para mozo", e); }
+}
+
+async function refrescarReservasHoy() {
+    try {
+        const hoy = new Date().toISOString().split('T')[0];
+        const res = await fetchData(`/api/negocios/${appState.negocioActivoId}/reservas?fecha=${hoy}`);
+        reservasHoyCache = (res || []).filter(r => r.estado !== 'cancelada' && r.estado !== 'completada');
+    } catch (e) { console.warn("Error refrescando reservas hoy", e); }
+}
+
+function buscarReservaCercana(mesaId) {
+    if (!mesaId || reservasHoyCache.length === 0) return null;
+    
+    const ahora = new Date();
+    // Encontrar reservas para esta mesa
+    const resMesa = reservasHoyCache.filter(r => String(r.mesa_id) === String(mesaId));
+    
+    for (let r of resMesa) {
+        // Parsear hora reserva (formato HH:mm)
+        const [h, m] = r.hora_reserva.split(':');
+        const fechaRes = new Date();
+        fechaRes.setHours(parseInt(h), parseInt(m), 0, 0);
+        
+        const difMs = fechaRes - ahora;
+        const difMin = difMs / (1000 * 60);
+        
+        // Si la reserva es en el futuro y dentro del rango de aviso
+        if (difMin > -15 && difMin <= avisoMinutosCache) {
+            return r;
+        }
+    }
+    return null;
 }
 
 async function cargarMenu() {
@@ -377,7 +470,7 @@ function renderMesas() {
             <div class="col-12 py-5 text-center text-muted">
                 <i class="fas fa-search mb-3" style="font-size: 2rem; opacity: 0.3;"></i>
                 <p>No hay mesas que coincidan con los filtros</p>
-                <button class="btn btn-sm btn-outline-secondary" onclick="resetFilters()">Limpiar Filtros</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="window.resetFilters()">Limpiar Filtros</button>
             </div>
         `;
         return;
@@ -401,7 +494,7 @@ function renderMesas() {
             <div class="mesa-num">${mesa.numero}</div>
             <div class="mesa-footer">
                 <span><i class="fas fa-users me-1"></i> ${mesa.comanda_pax || mesa.capacidad || 0}</span>
-                ${mesa.mozo_nombre ? `<span><i class="fas fa-user me-1"></i> ${mesa.mozo_nombre.split(' ')[0]}</span>` : '<span>Libre</span>'}
+                ${estado !== 'libre' ? `<span><i class="fas fa-user me-1"></i> ${mesa.mozo_nombre ? mesa.mozo_nombre.split(' ')[0] : 'Ocupada'}</span>` : '<span>Libre</span>'}
             </div>
             ${estado === 'en_cobro' ? '<div class="mesa-badge-cuenta" style="position:absolute; top:5px; right:5px; background:white; color:#d97706; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; box-shadow:0 2px 4px rgba(0,0,0,0.1);"><i class="fas fa-file-invoice-dollar"></i></div>' : ''}
         `;
@@ -440,16 +533,29 @@ function renderMesas() {
     });
 }
 
+async function cargarSectores() {
+    try {
+        sectoresCache = await fetchData(`/api/negocios/${appState.negocioActivoId}/sectores`);
+    } catch (err) {
+        console.error("Error al cargar sectores:", err);
+    }
+}
+
 function renderZoneTabs() {
     const zoneTabs = document.getElementById('zone-tabs');
     if (!zoneTabs) return;
 
-    const zonas = [...new Set(mesasCache.map(m => m.zona).filter(z => z))];
+    // Obtener zonas de los sectores oficiales
+    let zonas = sectoresCache.map(s => s.nombre);
+    
+    // Si no hay sectores oficiales, deducir de las mesas (retrocompatibilidad)
+    if (zonas.length === 0) {
+        zonas = [...new Set(mesasCache.map(m => m.zona).filter(z => z))];
+    }
 
-    // Evitar re-renderizar si son las mismas zonas
+    // Evitar re-renderizar si son las mismas zonas (optimizacion simple)
     const currentBtns = Array.from(zoneTabs.querySelectorAll('button')).map(b => b.dataset.zone).filter(z => z !== 'all');
-    if (zonas.length === currentBtns.length && zonas.every(z => currentBtns.includes(z))) {
-        // Solo actualizar el active si las zonas no cambiaron
+    if (zonas.length === currentBtns.length && zonas.every((z, i) => z === currentBtns[i])) {
         zoneTabs.querySelectorAll('button').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.zone === currentZone);
         });
@@ -461,7 +567,7 @@ function renderZoneTabs() {
         const btn = document.createElement('button');
         btn.className = currentZone === zona ? 'active' : '';
         btn.dataset.zone = zona;
-        btn.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${zona}`; // Añadir ícono
+        btn.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${zona}`;
         zoneTabs.appendChild(btn);
     });
 }
@@ -485,47 +591,90 @@ async function cargarMozos() {
     }
 }
 
-function renderCategories() {
-    const container = document.getElementById('pos-category-tabs');
-    if (!container) return;
+window.resetFilters = () => {
+    currentZone = 'all';
+    filterEstado = 'all';
+    filterMozoId = 'all';
+    
+    const elFilterEstado = document.getElementById('filter-estado');
+    if (elFilterEstado) elFilterEstado.value = 'all';
+    
+    const elFilterMozo = document.getElementById('filter-mozo');
+    if (elFilterMozo) elFilterMozo.value = 'all';
+    
+    // Update zone tabs active state
+    const zoneTabs = document.getElementById('zone-tabs');
+    if (zoneTabs) {
+        zoneTabs.querySelectorAll('button').forEach(b => {
+            b.classList.toggle('active', b.dataset.zone === 'all');
+        });
+    }
 
-    container.innerHTML = `<button class="cat-btn ${currentCategory === 'all' ? 'active' : ''}" data-id="all">Todos</button>`;
-    categoriesCache.filter(c => c.activo).forEach(cat => {
-        const btn = document.createElement('button');
-        btn.className = `cat-btn ${currentCategory == cat.id ? 'active' : ''}`;
-        btn.innerText = cat.nombre;
-        btn.onclick = () => {
-            currentCategory = cat.id;
-            renderCategories();
-            renderProducts();
-        };
-        container.appendChild(btn);
-    });
+    renderMesas();
+};
+
+function renderCategories() {
+    const select = document.getElementById('pos-category-selector');
+    if (!select) return;
+
+    // Mantener las opciones básicas (Popular y All) y agregar las dinámicas
+    const optionsHtml = `
+        <option value="popular" ${currentCategory === 'popular' ? 'selected' : ''}>⭐ Más Pedidos (Top 20)</option>
+        <option value="all" ${currentCategory === 'all' ? 'selected' : ''}>Todos los productos</option>
+        ${categoriesCache.filter(c => c.activo).map(cat => `
+            <option value="${cat.id}" ${currentCategory == cat.id ? 'selected' : ''}>${cat.nombre}</option>
+        `).join('')}
+    `;
+    select.innerHTML = optionsHtml;
 
     renderProducts();
 }
 
-function renderProducts(filter = '') {
+async function renderProducts(filter = '') {
     const grid = document.getElementById('pos-product-grid');
     if (!grid) return;
 
-    grid.innerHTML = '';
+    grid.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin opacity-50"></i></div>';
 
-    let filtered = itemsCache.filter(i => i.disponible);
-    if (currentCategory !== 'all') {
-        filtered = filtered.filter(i => i.categoria_id == currentCategory);
+    let filtered = [];
+
+    // LÓGICA DE TOP 20
+    if (currentCategory === 'popular') {
+        try {
+            const listaId = activeComanda ? (activeComanda.lista_id || '') : '';
+            filtered = await fetchData(`/api/negocios/${appState.negocioActivoId}/menu/top-pedidos${listaId ? `?lista_id=${listaId}` : ''}`);
+        } catch (err) {
+            console.error("Error cargando populares:", err);
+            filtered = [];
+        }
+    } else {
+        filtered = itemsCache.filter(i => i.disponible);
+        if (currentCategory !== 'all') {
+            filtered = filtered.filter(i => i.categoria_id == currentCategory);
+        }
     }
+
     if (filter) {
         filtered = filtered.filter(i => i.nombre.toLowerCase().includes(filter.toLowerCase()));
     }
 
+    if (filtered.length === 0) {
+        grid.innerHTML = '<div class="text-center py-5 text-muted">No se encontraron productos</div>';
+        return;
+    }
+
+    grid.innerHTML = '';
     filtered.forEach(item => {
         const div = document.createElement('div');
-        div.className = 'prod-card-v2';
+        div.className = 'prod-list-item';
         div.innerHTML = `
-            ${item.imagen_url ? `<img src="${item.imagen_url}" class="prod-img">` : '<div class="prod-img d-flex align-items-center justify-content-center bg-light text-muted"><i class="fas fa-utensils"></i></div>'}
-            <div class="prod-name">${item.nombre}</div>
-            <div class="prod-price">${formatearMoneda(item.precio)}</div>
+            <div class="prod-info">
+                <div class="prod-name">${item.nombre}</div>
+                <div class="prod-price">${formatearMoneda(item.precio)}</div>
+            </div>
+            <button class="prod-add-btn">
+                <i class="fas fa-plus"></i>
+            </button>
         `;
         div.onclick = () => addToDraft(item);
         grid.appendChild(div);
@@ -642,7 +791,7 @@ function renderOrderSummary() {
                         ${ (isArrived && canDeliver) ? `
                             <button class="btn btn-sm ms-2 p-0 d-flex align-items-center justify-content-center" 
                                     style="height:26px; width:26px; border-radius:8px; background:linear-gradient(135deg,#10b981,#059669); color:white; border:none;" 
-                                    onclick="entregarItem(${item.id})" title="Marcar como entregado">
+                                    onclick="window.entregarItem(${item.id})" title="Marcar como entregado">
                                 <i class="fas fa-check" style="font-size:0.65rem"></i>
                             </button>
                         ` : ''}
@@ -655,7 +804,7 @@ function renderOrderSummary() {
         if (listosParaEntregar.length > 0) {
             html += `
                 <div class="mt-3 mb-2 px-2">
-                    <button class="btn btn-sm btn-outline-success w-100 rounded-pill fw-700" style="font-size: 0.75rem" onclick="entregarTodo()">
+                    <button class="btn btn-sm btn-outline-success w-100 rounded-pill fw-700" style="font-size: 0.75rem" onclick="window.entregarTodo()">
                         <i class="fas fa-truck-loading me-1"></i> Entregar ${listosParaEntregar.length} Listo(s)
                     </button>
                 </div>
@@ -675,9 +824,9 @@ function renderOrderSummary() {
                         <span class="oi-price">${formatearMoneda(item.precio)}</span>
                     </div>
                     <div class="oi-qty">
-                        <button class="qty-btn" onclick="updateDraftQty(${index}, -1)">-</button>
+                        <button class="qty-btn" onclick="window.updateDraftQty(${index}, -1)">-</button>
                         <span class="fw-bold">${item.cantidad}</span>
-                        <button class="qty-btn" onclick="updateDraftQty(${index}, 1)">+</button>
+                        <button class="qty-btn" onclick="window.updateDraftQty(${index}, 1)">+</button>
                     </div>
                 </div>
             `;
@@ -699,168 +848,116 @@ window.updateDraftQty = (index, delta) => {
     renderOrderSummary();
 }
 
+window.toggleOrderListCollapse = () => {
+    const list = document.getElementById('current-order-list');
+    const panel = document.getElementById('pos-order-panel');
+    const icon = document.getElementById('collapse-icon');
+    if (list && panel) {
+        panel.classList.toggle('detail-collapsed');
+        list.classList.toggle('collapsed');
+        if (icon) {
+            if (list.classList.contains('collapsed')) {
+                icon.className = 'fas fa-chevron-right';
+            } else {
+                icon.className = 'fas fa-chevron-down';
+            }
+        }
+    }
+}
+
 async function selectMesa(mesa) {
-    mesaSeleccionada = mesa;
-    orderDraft = [];
-    activeComanda = null;
+    if (isOpeningMesa) return;
+    isOpeningMesa = true;
 
-    const estadoMesa = (mesa.estado || 'libre').toLowerCase();
+    try {
+        const user = getCurrentUser();
+        mesaSeleccionada = mesa;
+        orderDraft = [];
+        activeComanda = null;
+        const estadoMesa = (mesa.estado || 'libre').toLowerCase();
 
-    if (estadoMesa !== 'libre' && mesa.comanda_id) {
-        // Cargar comanda OCUPADA o EN COBRO
-        document.getElementById('pos-loading').style.display = 'flex';
-        try {
-            await cargarComandaDeMesa(mesa.id);
-            document.getElementById('pos-view').style.display = 'block';
-            document.getElementById('salon-view').style.display = 'none';
-            
-            // Sincronizar selector de lista
-            const posListaSelector = document.getElementById('pos-lista-selector');
-            if (posListaSelector) posListaSelector.value = activeComanda.lista_id || '';
-            
-            renderOrderSummary();
-
-            // ✨ Ajustar botones según estado y rol
-            const btnCloseMesa = document.getElementById('btn-close-mesa');
-            const isAdmin = ['admin', 'superadmin', 'adicionista', 'cajero'].includes((appState.userRol || '').toLowerCase());
-
-            if (estadoMesa === 'en_cobro') {
-                if (btnCloseMesa) {
-                    btnCloseMesa.innerHTML = '<i class="fas fa-cash-register me-1"></i> FINALIZAR COBRO';
-                    btnCloseMesa.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                    // Si no es admin, ocultar el botón o deshabilitarlo
-                    if (!isAdmin) {
-                        btnCloseMesa.innerHTML = '<i class="fas fa-hourglass-half me-1"></i> EN COBRO (Caja)';
-                        btnCloseMesa.style.opacity = '0.6';
-                        btnCloseMesa.disabled = true;
-                    } else {
-                        btnCloseMesa.disabled = false;
+        if (estadoMesa !== 'libre' && mesa.comanda_id) {
+            document.getElementById('pos-loading').style.display = 'flex';
+            try {
+                const success = await cargarComandaDeMesa(mesa.id);
+                if (success) {
+                    document.getElementById('pos-view').style.display = 'block';
+                    document.getElementById('salon-view').style.display = 'none';
+                    renderOrderSummary();
+                    
+                    const btnCloseMesa = document.getElementById('btn-close-mesa');
+                    if (btnCloseMesa) {
+                        const isAdmin = ['admin', 'superadmin', 'adicionista', 'cajero'].includes((appState.userRol || '').toLowerCase());
+                        if (estadoMesa === 'en_cobro') {
+                            btnCloseMesa.innerHTML = '<i class="fas fa-cash-register me-1"></i> FINALIZAR COBRO';
+                            btnCloseMesa.disabled = !isAdmin;
+                        } else {
+                            btnCloseMesa.innerHTML = '<i class="fas fa-file-invoice-dollar me-2"></i> PEDIR CUENTA';
+                            btnCloseMesa.disabled = false;
+                        }
                     }
                 }
-            } else {
-                if (btnCloseMesa) {
-                    btnCloseMesa.innerHTML = '<i class="fas fa-file-invoice-dollar me-2"></i> PEDIR CUENTA';
-                    btnCloseMesa.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
-                    btnCloseMesa.disabled = false;
-                    btnCloseMesa.style.opacity = '1';
-                }
+            } catch (err) {
+                console.error(err);
+                mostrarNotificacion("Error al abrir comanda", "error");
+            } finally {
+                document.getElementById('pos-loading').style.display = 'none';
             }
-        } catch (error) {
-            console.error(error);
-            mostrarNotificacion("Error al abrir mesa", "error");
-            showSalonView();
-        } finally {
-            document.getElementById('pos-loading').style.display = 'none';
+            return;
         }
-        return;
-    }
-    if (estadoMesa === 'libre' || !mesa.comanda_id) {
-        try {
-            const mozos = await fetchData(`/api/negocios/${appState.negocioActivoId}/vendedores`);
-            if (!mozos || mozos.length === 0) {
-                mostrarNotificacion("Error: Debe cargar al menos un mozo para este negocio.", "error");
-                return;
-            }
 
-            // [NUEVO] Modal de apertura premium con selector de Carta/Lista
+        if (estadoMesa === 'libre' || !mesa.comanda_id) {
+            const mozos = await fetchData(`/api/negocios/${appState.negocioActivoId}/vendedores`);
             const { value: formValues } = await Swal.fire({
                 title: `Mesa ${mesa.numero}`,
-                html: `
-                    <div class="text-start p-2">
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <label class="form-label fw-bold small mb-1">Mozo Responsable</label>
-                                <select id="swal-mozo-id" class="form-select" style="border-radius: 12px; padding: 10px 14px; font-weight: 600;">
-                                    ${mozos.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label fw-bold small mb-1">Carta / Menú</label>
-                                <select id="swal-lista-id" class="form-select" style="border-radius: 12px; padding: 10px 14px; font-weight: 600;">
-                                    ${listasPreciosCache.map(l => `<option value="${l.id}" ${l.es_default ? 'selected' : ''}>${l.nombre}</option>`).join('')}
-                                </select>
-                            </div>
-                        </div>
-
-                        <label class="form-label fw-bold small mb-1">Comensales</label>
-                        <div class="d-flex align-items-center justify-content-center gap-3 mt-1 mb-2">
-                            <button type="button" id="swal-pax-minus" class="btn" 
-                                    style="width:48px; height:48px; border-radius:14px; background:#f0f2f5; border:1px solid #e2e8f0; font-size:1.4rem; font-weight:900; display:flex; align-items:center; justify-content:center; transition:all 0.15s;"
-                                    >−</button>
-                            <span id="swal-pax-display" 
-                                  style="font-size:2.2rem; font-weight:900; min-width:50px; text-align:center; color:#1e293b;"
-                                  >1</span>
-                            <button type="button" id="swal-pax-plus" class="btn" 
-                                    style="width:48px; height:48px; border-radius:14px; background:#4f46e5; color:white; border:none; font-size:1.4rem; font-weight:900; display:flex; align-items:center; justify-content:center; transition:all 0.15s; box-shadow:0 4px 12px rgba(79,70,229,0.25);"
-                                    >+</button>
-                        </div>
-                        <input type="hidden" id="swal-pax" value="1">
-                    </div>
-                `,
-                focusConfirm: false,
-                didOpen: () => {
-                    let paxVal = 1;
-                    const display = document.getElementById('swal-pax-display');
-                    const hidden = document.getElementById('swal-pax');
-                    document.getElementById('swal-pax-minus').onclick = () => {
-                        if (paxVal > 1) { paxVal--; display.innerText = paxVal; hidden.value = paxVal; }
-                    };
-                    document.getElementById('swal-pax-plus').onclick = () => {
-                        if (paxVal < 30) { paxVal++; display.innerText = paxVal; hidden.value = paxVal; }
-                    };
-                },
-                preConfirm: () => {
-                    return {
-                        mozoId: document.getElementById('swal-mozo-id').value,
-                        listaId: document.getElementById('swal-lista-id').value,
-                        pax: document.getElementById('swal-pax').value
-                    }
-                },
-                showCancelButton: true,
-                confirmButtonText: '<i class="fas fa-door-open me-2"></i> Abrir Mesa',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#4f46e5',
-                customClass: {
-                    popup: 'premium-swal-v2',
-                    confirmButton: 'swal-abrir-mesa-btn'
-                }
+                html: `<div class="text-start p-2">
+                    <label class="small fw-bold">Mozo</label>
+                    <select id="swal-mozo-id" class="form-select mb-3">
+                        ${mozos.map(m => `<option value="${m.id}" ${m.id == user.id ? 'selected' : ''}>${m.nombre}</option>`).join('')}
+                    </select>
+                    <label class="small fw-bold">Comensales</label>
+                    <input type="number" id="swal-pax" class="form-control" value="1" min="1">
+                </div>`,
+                preConfirm: () => ({
+                    mozoId: document.getElementById('swal-mozo-id').value,
+                    pax: document.getElementById('swal-pax').value,
+                    listaId: listasPreciosCache.find(l => l.es_default)?.id || ''
+                }),
+                showCancelButton: true
             });
-
             if (formValues) {
                 await abrirComanda(mesa.id, formValues.pax, formValues.mozoId, formValues.listaId);
             }
-        } catch (err) {
-            console.error("Error al obtener mozos:", err);
-            mostrarNotificacion("No se pudo cargar la lista de mozos", "error");
-        }
-    }
-    else {
-        const success = await cargarComandaDeMesa(mesa.id);
-        if (success) {
-            showPOSView();
         } else {
-            console.warn("Fallo al cargar comanda para mesa:", mesa);
-            const { isConfirmed } = await Swal.fire({
-                title: 'Error de Sincronización',
-                text: `La mesa ${mesa.numero} figura ocupada pero no pudimos recuperar su pedido. ¿Deseas liberar la mesa manualmente?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, liberar mesa',
-                cancelButtonText: 'No, intentar luego',
-                confirmButtonColor: '#e74c3c'
-            });
-
-            if (isConfirmed) {
-                try {
-                    // Intento de liberación manual (Heurística)
-                    await sendData(`/api/comandas/reset-mesa/${mesa.id}`, {}, { method: 'POST' });
-                    mostrarNotificacion("Mesa liberada correctamente", "success");
-                    cargarMesas(false);
-                } catch (err) {
-                    mostrarNotificacion("No se pudo liberar la mesa automáticamente", "error");
+            // Sincronización
+            const success = await cargarComandaDeMesa(mesa.id);
+            if (success) {
+                showPOSView();
+            } else {
+                console.warn("Fallo al cargar comanda para mesa:", mesa);
+                const { isConfirmed } = await Swal.fire({
+                    title: 'Error de Sincronización',
+                    text: `La mesa figura ocupada pero no pudimos recuperar su pedido. ¿Deseas liberar la mesa manualmente?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, liberar mesa',
+                    confirmButtonColor: '#e74c3c'
+                });
+                if (isConfirmed) {
+                    try {
+                        await sendData(`/api/comandas/reset-mesa/${mesa.id}`, {}, { method: 'POST' });
+                        mostrarNotificacion("Mesa liberada", "success");
+                        cargarMesas(false);
+                    } catch (err) {
+                        mostrarNotificacion("No se pudo liberar", "error");
+                    }
                 }
             }
         }
+    } catch (err) {
+        console.error(err);
+    } finally {
+        isOpeningMesa = false;
     }
 }
 
@@ -931,6 +1028,9 @@ async function enviarComanda() {
         return;
     }
 
+    const btnFinalize = document.getElementById('btn-finalize-order');
+    if (btnFinalize) btnFinalize.disabled = true;
+
     document.getElementById('pos-loading').style.display = 'flex';
     try {
         const payload = {
@@ -942,7 +1042,13 @@ async function enviarComanda() {
             }))
         };
 
-        await sendData(`/api/comandas/${activeComanda.id}/items`, payload, 'POST');
+        const res = await sendData(`/api/comandas/${activeComanda.id}/items`, payload, 'POST');
+
+        if (res.print_jobs && Array.isArray(res.print_jobs)) {
+            for (const job of res.print_jobs) {
+                await imprimirRemoto(job);
+            }
+        }
 
         mostrarNotificacion("Comanda enviada a cocina", "success");
         orderDraft = [];
@@ -954,6 +1060,7 @@ async function enviarComanda() {
         mostrarNotificacion("Error al enviar comanda", "error");
     } finally {
         document.getElementById('pos-loading').style.display = 'none';
+        if (btnFinalize) btnFinalize.disabled = false;
     }
 }
 
@@ -1033,12 +1140,16 @@ async function solicitarCuenta() {
     try {
         document.getElementById('pos-loading').style.display = 'flex';
         
-        // A. Cambiar estado de mesa a 'en_cobro'
-        await sendData(`/api/comandas/${activeComanda.id}/solicitar-cuenta`, {}, 'POST');
+        // A. Cambiar estado de mesa a 'en_cobro' y obtener trabajo de impresión
+        const res = await sendData(`/api/comandas/${activeComanda.id}/solicitar-cuenta`, {}, 'POST');
 
-        // B. Refrescamos datos de la comanda para tener todo lo enviado e imprimir
-        const data = await fetchData(`/api/comandas/${activeComanda.id}`);
-        imprimirTicket(data);
+        if (res.print_job) {
+            await imprimirRemoto(res.print_job);
+        } else {
+            // Fallback: Si no hay impresora configurada, usar el método tradicional de iframe
+            const data = await fetchData(`/api/comandas/${activeComanda.id}`);
+            imprimirTicket(data);
+        }
         
         mostrarNotificacion("Mesa marcada 'En Cobro'. Informe a caja.", "success");
         showSalonView();
@@ -1047,6 +1158,87 @@ async function solicitarCuenta() {
         mostrarNotificacion("Error al solicitar cuenta", "error");
     } finally {
         document.getElementById('pos-loading').style.display = 'none';
+    }
+}
+
+async function reimprimirComanda() {
+    if (!activeComanda) return;
+
+    const { isConfirmed } = await Swal.fire({
+        title: 'Reimprimir Comanda',
+        text: '¿Deseas enviar la comanda completa a cocina/barra nuevamente?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, Reimprimir',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+        document.getElementById('pos-loading').style.display = 'flex';
+        const res = await sendData(`/api/comandas/${activeComanda.id}/reimprimir`, {}, 'POST');
+
+        if (res.print_jobs && Array.isArray(res.print_jobs)) {
+            for (const job of res.print_jobs) {
+                await imprimirRemoto(job);
+            }
+            mostrarNotificacion("Reimpresión enviada", "success");
+        } else {
+            mostrarNotificacion("No se generaron trabajos de impresión", "warning");
+        }
+    } catch (error) {
+        console.error(error);
+        mostrarNotificacion("Error al reimprimir comanda", "error");
+    } finally {
+        document.getElementById('pos-loading').style.display = 'none';
+    }
+}
+
+async function imprimirRemoto(job) {
+    if (!job || !job.ip || !job.payload) return;
+    
+    // Transformar al formato exacto que espera el agente local Baboons Hub
+    const agentPayload = {
+        ip_destino: job.ip,
+        id_orden: job.payload.id_orden || ("CMD-" + Math.floor(Math.random() * 10000)),
+        ...job.payload
+    };
+
+    // Asegurar compatibilidad de claves de items (nombre vs name, observaciones vs notes)
+    if (Array.isArray(agentPayload.items)) {
+        agentPayload.items = agentPayload.items.map(it => ({
+            qty: it.qty || it.cantidad,
+            nombre: it.nombre || it.name || "Producto",
+            observaciones: it.observaciones || it.notes || it.notas || ""
+        }));
+    }
+    
+    const agentUrl = printHubIp ? `http://${printHubIp}:5001` : 'http://localhost:5001';
+    
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    // Si estamos en PRODUCCION (HTTPS), no intentamos la impresión directa al agente local
+    // porque los navegadores bloquean peticiones Inseguras (HTTP) desde sitios Seguros (HTTPS).
+    // Confiamos 100% en la Cola Cloud que el Agente PC leerá por polling.
+    if (!isLocalhost) {
+        console.log("☁️ Entorno de producción detectado. Confiando en la Cola Cloud para impresión.");
+        return; 
+    }
+    
+    console.log("🚀 Enviando impresión local/hub (Formato Agente):", agentPayload);
+    try {
+        const response = await fetch(`${agentUrl}/api/print`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(agentPayload),
+            signal: AbortSignal.timeout(2000) // Solo esperamos 2s
+        });
+        
+        if (!response.ok) throw new Error("Error en el agente de impresión");
+        console.log("✅ Impresión exitosa en " + job.ip);
+    } catch (err) {
+        console.warn("⚠️ Impresión directa falló o fue bloqueada (CORS/Mixed Content). El Agente Cloud lo procesará.");
     }
 }
 

@@ -8,56 +8,90 @@ import traceback # Para logs de error más detallados
 bp = Blueprint('income', __name__)
 
 # --- Rutas para Ingresos de Mercadería ---
-
 @bp.route('/negocios/<int:negocio_id>/ingresos', methods=['POST'])
 @token_required
 def registrar_ingreso(current_user, negocio_id):
     data = request.get_json()
-    detalles = data.get('detalles') # [{producto_id, cantidad, precio_costo}]
+    detalles = data.get('detalles') # [{producto_id, cantidad, precio_costo, descuento_1, descuento_2, iva_porcentaje}]
     proveedor_id = data.get('proveedor_id')
     referencia = data.get('referencia')
+    orden_compra_id = data.get('orden_compra_id')
     
-    # --- CAMBIO AQUÍ: Recibimos los datos de la factura ---
     factura_tipo = data.get('factura_tipo')
     factura_prefijo = data.get('factura_prefijo')
     factura_numero = data.get('factura_numero')
-    # estado_pago: por defecto será 'pendiente' gracias al DEFAULT de la DB
+
+    db = get_db()
+    # --- MIGRACIÓN AUTOMÁTICA (ARCA + IMPUESTOS) ---
+    try:
+        db.execute("ALTER TABLE productos ADD COLUMN IF NOT EXISTS iva_porcentaje DECIMAL DEFAULT 21.0")
+        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS punto_venta INTEGER")
+        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS cae VARCHAR(20)")
+        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS cae_vencimiento DATE")
+        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS fecha_emision DATE")
+        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS iva_21 DECIMAL DEFAULT 0")
+        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS iva_105 DECIMAL DEFAULT 0")
+        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS iva_percepcion DECIMAL DEFAULT 0")
+        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS iibb_percepcion DECIMAL DEFAULT 0")
+        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS neto_gravado DECIMAL DEFAULT 0")
+        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS exento DECIMAL DEFAULT 0")
+        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS no_gravado DECIMAL DEFAULT 0")
+        db.execute("ALTER TABLE ingresos_mercaderia_detalle ADD COLUMN IF NOT EXISTS iva_porcentaje DECIMAL DEFAULT 21.0")
+        db.execute("ALTER TABLE ingresos_mercaderia_detalle ADD COLUMN IF NOT EXISTS descuento_1 DECIMAL DEFAULT 0")
+        db.execute("ALTER TABLE ingresos_mercaderia_detalle ADD COLUMN IF NOT EXISTS descuento_2 DECIMAL DEFAULT 0")
+        g.db_conn.commit()
+    except: pass
 
     if not detalles:
         return jsonify({'error': 'El ingreso no tiene productos'}), 400
     if not proveedor_id:
         return jsonify({'error': 'Debe seleccionar un proveedor'}), 400
-    # Validación básica del número de factura (opcional pero recomendada)
-    if not factura_tipo or not factura_prefijo or not factura_numero:
-         return jsonify({'error': 'Debe ingresar Tipo, Prefijo y Número de Factura'}), 400
+    if not factura_tipo or not factura_numero:
+         return jsonify({'error': 'Debe ingresar Tipo y Número de Factura'}), 400
 
-
-    db = get_db()
     total_factura_calculado = 0
     alertas_precios = []
 
     try:
-        # Iniciamos la transacción explícitamente si tu wrapper get_db no lo hace
-        # g.db_conn.begin() # Descomentar si es necesario
+        # --- Campos ARCA e Impuestos ---
+        cae = data.get('cae')
+        cae_vencimiento = data.get('cae_vencimiento')
+        fecha_emision = data.get('fecha_emision')
+        punto_venta = data.get('punto_venta')
+        if not punto_venta and factura_prefijo:
+            try: punto_venta = int(factura_prefijo)
+            except: punto_venta = 0
 
-        # 1. Crear el registro maestro del ingreso (incluyendo datos de factura)
-        #    estado_pago tomará el DEFAULT 'pendiente'
+        iva_21 = float(data.get('iva_21') or 0)
+        iva_105 = float(data.get('iva_105') or 0)
+        iva_percepcion = float(data.get('iva_percepcion') or 0)
+        iibb_percepcion = float(data.get('iibb_percepcion') or 0)
+        neto_gravado = float(data.get('neto_gravado') or 0)
+        exento = float(data.get('exento') or 0)
+        no_gravado = float(data.get('no_gravado') or 0)
+        total_comprobante = float(data.get('total_factura') or 0)
+
+        # 1. Crear el registro maestro del ingreso
         db.execute(
             """
             INSERT INTO ingresos_mercaderia 
                 (negocio_id, proveedor_id, referencia, fecha, usuario_id, 
-                 factura_tipo, factura_prefijo, factura_numero, total_factura) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                 factura_tipo, factura_prefijo, factura_numero, total_factura, orden_compra_id,
+                 punto_venta, cae, cae_vencimiento, fecha_emision,
+                 iva_21, iva_105, iva_percepcion, iibb_percepcion, neto_gravado, exento, no_gravado) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """,
             (negocio_id, proveedor_id, referencia, datetime.datetime.now(datetime.timezone.utc), current_user['id'],
-             factura_tipo, factura_prefijo, factura_numero, 0) # Total inicial 0, se actualiza después
+             factura_tipo, factura_prefijo, factura_numero, total_comprobante, orden_compra_id,
+             punto_venta, cae, cae_vencimiento, fecha_emision,
+             iva_21, iva_105, iva_percepcion, iibb_percepcion, neto_gravado, exento, no_gravado) 
         )
         ingreso_id = db.fetchone()['id']
         
-        # 2. Procesar cada detalle (sin cambios aquí, ya maneja costos y stock)
+        # 2. Procesar cada detalle
         for item in detalles:
             producto_id = item['producto_id']
-            cantidad = item['cantidad']
+            cantidad = float(item['cantidad'])
             try:
                 precio_costo_nuevo = float(item['precio_costo']) if item.get('precio_costo') is not None else None
             except (ValueError, TypeError):
@@ -66,61 +100,64 @@ def registrar_ingreso(current_user, negocio_id):
             if cantidad <= 0:
                  continue 
 
+            precio_costo_unitario = precio_costo_nuevo # Bruto
+            dto1 = float(item.get('descuento_1') or 0)
+            dto2 = float(item.get('descuento_2') or 0)
+            iva_p = float(item.get('iva_porcentaje') or 21.0)
+
             db.execute(
-                'INSERT INTO ingresos_mercaderia_detalle (ingreso_id, producto_id, cantidad, precio_costo_unitario) VALUES (%s, %s, %s, %s)',
-                (ingreso_id, producto_id, cantidad, precio_costo_nuevo)
+                """
+                INSERT INTO ingresos_mercaderia_detalle 
+                (ingreso_id, producto_id, cantidad, precio_costo_unitario, descuento_1, descuento_2, iva_porcentaje) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (ingreso_id, producto_id, cantidad, precio_costo_unitario, dto1, dto2, iva_p)
             )
             
-            if precio_costo_nuevo is not None:
-                total_factura_calculado += cantidad * precio_costo_nuevo
+            # Cálculo para stock (actualizamos precio_costo neto sin IVA)
+            # Neto = Bruto * (1 - dto1/100) * (1 - dto2/100)
+            costo_neto = precio_costo_unitario * (1 - (dto1/100)) * (1 - (dto2/100)) if precio_costo_unitario else 0
+            
+            if not total_comprobante: 
+                total_factura_calculado += cantidad * (precio_costo_unitario or 0)
 
             # --- Lógica de Actualización de Stock y Costos ---
-            db.execute(
-                'SELECT nombre, precio_costo FROM productos WHERE id = %s',
-                (producto_id,)
-            )
+            db.execute('SELECT nombre, precio_costo FROM productos WHERE id = %s', (producto_id,))
             producto_actual = db.fetchone()
             precio_costo_anterior = producto_actual['precio_costo'] if producto_actual else None
             nombre_producto = producto_actual['nombre'] if producto_actual else f"ID:{producto_id}"
 
-            db.execute(
-                'UPDATE productos SET stock = stock + %s WHERE id = %s',
-                (cantidad, producto_id)
-            )
+            db.execute('UPDATE productos SET stock = stock + %s WHERE id = %s', (cantidad, producto_id))
 
-            if precio_costo_nuevo is not None:
+            if costo_neto > 0:
                 db.execute(
                     'UPDATE productos SET precio_costo_anterior = precio_costo, precio_costo = %s WHERE id = %s',
-                    (precio_costo_nuevo, producto_id)
+                    (costo_neto, producto_id)
                 )
                 
                 if precio_costo_anterior is not None and precio_costo_anterior != 0:
-                    variacion_pct = ((precio_costo_nuevo - precio_costo_anterior) / precio_costo_anterior) * 100
+                    variacion_pct = ((costo_neto - precio_costo_anterior) / precio_costo_anterior) * 100
                     UMBRAL_VARIACION = 5.0 
                     if abs(variacion_pct) > UMBRAL_VARIACION:
                         alertas_precios.append({
                             'producto': nombre_producto,
                             'anterior': round(precio_costo_anterior, 2),
-                            'nuevo': round(precio_costo_nuevo, 2),
+                            'nuevo': round(costo_neto, 2),
                             'variacion': round(variacion_pct, 2)
                         })
 
-        # 3. Actualizar el total_factura en el ingreso maestro
-        db.execute(
-            'UPDATE ingresos_mercaderia SET total_factura = %s WHERE id = %s',
-            (total_factura_calculado, ingreso_id)
-        )
+        # 3. Finalizar
+        total_final = total_comprobante if total_comprobante > 0 else total_factura_calculado
+        db.execute('UPDATE ingresos_mercaderia SET total_factura = %s WHERE id = %s', (total_final, ingreso_id))
 
-        # 4. Actualizar el saldo del proveedor (¡Importante!)
-        #    Sumamos el total de la factura al saldo que ya tenía
-        db.execute(
-            'UPDATE proveedores SET saldo_cta_cte = saldo_cta_cte + %s WHERE id = %s',
-            (total_factura_calculado, proveedor_id)
-        )
+        if orden_compra_id:
+            db.execute("UPDATE ordenes_compra SET estado = 'completada' WHERE id = %s AND negocio_id = %s", (orden_compra_id, negocio_id))
+
+        db.execute('UPDATE proveedores SET saldo_cta_cte = saldo_cta_cte + %s WHERE id = %s', (total_final, proveedor_id))
 
         g.db_conn.commit()
         return jsonify({
-            'message': 'Ingreso registrado, stock actualizado y costos comparados.', 
+            'message': 'Ingreso registrado correctamente.', 
             'ingreso_id': ingreso_id,
             'alertas_precios': alertas_precios 
         }), 201
@@ -129,8 +166,8 @@ def registrar_ingreso(current_user, negocio_id):
         g.db_conn.rollback()
         print(f"Error en registrar_ingreso: {e}")
         traceback.print_exc()
-        # Podríamos tener errores de FK si el proveedor_id no existe, etc.
-        return jsonify({'error': f'Ocurrió un error al registrar el ingreso: {str(e)}'}), 500
+        return jsonify({'error': str(e)}), 500
+
 
 
 @bp.route('/negocios/<int:negocio_id>/proveedores/<int:proveedor_id>/comprobante', methods=['POST'])

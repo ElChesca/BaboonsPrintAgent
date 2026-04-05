@@ -14,19 +14,34 @@
             </div>
         </div>
 
-        <div class="kds-topbar-center">
-            <!-- Station Toggle -->
-            <div class="kds-station-toggle">
-                <button class="kds-station-btn active" id="btn-station-cocina" onclick="window.cambiarEstacion('cocina')">
-                    <i class="fas fa-utensils"></i>
-                    <span>Cocina</span>
-                </button>
-                <button class="kds-station-btn" id="btn-station-bar" onclick="window.cambiarEstacion('bar')">
-                    <i class="fas fa-cocktail"></i>
-                    <span>Bar</span>
-                </button>
+            <div class="d-flex align-items-center gap-3">
+                <!-- Station Toggle -->
+                <div class="kds-station-toggle">
+                    <button class="kds-station-btn active" id="btn-station-cocina" onclick="window.cambiarEstacion('cocina')">
+                        <i class="fas fa-utensils"></i>
+                        <span>Cocina</span>
+                    </button>
+                    <button class="kds-station-btn" id="btn-station-bar" onclick="window.cambiarEstacion('bar')">
+                        <i class="fas fa-cocktail"></i>
+                        <span>Bar</span>
+                    </button>
+                </div>
+
+                <!-- View Mode / Unify Toggle -->
+                <div class="kds-view-controls">
+                    <button class="kds-view-btn active" id="btn-view-grid" onclick="window.cambiarVistaKDS('grid')" title="Vista Grilla">
+                        <i class="fas fa-th-large"></i>
+                    </button>
+                    <button class="kds-view-btn" id="btn-view-kanban" onclick="window.cambiarVistaKDS('kanban')" title="Vista Kanban">
+                        <i class="fas fa-columns"></i>
+                    </button>
+                    <div class="v-divider mx-1"></div>
+                    <button class="kds-view-btn" id="btn-unify-tables" onclick="window.toggleUnificarMesas()" title="Unificar por Mesa">
+                        <i class="fas fa-layer-group"></i>
+                        <span class="ms-1 d-none d-lg-inline">Unificar</span>
+                    </button>
+                </div>
             </div>
-        </div>
 
         <div class="kds-topbar-right">
             <!-- Live Counters -->
@@ -153,6 +168,92 @@
     .kds-btn-logout:hover {
         background: rgba(248,81,73,0.15);
     }
+
+    /* KDS View Mode Switcher */
+    .kds-view-controls {
+        display: flex;
+        align-items: center;
+        background: rgba(0,0,0,0.3);
+        border-radius: 12px;
+        padding: 4px;
+        border: 1px solid var(--kds-border);
+    }
+    .kds-view-btn {
+        background: transparent;
+        border: none;
+        color: var(--kds-text-dim);
+        padding: 6px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .kds-view-btn i { font-size: 1rem; }
+    .kds-view-btn:hover { background: rgba(255,255,255,0.05); color: var(--kds-text); }
+    .kds-view-btn.active {
+        background: var(--kds-surface-2);
+        color: var(--kds-accent);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    .v-divider { width: 1px; height: 18px; background: var(--kds-border); }
+
+    /* Kanban Styles */
+    .kds-board.kanban-active {
+        display: flex !important;
+        flex-direction: column;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .kds-kanban-board {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr); /* Forzado a 2 columnas */
+        gap: 20px;
+        padding: 20px;
+        height: 100%;
+        flex: 1;
+        overflow-y: hidden;
+    }
+    .kds-kanban-column {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        background: rgba(0,0,0,0.15);
+        border: 1px solid var(--kds-border);
+        border-radius: 24px;
+        padding: 20px;
+        overflow-y: auto;
+        min-height: 200px;
+    }
+    .kds-column-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px 15px 10px;
+        border-bottom: 2px solid var(--kds-border);
+        margin-bottom: 10px;
+    }
+    .kds-column-title {
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .kds-column-badge {
+        background: var(--kds-surface-2);
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+    .kds-column-todo .kds-column-title { color: var(--kds-text); }
+    .kds-column-doing .kds-column-title { color: var(--kds-cooking); }
 
     /* Brand */
     .kds-brand {
@@ -433,10 +534,14 @@
     }
 
     .kds-pax-tag {
-        font-size: 0.6rem;
-        color: var(--kds-text-dim);
-        font-weight: 600;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 1.1rem;
+        color: #ffffff !important;
+        font-weight: 800;
         text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 6px;
     }
 
     /* Card Items */

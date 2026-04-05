@@ -27,6 +27,54 @@
                 opacity: 1;
             }
         }
+
+        /* ✨ ESTILO PREMIUM PARA EL SWITCH */
+        .status-toggle-container {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+        }
+
+        .status-toggle-container:has(input:checked) {
+            border-color: #28a745;
+            background: #f0fff4;
+        }
+
+        .status-toggle-container:has(input:not(:checked)) {
+            border-color: #dc3545;
+            background: #fff5f5;
+        }
+
+        .status-badge-text {
+            font-weight: 800;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            text-transform: uppercase;
+        }
+
+        .status-badge-active {
+            color: #1e7e34;
+            background: #d4edda;
+        }
+
+        .status-badge-inactive {
+            color: #bd2130;
+            background: #f8d7da;
+        }
+
+        /* Switch más grande */
+        .form-check-input-lg {
+            width: 3.5rem !important;
+            height: 1.75rem !important;
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -34,16 +82,38 @@
     <div class="container-fluid py-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h2 class="mb-0"><i class="fas fa-truck-moving text-primary me-2"></i>Gestión de Flota</h2>
-                <p class="text-muted small">Administra los vehículos, capacidades y documentación</p>
+                <h2 class="mb-0"><i class="fas fa-truck-moving text-primary me-2"></i>Logística y Flota</h2>
+                <p class="text-muted small">Administra vehículos, capacidades y configuración de repartos</p>
             </div>
-            <button class="btn btn-primary" onclick="abrirModalVehiculo()">
-                <i class="fas fa-plus"></i> Nuevo Vehículo
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary" id="btn-nuevo-motivos" style="display:none;" onclick="abrirModalMotivo()">
+                    <i class="fas fa-plus"></i> Nuevo Motivo
+                </button>
+                <button class="btn btn-primary" id="btn-nuevo-vehiculo" onclick="abrirModalVehiculo()">
+                    <i class="fas fa-plus"></i> Nuevo Vehículo
+                </button>
+            </div>
         </div>
 
-        <div class="row">
-            <div class="col-12">
+        <!-- Navegación Principal de Logística -->
+        <ul class="nav nav-pills mb-4 bg-white p-2 rounded shadow-sm" id="logisticaTabsPrincipal">
+            <li class="nav-item">
+                <a class="nav-link active fw-bold" data-bs-toggle="pill" href="#tab-vehiculos-main" onclick="cambiarVistaLogistica('vehiculos')">
+                    <i class="fas fa-truck me-2"></i>Flota de Vehículos
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link fw-bold" data-bs-toggle="pill" href="#tab-motivos-main" onclick="cambiarVistaLogistica('motivos')">
+                    <i class="fas fa-list-check me-2"></i>Motivos de Rebote
+                </a>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="logisticaTabContent">
+            <!-- PESTAÑA VEHICULOS -->
+            <div class="tab-pane fade show active" id="tab-vehiculos-main">
+                <div class="row">
+                    <div class="col-12">
                 <div class="card shadow-sm border-0">
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -60,6 +130,30 @@
                                 </thead>
                                 <tbody id="lista-vehiculos">
                                     <!-- Se carga vía JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- Cierre col-12 -->
+        </div> <!-- Cierre row -->
+    </div> <!-- Cierre tab-vehiculos-main -->
+
+    <!-- PESTAÑA MOTIVOS DE REBOTE -->
+    <div class="tab-pane fade" id="tab-motivos-main">
+        <div class="card shadow-sm border-0">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" id="tabla-motivos">
+                                <thead class="bg-light text-secondary">
+                                    <tr>
+                                        <th class="ps-4">Motivo / Descripción</th>
+                                        <th class="text-center">Estado</th>
+                                        <th class="text-end pe-4">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="lista-motivos-rebote">
+                                    <!-- Carga dinámica -->
                                 </tbody>
                             </table>
                         </div>
@@ -215,6 +309,42 @@
                             <button type="button" class="btn btn-secondary"
                                 onclick="cerrarModalVehiculo()">Cancelar</button>
                             <button type="submit" class="btn btn-primary">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Motivo de Rebote -->
+    <div id="modal-motivo-rebote" class="modal" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index: 2000;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold" id="modal-motivo-titulo">Gestionar Motivo</h5>
+                    <button type="button" class="btn-close" onclick="cerrarModalMotivo()"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-motivo-rebote">
+                        <input type="hidden" id="motivo-id">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Descripción del Motivo *</label>
+                            <input type="text" id="motivo-descripcion" class="form-control form-control-lg" placeholder="Ej: No estaba el cliente" required>
+                            <div class="form-text">Este texto es el que verá el chofer en su aplicación.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Estado del Motivo</label>
+                            <div class="status-toggle-container">
+                                <span id="motivo-status-label" class="status-badge-text status-badge-active">ACTIVO</span>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input form-check-input-lg" type="checkbox" id="motivo-activo" checked 
+                                           onchange="document.getElementById('motivo-status-label').className = this.checked ? 'status-badge-text status-badge-active' : 'status-badge-text status-badge-inactive'; document.getElementById('motivo-status-label').innerText = this.checked ? 'ACTIVO' : 'INACTIVO';">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-4">
+                            <button type="button" class="btn btn-light w-100" onclick="cerrarModalMotivo()">Cancelar</button>
+                            <button type="submit" class="btn btn-primary w-100">Guardar Cambios</button>
                         </div>
                     </form>
                 </div>

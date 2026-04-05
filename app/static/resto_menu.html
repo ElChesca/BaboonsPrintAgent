@@ -1,33 +1,59 @@
 <!-- app/static/resto_menu.html -->
 <div class="resto-menu-premium container-fluid fade-in p-0">
-    <!-- Header Premium with Glassmorphism -->
-    <div class="premium-header-glass mb-4 p-4 shadow-sm">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h2 class="fw-800 mb-1 text-white text-shadow-sm">
-                    <i class="fas fa-utensils me-3 animate-pulse"></i>Gestión de Carta
-                </h2>
-                <p class="text-white-50 mb-0 small fw-500">Configura tus platos, categorías y menú digital interactivo.</p>
+    <!-- Bulk Action Bar (Hidden by default) -->
+    <div id="bulk-actions-bar" class="bulk-actions-bar animate-slide-down" style="display: none;">
+        <div class="container-fluid d-flex align-items-center justify-content-between py-2 px-4">
+            <div class="d-flex align-items-center gap-3">
+                <span class="badge bg-white text-primary fw-800 rounded-pill px-3 shadow-sm" id="selected-count">0 seleccionados</span>
+                <div class="vr text-white opacity-25"></div>
+                <button class="btn btn-link text-white text-decoration-none fw-600 p-0" onclick="window.deseleccionarTodo()">
+                    <i class="fas fa-times me-1"></i> Deseleccionar
+                </button>
             </div>
             <div class="d-flex gap-2">
-                <button id="btn-config-resto" class="btn btn-blur-light btn-icon-text" onclick="window.abrirConfigResto()">
-                    <i class="fas fa-cog me-1"></i> <span>Configurar Restó</span>
-                </button>
-                <button id="btn-config-branding" class="btn btn-blur-light btn-icon-text">
-                    <i class="fas fa-magic me-1"></i> <span>Imagen / Logo</span>
-                </button>
-                <button id="btn-config-qr" class="btn btn-blur-light btn-icon-text">
-                    <i class="fas fa-qrcode"></i> <span>QR Menú</span>
-                </button>
-                <button id="btn-gestionar-listas" class="btn btn-blur-light btn-icon-text" onclick="window.abrirModalListas()">
-                    <i class="fas fa-list-ul me-1"></i> <span>Listas / Cartas</span>
+                <button class="btn btn-premium-sidebar py-2" onclick="window.abrirBulkPrecio()"><i class="fas fa-dollar-sign me-2"></i>Precio</button>
+                <button class="btn btn-premium-sidebar py-2" onclick="window.abrirBulkCategoria()"><i class="fas fa-folder me-2"></i>Categoría</button>
+                <button class="btn btn-premium-sidebar py-2" onclick="window.abrirBulkKDS()"><i class="fas fa-print me-2"></i>Destino KDS</button>
+                <button class="btn btn-premium-sidebar py-2" onclick="window.aplicarBulkPausa(true)"><i class="fas fa-play me-2"></i>Activar</button>
+                <button class="btn btn-premium-sidebar py-2 text-danger" onclick="window.aplicarBulkPausa(false)"><i class="fas fa-pause me-2"></i>Pausar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header Premium with Glassmorphism -->
+    <div class="premium-header-glass mb-0 p-4 border-bottom border-white border-opacity-10">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <div class="header-icon-box bg-white bg-opacity-10 rounded-4 p-3 backdrop-blur-md">
+                    <i class="fas fa-utensils fs-2 text-white animate-pulse"></i>
+                </div>
+                <div>
+                    <h2 class="fw-800 mb-0 text-white text-shadow-sm tracking-tight">Gestión de Carta</h2>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-white bg-opacity-20 text-white fw-600 x-small px-2 py-1 rounded-pill uppercase tracking-wider">Baboons Premium</span>
+                        <p class="text-white-50 mb-0 small fw-500">Sincronización total con Inventario.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button id="btn-sync-inventory" class="btn btn-white-premium btn-icon-text" onclick="window.alinearConInventario()">
+                    <i class="fas fa-sync-alt me-1"></i> <span>Alinear con Inventario</span>
                 </button>
                 <div class="vr mx-2 text-white opacity-25"></div>
-                <button id="btn-nueva-categoria" class="btn btn-outline-white-premium">
-                    <i class="fas fa-folder-plus me-1"></i> Categoría
+                <button id="btn-config-listas" class="btn btn-blur-light btn-icon-text" onclick="window.abrirModalListas()">
+                    <i class="fas fa-list-alt me-1"></i> <span>Cartas</span>
                 </button>
-                <button id="btn-nuevo-plato" class="btn btn-white-premium">
-                    <i class="fas fa-plus me-1"></i> Nuevo Plato
+                <button id="btn-config-qr" class="btn btn-blur-light btn-icon-text">
+                    <i class="fas fa-qrcode me-1"></i> <span>QR Menú</span>
+                </button>
+                <button id="btn-config-branding" class="btn btn-blur-light btn-icon-text">
+                    <i class="fas fa-magic me-1"></i> <span>Imagen</span>
+                </button>
+                <button id="btn-nueva-categoria" class="btn btn-blur-light btn-icon-text">
+                    <i class="fas fa-folder-plus me-1"></i> <span>Categoría</span>
+                </button>
+                <button id="btn-nuevo-plato" class="btn btn-blur-light btn-icon-text">
+                    <i class="fas fa-plus me-1"></i> <span>Nuevo Plato</span>
                 </button>
             </div>
         </div>
@@ -36,15 +62,27 @@
     <!-- Main Content Area -->
     <div class="px-4">
         <!-- Search and Filter Bar -->
-        <div class="glass-search-container mb-4 d-flex align-items-center gap-3 p-3 rounded-4">
-            <div class="search-input-wrapper flex-grow-1">
-                <i class="fas fa-search search-icon"></i>
-                <input type="text" id="busqueda-platos" class="form-control-glass ps-5" placeholder="Buscar por nombre, ingrediente o SKU...">
+        <div class="glass-search-container mb-4 d-flex align-items-center justify-content-between p-3 rounded-4 shadow-sm">
+            <div class="d-flex align-items-center gap-3 flex-grow-1">
+                <div class="search-input-wrapper flex-grow-1" style="max-width: 400px;">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="busqueda-platos" class="form-control-glass ps-5" placeholder="Buscar por nombre o ingrediente...">
+                </div>
+                <div class="filter-tabs-wrapper flex-grow-1">
+                    <div id="categorias-tabs" class="nav nav-pills-premium flex-wrap" role="tablist">
+                        <button class="nav-link active" onclick="window.filtrarPorCategoria('all')">Todos</button>
+                    </div>
+                </div>
             </div>
-            <div class="filter-tabs-wrapper">
-                <div id="categorias-tabs" class="nav nav-pills-premium" role="tablist">
-                    <button class="nav-link active" onclick="window.filtrarPorCategoria('all')">Todos</button>
-                    <!-- Se llena dinámicamente -->
+            
+            <div class="view-toggle-wrapper ms-3 ps-3 border-start border-white border-opacity-10">
+                <div class="btn-group p-1 bg-white bg-opacity-10 rounded-3">
+                    <button id="view-cards" class="btn btn-sm btn-icon border-0" onclick="window.cambiarVista('cards')" title="Vista Mosaico">
+                        <i class="fas fa-th-large"></i>
+                    </button>
+                    <button id="view-table" class="btn btn-sm btn-icon border-0 active" onclick="window.cambiarVista('table')" title="Vista Tabla Listado">
+                        <i class="fas fa-list"></i>
+                    </button>
                 </div>
             </div>
         </div>
@@ -105,25 +143,70 @@
             </div>
         </div>
 
-        <!-- Menu Grid -->
-        <div id="menu-items-container" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4 pb-5">
-            <!-- Se llena dinámicamente -->
-        </div>
-
-        <div id="loading-menu" class="loading-state text-center p-5 mt-4">
+        <!-- Loading State -->
+        <div id="loading-menu" class="text-center p-5 mt-4" style="display: none;">
             <div class="spinner-premium mb-3"></div>
             <h5 class="fw-700 text-muted">Sincronizando Carta Maestra...</h5>
         </div>
 
-        <div id="no-items" style="display: none;" class="no-items-state text-center p-5 mt-4 glass-card rounded-4 border-dashed">
-            <div class="opacity-25 mb-4">
-                 <i class="fas fa-utensils fa-5x text-primary"></i>
+        <!-- Cards View Container (Hidden by default) -->
+        <div id="items-container" class="row row-cols-2 row-cols-md-4 row-cols-lg-5 g-3 mb-4" style="display: none;">
+            <!-- Items injected here -->
+        </div>
+
+        <!-- Table View Container -->
+        <div id="table-view-container" class="card glass-card border-0 rounded-4 overflow-hidden mb-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 datatable-premium">
+                    <thead>
+                        <tr class="bg-white bg-opacity-5">
+                            <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="check-all-menu"></th>
+                            <th style="width: 80px;">Img</th>
+                            <th>Plato / Descripción</th>
+                            <th>Categoría</th>
+                            <th>Precio</th>
+                            <th>Destino</th>
+                            <th>Estado</th>
+                            <th class="text-end" style="width: 120px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-items-body">
+                        <!-- Table rows injected here -->
+                    </tbody>
+                </table>
             </div>
-            <h4 class="fw-800 text-muted">No encontramos platos aquí</h4>
-            <p class="text-muted mb-4 px-5">Parece que esta categoría aún está vacía. Empezá a cargar tus delicias.</p>
-            <button class="btn btn-primary-premium shadow-lg" onclick="window.abrirModalItem()">
+        </div>
+
+        <!-- No Items Message -->
+        <div id="no-items" class="text-center py-5 animate__animated animate__fadeIn" style="display: none;">
+            <div class="mb-4">
+                <i class="fas fa-utensils fs-1 text-muted opacity-25"></i>
+            </div>
+            <h3 class="fw-800 text-dark">No encontramos platos aquí</h3>
+            <p class="text-muted">Parece que esta categoría aún está vacía. Empezá a cargar tus delicias.</p>
+            <button class="btn btn-primary-premium px-4 rounded-pill" onclick="window.abrirNuevoItem()">
                 <i class="fas fa-plus me-2"></i> Crear Primer Plato
             </button>
+        </div>
+
+        <!-- Pagination Bar -->
+        <div class="pagination-premium-container d-flex justify-content-between align-items-center p-3 glass-card rounded-4 mb-5 shadow-sm border-0">
+            <div class="pagination-info text-muted small fw-600">
+                Mostrando <span id="pag-range">0-0</span> de <span id="pag-total">0</span> platos
+            </div>
+            <nav>
+                <ul class="pagination pagination-sm m-0 gap-1 border-0" id="pagination-list">
+                    <!-- Pagination pages injected here -->
+                </ul>
+            </nav>
+            <div class="pagination-size">
+                <select id="page-size" class="form-select-glass form-select-sm" onchange="window.cambiarPageSize(this.value)">
+                    <option value="20">20 por pág.</option>
+                    <option value="50" selected>50 por pág.</option>
+                    <option value="100">100 por pág.</option>
+                    <option value="200">200 por pág.</option>
+                </select>
+            </div>
         </div>
     </div>
 </div>
@@ -184,6 +267,11 @@
                     <label class="form-label-premium">Nombre de la Sección</label>
                     <input type="text" id="cat-nombre" class="form-control-glass px-3 py-2" required placeholder="Ej: Entradas, Plato Principal, Bebidas...">
                 </div>
+                <div class="form-group-premium mb-4">
+                    <label class="form-label-premium">Grupo / Agrupación (Opcional)</label>
+                    <input type="text" id="cat-grupo" class="form-control-glass px-3 py-2" placeholder="Ej: Bebidas, Comidas, Cafetería...">
+                    <small class="text-muted x-small">Categorías con el mismo grupo aparecerán juntas bajo un solo título.</small>
+                </div>
                 <div class="row g-3">
                     <div class="col-6">
                         <div class="form-group-premium mb-3">
@@ -235,10 +323,14 @@
                             <label class="form-label-premium">Categoría</label>
                             <select id="item-categoria" class="form-select-glass px-3 py-2" required></select>
                         </div>
+                        <div class="form-group-premium mb-4">
+                            <label class="form-label-premium">Destino KDS (Opcional)</label>
+                            <input type="text" id="item-destino-kds" class="form-control-glass px-3" placeholder="Heredado de categoría">
+                        </div>
 
                         <!-- Sección de Precios por Lista -->
-                        <div id="section-precios-listas" class="mt-3 p-3 bg-light rounded-4 border">
-                            <h6 class="fw-800 text-primary mb-3 small"><i class="fas fa-tags me-2"></i>Precios por Carta</h6>
+                        <div id="section-precios-listas" class="mt-3 p-3 bg-white rounded-4 border shadow-sm">
+                            <h6 class="fw-800 text-primary mb-3 small"><i class="fas fa-tags me-2"></i>Gestión de Precios por Carta</h6>
                             <div id="listas-precios-container" class="row g-2">
                                 <!-- Se llena dinámicamente desde el JS -->
                             </div>
@@ -263,19 +355,18 @@
                             <input type="text" id="item-imagen" class="form-control-glass px-3 small" placeholder="https://mi-imagen.jpg" oninput="document.getElementById('item-img-preview').src = this.value; document.getElementById('item-img-preview').style.display = this.value ? 'block' : 'none'; document.getElementById('no-img-preview').style.display = this.value ? 'none' : 'block';">
                         </div>
 
-                        <div class="premium-stock-box bg-primary-soft p-3 rounded-4 border">
+                        <div class="premium-stock-box bg-white p-3 rounded-4 border shadow-sm">
                             <div class="form-check form-switch p-0 d-flex align-items-center justify-content-between mb-2">
-                                <label class="form-check-label fw-700 small mb-0" for="item-disponible">Plato Disponible</label>
-                                <input class="form-check-input ms-0 mt-0" type="checkbox" id="item-disponible" checked style="width: 40px; height: 20px;">
+                                <label class="form-check-label fw-800 text-dark small mb-0" for="item-disponible">Plato Disponible</label>
+                                <input class="form-check-input ms-0 mt-0" type="checkbox" id="item-disponible" checked style="width: 44px; height: 22px; cursor: pointer; background-color: #dee2e6; border-color: #ced4da;">
                             </div>
                             <div class="form-check form-switch p-0 d-flex align-items-center justify-content-between">
-                                <label class="form-check-label fw-700 small mb-0" for="item-stock-control">Control de Stock</label>
-                                <input class="form-check-input ms-0 mt-0" type="checkbox" id="item-stock-control" style="width: 40px; height: 20px;">
+                                <label class="form-check-label fw-800 text-dark small mb-0" for="item-stock-control">Control de Stock</label>
+                                <input class="form-check-input ms-0 mt-0" type="checkbox" id="item-stock-control" style="width: 44px; height: 22px; cursor: pointer; background-color: #dee2e6; border-color: #ced4da;">
                             </div>
-                            <div id="item-producto-vinculo" class="mt-3" style="display: none;">
-                                <label class="form-label-premium small opacity-75">Seleccionar Item del Inventario</label>
-                                <select id="item-producto-id" class="form-select-glass px-3 py-2 small"></select>
-                                <small class="text-primary x-small mt-1 d-block"><i class="fas fa-sync me-1"></i> Sincronizado automáticamente.</small>
+                            <div id="item-producto-vinculo" class="mt-3 p-2 bg-light rounded-3 border" style="display: none;">
+                                <label class="fw-800 text-primary x-small d-block mb-1">Items del Inventario (Sincronizado)</label>
+                                <select id="item-producto-id" class="form-select form-select-sm border shadow-none"></select>
                             </div>
                         </div>
                     </div>
@@ -405,14 +496,19 @@
             </div>
 
             <!-- Resumen de Costos -->
-            <div class="d-flex justify-content-between align-items-center mt-4 p-3 bg-primary-soft rounded-4 border border-primary border-opacity-25">
-                <div>
-                    <span class="text-muted small fw-700 d-block">COSTO TOTAL ESTIMADO</span>
-                    <span class="fs-4 fw-800 text-primary" id="receta-costo-total">$0.00</span>
+            <div class="mt-4 p-3 bg-primary-soft rounded-4 border border-primary border-opacity-25">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <span class="text-muted small fw-700 d-block">COSTO TOTAL ESTIMADO</span>
+                        <span class="fs-4 fw-800 text-primary" id="receta-costo-total">$0.00</span>
+                    </div>
+                    <div class="text-end">
+                        <span class="text-muted small fw-700 d-block">PRECIO DE VENTA</span>
+                        <span class="fs-4 fw-800 text-dark" id="receta-item-precio">$0.00</span>
+                    </div>
                 </div>
-                <div class="text-end">
-                    <span class="text-muted small fw-700 d-block">PRECIO DE VENTA</span>
-                    <span class="fs-5 fw-800 text-dark" id="receta-item-precio">$0.00</span>
+                <div id="receta-profit-margin" class="text-center pt-2 border-top border-primary border-opacity-10 small fw-700">
+                    <!-- Utilidad calculada por JS -->
                 </div>
             </div>
         </div>
@@ -434,8 +530,8 @@
             <div class="mb-4">
                 <h6 class="fw-800 text-primary mb-3"><i class="fas fa-list-ul me-2"></i>Cartas / Listas de Precios</h6>
                 <div class="input-group-premium mb-3">
-                    <input type="text" id="nueva-lista-nombre" class="form-control-glass px-3 py-2" placeholder="Ej: Carta Golfistas, Carta Eventos...">
-                    <button class="btn btn-primary-premium px-4" onclick="window.crearNuevaLista()">Crear</button>
+                    <input type="text" id="nueva-lista-nombre-setup" class="form-control-glass px-3 py-2" placeholder="Ej: Carta Golfistas, Carta Eventos...">
+                    <button class="btn btn-primary-premium px-4" onclick="window.crearNuevaLista('setup')">Crear</button>
                 </div>
                 <div id="contenedor-listas-admin" class="list-group list-group-flush rounded-4 border overflow-hidden">
                     <!-- Se llena dinámicamente -->
@@ -613,14 +709,12 @@
 
     .nav-pills-premium {
         display: flex;
-        gap: 10px;
-        padding: 8px;
-        background: #f1f5f9;
-        border-radius: 20px;
-        overflow-x: auto;
-        scrollbar-width: none;
+        gap: 8px;
+        padding: 5px;
+        background: transparent;
+        border-radius: 0;
+        flex-wrap: wrap;
     }
-    .nav-pills-premium::-webkit-scrollbar { display: none; }
 
     .category-pill-wrapper {
         display: flex;
@@ -880,6 +974,183 @@
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes scaleUp { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
     @keyframes pulseIcon { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+    /* Precision Selection Highlights */
+    .table-selected-premium {
+        background-color: rgba(99, 102, 241, 0.12) !important;
+        position: relative;
+    }
+    .table-selected-premium td {
+        background-color: rgba(99, 102, 241, 0.12) !important;
+        border-bottom: 1px solid rgba(99, 102, 241, 0.2) !important;
+    }
+    .table-selected-premium td:first-child {
+        box-shadow: inset 6px 0 0 -2px #4361ee;
+    }
+
+    .menu-card.selected {
+        border: 2.5px solid #4361ee !important;
+        background: #f0f7ff !important;
+        transform: scale(0.98);
+        box-shadow: 0 5px 15px rgba(67, 97, 238, 0.2) !important;
+    }
+    .menu-card.selected .selection-overlay {
+        display: block !important;
+    }
+
+    /* === BABOONS PREMIUM SWEETALERT OVERRIDES === */
+    .baboons-swal-popup {
+        border-radius: 28px !important;
+        padding: 2rem !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+        backdrop-filter: blur(20px) !important;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+        border: 1px solid rgba(255, 255, 255, 0.5) !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+    }
+
+    .baboons-swal-title {
+        color: #1e293b !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.02em !important;
+        margin-bottom: 1rem !important;
+    }
+
+    .baboons-swal-input {
+        border-radius: 12px !important;
+        border: 1.5px solid #e2e8f0 !important;
+        padding: 12px 18px !important;
+        font-weight: 500 !important;
+        color: #334155 !important;
+        box-shadow: none !important;
+        transition: all 0.2s !important;
+    }
+
+    .baboons-swal-input:focus {
+        border-color: #4361ee !important;
+        box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.1) !important;
+    }
+
+    .swal2-actions {
+        gap: 12px !important;
+    }
+
+    .swal-btn-confirm {
+        background: linear-gradient(135deg, #4361ee, #3f37c9) !important;
+        color: white !important;
+        border-radius: 14px !important;
+        font-weight: 700 !important;
+        padding: 12px 30px !important;
+        border: none !important;
+        box-shadow: 0 8px 15px rgba(67, 97, 238, 0.2) !important;
+    }
+
+    .swal-btn-cancel {
+        background: #f1f5f9 !important;
+        color: #64748b !important;
+        border-radius: 14px !important;
+        font-weight: 700 !important;
+        padding: 12px 30px !important;
+        border: none !important;
+    }
+
+    /* Controles de Precio por Lista Premium */
+    .price-list-card {
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 18px;
+        padding: 12px;
+        transition: all 0.3s ease;
+        margin-bottom: 10px;
+    }
+    .price-list-card:hover {
+        background: rgba(255, 255, 255, 0.6);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+    }
+    .price-list-card.border-primary {
+        border-color: var(--baboons-primary) !important;
+        background: rgba(var(--baboons-primary-rgb), 0.05);
+    }
+    .list-icon-sm {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+    }
+    .price-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    .currency-symbol {
+        position: absolute;
+        left: 12px;
+        font-weight: 800;
+        color: var(--baboons-primary);
+        font-size: 0.9rem;
+    }
+    .form-control-price {
+        background: white !important;
+        border: 1px solid rgba(0,0,0,0.08);
+        border-radius: 12px;
+        padding: 8px 12px 8px 28px;
+        font-weight: 700;
+        color: #333;
+        width: 100%;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+    }
+    .form-control-price:focus {
+        border-color: var(--baboons-primary);
+        box-shadow: 0 0 0 4px rgba(var(--baboons-primary-rgb), 0.1);
+        outline: none;
+    }
+    /* Switches Tradicionales y Visibles (Respuesta a: "ni se ve!") */
+    .form-check-input {
+        background-color: #f8f9fa !important;
+        border: 2px solid #6c757d !important;
+        height: 28px !important;
+        width: 56px !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        opacity: 1 !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        position: relative !important;
+        border-radius: 50px !important;
+        margin-top: 0 !important;
+    }
+    .form-check-input:checked {
+        background-color: #0d6efd !important;
+        border-color: #0b5ed7 !important;
+    }
+    .form-check-input::before {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 20px;
+        height: 20px;
+        background-color: #495057; /* Círculo Gris Oscuro */
+        border-radius: 50%;
+        transition: all 0.2s ease;
+    }
+    .form-check-input:checked::before {
+        left: 30px;
+        background-color: #ffffff;
+    }
+    .premium-stock-box label {
+        font-size: 1rem !important;
+        color: #212529 !important;
+        font-weight: 800 !important;
+        margin-right: 15px;
+    }
+    .x-small { font-size: 0.75rem; }
 
 </style>
 

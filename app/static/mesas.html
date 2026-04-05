@@ -3,10 +3,23 @@
             <i class="fas fa-table me-2"></i> Gestión de Mesas
         </h2>
         <div class="d-flex gap-2">
+            <button id="btn-gestionar-sectores" type="button" class="btn btn-outline-primary shadow-sm" onclick="window.abrirModalSectores()">
+                <i class="fas fa-layer-group me-1"></i> Sectores
+            </button>
+            <button id="btn-bulk-create-mesas" type="button" class="btn btn-outline-primary shadow-sm" onclick="window.abrirModalBulkMesas()">
+                <i class="fas fa-th me-1"></i> Creación Masiva
+            </button>
             <button id="btn-nueva-mesa" type="button" class="btn btn-primary shadow-sm">
                 <i class="fas fa-plus me-1"></i> Nueva Mesa
             </button>
         </div>
+    </div>
+
+    <!-- Tabs de Sectores (Estilo Fudo) -->
+    <div class="mesas-tabs-container mb-3">
+        <ul class="nav nav-pills" id="mesas-sector-tabs" style="gap: 10px; padding: 5px; background: #f1f5f9; border-radius: 12px; width: fit-content;">
+            <!-- Se llena dinámicamente -->
+        </ul>
     </div>
 
     <!-- Barra de Acciones Masivas (Premium Baboons) -->
@@ -42,6 +55,8 @@
                             <th># Número</th>
                             <th>Nombre / Alias</th>
                             <th>Capacidad</th>
+                            <th>Próxima Reserva</th>
+                            <th title="Horario (Tolerancia) y Cantidad de Personas">Detalles Reserva</th>
                             <th>Sector / Zona</th>
                             <th>Mozo Asignado</th>
                             <th>Estado Actual</th>
@@ -60,71 +75,127 @@
             <div id="no-mesas" style="display: none; text-align: center; padding: 60px;">
                 <i class="fas fa-search-minus fa-3x text-muted mb-3"></i>
                 <p class="text-muted fs-5">No hay mesas configuradas aún.</p>
-                <button id="btn-nueva-mesa-empty" type="button" class="btn btn-outline-primary btn-sm">Crear mi primera
-                    mesa</button>
+                <button id="btn-nueva-mesa-empty" type="button" class="btn btn-outline-primary btn-sm">Crear mi primera mesa</button>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Modal para Crear/Editar Mesa -->
-<div id="modal-mesa" class="premium-modal-overlay">
-    <div class="premium-modal-content" style="max-width: 500px; width: 95%;">
-        <div class="premium-modal-header">
-            <h4 class="mb-0 fw-bold" id="modal-mesa-titulo">Nueva Mesa</h4>
-            <button class="btn-close-modal" id="btn-cerrar-modal-mesa" type="button">×</button>
+    <!-- Modal para Crear/Editar Mesa -->
+    <div id="modal-mesa" class="premium-modal-overlay">
+        <div class="premium-modal-content" style="max-width: 500px; width: 95%;">
+            <div class="premium-modal-header">
+                <h4 class="mb-0 fw-bold" id="modal-mesa-titulo">Nueva Mesa</h4>
+                <button class="btn-close-modal" id="btn-cerrar-modal-mesa" type="button">×</button>
+            </div>
+
+            <form id="form-mesa">
+                <div class="premium-modal-body">
+                    <input type="hidden" id="mesa-id">
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="mesa-numero" class="form-label fw-bold">Número de Mesa:</label>
+                                <input type="number" id="mesa-numero" class="form-control" required placeholder="Ej: 1">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="mesa-capacidad" class="form-label fw-bold">Capacidad (Pax):</label>
+                                <input type="number" id="mesa-capacidad" class="form-control" value="2" min="1" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="mesa-nombre" class="form-label fw-bold">Nombre / Alias (Opcional):</label>
+                        <input type="text" id="mesa-nombre" class="form-control" placeholder="Ej: Mesa ventana">
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="mesa-zona" class="form-label fw-bold">Sector / Zona:</label>
+                        <select id="mesa-zona" class="form-select sector-select-dropdown" required style="height: 45px;">
+                            <!-- Se llena vía JS -->
+                        </select>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="mesa-mozo-id" class="form-label fw-bold">Mozo Responsable:</label>
+                        <select id="mesa-mozo-id" class="form-select" style="height: 45px;">
+                            <option value="">Sin mozo pre-asignado</option>
+                            <!-- Se llena vía JS -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="premium-modal-footer">
+                    <button type="button" id="btn-cancelar-mesa" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4">Guardar Mesa</button>
+                </div>
+            </form>
         </div>
+    </div>
 
-        <form id="form-mesa">
+    <!-- Modal para Gestionar Sectores -->
+    <div id="modal-sectores" class="premium-modal-overlay">
+        <div class="premium-modal-content" style="max-width: 450px; width: 95%;">
+            <div class="premium-modal-header">
+                <h4 class="mb-0 fw-bold">Gestionar Sectores</h4>
+                <button class="btn-close-modal" onclick="window.cerrarModalSectores()">×</button>
+            </div>
             <div class="premium-modal-body">
-                <input type="hidden" id="mesa-id">
-
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="form-group mb-3">
-                            <label for="mesa-numero" class="form-label fw-bold">Número de Mesa:</label>
-                            <input type="number" id="mesa-numero" class="form-control" required placeholder="Ej: 1">
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group mb-3">
-                            <label for="mesa-capacidad" class="form-label fw-bold">Capacidad (Pax):</label>
-                            <input type="number" id="mesa-capacidad" class="form-control" value="2" min="1" required>
-                        </div>
-                    </div>
+                <div id="sectores-list-container" class="mb-3">
+                    <!-- Se llena dinámicamente -->
                 </div>
-
-                <div class="form-group mb-3">
-                    <label for="mesa-nombre" class="form-label fw-bold">Nombre / Alias (Opcional):</label>
-                    <input type="text" id="mesa-nombre" class="form-control" placeholder="Ej: Mesa ventana">
-                </div>
-
-                <div class="form-group mb-3">
-                    <label for="mesa-zona" class="form-label fw-bold">Sector / Zona:</label>
-                    <select id="mesa-zona" class="form-select" required style="height: 45px;">
-                        <option value="Salon">Salón Principal</option>
-                        <option value="Terraza">Terraza / Exterior</option>
-                        <option value="VIP">Sector VIP</option>
-                        <option value="Barra">Barra</option>
-                        <option value="Patio">Patio</option>
-                        <option value="Entrepiso">Entrepiso</option>
-                    </select>
-                </div>
-
-                <div class="form-group mb-3">
-                    <label for="mesa-mozo-id" class="form-label fw-bold">Mozo Responsable:</label>
-                    <select id="mesa-mozo-id" class="form-select" style="height: 45px;">
-                        <option value="">Sin mozo pre-asignado</option>
-                        <!-- Se llena vía JS -->
-                    </select>
+                <div class="input-group">
+                    <input type="text" id="nuevo-sector-nombre" class="form-control" placeholder="Nuevo sector (ej: Terraza)">
+                    <button class="btn btn-primary" onclick="window.agregarFilaSector()">
+                        <i class="fas fa-plus"></i>
+                    </button>
                 </div>
             </div>
-
-            <div class="premium-modal-footer">
-                <button type="button" id="btn-cancelar-mesa" class="btn btn-secondary"
-                    style="border: none; background: #eee; color: #555;">Cancelar</button>
-                <button type="submit" class="btn btn-primary px-4" style="border-radius: 8px;">Guardar Mesa</button>
+            <div class="premium-modal-footer d-flex justify-content-between">
+                <button class="btn btn-secondary" onclick="window.cerrarModalSectores()">Cerrar</button>
+                <button class="btn btn-primary" onclick="window.guardarSectores()">Guardar Cambios</button>
             </div>
-        </form>
+        </div>
     </div>
-</div>
+
+    <!-- Modal para Creación Masiva -->
+    <div id="modal-bulk-mesas" class="premium-modal-overlay">
+        <div class="premium-modal-content" style="max-width: 500px; width: 95%;">
+            <div class="premium-modal-header">
+                <h4 class="mb-0 fw-bold">Creación Masiva de Mesas</h4>
+                <button class="btn-close-modal" onclick="window.cerrarModalBulkMesas()">×</button>
+            </div>
+            <form id="form-bulk-mesas" onsubmit="window.ejecutarBulkCreate(event)">
+                <div class="premium-modal-body">
+                    <p class="text-muted small">Crea un rango de mesas numérico de forma automática.</p>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold">Desde:</label>
+                            <input type="number" id="bulk-desde" class="form-control" value="1" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold">Hasta:</label>
+                            <input type="number" id="bulk-hasta" class="form-control" value="10" required>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label fw-bold">Capacidad Pax:</label>
+                        <input type="number" id="bulk-capacidad" class="form-control" value="4">
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label fw-bold">Sector:</label>
+                        <select id="bulk-zona" class="form-select sector-select-dropdown" required>
+                            <!-- Se llena dinámicamente -->
+                        </select>
+                    </div>
+                </div>
+                <div class="premium-modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="window.cerrarModalBulkMesas()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Generar Mesas</button>
+                </div>
+            </form>
+        </div>
+    </div>

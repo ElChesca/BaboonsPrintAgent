@@ -6,8 +6,24 @@ import { appState } from '../main.js';
 let categoriasCache = [];
 let itemsMenuCache = [];
 let listasPreciosCache = []; // NUEVO: Cache para listas de precios
-let catSeleccionadaId = 'all';
-let qrcode = null;
+let itemsOriginales = [];
+let itemsFiltrados = [];
+let categoriaActiva = 'all';
+
+let appStateMenu = {
+    viewMode: 'table', 
+    currentPage: 1,
+    pageSize: 50,
+    selectedIds: new Set()
+};
+
+// --- FUNCIÓN DE BLINDAJE PARA SELECCIÓN (Tolerante a tipos) ---
+function estaSeleccionado(id) {
+    if (!id) return false;
+    const sId = String(id);
+    const nId = Number(id);
+    return appStateMenu.selectedIds.has(sId) || (!isNaN(nId) && appStateMenu.selectedIds.has(nId));
+}
 
 export async function inicializarRestoMenu() {
     console.log("🥘 Módulo de Carta Premium Inicializado");
@@ -50,10 +66,52 @@ export async function inicializarRestoMenu() {
     const inputBusqueda = document.getElementById('busqueda-platos');
     if (inputBusqueda) {
         inputBusqueda.oninput = (e) => {
-            const query = e.target.value.toLowerCase();
-            renderizarItems(query);
+            filtrarItems();
         };
     }
+
+    // Bind especial de alineación
+    window.alinearConInventario = alinearConInventario;
+    window.cambiarVista = cambiarVista;
+    window.cambiarPageSize = cambiarPageSize;
+    window.cambiarPagina = cambiarPagina;
+    window.deseleccionarTodo = deseleccionarTodo;
+    
+    // Acciones Masivas
+    window.abrirBulkPrecio = abrirBulkPrecio;
+    window.abrirBulkCategoria = abrirBulkCategoria;
+    window.abrirBulkKDS = abrirBulkKDS;
+    window.aplicarBulkPausa = aplicarBulkPausa;
+}
+
+function cambiarVista(mode) {
+    appStateMenu.viewMode = mode;
+    document.getElementById('view-cards').classList.toggle('active', mode === 'cards');
+    document.getElementById('view-table').classList.toggle('active', mode === 'table');
+    
+    const cardsCont = document.getElementById('items-container');
+    const tableCont = document.getElementById('table-view-container');
+    
+    if (mode === 'cards') {
+        cardsCont.style.display = 'flex';
+        tableCont.style.display = 'none';
+    } else {
+        cardsCont.style.display = 'none';
+        tableCont.style.display = 'block';
+    }
+    renderizarContenido();
+}
+
+function cambiarPageSize(size) {
+    appStateMenu.pageSize = parseInt(size);
+    appStateMenu.currentPage = 1;
+    renderizarContenido();
+}
+
+function cambiarPagina(p) {
+    appStateMenu.currentPage = p;
+    renderizarContenido();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function cargarCategorias() {
@@ -76,7 +134,7 @@ function renderizarTabsCategorias() {
 
     // Tab "Todos"
     const todosWrapper = document.createElement('div');
-    todosWrapper.className = `category-pill-wrapper ${catSeleccionadaId === 'all' ? 'active' : ''}`;
+    todosWrapper.className = `category-pill-wrapper ${categoriaActiva === 'all' ? 'active' : ''}`;
     todosWrapper.innerHTML = `
         <button class="nav-link-premium" onclick="window.filtrarPorCategoria('all')">Todos</button>
     `;
@@ -85,7 +143,7 @@ function renderizarTabsCategorias() {
     // Tabs de Categorías
     categoriasCache.forEach(c => {
         const wrapper = document.createElement('div');
-        wrapper.className = `category-pill-wrapper ${catSeleccionadaId == c.id ? 'active' : ''}`;
+        wrapper.className = `category-pill-wrapper ${categoriaActiva == c.id ? 'active' : ''}`;
 
         const tab = document.createElement('button');
         tab.className = 'nav-link-premium';
@@ -114,6 +172,7 @@ window.editarCategoria = (id) => {
     window.abrirModalCategoria();
     document.getElementById('cat-id').value = cat.id;
     document.getElementById('cat-nombre').value = cat.nombre;
+    document.getElementById('cat-grupo').value = cat.grupo || '';
     document.getElementById('cat-orden').value = cat.orden || 0;
     document.getElementById('cat-estacion').value = cat.estacion || 'cocina';
 };
@@ -129,116 +188,208 @@ function poblarSelectCategorias() {
 }
 
 window.filtrarPorCategoria = (id) => {
-    catSeleccionadaId = id;
+    categoriaActiva = id;
     renderizarTabsCategorias();
-    renderizarItems();
+    filtrarItems();
 };
 
 async function cargarItems() {
-    const idNegocio = appState.negocioActivoId;
     const loading = document.getElementById('loading-menu');
     if (loading) loading.style.display = 'block';
 
     try {
-        itemsMenuCache = await fetchData(`/api/negocios/${idNegocio}/menu/items`);
+        const url = `/api/negocios/${appState.negocioActivoId}/menu/items`;
+        itemsOriginales = await fetchData(url);
         if (loading) loading.style.display = 'none';
-        actualizarEstadisticas();
-        renderizarItems();
+        filtrarItems();
     } catch (error) {
-        console.error(error);
         if (loading) loading.style.display = 'none';
-        mostrarNotificacion('Error al cargar la carta', 'error');
+        mostrarNotificacion(error.message, 'error');
     }
 }
 
-function renderizarItems(queryTerm = '') {
-    const container = document.getElementById('menu-items-container');
+function filtrarItems() {
+    const busqueda = document.getElementById('busqueda-platos')?.value.toLowerCase() || '';
+    
+    itemsFiltrados = itemsOriginales.filter(i => {
+        const matchesCat = categoriaActiva === 'all' || i.categoria_id == categoriaActiva;
+        const matchesSearch = i.nombre.toLowerCase().includes(busqueda) || 
+                             (i.descripcion && i.descripcion.toLowerCase().includes(busqueda));
+        return matchesCat && matchesSearch;
+    });
+
+    appStateMenu.currentPage = 1;
+    renderizarContenido();
+}
+
+function renderizarContenido() {
+    const container = document.getElementById('items-container');
+    const tableBody = document.getElementById('table-items-body');
     const noItems = document.getElementById('no-items');
+    
     if (!container) return;
-
     container.innerHTML = '';
+    if (tableBody) tableBody.innerHTML = '';
 
-    let itemsFiltrados = itemsMenuCache;
+    // Paginación
+    const total = itemsFiltrados.length;
+    const start = (appStateMenu.currentPage - 1) * appStateMenu.pageSize;
+    const end = start + appStateMenu.pageSize;
+    const itemsPagina = itemsFiltrados.slice(start, end);
 
-    // Filtro por categoría
-    if (catSeleccionadaId !== 'all') {
-        itemsFiltrados = itemsFiltrados.filter(i => i.categoria_id == catSeleccionadaId);
-    }
+    actualizarPaginationUI(total, start, end);
+    actualizarEstadisticas();
 
-    // Filtro por búsqueda de texto
-    if (queryTerm) {
-        itemsFiltrados = itemsFiltrados.filter(i => 
-            i.nombre.toLowerCase().includes(queryTerm) || 
-            (i.descripcion && i.descripcion.toLowerCase().includes(queryTerm)) ||
-            (i.sku && i.sku.toLowerCase().includes(queryTerm))
-        );
-    }
-
-    if (itemsFiltrados.length === 0) {
+    if (total === 0) {
         if (noItems) noItems.style.display = 'block';
-    } else {
-        if (noItems) noItems.style.display = 'none';
-        itemsFiltrados.forEach(i => {
-            const col = document.createElement('div');
-            col.className = 'col animate__animated animate__fadeInUp';
+        return;
+    }
+    if (noItems) noItems.style.display = 'none';
 
-            const imgUrl = i.imagen_url || 'static/img/icons/reportes.png';
-            const statusClass = i.disponible ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger';
-            const statusText = i.disponible ? 'Disponible' : 'Pausado';
+    if (appStateMenu.viewMode === 'cards') {
+        renderizarCards(itemsPagina, container);
+    } else if (tableBody) {
+        renderizarTabla(itemsPagina, tableBody);
+    }
 
-            col.innerHTML = `
-                <div class="card menu-card-premium h-100 shadow-sm border-0">
-                    <div class="card-img-wrapper position-relative">
-                        <span class="status-badge ${statusClass}">${statusText}</span>
-                        <img src="${imgUrl}" alt="${i.nombre}" class="w-100 h-100 object-fit-cover" onerror="this.src='/static/img/icons/reportes.png'">
-                        <div class="price-tag shadow-lg">$${parseFloat(i.precio).toLocaleString('es-AR')}</div>
+    // Al final del renderizado, vinculamos los eventos de selección (Patrón Inventario)
+    vincularEventosSeleccionMenu();
+}
+
+function renderizarCards(items, container) {
+    items.forEach(i => {
+        const col = document.createElement('div');
+        col.className = 'col animate__animated animate__fadeInUp';
+
+        const imgUrl = i.imagen_url || 'static/img/icons/reportes.png';
+        const statusClass = i.disponible ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger';
+        const statusText = i.disponible ? 'Activo' : 'Pausado';
+        const isSelected = appStateMenu.selectedIds.has(Number(i.id));
+
+        col.innerHTML = `
+            <div class="card menu-card-compact menu-card h-100 shadow-sm border-0 ${isSelected ? 'selected' : ''}" data-id="${i.id}">
+                <div class="card-img-wrapper position-relative" style="height: 120px;">
+                    <div class="selection-overlay">
+                        <input type="checkbox" class="form-check-input item-check" data-id="${i.id}" ${isSelected ? 'checked' : ''}>
                     </div>
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <div class="flex-grow-1 min-w-0">
-                                <h5 class="fw-800 m-0 text-truncate mb-1" title="${i.nombre}">${i.nombre}</h5>
-                                <div class="d-flex align-items-center gap-1">
-                                    <span class="badge bg-light text-muted fw-600 x-small px-2 border">${i.categoria_nombre}</span>
-                                    ${i.stock_control ? '<span class="badge bg-primary-soft text-primary x-small border border-primary border-opacity-25"><i class="fas fa-boxes"></i> Stock</span>' : ''}
-                                </div>
-                            </div>
-                        </div>
-                        <p class="text-muted small mb-3 lh-sm" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 32px;">
-                            ${i.descripcion || 'Sin descripción detallada.'}
-                        </p>
-                        <div class="d-flex gap-2 border-top pt-3 mt-auto">
-                            <button class="btn-recipe-card" onclick="window.abrirModalReceta(${i.id})" title="Gestionar Receta">
-                                <i class="fas fa-book-open"></i>
-                            </button>
-                            <button class="${i.disponible ? 'btn-pause-card' : 'btn-resume-card'} flex-grow-1" onclick="window.togglePausaItem(${i.id}, ${i.disponible})" title="${i.disponible ? 'Pausar' : 'Reanudar'}">
-                                <i class="fas ${i.disponible ? 'fa-pause' : 'fa-play'} me-2"></i> <span class="small fw-700">${i.disponible ? 'Pausar' : 'Reanudar'}</span>
-                            </button>
-                            <button class="btn-edit-card" onclick="window.editarItem(${i.id})" title="Editar">
-                                <i class="fas fa-pencil-alt"></i>
-                            </button>
-                            <button class="btn-delete-card" onclick="window.eliminarItem(${i.id})" title="Eliminar">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </div>
+                    <span class="status-badge x-small ${statusClass}">${statusText}</span>
+                    <img src="${imgUrl}" alt="${i.nombre}" class="w-100 h-100 object-fit-cover" onerror="this.src='/static/img/icons/reportes.png'">
+                    <div class="price-tag x-small shadow-sm">$${parseFloat(i.precio).toLocaleString('es-AR')}</div>
+                </div>
+                <div class="card-body p-2 d-flex flex-column">
+                    <h6 class="fw-800 m-0 text-truncate mb-1" title="${i.nombre}">${i.nombre}</h6>
+                    <div class="d-flex align-items-center gap-1 mb-2">
+                        <span class="badge bg-light text-muted fw-600 xx-small px-1 border">${i.categoria_nombre}</span>
+                        ${i.producto_id ? '<i class="fas fa-sync text-primary opacity-50 xx-small" title="Sincronizado"></i>' : ''}
+                    </div>
+                    <div class="d-flex gap-1 mt-auto">
+                        <button class="btn btn-xs btn-outline-primary flex-grow-1 btn-action" data-action="receta" data-id="${i.id}" title="Ver Receta">
+                            <i class="fas fa-calculator"></i>
+                        </button>
+                        <button class="btn btn-xs btn-outline-secondary btn-action" data-action="editar" data-id="${i.id}" title="Editar Plato">
+                            <i class="fas fa-pencil-alt"></i>
+                        </button>
                     </div>
                 </div>
-            `;
-            container.appendChild(col);
-        });
+            </div>
+        `;
+        container.appendChild(col);
+    });
+}
+
+function renderizarTabla(items, tableBody) {
+    items.forEach(i => {
+        // Blindaje extra para el renderizado
+        const isSelected = estaSeleccionado(i.id);
+        const row = document.createElement('tr');
+        row.className = `menu-row ${isSelected ? 'table-selected-premium' : ''}`;
+        row.setAttribute('data-id', i.id);
+
+        row.innerHTML = `
+            <td>
+                <div class="form-check custom-check">
+                    <input type="checkbox" class="form-check-input item-check" 
+                           data-id="${i.id}" ${isSelected ? 'checked' : ''}>
+                </div>
+            </td>
+            <td>
+                <img src="${i.imagen_url || '/static/img/icons/reportes.png'}" width="40" height="40" class="rounded object-fit-cover shadow-sm">
+            </td>
+            <td>
+                <div class="fw-800 text-dark mb-0">${i.nombre}</div>
+                <div class="text-muted x-small text-truncate" style="max-width: 250px;">${i.descripcion || 'Sin descripción'}</div>
+            </td>
+            <td><span class="badge bg-light text-muted border">${i.categoria_nombre}</span></td>
+            <td class="fw-800">$${parseFloat(i.precio).toLocaleString('es-AR')}</td>
+            <td>
+                <span class="x-small ${i.destino_kds ? 'fw-800 text-dark' : 'text-muted fst-italic'}" title="${i.destino_kds ? 'Destino personalizado' : 'Heredado de la categoría'}">
+                    ${i.destino_kds || i.categoria_destino || 'Cocina'}
+                </span>
+            </td>
+            <td class="text-center">
+                <span class="badge ${i.disponible ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'} x-small p-1 px-2 rounded-pill">
+                    ${i.disponible ? 'Activo' : 'Pausado'}
+                </span>
+            </td>
+            <td class="text-end">
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-light border btn-action" data-action="receta" data-id="${i.id}" title="Receta"><i class="fas fa-calculator"></i></button>
+                    <button class="btn btn-sm btn-light border btn-action" data-action="editar" data-id="${i.id}" title="Editar"><i class="fas fa-pencil-alt"></i></button>
+                    <button class="btn btn-sm btn-light border text-danger btn-action" data-action="eliminar" data-id="${i.id}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+function actualizarPaginationUI(total, start, end) {
+    const totalPages = Math.ceil(total / appStateMenu.pageSize);
+    const pagRange = document.getElementById('pag-range');
+    const pagTotal = document.getElementById('pag-total');
+    const pagList = document.getElementById('pagination-list');
+    
+    if (pagRange) pagRange.innerText = total > 0 ? `${start + 1}-${Math.min(end, total)}` : '0-0';
+    if (pagTotal) pagTotal.innerText = total;
+    if (pagList) {
+        pagList.innerHTML = '';
+        
+        // Botón Anterior
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${appStateMenu.currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `<button class="page-link" onclick="window.cambiarPagina(${appStateMenu.currentPage - 1})"><i class="fas fa-chevron-left"></i></button>`;
+        pagList.appendChild(prevLi);
+
+        // Páginas (limitado a 5 alrededor de la actual)
+        let startPage = Math.max(1, appStateMenu.currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
+
+        for (let p = startPage; p <= endPage; p++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${p === appStateMenu.currentPage ? 'active' : ''}`;
+            li.innerHTML = `<button class="page-link" onclick="window.cambiarPagina(${p})">${p}</button>`;
+            pagList.appendChild(li);
+        }
+
+        // Botón Siguiente
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${appStateMenu.currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}`;
+        nextLi.innerHTML = `<button class="page-link" onclick="window.cambiarPagina(${appStateMenu.currentPage + 1})"><i class="fas fa-chevron-right"></i></button>`;
+        pagList.appendChild(nextLi);
     }
 }
 
 function actualizarEstadisticas() {
-    const total = itemsMenuCache.length;
-    const activos = itemsMenuCache.filter(i => i.disponible).length;
+    const total = itemsOriginales.length;
+    const activos = itemsOriginales.filter(i => i.disponible).length;
     const pausados = total - activos;
-    // Stock bajo es una estimación si están vinculados
-    const bajoStock = itemsMenuCache.filter(i => i.stock_control && i.cantidad < 5).length;
+    const bajoStock = itemsOriginales.filter(i => i.stock_control && (parseFloat(i.cantidad) || 0) < 5).length;
 
-    document.getElementById('stat-total-platos').innerText = total;
-    document.getElementById('stat-platos-activos').innerText = activos;
-    document.getElementById('stat-platos-pausados').innerText = pausados;
-    document.getElementById('stat-bajo-stock').innerText = bajoStock;
+    if (document.getElementById('stat-total-platos')) document.getElementById('stat-total-platos').innerText = total;
+    if (document.getElementById('stat-platos-activos')) document.getElementById('stat-platos-activos').innerText = activos;
+    if (document.getElementById('stat-platos-pausados')) document.getElementById('stat-platos-pausados').innerText = pausados;
+    if (document.getElementById('stat-bajo-stock')) document.getElementById('stat-bajo-stock').innerText = bajoStock;
 }
 
 // Ventanas globales para modales
@@ -248,6 +399,7 @@ window.abrirModalCategoria = () => {
         modal.style.display = 'flex';
         document.getElementById('form-categoria').reset();
         document.getElementById('cat-id').value = '';
+        document.getElementById('cat-grupo').value = '';
         document.getElementById('cat-estacion').value = 'cocina';
     }
 };
@@ -267,7 +419,8 @@ window.abrirModalItem = async () => {
         document.getElementById('item-stock-control').checked = false;
         document.getElementById('item-producto-vinculo').style.display = 'none';
         
-        // Renderizar inputs para cada lista de precios
+        // Asegurar listas cargadas ANTES de renderizar
+        await cargarListas();
         renderizarInputsPreciosListas();
         
         cargarProductosParaVinculo();
@@ -336,28 +489,51 @@ function renderizarInputsPreciosListas(itemData = null) {
     if (!container) return;
     container.innerHTML = '';
 
-    // Ordenamos para que la lista default vaya siempre primero
-    const listasOrdenadas = [...listasPreciosCache].sort((a, b) => (b.es_default ? 1 : 0) - (a.es_default ? 1 : 0));
+    // Si el cache está vacío por un microsegundo, usamos al menos la Carta Base Virtual
+    let listasAMostrar = [...listasPreciosCache];
+    if (listasAMostrar.length === 0) {
+        console.warn("⚠️ Cache de listas vacío al renderizar. Usando Default Fallback.");
+        listasAMostrar = [{ id: 'base', nombre: 'Carta General', es_default: true }];
+    }
+
+    // Ordenamos: Default primero
+    const listasOrdenadas = listasAMostrar.sort((a, b) => (b.es_default ? 1 : 0) - (a.es_default ? 1 : 0));
 
     listasOrdenadas.forEach(l => {
         let precioVal = '';
         if (itemData) {
             const mapPrecio = (itemData.precios || []).find(p => p.lista_id == l.id);
-            precioVal = mapPrecio ? mapPrecio.precio : (l.es_default ? itemData.precio : '');
+            // Fallback para el ID Base virtual si es el predeterminado
+            const esBaseMap = (l.id === 'base' || l.es_default);
+            
+            // Prioridad: 
+            // 1. Precio específico de la tabla menu_item_precios para esta lista
+            // 2. Si es la lista BASE/Default, usamos el precio maestro del item
+            // 3. Cadena vacía
+            const valFromList = mapPrecio ? mapPrecio.precio : null;
+            const valFromBase = esBaseMap ? (parseFloat(itemData.precio) || 0) : '';
+            precioVal = (valFromList !== null) ? valFromList : valFromBase;
         }
 
         container.innerHTML += `
-            <div class="col-12">
-                <div class="form-group-premium mb-3">
-                    <label class="form-label-premium small ${l.es_default ? 'fw-800 text-primary' : 'opacity-75'}">
-                        ${l.nombre} ${l.es_default ? '(Venta General / Base)' : '(Carta Especial)'}
-                    </label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0 rounded-start-4"><i class="fas fa-tag ${l.es_default ? 'text-primary' : 'text-muted'}"></i></span>
-                        <input type="number" class="form-control-glass ps-2 input-precio-lista" 
+            <div class="col-md-6">
+                <div class="price-list-card ${l.es_default ? 'border-primary' : ''}">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="list-icon-sm ${l.es_default ? 'bg-primary text-white' : 'bg-light text-muted'}">
+                            <i class="fas ${l.es_default ? 'fa-star' : 'fa-list-ul'}"></i>
+                        </div>
+                        <div class="ms-2">
+                            <div class="fw-800 x-small text-dark text-uppercase ls-1">${l.nombre}</div>
+                            <div class="text-muted x-small">${l.es_default ? 'Precio Base' : 'Precio Especial'}</div>
+                        </div>
+                    </div>
+                    <div class="price-input-wrapper">
+                        <span class="currency-symbol">$</span>
+                        <input type="number" 
+                               class="form-control-price input-precio-lista" 
                                data-lista-id="${l.id}" 
                                value="${precioVal}" 
-                               placeholder="${l.es_default ? 'Precio Estándar' : 'Precio Especial'}" 
+                               placeholder="0.00" 
                                step="0.01">
                     </div>
                 </div>
@@ -491,6 +667,7 @@ async function guardarCategoria(e) {
     const id = document.getElementById('cat-id').value;
     const data = {
         nombre: document.getElementById('cat-nombre').value,
+        grupo: document.getElementById('cat-grupo').value.trim() || null,
         orden: parseInt(document.getElementById('cat-orden').value || 0),
         estacion: document.getElementById('cat-estacion').value
     };
@@ -539,6 +716,7 @@ async function guardarItem(e) {
         })?.precio || 0, // El precio base es el de la lista default
         categoria_id: parseInt(document.getElementById('item-categoria').value),
         descripcion: document.getElementById('item-descripcion').value,
+        destino_kds: document.getElementById('item-destino-kds').value.trim() || null,
         imagen_url: document.getElementById('item-imagen').value,
         disponible: document.getElementById('item-disponible').checked,
         stock_control: stockChecked,
@@ -563,8 +741,17 @@ async function guardarItem(e) {
 }
 
 window.editarItem = async (id) => {
-    const item = itemsMenuCache.find(i => i.id === id);
-    if (!item) return;
+    console.log("✏️ window.editarItem llamado con ID:", id, "Tipo:", typeof id);
+    const item = itemsOriginales.find(i => i.id == id);
+    if (!item) {
+        console.warn("⚠️ No se encontró el ítem en itemsOriginales:", id);
+        return;
+    }
+
+    // Asegurar que las listas estén cargadas antes de mostrar el modal
+    if (listasPreciosCache.length === 0) {
+        await cargarListas();
+    }
 
     window.abrirModalItem();
     document.getElementById('modal-item-titulo').innerText = 'Editar Plato';
@@ -572,6 +759,7 @@ window.editarItem = async (id) => {
     document.getElementById('item-nombre').value = item.nombre;
     document.getElementById('item-categoria').value = item.categoria_id;
     document.getElementById('item-descripcion').value = item.descripcion || '';
+    document.getElementById('item-destino-kds').value = item.destino_kds || '';
     document.getElementById('item-imagen').value = item.imagen_url || '';
     document.getElementById('item-disponible').checked = !!item.disponible;
 
@@ -592,15 +780,364 @@ window.editarItem = async (id) => {
     }
 };
 
+async function alinearConInventario() {
+    const result = await Swal.fire({
+        title: '¿Alinear con Inventario?',
+        text: 'Esto sincronizará todos los "Productos Finales" masivamente. Ideal para importar listas de +1000 productos.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, sincronizar todo',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#4361ee'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            // 1. Obtener lista completa
+            Swal.fire({
+                title: 'Analizando Inventario...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            const productos = await fetchData(`/api/negocios/${appState.negocioActivoId}/menu/sync-inventory/list`);
+            
+            if (!productos.length) {
+                return Swal.fire('Sin productos', 'No se encontraron productos de tipo "Final" para sincronizar.', 'info');
+            }
+
+            // 2. Procesar por lotes
+            const batchSize = 50;
+            const total = productos.length;
+            let procesados = 0;
+
+            Swal.fire({
+                title: 'Sincronizando Menú',
+                html: `Procesando <b>0</b> de ${total} productos...<br><br><div class="progress rounded-pill" style="height: 10px;"><div id="sync-progress" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 0%"></div></div>`,
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    // Update function
+                }
+            });
+
+            for (let i = 0; i < total; i += batchSize) {
+                const batch = productos.slice(i, i + batchSize);
+                await sendData(`/api/negocios/${appState.negocioActivoId}/menu/sync-inventory/batch`, { productos: batch }, 'POST');
+                
+                procesados += batch.length;
+                const percent = Math.round((procesados / total) * 100);
+                
+                // Actualizar UI de SweetAlert
+                const progressChild = document.getElementById('sync-progress');
+                if (progressChild) progressChild.style.width = percent + '%';
+                const htmlContainer = Swal.getHtmlContainer();
+                if (htmlContainer) {
+                   const b = htmlContainer.querySelector('b');
+                   if (b) b.innerText = procesados;
+                }
+            }
+
+            await cargarCategorias();
+            await cargarItems();
+            Swal.fire('¡Éxito!', `Se sincronizaron ${total} productos correctamente.`, 'success');
+
+        } catch (error) {
+            Swal.fire('Error', error.message, 'error');
+        }
+    }
+}
+
+// --- SELECCIÓN Y ACCIONES MASIVAS (Mismo motor que Inventario) ---
+function vincularEventosSeleccionMenu() {
+    const checkAll = document.getElementById('check-all-menu');
+    const rowChecks = document.querySelectorAll('.item-check');
+    const menuRows = document.querySelectorAll('.menu-row');
+    const menuCards = document.querySelectorAll('.menu-card');
+
+    if (checkAll) {
+        checkAll.onchange = (e) => {
+            const checked = e.target.checked;
+            rowChecks.forEach(cb => {
+                const id = cb.getAttribute('data-id');
+                cb.checked = checked;
+                if (checked) appStateMenu.selectedIds.add(Number(id));
+                else {
+                    appStateMenu.selectedIds.delete(Number(id));
+                    appStateMenu.selectedIds.delete(String(id));
+                }
+            });
+            actualizarBulkBar();
+            renderizarContenido(); 
+        };
+    }
+
+    rowChecks.forEach(cb => {
+        cb.onchange = (e) => {
+            const id = cb.getAttribute('data-id');
+            const isChecked = e.target.checked;
+            
+            if (isChecked) {
+                appStateMenu.selectedIds.add(Number(id));
+            } else {
+                appStateMenu.selectedIds.delete(Number(id));
+                appStateMenu.selectedIds.delete(String(id));
+                if (checkAll) checkAll.checked = false;
+            }
+            
+            actualizarBulkBar();
+            
+            const container = e.target.closest('.menu-row') || e.target.closest('.menu-card');
+            if (container) {
+                if (isChecked) container.classList.add(appStateMenu.viewMode === 'table' ? 'table-selected-premium' : 'selected');
+                else container.classList.remove('table-selected-premium', 'selected');
+            }
+        };
+    });
+
+    const toggleSelection = (id, element) => {
+        if (!id || !element) return;
+        const isCurrentlySelected = estaSeleccionado(id);
+        const checkbox = element.querySelector('.item-check');
+        
+        if (isCurrentlySelected) {
+            appStateMenu.selectedIds.delete(Number(id));
+            appStateMenu.selectedIds.delete(String(id));
+            if (checkbox) checkbox.checked = false;
+            element.classList.remove('table-selected-premium', 'selected');
+        } else {
+            appStateMenu.selectedIds.add(Number(id));
+            if (checkbox) checkbox.checked = true;
+            element.classList.add(appStateMenu.viewMode === 'table' ? 'table-selected-premium' : 'selected');
+        }
+        actualizarBulkBar();
+    };
+
+    // --- DELEGACIÓN DE EVENTOS (MAESTRO) ---
+    
+    // 1. Delegador para la TABLA
+    const tableBody = document.getElementById('table-items-body');
+    if (tableBody) {
+        tableBody.onclick = (e) => {
+            console.log("🖱️ Tabla clickeada", e.target);
+            const row = e.target.closest('tr');
+            const id = row?.getAttribute('data-id');
+            if (!id) return;
+
+            // Acción de Botón?
+            const btn = e.target.closest('.btn-action');
+            if (btn) {
+                console.log("🎯 Botón de acción detectado", btn.getAttribute('data-action'), id);
+                e.stopPropagation();
+                const action = btn.getAttribute('data-action');
+                if (action === 'editar') {
+                    if (typeof window.editarItem === 'function') window.editarItem(id);
+                    else console.error("❌ window.editarItem no es una función");
+                }
+                else if (action === 'receta') {
+                    if (typeof window.abrirModalReceta === 'function') window.abrirModalReceta(id);
+                    else console.error("❌ window.abrirModalReceta no es una función");
+                }
+                else if (action === 'eliminar') {
+                    if (typeof window.eliminarItem === 'function') window.eliminarItem(id);
+                    else console.error("❌ window.eliminarItem no es una función");
+                }
+                return;
+            }
+
+            // Checkbox?
+            if (e.target.classList.contains('item-check')) {
+                console.log("✅ Checkbox clickeado", id);
+                e.stopPropagation();
+                toggleSelection(id, row);
+                return;
+            }
+
+            // Click en fila (Selección)
+            if (e.target.closest('a') || e.target.closest('button')) return;
+            console.log("📂 Fila seleccionada", id);
+            toggleSelection(id, row);
+        };
+    }
+
+    // 2. Delegador para los CARDS
+    const cardsCont = document.getElementById('items-container');
+    if (cardsCont) {
+        cardsCont.onclick = (e) => {
+            const card = e.target.closest('.menu-card');
+            if (!card) return;
+            const id = card.getAttribute('data-id');
+
+            // Acción de Botón?
+            const btn = e.target.closest('.btn-action');
+            if (btn) {
+                e.stopPropagation();
+                const action = btn.getAttribute('data-action');
+                if (action === 'editar') window.editarItem(id);
+                else if (action === 'receta') window.abrirModalReceta(id);
+                return;
+            }
+
+            // Checkbox?
+            if (e.target.classList.contains('item-check')) {
+                toggleSelection(id, card);
+                return;
+            }
+
+            // Click en tarjeta
+            if (e.target.closest('a') || e.target.closest('button')) return;
+            toggleSelection(id, card);
+        };
+    }
+}
+
+function deseleccionarTodo() {
+    appStateMenu.selectedIds.clear();
+    const master = document.getElementById('check-all-menu');
+    if (master) master.checked = false;
+    actualizarBulkBar();
+    renderizarContenido();
+}
+
+function actualizarBulkBar() {
+    const bar = document.getElementById('bulk-actions-bar');
+    const label = document.getElementById('selected-count');
+    const count = appStateMenu.selectedIds.size;
+    
+    if (count > 0) {
+        bar.style.display = 'block';
+        label.innerText = `${count} seleccionados`;
+    } else {
+        bar.style.display = 'none';
+    }
+}
+
+// === CONFIGURACIÓN PREMIUM SWEETALERT ===
+const swalPremium = {
+    customClass: {
+        popup: 'baboons-swal-popup',
+        title: 'baboons-swal-title',
+        input: 'baboons-swal-input',
+        confirmButton: 'swal-btn-confirm shadow-sm hover-up',
+        cancelButton: 'swal-btn-cancel'
+    },
+    buttonsStyling: false
+};
+
+async function abrirBulkPrecio() {
+    const { value: precio } = await Swal.fire({
+        ...swalPremium,
+        title: 'Actualizar Precios',
+        input: 'text',
+        inputLabel: 'Ej: "+10%" para subir un 10%, "-5%" para bajar, o "2500" para precio fijo.',
+        showCancelButton: true,
+        confirmButtonText: 'Aplicar Cambios',
+        cancelButtonText: 'Cerrar'
+    });
+
+    if (precio) {
+        aplicarBulkUpdate('precio', precio);
+    }
+}
+
+async function abrirBulkCategoria() {
+    console.log("📦 abrirBulkCategoria llamado");
+    if (appStateMenu.selectedIds.size === 0) return mostrarNotificacion('Seleccioná platos primero', 'warning');
+    
+    // Necesitamos las categorías para el select
+    try {
+        const res = await fetchData(`/api/negocios/${appState.negocioActivoId}/menu/categorias`);
+        const inputOptions = {};
+        res.forEach(c => { inputOptions[c.id] = c.nombre; });
+
+        const { value: catId } = await Swal.fire({
+            ...swalPremium,
+            title: 'Mover de Categoría',
+            input: 'select',
+            inputOptions: inputOptions,
+            inputPlaceholder: 'Seleccioná una categoría...',
+            showCancelButton: true,
+            confirmButtonText: 'Mover Seleccionados',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (catId) {
+            aplicarBulkUpdate('categoria_id', catId);
+        }
+    } catch (e) { mostrarNotificacion(e.message, 'error'); }
+}
+
+async function abrirBulkKDS() {
+    if (appStateMenu.selectedIds.size === 0) return mostrarNotificacion('Seleccioná platos primero', 'warning');
+
+    const result = await Swal.fire({
+        ...swalPremium,
+        title: 'Destino KDS',
+        input: 'text',
+        inputLabel: 'Ubicación (Ej: Cocina, Barra, Horno)',
+        inputPlaceholder: 'Dejar vacío para heredar...',
+        showCancelButton: true,
+        confirmButtonText: 'Guardar Destino',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+        aplicarBulkUpdate('destino_kds', result.value.trim() || null);
+    }
+}
+
+async function aplicarBulkPausa(estado) {
+    const result = await Swal.fire({
+        ...swalPremium,
+        title: `¿${estado ? 'Activar' : 'Pausar'} ítems?`,
+        html: `Se procesarán <strong>${appStateMenu.selectedIds.size}</strong> elementos seleccionados.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: estado ? 'Sí, Activar' : 'Sí, Pausar',
+        cancelButtonText: 'Volver'
+    });
+    if (result.isConfirmed) {
+        aplicarBulkUpdate('disponible', estado);
+    }
+}
+
+async function aplicarBulkUpdate(field, value) {
+    Swal.fire({ 
+        ...swalPremium,
+        title: 'Actualizando...', 
+        allowOutsideClick: false, 
+        didOpen: () => Swal.showLoading() 
+    });
+    try {
+        const res = await sendData(`/api/negocios/${appState.negocioActivoId}/menu/bulk-update`, {
+            ids: Array.from(appStateMenu.selectedIds),
+            field, value
+        }, 'POST');
+        
+        mostrarNotificacion(res.message, 'success');
+        deseleccionarTodo();
+        await cargarItems();
+        Swal.close();
+    } catch (e) {
+        Swal.fire({
+            ...swalPremium,
+            title: 'Error', 
+            text: e.message, 
+            icon: 'error',
+            confirmButtonText: 'Entendido'
+        });
+    }
+}
+
 window.eliminarItem = async (id) => {
     const result = await Swal.fire({
-        title: '¿Eliminar ítem de la carta?',
-        text: 'Esta acción quitará el plato/bebida de las opciones de venta.',
+        ...swalPremium,
+        title: '¿Eliminar de la carta?',
+        text: 'Esta acción quitará el plato/bebida de todas las listas de venta.',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#dc3545',
         confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
+        cancelButtonText: 'Mantenlo'
     });
 
     if (result.isConfirmed) {
@@ -621,8 +1158,12 @@ let recetaData = [];
 let insumosDisponiblesCache = [];
 
 window.abrirModalReceta = async (id) => {
-    const item = itemsMenuCache.find(i => i.id === id);
-    if (!item) return;
+    console.log("🧪 window.abrirModalReceta llamado con ID:", id);
+    const item = itemsOriginales.find(i => i.id == id);
+    if (!item) {
+        console.warn("⚠️ No se encontró el ítem para receta en itemsOriginales:", id);
+        return;
+    }
 
     currentItemRecetaId = id;
     document.getElementById('receta-item-nombre').innerText = item.nombre;
@@ -650,12 +1191,15 @@ async function cargarInsumosParaReceta() {
         const todosLosProductos = await fetchData(`/api/negocios/${idNegocio}/productos`, { silent: true });
         
         // 🎯 FILTRO INTELIGENTE MEJORADO:
-        // Buscamos productos que tengan tipo 'insumo' O categoría que empiece con "MP" o "Materia"
+        // Buscamos productos que sean materia_prima O insumo
         insumosDisponiblesCache = todosLosProductos.filter(p => {
+            const tipo = (p.tipo_producto || '').toLowerCase();
+            const esMateriaPrima = tipo === 'materia_prima' || tipo === 'materia prima';
+            const esInsumo = tipo === 'insumo';
             const catNombre = (p.categoria_nombre || '').toLowerCase();
-            const esMateriaPrima = catNombre.includes('materia prima') || catNombre.startsWith('mp');
-            const esInsumo = (p.tipo_producto === 'insumo');
-            return (esMateriaPrima || esInsumo) && p.activo !== false;
+            const esSugeridoCat = catNombre.includes('materia') || catNombre.startsWith('mp');
+            
+            return (esMateriaPrima || esInsumo || esSugeridoCat) && p.activo !== false;
         });
 
         // Ordenamos por nombre
@@ -709,7 +1253,7 @@ function renderizarTablaReceta() {
         row.innerHTML = `
             <td>
                 <div class="fw-700 text-dark">${r.insumo_nombre}</div>
-                <div class="x-small text-muted">Ref: $${parseFloat(r.costo_unitario || 0).toFixed(2)} por ${r.unidad || 'un'}</div>
+                <div class="x-small text-muted">Costo Ref: $${parseFloat(r.costo_unitario || 0).toFixed(2)} / ${r.unidad || 'un'}</div>
             </td>
             <td class="text-center">
                 <span class="badge bg-light text-dark border px-3 py-2 rounded-3 fw-800">${r.cantidad} ${r.unidad || ''}</span>
@@ -727,6 +1271,16 @@ function renderizarTablaReceta() {
     });
 
     labelTotal.innerText = `$${costoTotal.toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
+
+    // Cálculo de utilidad/margen si existe el precio
+    const precioVenta = parseFloat(document.getElementById('receta-item-precio').innerText.replace('$', '').replace(/\./g, '').replace(',', '.'));
+    const marginBox = document.getElementById('receta-profit-margin');
+    if (marginBox) {
+        const utilidad = precioVenta - costoTotal;
+        const porc = precioVenta > 0 ? (utilidad / precioVenta * 100).toFixed(1) : 0;
+        marginBox.innerHTML = `Utilidad: <strong>$${utilidad.toLocaleString('es-AR')} (${porc}%)</strong>`;
+        marginBox.className = utilidad > 0 ? 'text-success small fw-700' : 'text-danger small fw-700';
+    }
 }
 
 async function agregarInsumoAReceta() {
@@ -823,10 +1377,11 @@ async function guardarBranding(e) {
 async function cargarListas() {
     try {
         const idNegocio = appState.negocioActivoId;
-        listasPreciosCache = await fetchData(`/api/negocios/${idNegocio}/menu/listas`);
-        console.log("✅ Listas de precios cargadas:", listasPreciosCache.length);
+        console.log("📡 Cargando listas para negocio:", idNegocio);
+        listasPreciosCache = await fetchData(`/api/negocios/${idNegocio}/menu/listas`, { silent: true });
+        console.log("✅ Listas de precios cargadas con éxito:", listasPreciosCache);
     } catch (error) {
-        console.error("Error cargando listas:", error);
+        console.error("❌ Error cargando listas:", error);
     }
 }
 
@@ -867,15 +1422,19 @@ window.renderizarListasGestion = () => {
     });
 };
 
-window.crearNuevaLista = async () => {
-    const nombre = document.getElementById('nueva-lista-nombre').value;
+window.crearNuevaLista = async (mode = 'standard') => {
+    const inputId = mode === 'setup' ? 'nueva-lista-nombre-setup' : 'nueva-lista-nombre';
+    const nombre = document.getElementById(inputId).value;
     if (!nombre) return mostrarNotificacion("Ingresá un nombre para la lista", "warning");
 
     try {
         const res = await sendData(`/api/negocios/${appState.negocioActivoId}/menu/listas`, { nombre }, 'POST');
         mostrarNotificacion("Lista creada con éxito", "success");
-        document.getElementById('nueva-lista-nombre').value = '';
+        document.getElementById(inputId).value = '';
         await cargarListas();
+        if (mode === 'setup') {
+            // Si estuviéramos en el modal setup, refrescaríamos su lista específica si existiera
+        }
         window.renderizarListasGestion();
     } catch (error) {
         mostrarNotificacion(error.message, "error");
@@ -919,7 +1478,17 @@ document.getElementById('form-editar-lista').onsubmit = async (e) => {
 };
 
 window.eliminarLista = async (id) => {
-    if (!confirm("¿Estás seguro de eliminar esta lista? Los precios especiales guardados se perderán.")) return;
+    const result = await Swal.fire({
+        ...swalPremium,
+        title: '¿Eliminar lista?',
+        text: "Los precios especiales guardados en esta lista se perderán permanentemente.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
     
     try {
         await sendData(`/api/negocios/${appState.negocioActivoId}/menu/listas/${id}`, {}, 'DELETE');

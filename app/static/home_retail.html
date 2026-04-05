@@ -1,139 +1,29 @@
-<div class="app-dashboard">
-    <h2 class="dashboard-title">Mis Aplicaciones</h2>
-    <div class="app-grid">
-
-        <div class="app-card" onclick="loadContent(event, 'static/dashboard.html', this)">
-            <img src="/static/img/icons/dashboard.png" alt="Dashboard" class="app-icon">
-            <span class="app-name">Dashboard</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/Club/club_puntos.html', this)">
-            <img src="/static/img/icons/club.png" alt="Club Puntos" class="app-icon"
-                onerror="this.src='/static/img/icons/configuracion.png'">
-            <span class="app-name">Club-Terminal de Carga</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/Club/club_gestion.html', this)">
-            <img src="/static/img/icons/premios.png" alt="Gestión Club" class="app-icon"
-                onerror="this.src='/static/img/icons/configuracion.png'">
-            <span class="app-name">Gestion Club</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/pos.html', this)">
-            <img src="/static/img/icons/ventas.png" alt="POS" class="app-icon" style="filter: hue-rotate(45deg);">
-            <span class="app-name" style="font-weight: bold;">Caja Rápida (POS)</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/ventas.html', this)">
-            <img src="/static/img/icons/ventas.png" alt="Ventas" class="app-icon">
-            <span class="app-name">Ventas</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/caja.html', this)">
-            <img src="/static/img/icons/caja.png" alt="Caja" class="app-icon">
-            <span class="app-name">Caja</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/presupuestos.html', this)">
-            <img src="/static/img/icons/presupuesto.png" alt="Presupuestos" class="app-icon">
-            <span class="app-name">Presupuestos</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/inventario.html', this)">
-            <img src="/static/img/icons/inventario.png" alt="Inventario" class="app-icon">
-            <span class="app-name">Inventario</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/clientes.html', this)">
-            <img src="/static/img/icons/clientes.png" alt="Clientes" class="app-icon">
-            <span class="app-name">Clientes</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/proveedores.html', this)">
-            <img src="/static/img/icons/proveedor.png" alt="Proveedores" class="app-icon">
-            <span class="app-name">Proveedores</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/payments.html', this)">
-            <img src="/static/img/icons/payments.png" alt="Pagos Prov." class="app-icon">
-            <span class="app-name">Pago Proveed.</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/gastos.html', this)">
-            <img src="/static/img/icons/gastos.png" alt="Gastos Operativos" class="app-icon">
-            <span class="app-name">Gastos Operativos</span>
-        </div>
-
-        <div class="app-card" onclick="loadContent(event, 'static/bancos.html', this)">
-            <img src="/static/img/icons/bancos.png" alt="Bancos y Cheques" class="app-icon"
-                onerror="this.src='/static/img/icons/payments.png'">
-            <span class="app-name">🏦 Bancos / Cheques</span>
-        </div>
-
-
-        <div class="app-card" onclick="loadContent(event, 'static/ingresos.html', this)">
-            <img src="/static/img/icons/ingresos.png" alt="Ingresos" class="app-icon">
-            <span class="app-name">Ingresos de Stock</span>
-        </div>
-        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/inventario_movil.html', this)">
-            <img src="/static/img/icons/inventariomovil.png" alt="Inventario Móvil" class="app-icon">
-            <span class="app-name">Ajuste Inventario Móvil</span>
-        </div>
-        <div class="app-card elemento-rol" onclick="loadContent(event, 'static/verificador.html', this)">
-            <img src="/static/img/icons/verificador.png" alt="Verificador de Precios" class="app-icon">
-            <span class="app-name">Verificador Precios</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/crm_social/crm_social.html', this)">
-            <img src="/static/img/icons/clientes.png" alt="CRM & Redes" class="app-icon"
-                onerror="this.src='/static/img/icons/configuracion.png'">
-            <span class="app-name">CRM & Redes</span>
-        </div>
-    </div>
+<!-- Home Retail - Final Dynamic (Contrast Optimized) -->
+<div class="glass-bg-container">
+    <div class="glass-bg-circle" style="width: 50vw; height: 50vw; background: #6366f1; top: -15vh; right: -15vw;"></div>
+    <div class="glass-bg-circle" style="width: 40vw; height: 40vw; background: #a21caf; bottom: -15vh; left: -15vw; animation-delay: -3s;"></div>
 </div>
 
-<div class="app-dashboard" style="padding-top: 15px;">
-    <h2 class="dashboard-title">Configuración y Reportes</h2>
+<div class="app-dashboard">
+    <h2 class="dashboard-title">🛍️ Centro Retail</h2>
+    
+    <h3 class="dashboard-section-title">Ventas y Facturación</h3>
+    <div class="app-grid" data-category="operaciones">
+        <!-- Poblado dinámicamente -->
+    </div>
 
-    <!-- Este contenedor SÍ es admin-only (lo ven admin y superadmin) -->
-    <div class="app-grid admin-only">
+    <h3 class="dashboard-section-title">Gestión y Abastecimiento</h3>
+    <div class="app-grid" data-category="administrativo">
+        <!-- Poblado dinámicamente -->
+    </div>
 
-        <div class="app-card" onclick="loadContent(event, 'static/configuracion.html', this)">
-            <img src="/static/img/icons/configuracion.png" alt="Configuracion y Reglas de Negocio" class="app-icon">
-            <span class="app-name">Conf. y Reglas</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/categorias.html', this)">
-            <img src="/static/img/icons/categorias.png" alt="Categorias de Productos" class="app-icon">
-            <span class="app-name">Categorias Prod.</span>
-        </div>
+    <h3 class="dashboard-section-title">Reportes y Analítica</h3>
+    <div class="app-grid" data-category="reportes">
+        <!-- Poblado dinámicamente -->
+    </div>
 
-        <div class="app-card" onclick="loadContent(event, 'static/historial_inventario.html', this)">
-            <img src="/static/img/icons/historial_inventario.png" alt="Historial Inventario" class="app-icon">
-            <span class="app-name">Historial Inventario</span>
-        </div>
-
-        <div class="app-card" onclick="loadContent(event, 'static/listas_precios.html', this)">
-            <img src="/static/img/icons/price_list.png" alt="Listas de Precios" class="app-icon">
-            <span class="app-name">Listas de Precios</span>
-        </div>
-
-        <div class="app-card" onclick="loadContent(event, 'static/precios_especificos.html', this)">
-            <img src="/static/img/icons/precios_especificos.png" alt="Precios Especificos" class="app-icon">
-            <span class="app-name">Precios Especificos</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/unidades_medida.html', this)">
-            <img src="/static/img/icons/unidadesdemedida.png" alt="Unidades de Medida" class="app-icon">
-            <span class="app-name">Unidades de Medida</span>
-        </div>
-        <div class="app-card" onclick="loadContent(event, 'static/gastos_categorias.html', this)">
-            <img src="/static/img/icons/gastos_categorias.png" alt="Categoria de Gastos" class="app-icon">
-            <span class="app-name">Categorias de Gastos</span>
-        </div>
-
-        <div class="app-card" onclick="loadContent(event, 'static/eventos.html', this)">
-            <img src="/static/img/icons/club.png" alt="Eventos" class="app-icon" style="filter: hue-rotate(290deg);">
-            <span class="app-name">Gestión de Eventos</span>
-        </div>
-        <!-- Tarjeta "Usuarios" - Debe ser admin-only -->
-        <div class="app-card admin-only" onclick="loadContent(event, 'static/usuarios.html', this)">
-            <img src="/static/img/icons/usuarios.png" alt="Usuarios" class="app-icon">
-            <span class="app-name">Usuarios</span>
-        </div>
-
-        <!-- Tarjeta "Negocios" - SOLO para superadmin -->
-        <div class="app-card superadmin-only" onclick="loadContent(event, 'static/negocios.html', this)">
-            <img src="/static/img/icons/negocios.png" alt="Negocios" class="app-icon">
-            <span class="app-name">Negocios</span>
-        </div>
-
-
+    <h3 class="dashboard-section-title admin-only">Configuración de Sucursal</h3>
+    <div class="app-grid admin-only" data-category="reglas">
+        <!-- Poblado dinámicamente -->
     </div>
 </div>

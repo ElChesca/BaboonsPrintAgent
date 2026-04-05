@@ -1,4 +1,5 @@
 <link rel="stylesheet" href="/static/css/inventario.css">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
 <div class="card">
     <div class="inventario-header">
@@ -10,21 +11,36 @@
         </div>
     </div>
 
-    <div class="form-group" style="margin-top: 15px; display: flex; gap: 10px;">
-        <input type="text" id="buscador-productos" placeholder="Buscar por nombre, SKU o código de barras..."
-            style="flex: 1;">
-        <select id="filtro-ubicacion" class="form-select"
-            style="width: auto; padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
-            <option value="all">Todas las Ubicaciones</option>
-            <option value="Depósito 1">Depósito 1</option>
-            <option value="Depósito 2">Depósito 2</option>
-        </select>
-        <select id="filtro-estado" class="form-select"
-            style="width: auto; padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
-            <option value="activos" selected>Activos</option>
-            <option value="inactivos">Inactivos</option>
-            <option value="todos">Todos</option>
-        </select>
+    <div class="premium-filter-bar">
+        <div class="search-wrapper">
+            <i class="fas fa-search"></i>
+            <input type="text" id="buscador-productos" placeholder="Buscar por nombre, SKU o código de barras...">
+        </div>
+        
+        <div class="filter-item">
+            <i class="fas fa-folder-open"></i>
+            <select id="filtro-categoria" class="premium-select">
+                <option value="all">Todas las Categorías</option>
+            </select>
+        </div>
+
+        <div class="filter-item">
+            <i class="fas fa-map-marker-alt"></i>
+            <select id="filtro-ubicacion" class="premium-select">
+                <option value="all">Todas las Ubicaciones</option>
+                <option value="Depósito 1">Depósito 1</option>
+                <option value="Depósito 2">Depósito 2</option>
+            </select>
+        </div>
+
+        <div class="filter-item">
+            <i class="fas fa-toggle-on"></i>
+            <select id="filtro-estado" class="premium-select">
+                <option value="activos" selected>Activos</option>
+                <option value="inactivos">Inactivos</option>
+                <option value="todos">Todos</option>
+            </select>
+        </div>
     </div>
     <div id="productos-summary" class="productos-summary">
         Cargando resumen...
@@ -37,6 +53,7 @@
         </div>
         <div class="bulk-buttons">
             <button id="btn-bulk-categoria" class="btn-info btn-sm">📁 Cambiar Categoría</button>
+            <button id="btn-bulk-tipo" class="btn-primary btn-sm">🏷️ Cambiar Tipo</button>
             <button id="btn-bulk-borrar" class="btn-danger btn-sm">🗑️ Eliminar</button>
             <button id="btn-bulk-cancelar" class="btn-secondary btn-sm">Cancelar</button>
         </div>
@@ -68,17 +85,20 @@
 
             <div class="modal-body">
                 <div class="form-grid">
+                    <!-- SECTION: INFORMACIÓN GENERAL -->
+                    <div class="form-section-title">Información General</div>
+                    
                     <div class="form-group">
                         <label for="producto-nombre">Nombre del Producto:</label>
-                        <input type="text" id="producto-nombre" required>
+                        <input type="text" id="producto-nombre" placeholder="Ej: Pizza Napolitana" required>
                     </div>
                     <div class="form-group">
-                        <label for="producto-alias">Alias (para POS):</label>
-                        <input type="text" id="producto-alias" placeholder="Nombre corto o alternativo">
+                        <label for="producto-alias">Alias (POS):</label>
+                        <input type="text" id="producto-alias" placeholder="Nombre corto">
                     </div>
                     <div class="form-group">
-                        <label for="producto-sku">SKU (Cód. Interno):</label>
-                        <input type="text" id="producto-sku">
+                        <label for="producto-sku">SKU / Cód. Interno:</label>
+                        <input type="text" id="producto-sku" placeholder="Ej: COC-001">
                     </div>
                     <div class="form-group">
                         <label for="producto-categoria">Categoría:</label>
@@ -87,69 +107,81 @@
                     <div class="form-group">
                         <label for="producto-tipo">Tipo de Producto:</label>
                         <select id="producto-tipo">
-                            <option value="final">Producto Final (Venta)</option>
-                            <option value="insumo">Materia Prima / Insumo (Receta)</option>
+                            <option value="producto_final">Producto Final (Venta)</option>
+                            <option value="materia_prima">Materia Prima / Receta</option>
+                            <option value="insumo">Insumo General</option>
                         </select>
                     </div>
+
+                    <!-- SECTION: PRECIOS Y STOCK -->
+                    <div class="form-section-title">Precios y Stock</div>
+                    
                     <div class="form-group">
-                        <label for="producto-ubicacion">Ubicación (Depósito):</label>
-                        <select id="producto-ubicacion">
-                            <option value="Depósito 1">Depósito 1</option>
-                            <option value="Depósito 2">Depósito 2</option>
-                        </select>
+                        <label for="producto-precio-venta">Precio de Venta ($):</label>
+                        <input type="number" id="producto-precio-venta" step="0.01" value="0" required>
                     </div>
-                    <div class="form-group">
-                        <label for="producto-proveedor">Proveedor:</label>
-                        <select id="producto-proveedor"></select>
-                    </div>
-                    <div class="form-group">
-                        <label for="producto-stock">Stock:</label>
-                        <input type="number" id="producto-stock" step="any" value="0">
-                    </div>
-                    <div class="form-group">
-                        <label for="producto-stock-minimo">Stock Mínimo:</label>
-                        <input type="number" id="producto-stock-minimo" step="1" value="0">
-                    </div>
-                    <!-- ✨ NUEVOS CAMPOS LOGÍSTICA -->
-                    <div class="form-group">
-                        <label for="producto-peso">Peso (Kg):</label>
-                        <input type="number" id="producto-peso" step="0.01" value="0" placeholder="Ej: 1.5">
-                    </div>
-                    <div class="form-group">
-                        <label for="producto-volumen">Volumen (m³):</label>
-                        <input type="number" id="producto-volumen" step="0.001" value="0" placeholder="Ej: 0.005">
+                    <div class="form-group admin-only">
+                        <label for="producto-precio-costo">Precio de Costo ($):</label>
+                        <input type="number" id="producto-precio-costo" step="0.01" value="0">
                     </div>
                     <div class="form-group">
                         <label for="producto-unidad-medida">Unidad de Medida:</label>
                         <select id="producto-unidad-medida"></select>
                     </div>
                     <div class="form-group">
+                        <label for="producto-stock">Stock Actual:</label>
+                        <input type="number" id="producto-stock" step="any" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="producto-stock-minimo">Stock Mínimo:</label>
+                        <input type="number" id="producto-stock-minimo" step="0.01" value="0">
+                    </div>
+
+                    <!-- SECTION: LOGÍSTICA (OCULTA EN RESTO) -->
+                    <div class="form-section-title solo-distribuidora">Logística e Identificación</div>
+                    
+                    <div class="form-group solo-distribuidora">
+                        <label for="producto-ubicacion">Ubicación (Depósito):</label>
+                        <select id="producto-ubicacion">
+                            <option value="Depósito 1">Depósito 1</option>
+                            <option value="Depósito 2">Depósito 2</option>
+                        </select>
+                    </div>
+                    <div class="form-group solo-distribuidora">
+                        <label for="producto-proveedor">Proveedor Preferido:</label>
+                        <select id="producto-proveedor"></select>
+                    </div>
+                    <div class="form-group solo-distribuidora">
+                        <label for="producto-peso">Peso (Kg):</label>
+                        <input type="number" id="producto-peso" step="0.01" value="0">
+                    </div>
+                    <div class="form-group solo-distribuidora">
+                        <label for="producto-volumen">Volumen (m³):</label>
+                        <input type="number" id="producto-volumen" step="0.001" value="0">
+                    </div>
+                    <div class="form-group solo-distribuidora">
                         <label for="producto-codigo-barras">Código de Barras:</label>
-                        <input type="text" id="producto-codigo-barras">
+                        <input type="text" id="producto-codigo-barras" placeholder="EAN-13">
                     </div>
-                    <div class="form-group admin-only">
-                        <label for="producto-precio-costo">Precio de Costo:</label>
-                        <input type="number" id="producto-precio-costo" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="producto-precio-venta">Precio de Venta:</label>
-                        <input type="number" id="producto-precio-venta" step="0.01" required>
-                    </div>
-                    <div class="form-group">
+
+                    <!-- SECTION: MEDIA -->
+                    <div class="form-section-title">Imagen y Multimedia</div>
+                    <div class="form-group" style="grid-column: span 2;">
                         <label for="producto-imagen">Imagen del Producto:</label>
                         <input type="file" id="producto-imagen" accept="image/*">
-                        <div id="producto-imagen-preview" class="img-preview" style="display: none;">
-                            <img src="" alt="Vista previa" style="max-height: 200px; object-fit: contain;">
-                            <button type="button" id="btn-eliminar-foto" class="btn-danger btn-sm" style="width: 100%;">
-                                <i class="fas fa-trash-alt"></i> Eliminar Foto
-                            </button>
-                        </div>
+                    </div>
+                    <div id="producto-imagen-preview" class="img-preview" style="display: none;">
+                        <img src="" alt="Vista previa">
+                        <button type="button" id="btn-eliminar-foto" class="btn-danger btn-sm" style="width: 100%; margin-top: 10px;">
+                            <i class="fas fa-trash-alt"></i> Eliminar Foto
+                        </button>
                     </div>
                 </div>
             </div>
 
             <div class="form-actions">
-                <button type="submit" class="btn-primary">Guardar</button>
+                <button type="button" class="btn-secondary" onclick="document.getElementById('modal-producto').style.display='none'">Cancelar</button>
+                <button type="submit" class="btn-primary-premium">Guardar Producto</button>
             </div>
         </form>
     </div>
@@ -171,15 +203,14 @@
             <blockquote class="instrucciones-importar">
                 <strong>Instrucciones:</strong>
                 <ul>
-                    <li>El archivo puede ser formato **CSV** (`;`) o **Excel** (`.xlsx`).</li>
-                    <li>Columnas **requeridas**: <code>Nombre</code>, <code>SKU</code>, <code>Precio_Venta</code>.</li>
-                    <li>Columnas **opcionales**: <code>Stock</code>, <code>Precio_Costo</code>,
-                        <code>Stock_Minimo</code>, <code>Categoria</code>, <code>Proveedor</code>,
-                        <code>Codigo_Barras</code>, <code>Alias</code>, <code>Unidad_Medida</code>.
+                    <li>El archivo debe ser formato **Excel** (`.xlsx`) como el proporcionado.</li>
+                    <li>Columnas detectadas: <code>Categoría</code>, <code>Producto</code>, <code>Alias</code>, <code>SKU</code>, <code>Stock</code>, <code>Unidad</code>, <code>Precio Base</code>.</li>
+                    <li><strong>IMPORTANTE:</strong> Debes añadir manualmente la columna <code>Tipo</code> con los valores:
+                        <br>- <code>materia_prima</code> (Ingredientes)
+                        <br>- <code>producto_final</code> (Venta directa)
+                        <br>- <code>insumo</code> (Descartables)
                     </li>
-                    <li>Los nombres de <code>Categoría</code> y <code>Proveedor</code> deben existir previamente en el
-                        sistema.</li>
-                    <li>Si un <code>SKU</code> ya existe, el producto se **actualizará**. Si no, se **creará**.</li>
+                    <li>Si el <code>SKU</code> o <code>Nombre</code> ya existe, el producto se **actualizará**.</li>
                 </ul>
                 <a href="/static/templates/plantilla_productos.csv" download>Descargar Plantilla CSV</a>
             </blockquote>
@@ -190,7 +221,20 @@
         </form>
 
         <div id="importar-feedback" class="importar-feedback">
-            <div class="loader-spinner" id="importar-loader"></div>
+            <div id="importar-loader" class="loader" style="display:none; margin: 10px auto;"></div>
+            
+            <!-- BARRA DE PROGRESO -->
+            <div id="importar-progreso-container" style="display:none; margin: 15px 0;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span id="importar-progreso-texto" style="font-size: 0.85rem; font-weight: bold;">Procesando...</span>
+                    <span id="importar-progreso-porcentaje" style="font-size: 0.85rem; font-weight: bold;">0%</span>
+                </div>
+                <div class="progress" style="height: 10px; background-color: #e9ecef; border-radius: 5px; overflow: hidden;">
+                    <div id="importar-progreso-barra" class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" style="width: 0%; height: 100%; background-color: #0d6efd; transition: width 0.3s ease;"></div>
+                </div>
+            </div>
+
             <p id="importar-feedback-texto"></p>
         </div>
     </div>
@@ -320,6 +364,30 @@
             </div>
             <div class="form-actions" style="margin-top: 20px;">
                 <button id="btn-confirmar-bulk-categoria" class="btn-primary">Actualizar Todos</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Cambio Masivo de Tipo -->
+<div id="modal-bulk-tipo" class="baboons-modal">
+    <div class="baboons-modal-content small">
+        <div class="baboons-modal-header">
+            <h3>Cambiar Tipo de Producto Masivamente</h3>
+            <span id="close-modal-bulk-tipo" class="close-button">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>Seleccione el nuevo tipo para los productos seleccionados:</p>
+            <div class="form-group">
+                <label for="bulk-nuevo-tipo">Nuevo Tipo:</label>
+                <select id="bulk-nuevo-tipo" class="form-select">
+                    <option value="producto_final">Producto Final (Venta)</option>
+                    <option value="materia_prima">Materia Prima / Receta</option>
+                    <option value="insumo">Insumo General</option>
+                </select>
+            </div>
+            <div class="modal-footer" style="margin-top: 20px;">
+                <button id="btn-confirmar-bulk-tipo" class="btn-primary">Actualizar Todos</button>
             </div>
         </div>
     </div>

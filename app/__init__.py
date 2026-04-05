@@ -51,7 +51,7 @@ def create_app():
                         historial_inventario_routes, precios_especificos_routes, mobile_routes, \
                         payments_routes, gastos_routes, consorcio_routes, club_puntos_routes, \
                         pedidos_routes, logistica_routes, eventos_routes, \
-                        resto_routes, reservas_routes, bancos_routes
+                        resto_routes, reservas_routes, bancos_routes, ctacte_routes, compras_routes
     from .crm_social import bp as crm_bp
     from .crm_social import leads_routes
     from .rentals import routes as rentals_routes
@@ -79,7 +79,7 @@ def create_app():
         (mercado_pago_routes.bp, '/api'), (agente_facturacion_routes.bp, '/api'),
         (eventos_routes.bp, ''), (tickets_routes.bp, '/api'),
         (resto_routes.bp, '/api'), (reservas_routes.bp, '/api'),
-        (bancos_routes.bp, '/api')
+        (bancos_routes.bp, '/api'), (ctacte_routes.bp, '/api'), (compras_routes.bp, '/api')
     ]
     for bp, prefix in blueprints:
         app.register_blueprint(bp, url_prefix=prefix)
@@ -159,9 +159,10 @@ def create_app():
         app.logger.info("[Agente Facturación] 🚀 Scheduler iniciado — job diario 11:05 AM ARG")
 
     # --- CLI Commands ---
-    from .commands import init_crm_db_command, init_rentals_db_command
+    from .commands import init_crm_db_command, init_rentals_db_command, init_compras_db_command
     app.cli.add_command(init_crm_db_command)
     app.cli.add_command(init_rentals_db_command)
+    app.cli.add_command(init_compras_db_command)
 
     # =================================================================
     # ✨ NUEVA RUTA APP CLUB (Cliente) - OPCIÓN B (Static fuera de App)
@@ -281,6 +282,75 @@ def create_app():
             
         except Exception as e:
             app.logger.error(f"Error sirviendo carta digital: {e}")
+            return f"Error configurando ruta: {e}", 500
+
+    # =================================================================
+    # ✨ NUEVA RUTA PORTAL DE RESERVAS (PÚBLICO)
+    # =================================================================
+    @app.route('/reservas')
+    def serve_public_reservas():
+        try:
+            token = request.args.get('t')
+            # Fallback a ID numérico para compatibilidad previa (opcional, pero mejor forzar token)
+            negocio_id = request.args.get('id')
+            
+            og_title = "Reservar Mesa | Baboons"
+            og_image = f"{request.url_root}static/img/logo_baboons.png"
+            negocio_data = {}
+
+            db = get_db()
+            try:
+                if token:
+                    db.execute("SELECT id, nombre, logo_url_resto FROM negocios WHERE reserva_token = %s", (token,))
+                elif negocio_id:
+                    db.execute("SELECT id, nombre, logo_url_resto FROM negocios WHERE id = %s", (negocio_id,))
+                else:
+                    return "Link de reserva inválido (Falta Token)", 400
+
+                row = db.fetchone()
+                if row:
+                    negocio_data = dict(row)
+                    og_title = f"Reserva tu mesa en {row['nombre']}"
+                    if row['logo_url_resto']:
+                        img_path = row['logo_url_resto']
+                        if img_path.startswith('http'):
+                            og_image = img_path
+                        else:
+                            og_image = request.url_root.rstrip('/') + (img_path if img_path.startswith('/') else '/' + img_path)
+                else:
+                    return "Negocio no encontrado", 404
+
+            except Exception as e:
+                app.logger.error(f"Error buscando negocio para Reserva: {e}")
+
+            # Lógica Multitenant: Buscar template específico o genérico
+            resto_dir = os.path.join(app.root_path, 'static', 'Resto')
+            
+            # 1. Intentar buscar por ID de negocio (ej: reservas_13.html)
+            specific_file = f"reservas_{negocio_data.get('id')}.html"
+            file_path = os.path.join(resto_dir, specific_file)
+            
+            # 2. Si no existe, usar el genérico
+            if not os.path.exists(file_path):
+                file_path = os.path.join(resto_dir, 'reservas_publico.html')
+            
+            if not os.path.exists(file_path):
+                return "Portal de reservas en mantenimiento (E01)", 503
+
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            return render_template_string(
+                content, 
+                negocio=negocio_data, 
+                token=token or "",
+                negocio_id=negocio_data.get('id', ""),
+                og_title=og_title, 
+                og_image=og_image
+            )
+            
+        except Exception as e:
+            app.logger.error(f"Error sirviendo portal de reservas: {e}")
             return f"Error configurando ruta: {e}", 500
 
     # --- RUTA CATCH-ALL (Debe ir AL FINAL) ---

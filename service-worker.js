@@ -4,8 +4,13 @@
 // ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
 // ✨ ¡DEBE SER IDÉNTICA a la de tu main.js!
 // ✨ ========================================================================
-const APP_VERSION = "1.6.0";
+const APP_VERSION = "1.6.6";
 // HISTORIAL DE VERSIONES:
+// 1.6.6: Fix Resto pre-bill formatting and auto-start guide.
+// 1.6.5: Final contrast fixes on header buttons.
+// 1.6.4: Fix Navbar dropdown hover gap.
+// 1.6.3: High contrast buttons and Config Guide.
+// 1.6.2: Fix printing module and agent status.
 // 1.6.0: Fix fetchData global and SW auto-update
 // 1.5.9: Fix login_secure cache and centering
 // 1.5.8: Force Refresh Historial Ajustes

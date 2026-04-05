@@ -7,9 +7,18 @@ import { getCurrentUser } from './auth.js';
 let pendingItems = [];
 let kdsInterval = null;
 let estacionActual = 'cocina';
+let viewMode = 'grid'; // 'grid' o 'kanban'
+let unifyByTable = false;
 
 export async function inicializarRestoCocina() {
     console.log("🔥 Monitor de Producción KDS Inicializado...");
+    
+    // Cargar preferencias guardadas
+    viewMode = localStorage.getItem('kds_view_mode') || 'grid';
+    unifyByTable = localStorage.getItem('kds_unify_tables') === 'true';
+
+    // Actualizar UI de botones
+    actualizarBotonesVista();
 
     // Display cocinero name
     const user = getCurrentUser();
@@ -24,6 +33,35 @@ export async function inicializarRestoCocina() {
     // Loop
     startKDSPolling();
 }
+
+function actualizarBotonesVista() {
+    document.querySelectorAll('.kds-view-btn').forEach(btn => btn.classList.remove('active'));
+    
+    if (viewMode === 'grid') document.getElementById('btn-view-grid')?.classList.add('active');
+    if (viewMode === 'kanban') document.getElementById('btn-view-kanban')?.classList.add('active');
+    
+    const btnUnify = document.getElementById('btn-unify-tables');
+    if (btnUnify) {
+        if (unifyByTable) btnUnify.classList.add('active');
+        else btnUnify.classList.remove('active');
+    }
+}
+
+export function cambiarVistaKDS(mode) {
+    viewMode = mode;
+    localStorage.setItem('kds_view_mode', mode);
+    actualizarBotonesVista();
+    renderKDS();
+}
+window.cambiarVistaKDS = cambiarVistaKDS;
+
+export function toggleUnificarMesas() {
+    unifyByTable = !unifyByTable;
+    localStorage.setItem('kds_unify_tables', unifyByTable);
+    actualizarBotonesVista();
+    renderKDS();
+}
+window.toggleUnificarMesas = toggleUnificarMesas;
 
 export function cambiarEstacion(nueva) {
     estacionActual = nueva;
@@ -89,41 +127,84 @@ function renderKDS() {
         return;
     }
 
-    // Group items by comanda_id
+    // --- PROCESAMIENTO Y AGRUPACIÓN ---
     const groups = {};
     pendingItems.forEach(item => {
-        if (!groups[item.comanda_id]) {
-            groups[item.comanda_id] = {
-                id: item.comanda_id,
+        // La clave de agrupación depende de si unificamos por mesa o por comanda suelta
+        const key = unifyByTable ? `mesa-${item.mesa_numero}` : `comanda-${item.comanda_id}`;
+        
+        if (!groups[key]) {
+            groups[key] = {
+                id: key,
+                comanda_id: item.comanda_id,
                 mesa: item.mesa_numero,
                 pax: item.num_comensales,
                 openedAt: new Date(item.pedido_fecha).getTime(),
                 mozo: item.mozo_nombre || 'Mozo',
                 items: [],
-                status: 'pending'
+                status: 'pending' // 'pending' o 'cooking'
             };
         }
-        groups[item.comanda_id].items.push(item);
+        // Consolidación de items por producto para vista unificada
+        const productKey = `${item.producto_id}-${item.detalle_estado}`;
+        let existingItem = groups[key].items.find(i => `${i.producto_id}-${i.detalle_estado}` === productKey);
         
-        if (item.detalle_estado === 'cocinando') {
-            groups[item.comanda_id].status = 'cooking';
+        if (unifyByTable && existingItem) {
+            existingItem.cantidad = parseFloat(existingItem.cantidad) + parseFloat(item.cantidad);
+            // Guardamos el detalle_id original para poder actualizarlo luego
+            if (!existingItem.relatedIds) existingItem.relatedIds = [existingItem.detalle_id];
+            existingItem.relatedIds.push(item.detalle_id);
+        } else {
+            item.relatedIds = [item.detalle_id];
+            groups[key].items.push(item);
         }
+
+        if (item.detalle_estado === 'cocinando') {
+            groups[key].status = 'cooking';
+        }
+
+        // Mantener la hora de apertura más antigua para el cronómetro del grupo
+        const itemTime = new Date(item.pedido_fecha).getTime();
+        if (itemTime < groups[key].openedAt) groups[key].openedAt = itemTime;
     });
 
-    const sortedGroups = Object.values(groups)
-        .filter(g => g.items.some(i => i.detalle_estado !== 'listo'))
-        .sort((a, b) => a.openedAt - b.openedAt);
+    const allGroups = Object.values(groups).sort((a, b) => a.openedAt - b.openedAt);
 
-    // 🔄 RECONCILIACIÓN (SMOOTH REFRESH)
+    // Limpiar mensaje de "Todo al día" o estructuras previas si hay datos
+    if (allGroups.length > 0) {
+        const emptyMsg = container.querySelector('.kds-empty');
+        if (emptyMsg) container.innerHTML = '';
+    }
+
+    if (viewMode === 'kanban') {
+        renderKanbanView(allGroups, container);
+    } else {
+        renderGridView(allGroups, container);
+    }
+
+    actualizarStats({
+        total: allGroups.length,
+        cooking: allGroups.filter(g => g.status === 'cooking').length
+    });
+}
+
+function renderGridView(groups, container) {
+    // Configurar el container como board normal (grilla)
+    container.classList.remove('kanban-active');
+    
+    // Si veníamos de Kanban, tenemos que limpiar la estructura interna
+    if (container.querySelector('.kds-kanban-board')) {
+        container.innerHTML = '';
+        container.className = 'kds-board';
+    }
+
     const existingIds = new Set();
     const now = Date.now();
 
-    // Eliminar el mensaje de "Todo al día" si existe
-    if (container.querySelector('.kds-empty')) container.innerHTML = '';
-
-    sortedGroups.forEach(group => {
-        existingIds.add(`comanda-${group.id}`);
-        let card = document.getElementById(`comanda-${group.id}`);
+    groups.forEach(group => {
+        const divId = `kds-card-${group.id}`;
+        existingIds.add(divId);
+        let card = document.getElementById(divId);
         
         const diffMin = Math.floor((now - group.openedAt) / 60000);
         let prioClass = (diffMin >= 15) ? 'prio-high' : (diffMin >= 8 ? 'prio-medium' : 'prio-low');
@@ -157,11 +238,11 @@ function renderKDS() {
             </div>
             <div class="kds-card-actions">
                 ${!isCooking ? `
-                    <button class="kds-action-btn btn-prepare" onclick="window.updateComandaEstado(${group.id}, 'cocinando')">
+                    <button class="kds-action-btn btn-prepare" onclick="window.updateGrupoEstado('${group.id}', 'cocinando')">
                         <i class="fas ${isBar ? 'fa-wine-glass-alt' : 'fa-fire'}"></i> ${isBar ? 'PREPARAR' : 'PREPARAR TODO'}
                     </button>
                 ` : `
-                    <button class="kds-action-btn btn-dispatch" onclick="window.updateComandaEstado(${group.id}, 'listo')">
+                    <button class="kds-action-btn btn-dispatch" onclick="window.updateGrupoEstado('${group.id}', 'listo')">
                         <i class="fas ${isBar ? 'fa-concierge-bell' : 'fa-check-double'}"></i> ${isBar ? 'SERVIR' : 'DESPACHAR'}
                     </button>
                 `}
@@ -169,70 +250,120 @@ function renderKDS() {
         `;
 
         if (!card) {
-            // Nueva comanda: Crear elemento
             card = document.createElement('div');
-            card.id = `comanda-${group.id}`;
+            card.id = divId;
             card.className = `kds-card ${prioClass} ${isCooking ? 'is-cooking' : ''} slide-in-top`;
             card.innerHTML = cardContentHTML;
             container.appendChild(card);
         } else {
-            // Actualizar solo si cambió el contenido relevante (o forzar actualización suave)
-            const targetPrio = `kds-card ${prioClass} ${isCooking ? 'is-cooking' : ''}`;
-            if (card.className !== targetPrio) card.className = targetPrio;
-            
-            // Reconciliación interna de items y botones
-            const head = card.querySelector('.kds-card-head');
-            if (head) {
-                const mesaBadge = head.querySelector('.kds-mesa-badge');
-                if (mesaBadge) mesaBadge.innerHTML = `<i class="fas fa-hashtag"></i> MESA ${group.mesa}`;
-            }
-            
-            const itemsCont = card.querySelector('.kds-card-items');
-            const newItemsHTML = group.items.map(item => `
-                <div class="kds-item ${item.detalle_estado === 'cocinando' ? 'is-cooking' : ''} ${item.detalle_estado === 'listo' ? 'is-done' : ''}">
-                    <div class="kds-item-left">
-                        <div class="kds-item-qty">${Math.round(item.cantidad)}</div>
-                        <div class="kds-item-info">
-                            <span class="kds-item-name">${item.producto_nombre}</span>
-                            ${item.pedido_observaciones ? `<span class="kds-item-note"><i class="fas fa-exclamation-circle"></i> ${item.pedido_observaciones}</span>` : ''}
-                        </div>
-                    </div>
-                    <span class="kds-item-status"><i class="fas ${item.detalle_estado === 'cocinando' ? 'fa-spinner fa-spin' : (item.detalle_estado === 'listo' ? 'fa-check' : 'fa-clock')}"></i></span>
-                </div>
-            `).join('');
-
-            if (itemsCont && itemsCont.innerHTML.replace(/\s/g, '') !== newItemsHTML.replace(/\s/g, '')) {
-                itemsCont.innerHTML = newItemsHTML;
-            }
-
-            const actionsCont = card.querySelector('.kds-card-actions');
-            const newActionsHTML = !isCooking ? `
-                <button class="kds-action-btn btn-prepare" onclick="window.updateComandaEstado(${group.id}, 'cocinando')">
-                    <i class="fas ${isBar ? 'fa-wine-glass-alt' : 'fa-fire'}"></i> ${isBar ? 'PREPARAR' : 'PREPARAR TODO'}
-                </button>
-            ` : `
-                <button class="kds-action-btn btn-dispatch" onclick="window.updateComandaEstado(${group.id}, 'listo')">
-                    <i class="fas ${isBar ? 'fa-concierge-bell' : 'fa-check-double'}"></i> ${isBar ? 'SERVIR' : 'DESPACHAR'}
-                </button>
-            `;
-
-            if (actionsCont && actionsCont.innerHTML.replace(/\s/g, '') !== newActionsHTML.replace(/\s/g, '')) {
-                actionsCont.innerHTML = newActionsHTML;
+            card.className = `kds-card ${prioClass} ${isCooking ? 'is-cooking' : ''}`;
+            if (card.innerHTML.replace(/\s/g, '') !== cardContentHTML.replace(/\s/g, '')) {
+                card.innerHTML = cardContentHTML;
             }
         }
     });
 
     // Eliminar comandas que ya no existen
     Array.from(container.children).forEach(child => {
-        if (child.id && child.id.startsWith('comanda-') && !existingIds.has(child.id)) {
+        if (child.id && child.id.startsWith('kds-card-') && !existingIds.has(child.id)) {
             child.remove();
         }
     });
+}
 
-    actualizarStats({
-        total: sortedGroups.length,
-        cooking: sortedGroups.filter(g => g.status === 'cooking').length
-    });
+function renderKanbanView(groups, container) {
+    if (container.className !== 'kds-board kanban-active') {
+        container.className = 'kds-board kanban-active'; 
+        container.innerHTML = '';
+    }
+    
+    // Crear la estructura de columnas si no existe
+    let kanbanBoard = container.querySelector('.kds-kanban-board');
+    if (!kanbanBoard) {
+        container.innerHTML = `
+            <div class="kds-kanban-board">
+                <div class="kds-kanban-column kds-column-todo">
+                    <div class="kds-column-header">
+                        <div class="kds-column-title"><i class="fas fa-clock"></i> Pendientes</div>
+                        <span class="kds-column-badge" id="badge-todo">0</span>
+                    </div>
+                    <div class="kanban-list" id="list-todo"></div>
+                </div>
+                <div class="kds-kanban-column kds-column-doing">
+                    <div class="kds-column-header">
+                        <div class="kds-column-title"><i class="fas fa-fire"></i> En Proceso</div>
+                        <span class="kds-column-badge" id="badge-doing">0</span>
+                    </div>
+                    <div class="kanban-list" id="list-doing"></div>
+                </div>
+            </div>
+        `;
+        kanbanBoard = container.querySelector('.kds-kanban-board');
+    }
+
+    const listTodo = document.getElementById('list-todo');
+    const listDoing = document.getElementById('list-doing');
+    const now = Date.now();
+
+    // Separar grupos por estado
+    const todoGroups = groups.filter(g => g.status === 'pending');
+    const doingGroups = groups.filter(g => g.status === 'cooking');
+
+    document.getElementById('badge-todo').innerText = todoGroups.length;
+    document.getElementById('badge-doing').innerText = doingGroups.length;
+
+    const renderList = (groupsList, element) => {
+        const existingIds = new Set();
+        groupsList.forEach(group => {
+            const divId = `kanban-card-${group.id}`;
+            existingIds.add(divId);
+            let card = document.getElementById(divId);
+            
+            const diffMin = Math.floor((now - group.openedAt) / 60000);
+            
+            const cardHTML = `
+                <div class="kds-card-head py-2 px-3">
+                    <div class="d-flex justify-content-between w-100 align-items-center">
+                        <span class="kds-mesa-badge" style="font-size: 0.85rem; padding: 3px 8px;">MESA ${group.mesa}</span>
+                        <span class="kds-timer" style="font-size: 0.9rem;" data-start="${group.openedAt}"><i class="fas fa-clock"></i> ${diffMin}m</span>
+                    </div>
+                </div>
+                <div class="px-3 py-2 bg-black bg-opacity-10">
+                    ${group.items.map(i => `
+                        <div class="mb-1 fw-700 ${i.detalle_estado === 'listo' ? 'text-muted text-decoration-line-through' : ''}" style="font-size: 1.1rem;">
+                           ${Math.round(i.cantidad)}x <span class="text-white">${i.producto_nombre}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="p-2">
+                    <button class="kds-action-btn ${group.status === 'pending' ? 'btn-prepare' : 'btn-dispatch'} py-2"
+                            style="font-size: 0.9rem;"
+                            onclick="window.updateGrupoEstado('${group.id}', '${group.status === 'pending' ? 'cocinando' : 'listo'}')">
+                        ${group.status === 'pending' ? '<i class="fas fa-fire"></i> COMENZAR' : '<i class="fas fa-check-double"></i> LISTO'}
+                    </button>
+                </div>
+            `;
+
+            if (!card) {
+                card = document.createElement('div');
+                card.id = divId;
+                card.className = `kds-card mb-3 slide-in-top`;
+                card.innerHTML = cardHTML;
+                element.appendChild(card);
+            } else {
+                if (card.innerHTML.replace(/\s/g, '') !== cardHTML.replace(/\s/g, '')) {
+                    card.innerHTML = cardHTML;
+                }
+            }
+        });
+        
+        Array.from(element.children).forEach(c => {
+            if (c.id && !existingIds.has(c.id)) c.remove();
+        });
+    };
+
+    renderList(todoGroups, listTodo);
+    renderList(doingGroups, listDoing);
 }
 
 function actualizarStats(stats) {
@@ -258,24 +389,39 @@ function actualizarRelojes() {
     });
 }
 
-window.updateComandaEstado = async (comandaId, nuevoEstado) => {
+window.updateGrupoEstado = async (compositeId, nuevoEstado) => {
     try {
-        const items = pendingItems.filter(i => i.comanda_id === comandaId);
-        if (items.length === 0) return;
+        // Encontrar los items que pertenecen a este grupo compuesto (ya sea por mesa o comanda)
+        const itemsToUpdate = pendingItems.filter(item => {
+            const key = unifyByTable ? `mesa-${item.mesa_numero}` : `comanda-${item.comanda_id}`;
+            return key === compositeId;
+        });
 
-        const promises = items.map(item => 
-            sendData(`/api/comandas/detalle/${item.detalle_id}/estado`, { estado: nuevoEstado }, 'PUT')
+        if (itemsToUpdate.length === 0) return;
+
+        const idsToUpdate = [];
+        itemsToUpdate.forEach(item => {
+            if (item.relatedIds) {
+                idsToUpdate.push(...item.relatedIds);
+            } else {
+                idsToUpdate.push(item.detalle_id);
+            }
+        });
+
+        const promises = idsToUpdate.map(id => 
+            sendData(`/api/comandas/detalle/${id}/estado`, { estado: nuevoEstado }, 'PUT')
         );
 
         await Promise.all(promises);
-
+        
         if (nuevoEstado === 'listo') {
-            mostrarNotificacion(`Mesa #${items[0].mesa_numero} despachada`, 'success');
+           const mesa = itemsToUpdate[0].mesa_numero;
+           mostrarNotificacion(`Mesa #${mesa} despachada`, 'success');
         }
 
         await cargarPendientes(true);
     } catch (error) {
-        console.error("Error updating KDS status:", error);
+        console.error("Error updating group status:", error);
         mostrarNotificacion("Error al actualizar estado", "error");
     }
 };

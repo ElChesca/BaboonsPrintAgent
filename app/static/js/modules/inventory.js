@@ -45,10 +45,21 @@ function renderProductos() {
     headerHTML += `<th onclick="window.sortInventory('nombre')" style="cursor: pointer;">Nombre ${getSortIcon('nombre')}</th>`;
     headerHTML += `<th onclick="window.sortInventory('sku')" style="cursor: pointer;">SKU ${getSortIcon('sku')}</th>`;
     headerHTML += `<th onclick="window.sortInventory('categoria_nombre')" style="cursor: pointer;">Categoría ${getSortIcon('categoria_nombre')}</th>`;
-    headerHTML += `<th onclick="window.sortInventory('ubicacion')" style="cursor: pointer;">Ubicación ${getSortIcon('ubicacion')}</th>`;
-    headerHTML += `<th onclick="window.sortInventory('stock')" style="cursor: pointer;">Físico ${getSortIcon('stock')}</th>`;
-    headerHTML += `<th onclick="window.sortInventory('stock_comprometido')" style="cursor: pointer;" title="Comprometido en pedidos pendientes">Comprometido ${getSortIcon('stock_comprometido')}</th>`;
-    headerHTML += `<th onclick="window.sortInventory('stock_movil')" style="cursor: pointer;">Móvil ${getSortIcon('stock_movil')}</th>`;
+    
+    // Ocultar columnas industriales/logísticas en Restó
+    const esResto = appState.negocioActivoTipo === 'resto';
+    
+    if (!esResto) {
+        headerHTML += `<th onclick="window.sortInventory('ubicacion')" style="cursor: pointer;">Ubicación ${getSortIcon('ubicacion')}</th>`;
+    }
+    
+    headerHTML += `<th onclick="window.sortInventory('stock')" style="cursor: pointer;">Stock ${getSortIcon('stock')}</th>`;
+    
+    if (!esResto) {
+        headerHTML += `<th onclick="window.sortInventory('stock_comprometido')" style="cursor: pointer;" title="Comprometido en pedidos pendientes">Comprometido ${getSortIcon('stock_comprometido')}</th>`;
+        headerHTML += `<th onclick="window.sortInventory('stock_movil')" style="cursor: pointer;">Móvil ${getSortIcon('stock_movil')}</th>`;
+    }
+    
     headerHTML += `<th onclick="window.sortInventory('precio_venta')" style="cursor: pointer;">Precio Venta ${getSortIcon('precio_venta')}</th>`;
 
     if (isAdmin) {
@@ -56,7 +67,11 @@ function renderProductos() {
     }
     headerHTML += `<th>Acciones</th>`;
     headerRow.innerHTML = headerHTML;
-    const colspan = isAdmin ? 12 : 11;
+    
+    // Calcular colspan dinámico para mensajes de error
+    let colspan = 6; // Base: check, foto, nombre, sku, cat, stock, precio, acciones (8)
+    if (!esResto) colspan += 3; // ubicacion, comprometido, movil
+    if (isAdmin) colspan += 1; // costo
 
     if (!appState.negocioActivoId) {
         listaProductos.innerHTML = `<tr><td colspan="${colspan}">Seleccione un negocio para ver su inventario.</td></tr>`;
@@ -65,6 +80,8 @@ function renderProductos() {
 
     // ✨ 2. FILTRO CORREGIDO (Maneja valores NULL) ✨
     const filtroUbicacion = document.getElementById('filtro-ubicacion')?.value || 'all';
+    const filtroCategoriaId = document.getElementById('filtro-categoria')?.value || 'all';
+
     const productosFiltrados = productosCache.filter(p => {
         const nombre = String(p.nombre || '').toLowerCase();
         const sku = String(p.sku || '').toLowerCase();
@@ -75,9 +92,9 @@ function renderProductos() {
             codigoBarras.includes(filtro);
 
         const matchUbicacion = filtroUbicacion === 'all' || (p.ubicacion || 'Depósito 1') === filtroUbicacion;
+        const matchCategoria = filtroCategoriaId === 'all' || String(p.categoria_id) === filtroCategoriaId;
 
-        // El filtrado por estado ya se hace en el fetch, pero podemos asegurar aquí si queremos
-        return matchTexto && matchUbicacion;
+        return matchTexto && matchUbicacion && matchCategoria;
     });
 
     // ✨ 3. ORDENAMIENTO ✨
@@ -146,17 +163,28 @@ function renderProductos() {
             </td>
             <td>${p.sku || '-'}</td>
             <td>${p.categoria_nombre || 'Sin categoría'}</td>
-            <td>${p.ubicacion || 'Depósito 1'}</td>
-            <td class="${stockClass}">${p.stock} ${p.unidad_medida || 'un'}</td>
-            <td class="text-danger" style="cursor: pointer;" onclick="window.verDetalleComprometido(${p.id})">
-                <strong title="Click para ver detalle">${p.stock_comprometido || 0} ${p.unidad_medida || 'un'}</strong>
-            </td>
-            <td>
-                <strong>${p.stock_movil || 0}</strong>
-                ${p.patentes_movil ? `<br><small class="text-muted" style="font-size: 0.75rem;">(${p.patentes_movil})</small>` : ''}
-            </td>
-            <td>${(p.precio_venta || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>
         `;
+
+        if (!esResto) {
+            rowHTML += `<td>${p.ubicacion || 'Depósito 1'}</td>`;
+        }
+
+        rowHTML += `<td class="${stockClass}">${p.stock} ${p.unidad_medida || 'un'}</td>`;
+
+        if (!esResto) {
+            rowHTML += `
+                <td class="text-danger" style="cursor: pointer;" onclick="window.verDetalleComprometido(${p.id})">
+                    <strong title="Click para ver detalle">${p.stock_comprometido || 0} ${p.unidad_medida || 'un'}</strong>
+                </td>
+                <td>
+                    <strong>${p.stock_movil || 0}</strong>
+                    ${p.patentes_movil ? `<br><small class="text-muted" style="font-size: 0.75rem;">(${p.patentes_movil})</small>` : ''}
+                </td>
+            `;
+        }
+
+        rowHTML += `<td>${(p.precio_venta || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>`;
+        
         if (isAdmin) {
             rowHTML += `<td>${(p.precio_costo || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>`;
         }
@@ -360,6 +388,45 @@ async function abrirModalBulkCategoria() {
     document.getElementById('modal-bulk-categoria').style.display = 'flex';
 }
 
+function abrirModalBulkTipo() {
+    if (selectedProductIds.size === 0) {
+        mostrarNotificacion("Debe seleccionar al menos un producto.", "warning");
+        return;
+    }
+    document.getElementById('modal-bulk-tipo').style.display = 'flex';
+}
+
+async function guardarBulkTipo() {
+    const tipo = document.getElementById('bulk-nuevo-tipo').value;
+    if (!tipo) {
+        mostrarNotificacion("Debe seleccionar un tipo.", "warning");
+        return;
+    }
+
+    const btn = document.getElementById('btn-confirmar-bulk-tipo');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Actualizando...';
+
+    try {
+        await sendData('/api/productos/bulk/tipo', {
+            product_ids: Array.from(selectedProductIds),
+            tipo_producto: tipo
+        }, 'PUT');
+
+        mostrarNotificacion('Tipo de producto actualizado con éxito.', 'success');
+        document.getElementById('modal-bulk-tipo').style.display = 'none';
+        selectedProductIds.clear();
+        await fetchProductos();
+    } catch (error) {
+        console.error("Error al actualizar tipos:", error);
+        mostrarNotificacion('Error al actualizar tipos de producto.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+}
+
 async function guardarBulkCategoria() {
     const catId = document.getElementById('bulk-producto-categoria').value;
     if (!catId) {
@@ -402,13 +469,18 @@ async function poblarSelectoresDelModal() {
 
         // Renderizado de categorías (con indentación)
         const selectCat = document.getElementById('producto-categoria');
+        const filtroCat = document.getElementById('filtro-categoria');
         if (selectCat) {
             selectCat.innerHTML = `<option value="">Seleccionar...</option>`;
+            if (filtroCat) filtroCat.innerHTML = `<option value="all">Todas las Categorías</option>`;
+
             categorias.forEach(cat => {
-                selectCat.innerHTML += `
+                const optHTML = `
                     <option value="${cat.id}" title="${cat.ruta_categoria}">
                         ${cat.nombre_indentado}
                     </option>`;
+                selectCat.innerHTML += optHTML;
+                if (filtroCat) filtroCat.innerHTML += optHTML;
             });
         }
 
@@ -449,11 +521,10 @@ function abrirModal(producto = null) {
         document.getElementById('producto-alias').value = producto.alias || '';
         document.getElementById('producto-sku').value = producto.sku || '';
         document.getElementById('producto-categoria').value = producto.categoria_id || '';
-        document.getElementById('producto-tipo').value = producto.tipo_producto || 'final';
+        document.getElementById('producto-tipo').value = producto.tipo_producto || 'producto_final'; // Cambio a nuevo valor
         document.getElementById('producto-ubicacion').value = producto.ubicacion || 'Depósito 1';
         document.getElementById('producto-proveedor').value = producto.proveedor_id || '';
         document.getElementById('producto-stock').value = producto.stock || 0;
-        document.getElementById('producto-stock-minimo').value = producto.stock_minimo || 0;
         document.getElementById('producto-stock-minimo').value = producto.stock_minimo || 0;
         document.getElementById('producto-peso').value = producto.peso_kg || 0;
         document.getElementById('producto-volumen').value = producto.volumen_m3 || 0;
@@ -464,6 +535,26 @@ function abrirModal(producto = null) {
     } else { // Modo Creación
         titulo.textContent = 'Añadir Nuevo Producto';
         document.getElementById('producto-id').value = '';
+    }
+
+    // --- ✨ ESPECIALIZACIÓN BABOONS PREMIUM ✨ ---
+    const soloDistribuidora = document.querySelectorAll('.solo-distribuidora');
+    const esResto = appState.negocioActivoTipo === 'resto';
+
+    soloDistribuidora.forEach(el => {
+        if (esResto) {
+            el.classList.add('hidden-specialized');
+        } else {
+            el.classList.remove('hidden-specialized');
+        }
+    });
+
+    // Ajustar label de "Tipo" si es resto
+    const labelTipo = document.querySelector('label[for="producto-tipo"]');
+    if (labelTipo && esResto) {
+        labelTipo.textContent = 'Función en Menú:';
+    } else if (labelTipo) {
+        labelTipo.textContent = 'Tipo de Producto:';
     }
 
     // Resetear campo de imagen y preview
@@ -626,72 +717,120 @@ async function importarProductos(e) {
 
     const feedbackContainer = document.getElementById('importar-feedback');
     const loader = document.getElementById('importar-loader');
+    const progCont = document.getElementById('importar-progreso-container');
+    const progBar = document.getElementById('importar-progreso-barra');
+    const progTexto = document.getElementById('importar-progreso-texto');
+    const progPorc = document.getElementById('importar-progreso-porcentaje');
     const feedbackTexto = document.getElementById('importar-feedback-texto');
 
     const file = fileInput.files[0];
-
     if (!file) {
-        mostrarNotificacion("Por favor, selecciona un archivo CSV o Excel.", "error");
+        mostrarNotificacion("Selecciona un archivo Excel (.xlsx).", "error");
         return;
     }
 
     boton.disabled = true;
     boton.textContent = 'Importando...';
-
     feedbackContainer.className = 'importar-feedback info';
-    loader.style.display = 'block';
-    feedbackTexto.innerHTML = '<p>Procesando archivo, esto puede tardar...</p>';
-
-    const formData = new FormData();
-    formData.append('archivo_productos', file);
-
-    const url = `/api/negocios/${appState.negocioActivoId}/productos/importar`;
-
+    feedbackTexto.innerHTML = '';
+    
     try {
-        const headers = getAuthHeaders();
-        delete headers['Content-Type'];
-        delete headers['content-type'];
+        // 1. Leer archivo localmente
+        progTexto.textContent = "Leyendo archivo...";
+        progCont.style.display = 'block';
+        updateProgressBar(0);
 
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: headers,
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || `Error ${response.status} al importar`);
+        const dataArr = await readExcelFile(file);
+        if (!dataArr || dataArr.length === 0) {
+            throw new Error("El archivo está vacío o no es válido.");
         }
 
-        let feedbackHTML = `
-            <p><strong>${data.message}</strong></p>
-            <ul>
-                <li>✅ Creados: <strong>${data.creados}</strong></li>
-                <li>🔄 Actualizados: <strong>${data.actualizados}</strong></li>
-                <li>❌ Errores: <strong>${data.errores.length}</strong></li>
-            </ul>
-        `;
-        if (data.errores.length > 0) {
-            feedbackHTML += '<p><strong>Detalle de errores:</strong></p>';
-            feedbackHTML += `<ul class="lista-errores"><li>${data.errores.join('</li><li>')}</li></ul>`;
+        const totalItems = dataArr.length;
+        const batchSize = 50;
+        const totalBatches = Math.ceil(totalItems / batchSize);
+        let processedCount = 0;
+
+        // 2. Procesar por lotes (Batch)
+        for (let i = 0; i < totalBatches; i++) {
+            const start = i * batchSize;
+            const end = Math.min(start + batchSize, totalItems);
+            const batch = dataArr.slice(start, end);
+
+            progTexto.textContent = `Enviando lote ${i + 1} de ${totalBatches}...`;
+            
+            const response = await fetch(`/api/negocios/${appState.negocioActivoId}/importar/productos/batch`, {
+                method: 'POST',
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ items: batch })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || `Error en lote ${i + 1}`);
+            }
+
+            processedCount += batch.length;
+            const progress = Math.round((processedCount / totalItems) * 100);
+            updateProgressBar(progress);
         }
+
+        // 3. Finalización
         feedbackContainer.className = 'importar-feedback success';
-        feedbackTexto.innerHTML = feedbackHTML;
-
-        await fetchProductos(); // Recargar la lista
+        feedbackTexto.innerHTML = `<p>✅ <strong>¡Importación Exitosa!</strong> Se procesaron ${totalItems} productos correctamente.</p>`;
+        mostrarNotificacion(`Importación completada: ${totalItems} productos`, "success");
+        
+        // Recargar inventario tras un breve delay
+        setTimeout(() => {
+            fetchProductos();
+        }, 1500);
 
     } catch (error) {
-        console.error("Error en importarProductos:", error);
+        console.error("Batch Import Error:", error);
         feedbackContainer.className = 'importar-feedback error';
-        feedbackTexto.innerHTML = `<p><strong>Error:</strong> ${error.message}</p>`;
-        mostrarNotificacion(error.message, 'error');
+        feedbackTexto.innerHTML = `<p>❌ <strong>Error:</strong> ${error.message}</p>`;
+        mostrarNotificacion(error.message, "error");
     } finally {
-        loader.style.display = 'none';
         boton.disabled = false;
-        boton.textContent = 'Subir e Importar';
+        boton.textContent = 'Importar';
+        loader.style.display = 'none';
         fileInput.value = '';
     }
+}
+
+/**
+ * Utilidad para leer Excel usando SheetJS
+ */
+function readExcelFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet);
+                resolve(json);
+            } catch (err) {
+                reject(err);
+            }
+        };
+        reader.onerror = (err) => reject(err);
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+/**
+ * Actualiza la UI de la barra de progreso
+ */
+function updateProgressBar(percent) {
+    const progBar = document.getElementById('importar-progreso-barra');
+    const progPorc = document.getElementById('importar-progreso-porcentaje');
+    if (progBar) progBar.style.width = `${percent}%`;
+    if (progPorc) progPorc.textContent = `${percent}%`;
 }
 
 // ---
@@ -1102,6 +1241,14 @@ export async function inicializarLogicaInventario() {
         });
     }
 
+    const filtroCategoria = document.getElementById('filtro-categoria');
+    if (filtroCategoria) {
+        filtroCategoria.addEventListener('change', () => {
+            currentPage = 1;
+            renderProductos();
+        });
+    }
+
     const filtroEstado = document.getElementById('filtro-estado');
     if (filtroEstado) {
         filtroEstado.addEventListener('change', () => {
@@ -1175,6 +1322,15 @@ export async function inicializarLogicaInventario() {
     if (btnBulkCat) btnBulkCat.onclick = abrirModalBulkCategoria;
     if (btnBulkDel) btnBulkDel.onclick = bulkDeleteProductos;
     if (btnBulkCan) btnBulkCan.onclick = cancelBulkSelection;
+    
+    // Nueva Acción Masiva: Tipo
+    const btnBulkTipo = document.getElementById('btn-bulk-tipo');
+    if (btnBulkTipo) btnBulkTipo.onclick = abrirModalBulkTipo;
+    const btnConfirmBulkTipo = document.getElementById('btn-confirmar-bulk-tipo');
+    if (btnConfirmBulkTipo) btnConfirmBulkTipo.onclick = guardarBulkTipo;
+    const closeModalBulkTipo = document.getElementById('close-modal-bulk-tipo');
+    if (closeModalBulkTipo) closeModalBulkTipo.onclick = () => document.getElementById('modal-bulk-tipo').style.display = 'none';
+
     if (btnBulkConfirmCat) btnBulkConfirmCat.onclick = guardarBulkCategoria;
     if (closeModalBulkCat) closeModalBulkCat.onclick = () => document.getElementById('modal-bulk-categoria').style.display = 'none';
 

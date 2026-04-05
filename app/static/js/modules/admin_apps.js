@@ -20,24 +20,26 @@ export async function inicializarAdminApps() {
     const tabs = document.querySelectorAll('.tab-btn');
     tabs.forEach(btn => {
         btn.onclick = (e) => {
+            e.preventDefault();
             tabs.forEach(t => t.classList.remove('active'));
-            const btnEl = e.target;
+            const btnEl = e.currentTarget;
             btnEl.classList.add('active');
 
-            isBusinessMode = btnEl.getAttribute('data-type') === 'business';
+            let type = btnEl.getAttribute('data-type');
+            
+            // Sincronizar estados globales
+            isBusinessMode = (type === 'business');
+            currentType = (type === 'business') ? 'negocio' : type;
+
+            const toolsBar = document.getElementById('admin-tools-bar');
+            if (toolsBar) toolsBar.style.setProperty('display', 'flex', 'important');
 
             if (isBusinessMode) {
-                currentType = 'negocio';
-                document.getElementById('negocio-selector-container').style.display = 'block';
+                document.getElementById('negocio-selector-container').style.display = 'flex';
             } else {
                 document.getElementById('negocio-selector-container').style.display = 'none';
-                if (btnEl.innerText.includes('Retail')) currentType = 'retail';
-                else if (btnEl.innerText.includes('Consorcio')) currentType = 'consorcio';
-                else if (btnEl.innerText.includes('Rentals')) currentType = 'rentals';
-                else if (btnEl.innerText.includes('Distribuidora')) currentType = 'distribuidora';
-                else if (btnEl.innerText.includes('Restó')) currentType = 'resto';
-                else if (btnEl.innerText.includes('Pagos')) currentType = 'pagos';
             }
+            
             cambiarTabAdmin(currentType);
         };
     });
@@ -144,7 +146,7 @@ async function cargarDatosIniciales() {
 
 async function cargarConfiguracionNegocio(negocioId) {
     try {
-        currentBusinessConfig = await fetchData(`/api/negocios/${negocioId}/modulos-config`);
+        currentBusinessConfig = await fetchData(`/api/admin/negocios/${negocioId}/modulos-config`);
     } catch (err) {
         currentBusinessConfig = [];
     }
@@ -160,43 +162,48 @@ async function cargarPagosSuscripciones() {
             const fecha = neg.fecha_ultimo_pago ? new Date(neg.fecha_ultimo_pago).toLocaleDateString() : 'N/A';
             const ultimoMes = neg.ultimo_mes ? `${neg.ultimo_mes}/${neg.ultimo_anio}` : 'Ninguno';
 
-            // Lógica de estado
+            // Lógica de estado Premium
             const hoy = new Date();
             const mesActual = hoy.getMonth() + 1;
             const anioActual = hoy.getFullYear();
 
-            let badgeClass = 'bg-danger';
-            let statusText = 'Vencido';
+            let statusClass = 'status-danger';
+            let statusText = 'VENCIDO';
 
             if (!neg.suscripcion_activa) {
-                badgeClass = 'bg-secondary';
-                statusText = 'No Enforzado';
+                statusClass = 'status-muted';
+                statusText = 'LIBRE';
             } else if (neg.ultimo_anio > anioActual || (neg.ultimo_anio === anioActual && neg.ultimo_mes >= mesActual)) {
-                badgeClass = 'bg-success';
-                statusText = 'Al día';
+                statusClass = 'status-success';
+                statusText = 'AL DÍA';
             } else if (hoy.getDate() <= 10 && neg.ultimo_anio === anioActual && neg.ultimo_mes === mesActual - 1) {
-                badgeClass = 'bg-warning text-dark';
-                statusText = 'Pendiente (Anticipado)';
+                statusClass = 'status-warning';
+                statusText = 'PENDIENTE';
             }
-
-            const deudaStyle = neg.deuda_acumulada > 0 ? 'color: #dc3545; font-weight: bold;' : 'color: #28a745;';
-            const mesesTexto = neg.meses_adeudados > 0 ? `<br><small class="text-muted">(${neg.meses_adeudados} meses)</small>` : '';
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><strong>${neg.nombre}</strong></td>
-                <td>$${neg.cuota_mensual || 0}</td>
-                <td style="${deudaStyle}">$${neg.deuda_acumulada || 0}${mesesTexto}</td>
-                <td>${ultimoMes}</td>
-                <td>${fecha}</td>
-                <td><span class="badge ${badgeClass}">${statusText}</span></td>
+                <td>
+                    <div class="fw-bold text-light">${neg.nombre}</div>
+                    <div class="text-muted small">${neg.tipo_app || 'ERP'}</div>
+                </td>
+                <td><span class="text-accent fw-bold">$${neg.cuota_mensual || 0}</span></td>
+                <td>
+                    <div class="${neg.deuda_acumulada > 0 ? 'text-danger fw-bold' : 'text-success'}">$${neg.deuda_acumulada || 0}</div>
+                    ${neg.meses_adeudados > 0 ? `<div class="text-muted" style="font-size: 10px;">${neg.meses_adeudados} meses</div>` : ''}
+                </td>
+                <td>
+                    <div class="text-light">${ultimoMes}</div>
+                    <div class="text-muted small">${fecha}</div>
+                </td>
+                <td><span class="premium-badge ${statusClass}">${statusText}</span></td>
                 <td>
                     <div class="d-flex gap-2">
-                        <button class="btn btn-sm btn-outline-success" onclick="registrarPagoSuscripcion(${neg.id}, '${neg.nombre}', ${neg.cuota_mensual || 0})">
-                            <i class="bi bi-cash-stack"></i> Registrar Pago...
+                        <button class="btn btn-sm btn-glass-primary py-1 px-3" style="font-size: 11px;" onclick="registrarPagoSuscripcion(${neg.id}, '${neg.nombre}', ${neg.cuota_mensual || 0})">
+                            PAGAR
                         </button>
-                        <button class="btn btn-sm btn-outline-primary" onclick="verHistorialPagos(${neg.id}, '${neg.nombre}')">
-                            <i class="bi bi-clock-history"></i> Historial
+                        <button class="btn btn-sm btn-glass-secondary py-1 px-2" style="font-size: 11px;" onclick="verHistorialPagos(${neg.id}, '${neg.nombre}')">
+                            <i class="fas fa-history"></i>
                         </button>
                     </div>
                 </td>
@@ -301,21 +308,67 @@ function cambiarTabAdmin(type) {
 
     if (isBusinessMode) {
         const selector = document.getElementById('admin-negocio-selector');
-        const nombreNegocio = selector.options[selector.selectedIndex]?.text || '';
-        title.innerText = `Configuración Específica: ${nombreNegocio}`;
+        const nombreNegocio = selector.options[selector.selectedIndex]?.text || 'Cargando...';
+        title.innerText = `📦 Configuración Específica: ${nombreNegocio}`;
     } else {
-        title.innerText = `Configurando: ${capitalize(type)}`;
+        const labels = {
+            'retail': 'Retail / Comercio',
+            'resto': 'Restó / Gastronomía',
+            'distribuidora': 'Distribuidora / Logística',
+            'consorcio': 'Consorcio / Administración',
+            'rentals': 'Rentals / Alquileres'
+        };
+        const label = labels[type] || capitalize(type);
+        title.innerText = `⚙️ Configurando Perfil: ${label}`;
     }
     renderModules();
 }
 
 function renderModules() {
     const container = document.getElementById('modules-list-container');
+    if (!container) return;
+    
+    const searchTerm = document.getElementById('admin-module-search')?.value.toLowerCase() || '';
     container.innerHTML = '';
 
-    // Agrupar por categoría
+    if (allModules.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center p-5 text-muted">No hay módulos registrados.</div>';
+        return;
+    }
+
+    // 1. Determinar qué módulos están activos actualmente según el contexto
+    let activeModules = [];
+    let businessAllowList = [];
+
+    if (isBusinessMode) {
+        const selector = document.getElementById('admin-negocio-selector');
+        const negocioId = selector.value;
+        const negocio = (appState.negociosCache || []).find(n => String(n.id) === String(negocioId));
+        const tipoNegocio = negocio ? (negocio.tipo_app || 'retail') : 'retail';
+
+        businessAllowList = currentPermissions[tipoNegocio] || [];
+        const inactiveOnBusiness = currentBusinessConfig
+            .filter(c => c.is_active === false)
+            .map(c => c.module_code);
+
+        activeModules = businessAllowList.filter(m => !inactiveOnBusiness.includes(m));
+    } else {
+        activeModules = currentPermissions[currentType] || [];
+    }
+
+    // 2. Filtrar y Agrupar por categoría
     const categories = {};
     allModules.forEach(m => {
+        // Filtro de búsqueda
+        if (searchTerm && !m.name.toLowerCase().includes(searchTerm) && !m.code.toLowerCase().includes(searchTerm)) {
+            return;
+        }
+
+        // Si estamos en modo negocio, solo mostramos los que el TIPO permite
+        if (isBusinessMode && !businessAllowList.includes(m.code)) {
+            return;
+        }
+
         const cat = m.category || 'Otros';
         if (!categories[cat]) categories[cat] = [];
         categories[cat].push(m);
@@ -323,56 +376,71 @@ function renderModules() {
 
     const orderedKeys = Object.keys(categories).sort();
 
-    let activeModules = [];
-    let businessAllowList = [];
-
-    if (isBusinessMode) {
-        // En modo negocio, solo mostramos los módulos que SU TIPO permite
-        const selector = document.getElementById('admin-negocio-selector');
-        const negocioId = selector.value;
-        const negocio = (appState.negociosCache || []).find(n => String(n.id) === String(negocioId));
-        const tipoNegocio = negocio ? negocio.tipo_app : 'retail';
-
-        businessAllowList = currentPermissions[tipoNegocio] || [];
-
-        // Desactivados explícitamente
-        const inactiveOnBusiness = currentBusinessConfig
-            .filter(c => c.is_active === false)
-            .map(c => c.module_code);
-
-        // Marcados como checked si NO están en la lista de inactivos
-        activeModules = businessAllowList.filter(m => !inactiveOnBusiness.includes(m));
-    } else {
-        activeModules = currentPermissions[currentType] || [];
+    if (orderedKeys.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center p-5 text-muted">No se encontraron módulos que coincidan con la búsqueda.</div>';
+        return;
     }
 
+    // 3. Renderizar cada categoría en una premium card
     orderedKeys.forEach(cat => {
-        // Filtrar módulos si estamos en modo negocio para mostrar solo los relevantes
-        let modulesToShow = categories[cat];
-        if (isBusinessMode) {
-            modulesToShow = modulesToShow.filter(m => businessAllowList.includes(m.code));
-        }
-
-        if (modulesToShow.length === 0) return;
-
+        const modulesToShow = categories[cat];
         const col = document.createElement('div');
-        col.className = 'col-md-4 module-group';
+        col.className = 'col';
 
-        let html = `<div class="module-group-title">${cat}</div>`;
+        let html = `
+            <div class="glass-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-secondary pb-2">
+                        <h6 class="m-0 fw-bold text-accent">${cat.toUpperCase()}</h6>
+                        <div class="d-flex gap-2">
+                             <span class="text-info small cursor-pointer" onclick="toggleCategory('${cat}', true)">M</span>
+                             <span class="text-danger small cursor-pointer" onclick="toggleCategory('${cat}', false)">D</span>
+                        </div>
+                    </div>
+                    <div class="module-items-list">
+        `;
 
         modulesToShow.forEach(mod => {
             const isChecked = activeModules.includes(mod.code) ? 'checked' : '';
+            const registryEntry = window.ERP_REGISTRY ? window.ERP_REGISTRY[mod.code] : null;
+            const iconHtml = registryEntry ? `<img src="${registryEntry.icon}" style="width: 18px; margin-right: 8px; opacity: 0.8;">` : '';
+
             html += `
-                <label class="module-check-item">
-                    <input type="checkbox" name="modules" value="${mod.code}" ${isChecked}>
-                    <span>${mod.name}</span>
-                </label>
+                <div class="module-item d-flex align-items-center justify-content-between py-2 px-1 rounded hover-bg-dark">
+                    <div class="d-flex align-items-center overflow-hidden">
+                        ${iconHtml}
+                        <label class="form-check-label text-truncate" for="mod-${mod.code}" style="cursor: pointer; font-size: 13px;">
+                            ${mod.name}
+                            <div class="text-muted" style="font-size: 10px; opacity: 0.6;">${mod.code}</div>
+                        </label>
+                    </div>
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input module-checkbox" type="checkbox" name="modules" 
+                               data-category="${cat}" value="${mod.code}" id="mod-${mod.code}" ${isChecked}>
+                    </div>
+                </div>
             `;
         });
+
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
 
         col.innerHTML = html;
         container.appendChild(col);
     });
+
+    window.toggleCategory = (category, state) => {
+        const checks = document.querySelectorAll(`.module-checkbox[data-category="${category}"]`);
+        checks.forEach(c => c.checked = state);
+    };
+
+    window.toggleAllChecks = (state) => {
+        const checks = document.querySelectorAll('.module-checkbox');
+        checks.forEach(c => c.checked = state);
+    };
 }
 
 async function guardarPermisos() {
@@ -412,7 +480,7 @@ async function guardarConfiguracionNegocio() {
     }));
 
     try {
-        await sendData(`/api/negocios/${negocioId}/modulos-config`, { configs }, 'POST');
+        await sendData(`/api/admin/negocios/${negocioId}/modulos-config`, { configs }, 'POST');
         mostrarNotificacion("Configuración del negocio actualizada", "success");
         // Forzar actualización de appState local si estamos en ese negocio
         if (String(appState.negocioActivoId) === String(negocioId)) {

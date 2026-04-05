@@ -103,13 +103,27 @@ def registrar_venta(current_user, negocio_id):
 
         metodo_pago = data.get('metodo_pago')
         if metodo_pago == 'Mixto':
-            montos_mixtos = data.get('montos_mixtos', {})
-            monto_ef = float(montos_mixtos.get('Efectivo', 0))
-            monto_mp = float(montos_mixtos.get('MP', 0))
-            monto_tarjeta = float(montos_mixtos.get('Tarjeta', 0))
-            monto_debito = float(montos_mixtos.get('Debito', 0))
-            monto_transf = float(montos_mixtos.get('Transferencia', 0))
+            metodo_cta_cte = 'Cuenta Corriente'
             monto_cta_cte = float(montos_mixtos.get('CuentaCorriente', 0))
+
+            # Determinar método y monto principal para la venta base
+            # Buscamos el primer método con monto > 0 (priorizando Efectivo, luego MP, etc)
+            opciones = [
+                ('Efectivo', monto_ef),
+                ('Mercado Pago', monto_mp),
+                ('Tarjeta', monto_tarjeta),
+                ('Débito', monto_debito),
+                ('Transferencia', monto_transf),
+                ('Cuenta Corriente', monto_cta_cte)
+            ]
+            
+            metodo_principal = 'Efectivo'
+            monto_principal = 0
+            for m, cant in opciones:
+                if cant > 0:
+                    metodo_principal = m
+                    monto_principal = cant
+                    break
 
             # ✨ NUEVO: Calcular próximo número interno para este negocio
             def get_next_nro_interno(db_conn, n_id):
@@ -582,42 +596,64 @@ def corregir_pago_venta(current_user, venta_id):
 
         # 4. Aplicar nuevos efectos
         if nuevo_metodo == 'Mixto':
+            # Extraer montos del payload
             m_ef = float(data.get('monto_efectivo', 0))
             m_mp = float(data.get('monto_mp', 0))
             m_cc = float(data.get('monto_cta_cte', 0))
+            m_tarjeta = float(data.get('monto_tarjeta', 0))
+            m_debito = float(data.get('monto_debito', 0))
+            m_transf = float(data.get('monto_transferencia', 0))
 
-            metodo_prin = 'Efectivo' if m_ef > 0 else ('Mercado Pago' if m_mp > 0 else 'Cuenta Corriente')
-            monto_prin = m_ef if metodo_prin == 'Efectivo' else (m_mp if metodo_prin == 'Mercado Pago' else m_cc)
+            # Determinar método principal (el que actualizará la venta original)
+            opciones = [
+                ('Efectivo', m_ef),
+                ('Mercado Pago', m_mp),
+                ('Tarjeta', m_tarjeta),
+                ('Débito', m_debito),
+                ('Transferencia', m_transf),
+                ('Cuenta Corriente', m_cc)
+            ]
+            
+            metodo_prin = 'Efectivo'
+            monto_prin = 0
+            for m, cant in opciones:
+                if cant > 0:
+                    metodo_prin = m
+                    monto_prin = cant
+                    break
 
-            # Actualizamos venta principal
+            # Actualizamos venta principal con el primer método encontrado
             db.execute("UPDATE ventas SET metodo_pago = %s, total = %s WHERE id = %s", (metodo_prin, monto_prin, venta_id))
 
-            # Crear ventas secundarias para dividir el monto total original
-            if metodo_prin != 'Efectivo' and m_ef > 0:
-                db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-                n_sec = db.fetchone()[0]
-                db.execute(
-                    "INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, numero_interno) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                    (negocio_id, venta['cliente_id'], current_user['id'], m_ef, 'Efectivo', datetime.datetime.now(), sesion_activa['id'], 0, n_sec)
+            # Helper para insertar ventas secundarias (sin duplicar stock/detalles)
+            def insertar_secundaria(db_conn, n_id, c_id, u_id, total, metodo, ses_id):
+                db_conn.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 as next_nro FROM ventas WHERE negocio_id = %s", (n_id,))
+                n_sec = db_conn.fetchone()['next_nro']
+                db_conn.execute(
+                    """INSERT INTO ventas 
+                       (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, 
+                        descuento, bonificacion_global, gastos_envio, numero_interno, estado) 
+                       VALUES (%s,%s,%s,%s,%s,%s,%s, 0, 0, 0, %s, 'Pendiente') RETURNING id""",
+                    (n_id, c_id, u_id, total, metodo, datetime.datetime.now(), ses_id, n_sec)
                 )
-            if metodo_prin != 'Mercado Pago' and m_mp > 0:
-                db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-                n_sec = db.fetchone()[0]
-                db.execute(
-                    "INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, numero_interno) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                    (negocio_id, venta['cliente_id'], current_user['id'], m_mp, 'Mercado Pago', datetime.datetime.now(), sesion_activa['id'], 0, n_sec)
-                )
-            if m_cc > 0:
-                v_cc_id = venta_id if metodo_prin == 'Cuenta Corriente' else None
-                if not v_cc_id:
-                     db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-                     n_sec = db.fetchone()[0]
-                     db.execute(
-                        "INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, numero_interno) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                        (negocio_id, venta['cliente_id'], current_user['id'], m_cc, 'Cuenta Corriente', datetime.datetime.now(), sesion_activa['id'], 0, n_sec)
-                    )
-                     v_cc_id = db.fetchone()['id']
+                return db_conn.fetchone()['id']
+
+            # Insertar el resto como ventas secundarias
+            v_cc_id = None
+            if metodo_prin == 'Cuenta Corriente': v_cc_id = venta_id
+
+            for m, cant in opciones:
+                # Si es el método principal, ya lo actualizamos en la venta original
+                if m == metodo_prin:
+                    continue
                 
+                if cant > 0:
+                    new_id = insertar_secundaria(db, negocio_id, venta['cliente_id'], current_user['id'], cant, m, sesion_activa['id'])
+                    if m == 'Cuenta Corriente':
+                        v_cc_id = new_id
+
+            # Si hubo parte en Cuenta Corriente, registrar en su historial
+            if m_cc > 0 and v_cc_id:
                 db.execute(
                     "INSERT INTO clientes_cuenta_corriente (cliente_id, concepto, debe, haber, fecha, venta_id) VALUES (%s, %s, %s, %s, %s, %s)",
                     (venta['cliente_id'], f"Corrección a Mixto (Cta Cte) - Venta #{venta_id}", m_cc, 0, datetime.datetime.now(), v_cc_id)

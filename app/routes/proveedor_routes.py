@@ -10,7 +10,7 @@ bp = Blueprint('proveedores', __name__)
 def get_proveedores(current_user, negocio_id):
     db = get_db()
     # --- CAMBIO AQUÍ: Incluimos saldo_cta_cte ---
-    db.execute('SELECT id, nombre, contacto, telefono, email, saldo_cta_cte FROM proveedores WHERE negocio_id = %s ORDER BY nombre', (negocio_id,))
+    db.execute('SELECT id, nombre, contacto, telefono, email, saldo_cta_cte, cuit, condicion_fiscal, datos_bancarios, condiciones_pago FROM proveedores WHERE negocio_id = %s ORDER BY nombre', (negocio_id,))
     proveedores = db.fetchall()
     return jsonify([dict(row) for row in proveedores])
 
@@ -30,8 +30,8 @@ def create_proveedor(current_user, negocio_id):
     try:
         # saldo_cta_cte tomará el DEFAULT 0
         db.execute(
-            'INSERT INTO proveedores (nombre, contacto, telefono, email, negocio_id) VALUES (%s, %s, %s, %s, %s) RETURNING id, saldo_cta_cte',
-            (data['nombre'], data.get('contacto'), data.get('telefono'), data.get('email'), negocio_id)
+            'INSERT INTO proveedores (nombre, contacto, telefono, email, negocio_id, cuit, condicion_fiscal, datos_bancarios, condiciones_pago) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id, saldo_cta_cte',
+            (data['nombre'], data.get('contacto'), data.get('telefono'), data.get('email'), negocio_id, data.get('cuit'), data.get('condicion_fiscal'), data.get('datos_bancarios'), data.get('condiciones_pago'))
         )
         nuevo_proveedor = db.fetchone()
         g.db_conn.commit()
@@ -55,7 +55,7 @@ def update_proveedor(current_user, id):
     
     data = request.get_json()
     # Excluimos saldo_cta_cte, se actualiza por ingresos/pagos
-    campos_actualizables = {k: v for k, v in data.items() if k in ('nombre', 'contacto', 'telefono', 'email')}
+    campos_actualizables = {k: v for k, v in data.items() if k in ('nombre', 'contacto', 'telefono', 'email', 'cuit', 'condicion_fiscal', 'datos_bancarios', 'condiciones_pago')}
     if not campos_actualizables.get('nombre'): # El nombre sigue siendo obligatorio al editar
          return jsonify({'error': 'El nombre es obligatorio'}), 400
 

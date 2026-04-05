@@ -19,6 +19,9 @@ let trackingInterval = null;
 let currentVehiculoId = null;
 let motivosReboteCache = []; // Caché de motivos de rebote
 let currentEntregaItems = []; // Items actuales en el modal de entrega
+let currentViewItems = []; // Ítems que se están visualizando actualmente (la fuente de verdad de la vista)
+let currentHrId = null; // ID de la HR actual para renderizado
+let isFilterPendingActive = false; // Estado del filtro de pendientes
 
 export function inicializarHomeChofer() {
     console.log("Inicializando App Chofer...");
@@ -137,7 +140,7 @@ function renderRutasList(rutas) {
                     <div class="fw-bold"><i class="fas fa-box-open text-secondary"></i> ${ruta.volumen_m3.toFixed(2)}m³</div>
                 </div>
                 <div class="text-center border-start ps-3">
-                    <div class="small text-muted mb-1">Stops</div>
+                    <div class="small text-muted mb-1">Pedidos</div>
                     <div class="fw-bold"><i class="fas fa-map-marker-alt text-danger"></i> ${ruta.cantidad_pedidos || 0}</div>
                 </div>
             </div>
@@ -149,27 +152,51 @@ function renderRutasList(rutas) {
 }
 
 async function cargarMotivosRebote(negocioId = null) {
-    // Si ya tenemos motivos y el negocioId coincide (o no se pasó), no recargar
-    if (motivosReboteCache.length > 0 && (!negocioId || motivosReboteCache[0]?.negocio_id === parseInt(negocioId))) return;
+    // Si ya tenemos motivos y son suficientes, no recargar (a menos que el negocio cambie)
+    if (motivosReboteCache.length > 0 && (!negocioId || motivosReboteCache[0]?.negocio_id === parseInt(negocioId))) {
+        return;
+    }
 
     try {
         let finalNegocioId = negocioId;
         if (!finalNegocioId) {
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                finalNegocioId = user.negocio_id;
+            // Fallback 1: AppState
+            finalNegocioId = appState.negocioActivoId;
+            // Fallback 2: LocalStorage
+            if (!finalNegocioId) {
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    finalNegocioId = user.negocio_id;
+                }
             }
         }
 
         if (finalNegocioId) {
-            console.log("Cargando motivos de rebote para negocio:", finalNegocioId);
+            console.log("🚛 [Rebote] Intentando cargar motivos para negocio:", finalNegocioId);
             const data = await fetchData(`/api/negocios/${finalNegocioId}/motivos_rebote`);
-            // Guardar con el ID del negocio para validación posterior
-            motivosReboteCache = data.map(m => ({ ...m, negocio_id: parseInt(finalNegocioId) }));
+            
+            if (data && data.length > 0) {
+                motivosReboteCache = data.map(m => ({ ...m, negocio_id: parseInt(finalNegocioId) }));
+                console.log("🚛 [Rebote] Motivos cargados desde DB:", motivosReboteCache.length);
+            } else {
+                console.warn("🚛 [Rebote] El negocio no tiene motivos configurados. Usando genéricos.");
+                // Motivos genéricos de emergencia para no trabar el flujo
+                motivosReboteCache = [
+                    { id: 1001, descripcion: 'No estaba el cliente', negocio_id: parseInt(finalNegocioId) },
+                    { id: 1002, descripcion: 'Rechazo por precio/monto', negocio_id: parseInt(finalNegocioId) },
+                    { id: 1003, descripcion: 'Producto dañado/mal estado', negocio_id: parseInt(finalNegocioId) },
+                    { id: 1004, descripcion: 'No pidió el producto', negocio_id: parseInt(finalNegocioId) },
+                    { id: 1005, descripcion: 'Diferencia de mercadería', negocio_id: parseInt(finalNegocioId) }
+                ];
+            }
         }
     } catch (e) {
-        console.error("Error cargando motivos de rebote", e);
+        console.error("❌ [Rebote] Error crítico cargando motivos:", e);
+        // Fallback total en caso de error de red o API
+        if (motivosReboteCache.length === 0) {
+            motivosReboteCache = [{ id: 999, descripcion: 'Motivo General / Otros', negocio_id: 0 }];
+        }
     }
 }
 
@@ -206,7 +233,7 @@ function mostrarModalSeleccionRutas(rutas) {
                                 <span class="text-muted ms-2 small">${r.fecha}</span><br>
                                 <small class="text-muted">
                                     <i class="fas fa-user-tie me-1"></i>${r.vendedor_nombre || 'N/A'} &nbsp;
-                                    <i class="fas fa-map-marker-alt me-1 text-danger"></i>${r.cantidad_pedidos || 0} paradas
+                                    <i class="fas fa-shopping-cart me-1 text-danger"></i>${r.cantidad_pedidos || 0} pedidos
                                 </small>
                             </label>
                         </div>
@@ -266,6 +293,8 @@ async function abrirRecorridoUnificado(rutas, hrIds) {
         const queryStr = selectedHrIds.map(id => `hr_ids=${id}`).join('&');
         const data = await fetchData(`/api/chofer/recorrido_unificado?${queryStr}`);
         unifiedItems = data.items;
+        currentViewItems = data.items;
+        currentHrId = null;
 
         // Intentar organizar por cercanía si tenemos ubicación actual
         if (navigator.geolocation) {
@@ -291,9 +320,41 @@ async function abrirRecorridoUnificado(rutas, hrIds) {
 }
 
 function actualizarVistaUnificada() {
-    renderParadas(null, unifiedItems);
-    dibujarMapaChofer(unifiedItems);
+    actualizarVistaDetalle();
 }
+
+function actualizarVistaDetalle() {
+    // Mostramos siempre solo las paradas que tienen al menos un pedido (evita puntos de paso vacíos)
+    let filtered = currentViewItems.filter(i => i.pedidos && i.pedidos.length > 0);
+
+    if (isFilterPendingActive) {
+        // El modo "Solo Pendientes" oculta paradas visitadas 
+        // Y paradas donde TODOS sus pedidos ya están en un estado final (entregado/rechazado)
+        filtered = filtered.filter(i => {
+            const noVisitado = !i.visitado;
+            const tienePedidoActivo = i.pedidos.some(p => p.estado !== 'entregado' && p.estado !== 'rechazado' && p.estado !== 'anulado');
+            return noVisitado && tienePedidoActivo;
+        });
+    }
+
+    renderParadas(isUnifiedMode ? null : currentHrId, filtered);
+    dibujarMapaChofer(filtered);
+}
+
+window.toggleFilterPending = function () {
+    isFilterPendingActive = !isFilterPendingActive;
+    const btn = document.getElementById('btn-filter-pending');
+    if (btn) {
+        if (isFilterPendingActive) {
+            btn.classList.replace('btn-outline-primary', 'btn-primary');
+            btn.innerHTML = '<i class="fas fa-eye-slash"></i> Mostrar Todos';
+        } else {
+            btn.classList.replace('btn-primary', 'btn-outline-primary');
+            btn.innerHTML = '<i class="fas fa-filter"></i> Solo Pendientes';
+        }
+    }
+    actualizarVistaDetalle();
+};
 
 function reordenarPorCercania(items, myLat, myLng) {
     const visitados = items.filter(i => i.visitado);
@@ -343,8 +404,9 @@ async function abrirDetalleRuta(hrId, fecha) {
 
     try {
         const rutaData = await fetchData(`/api/chofer/hoja_ruta/${hrId}`);
-        renderParadas(hrId, rutaData.items);
-        dibujarMapaChofer(rutaData.items);
+        currentViewItems = rutaData.items;
+        currentHrId = hrId;
+        actualizarVistaDetalle();
 
         // Iniciar tracking si la ruta está activa o en borrador (si tiene vehículo)
         if (rutaData.vehiculo_id || appState.currentRutaVehiculoId) {
@@ -537,20 +599,39 @@ function renderParadas(hrId, items) {
 
     items.forEach((item, index) => {
         const isVisitado = item.visitado;
-        const pedido = item.pedido;
+        const pedidos = item.pedidos || []; // Ahora es una lista
 
         let headerColor = isVisitado ? 'bg-success' : 'bg-primary';
-        let pedidoStatus = '';
-        if (pedido) {
-            pedidoStatus = pedido.estado === 'entregado' ?
-                '<span class="badge bg-success float-end mt-1"><i class="fas fa-check"></i> Pagado/Entregado</span>' :
-                '';
+        
+        // Determinar si todos los pedidos están entregados
+        const todosEntregados = pedidos.length > 0 && pedidos.every(p => p.estado === 'entregado');
+        
+        let statusBadges = '';
+        if (todosEntregados) {
+            statusBadges = '<span class="badge bg-success float-end mt-1"><i class="fas fa-check"></i> Todo Entregado</span>';
         }
 
-        // Armar HTML de productos
+        // Consolidar productos de TODOS los pedidos para el Picking
+        let productosConsolidados = {};
+        pedidos.forEach(p => {
+            if (p.productos) {
+                p.productos.forEach(prod => {
+                    const key = prod.producto_id;
+                    if (!productosConsolidados[key]) {
+                        productosConsolidados[key] = { ...prod };
+                    } else {
+                        productosConsolidados[key].cantidad += prod.cantidad;
+                    }
+                });
+            }
+        });
+
+        // Armar HTML de productos consolidados
         let productosHTML = '';
-        if (pedido && pedido.productos && pedido.productos.length > 0) {
-            let lis = pedido.productos.map(p => `
+        const listaProductos = Object.values(productosConsolidados);
+        
+        if (listaProductos.length > 0) {
+            let lis = listaProductos.map(p => `
                 <li>
                     <span>${p.nombre}</span>
                     <span class="cant-badge">${p.cantidad}</span>
@@ -564,45 +645,57 @@ function renderParadas(hrId, items) {
                 </div>
             `;
         } else {
-            productosHTML = `<div class="text-muted small mt-2 fst-italic"><i class="fas fa-info-circle"></i> No hay productos cargados en pedidos para este cliente. (Puede ser solo visita).</div>`;
+            productosHTML = `<div class="text-muted small mt-2 fst-italic"><i class="fas fa-info-circle"></i> No hay productos para entregar. (Solo visita).</div>`;
         }
 
         const card = document.createElement('div');
         card.className = `card parada-card ${isVisitado ? 'visitado' : ''}`;
 
-        // Determinar qué botón mostrar: "Confirmar Entrega" (si hay pedido) o "Confirmar Bajada" (solo visita)
-        const btnAccion = !isVisitado ? (
-            pedido ? `
-                <button class="btn btn-primary w-100 fw-bold btn-lg shadow-sm" onclick='abrirModalEntregaChofer(${hrId || item.hoja_ruta_id || 0}, ${item.hoja_ruta_item_id}, ${JSON.stringify(pedido).replace(/'/g, "&apos;")})'>
-                    <i class="fas fa-hand-holding-usd me-1"></i> Confirmar Bajada
+        // Determinar qué botón mostrar
+        let btnAccion = '';
+        if (!isVisitado) {
+            if (pedidos.length > 0) {
+                // Si hay pedidos, abrir modal consolidado
+                btnAccion = `
+                    <button class="btn btn-primary w-100 fw-bold btn-lg shadow-sm" onclick='abrirModalEntregaChofer(${hrId || item.hoja_ruta_id || 0}, ${item.hoja_ruta_item_id}, ${JSON.stringify(pedidos).replace(/'/g, "&apos;")})'>
+                        <i class="fas fa-hand-holding-usd me-1"></i> Confirmar Bajada
+                    </button>
+                `;
+            } else {
+                // Solo visita
+                btnAccion = `
+                    <button class="btn btn-warning w-100 fw-bold btn-lg shadow-sm" onclick="marcarVisitaChofer(${item.hoja_ruta_id || hrId}, ${item.hoja_ruta_item_id}, true, this)">
+                        <i class="fas fa-clipboard-check me-1"></i> Confirmar Bajada
+                    </button>
+                `;
+            }
+        } else {
+            btnAccion = `
+                <button class="btn btn-outline-success w-100 fw-bold" disabled>
+                    <i class="fas fa-check-circle me-1"></i> ${pedidos.length > 0 ? 'Entrega Confirmada' : 'Bajada Confirmada'}
                 </button>
-            ` : `
-                <button class="btn btn-warning w-100 fw-bold btn-lg shadow-sm" onclick="marcarVisitaChofer(${item.hoja_ruta_id || hrId}, ${item.hoja_ruta_item_id}, true, this)">
-                    <i class="fas fa-clipboard-check me-1"></i> Confirmar Bajada
+                <button class="btn btn-link text-danger w-100 mt-2 btn-sm" onclick="marcarVisitaChofer(${item.hoja_ruta_id || hrId}, ${item.hoja_ruta_item_id}, false, this)">
+                    <i class="fas fa-undo"></i> Deshacer bajada
                 </button>
-            `
-        ) : `
-            <button class="btn btn-outline-success w-100 fw-bold" disabled>
-                <i class="fas fa-check-circle me-1"></i> ${pedido ? 'Entrega Confirmada' : 'Bajada Confirmada'}
-            </button>
-            <button class="btn btn-link text-danger w-100 mt-2 btn-sm" onclick="marcarVisitaChofer(${item.hoja_ruta_id || hrId}, ${item.hoja_ruta_item_id}, false, this)">
-                <i class="fas fa-undo"></i> Deshacer bajada
-            </button>
-        `;
+            `;
+        }
+
+        // Generar badges de pedidos
+        const pedidoIdsHTML = pedidos.map(p => `<div class="badge bg-info text-white me-1 mb-1" style="font-size:0.7em;">Pedido #${p.pedido_id || p.id}</div>`).join('');
 
         card.innerHTML = `
             <div class="card-header bg-white border-bottom-0 pt-3 pb-0 d-flex justify-content-between align-items-center">
                 <span class="badge ${headerColor} fs-6 rounded-circle" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
                     ${index + 1}
                 </span>
-                ${pedidoStatus}
+                ${statusBadges}
             </div>
             <div class="card-body pt-2">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
                         <h5 class="card-title fw-bold mb-1">${item.cliente_nombre}</h5>
                         <h6 class="card-subtitle mb-1 text-muted small"><i class="fas fa-map-marker-alt"></i> ${item.cliente_direccion || 'Sin dirección'}</h6>
-                        ${pedido ? `<div class="badge bg-info text-white mb-2" style="font-size:0.7em;">Pedido #${pedido.pedido_id || pedido.id}</div>` : ''}
+                        <div class="mt-2 text-wrap">${pedidoIdsHTML}</div>
                     </div>
                 </div>
                 
@@ -620,32 +713,52 @@ function renderParadas(hrId, items) {
 
 // --- LOGICA ENTREGA CON REBOTE (Copiada/Adaptada de seller.js) ---
 
-window.abrirModalEntregaChofer = async function (hrId, itemId, pedido) {
-    // Asegurar que tenemos motivos de rebote (usando el negocio_id del pedido si el usuario no tiene)
-    await cargarMotivosRebote(pedido.negocio_id);
+window.abrirModalEntregaChofer = async function (hrId, itemId, data) {
+    // Si data es un objeto (retrocompatibilidad) lo volvemos un array
+    const pedidos = Array.isArray(data) ? data : [data];
+    const primerPedido = pedidos[0];
+    
+    // Asegurar que tenemos motivos de rebote
+    await cargarMotivosRebote(primerPedido.negocio_id);
 
-    document.getElementById('entrega-pedido-id').value = pedido.pedido_id || pedido.id;
+    // IDs de pedidos consolidado (separado por comas si son varios)
+    const pedidoIds = pedidos.map(p => p.pedido_id || p.id).join(',');
+    document.getElementById('entrega-pedido-id').value = pedidoIds;
     document.getElementById('entrega-hr-id').value = hrId;
     document.getElementById('entrega-item-id').value = itemId;
-    document.getElementById('entrega-cliente-nombre').innerText = `Bajada: ${pedido.cliente_nombre || 'Cliente'}`;
+    document.getElementById('entrega-cliente-nombre').innerText = `Bajada: ${primerPedido.cliente_nombre || 'Cliente'}`;
 
-    // Guardar total original
+    // Consolidar total
+    const totalConsolidado = pedidos.reduce((sum, p) => sum + (p.total || 0), 0);
     const montoTotalEl = document.getElementById('entrega-monto-total');
-    montoTotalEl.dataset.original = pedido.total;
-    montoTotalEl.innerText = `$${pedido.total.toLocaleString()}`;
+    montoTotalEl.dataset.original = totalConsolidado;
+    montoTotalEl.innerText = `$${totalConsolidado.toLocaleString()}`;
 
-    // Cargar items del pedido para ajuste parcial
+    // Cargar items CONSOLIDADOS de TODOS los pedidos para el modal
     const itemsContainer = document.getElementById('entrega-items-container');
     itemsContainer.innerHTML = '';
 
-    currentEntregaItems = pedido.productos.map(p => ({
-        producto_id: p.producto_id,
-        nombre: p.nombre,
-        cantidad_original: p.cantidad,
-        cantidad_actual: p.cantidad,
-        precio_unitario: p.precio_unitario || 0,
-        motivo_rebote_id: null
-    }));
+    let itemsConsolidados = {};
+    pedidos.forEach(p => {
+        p.productos.forEach(prod => {
+            const key = prod.producto_id;
+            if (!itemsConsolidados[key]) {
+                itemsConsolidados[key] = {
+                    producto_id: prod.producto_id,
+                    nombre: prod.nombre,
+                    cantidad_original: prod.cantidad,
+                    cantidad_actual: prod.cantidad,
+                    precio_unitario: prod.precio_unitario || 0,
+                    motivo_rebote_id: null
+                };
+            } else {
+                itemsConsolidados[key].cantidad_original += prod.cantidad;
+                itemsConsolidados[key].cantidad_actual += prod.cantidad;
+            }
+        });
+    });
+
+    currentEntregaItems = Object.values(itemsConsolidados);
 
     currentEntregaItems.forEach((item, index) => {
         const div = document.createElement('div');
@@ -791,16 +904,24 @@ window.confirmarEntregaChoferBackend = async function () {
         });
 
         cerrarModalEntregaChofer();
-
+        
         // Refrescar vista
+        if (isUnifiedMode) {
+            actualizarVistaUnificada();
+        } else {
+            abrirDetalleRuta(hrId, document.getElementById('chofer-ruta-titulo').innerText.split(' - ')[1]);
+        }
+
         if (isUnifiedMode) {
             const queryStr = selectedHrIds.map(id => `hr_ids=${id}`).join('&');
             const data = await fetchData(`/api/chofer/recorrido_unificado?${queryStr}`);
             unifiedItems = data.items;
-            actualizarVistaUnificada();
+            currentViewItems = data.items;
+            actualizarVistaDetalle();
         } else {
-            const fecha = document.getElementById('chofer-ruta-titulo').innerText.split(' - ')[1] || '';
-            abrirDetalleRuta(hrId, fecha);
+            const rutaData = await fetchData(`/api/chofer/hoja_ruta/${hrId}`);
+            currentViewItems = rutaData.items;
+            actualizarVistaDetalle();
         }
 
     } catch (e) {
@@ -827,12 +948,12 @@ window.marcarVisitaChofer = async function (hrId, itemId, estado, btn) {
                 : '';
             const data = await fetchData(`/api/chofer/recorrido_unificado${queryStr ? '?' + queryStr : ''}`);
             unifiedItems = data.items;
-            // Mantener el orden actual si es posible o simplemente refrescar
-            actualizarVistaUnificada();
+            currentViewItems = data.items;
+            actualizarVistaDetalle();
         } else {
             const rutaData = await fetchData(`/api/chofer/hoja_ruta/${hrId}`);
-            renderParadas(hrId, rutaData.items);
-            dibujarMapaChofer(rutaData.items);
+            currentViewItems = rutaData.items;
+            actualizarVistaDetalle();
         }
 
     } catch (e) {

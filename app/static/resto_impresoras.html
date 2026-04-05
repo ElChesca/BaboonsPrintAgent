@@ -1,0 +1,407 @@
+<!-- app/static/resto_impresoras.html -->
+<div class="resto-impresoras-container container-fluid fade-in p-4">
+    <!-- Header Premium -->
+    <div class="premium-header-glass mb-4 p-4 rounded-4 border border-white border-opacity-10 shadow-lg">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="header-icon-box bg-white bg-opacity-20 rounded-4 p-3 backdrop-blur-md">
+                    <i class="fas fa-print fs-2 text-white animate-pulse"></i>
+                </div>
+                <div>
+                    <h2 class="fw-800 mb-0 text-white text-shadow-sm tracking-tight">Ruteo de Impresión</h2>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-white bg-opacity-30 text-white fw-600 x-small px-2 py-1 rounded-pill">Configuración Local</span>
+                        <p class="text-white-50 mb-0 small fw-500">Vincula destinos KDS con IPs locales.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <a href="https://pub-e4ec169e72054d5f9688b734813732a7.r2.dev/aplicaciones/Baboons_Print_Router.exe" 
+                   class="btn btn-primary-premium btn-icon-text px-4 shadow-sm" id="btn-download-agent" target="_blank" title="Descargar ejecutable para Windows">
+                    <i class="fas fa-cloud-download-alt me-1 text-white"></i> <span class="text-white">Descargar Agente</span>
+                </a>
+                <div class="ms-2 d-flex align-items-center gap-2" id="agent-status-container">
+                    <span class="status-dot rounded-pill shadow-sm" id="agent-status-dot" style="width: 12px; height: 12px; background: #e74c3c; display: inline-block;"></span>
+                    <span class="fw-700 x-small" id="agent-status-text" style="color: #2d3436;">Agente Offline</span>
+                </div>
+                <div class="vr text-muted opacity-25 mx-1" style="height: 30px;"></div>
+                <button class="btn btn-outline-primary border-0 px-3" onclick="window.abrirGuiaImpresoras()" title="Ayuda y Configuración">
+                    <i class="fas fa-question-circle fs-5"></i>
+                </button>
+                <button class="btn btn-white-premium btn-icon-text px-4" onclick="window.abrirNuevaImpresora()">
+                    <i class="fas fa-plus me-1"></i> <span>Nueva Impresora</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="row g-4">
+        <!-- Listado de Impresoras -->
+        <div class="col-lg-8">
+            <div class="card glass-card border-0 rounded-4 overflow-hidden shadow-sm">
+                <div class="card-header bg-white bg-opacity-5 border-bottom border-white border-opacity-10 p-3">
+                    <h5 class="mb-0 fw-800 text-dark">Impresoras Configuradas</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr class="bg-light">
+                                <th class="ps-4">Nombre</th>
+                                <th>Dirección IP</th>
+                                <th>Destino (Estación)</th>
+                                <th class="text-center">Caja</th>
+                                <th class="text-end pe-4">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="impresoras-body">
+                            <!-- Inyectado por JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="no-impresoras" class="text-center py-5" style="display: none;">
+                    <i class="fas fa-print fs-1 text-muted opacity-25 mb-3"></i>
+                    <h5 class="text-muted fw-600">No hay impresoras configuradas</h5>
+                    <p class="small text-muted px-4">Agregá una impresora para que el sistema sepa dónde enviar las comandas.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Configuración PRO / Ayuda -->
+        <div class="col-lg-4">
+            <div class="card glass-card border-0 rounded-4 p-4 shadow-sm mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-800 text-dark mb-0"><i class="fas fa-bolt me-2 text-warning"></i>Ajustes de Ticket PRO</h5>
+                    <button class="btn btn-primary-premium shadow-sm" onclick="window.guardarAjustesPro()">
+                        <i class="fas fa-save me-1"></i> Guardar
+                    </button>
+                </div>
+                
+                <div class="settings-list">
+                    <!-- IP del Servidor de Impresión (Agente) -->
+                    <div class="setting-item mb-4 pb-4 border-bottom border-light">
+                        <label class="setting-label">IP del Hub (PC Agente)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0"><i class="fas fa-network-wired text-primary"></i></span>
+                            <input type="text" id="p-print-hub-ip" class="form-control-glass flex-grow-1" placeholder="Ej: 192.168.1.15">
+                        </div>
+                        <p class="x-small text-muted mt-2 mb-0">Necesario para imprimir desde Tablets. Deja vacío si el agente está en esta misma PC.</p>
+                    </div>
+
+                    <!-- Ruteo Fallback Premium Switch -->
+                    <div class="setting-item mb-4 pb-4 border-bottom border-light">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="pe-3">
+                                <h6 class="fw-800 text-dark mb-1">Ruteo Inteligente (Plan B)</h6>
+                                <p class="x-small text-muted mb-0">Imprimir en box principal si no hay destino exacto cargado.</p>
+                            </div>
+                            <label class="premium-switch">
+                                <input type="checkbox" id="p-fallback" checked>
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Tamaños de Letra Glass Selects -->
+                    <div class="setting-item mb-4">
+                        <h6 class="fw-800 text-primary small text-uppercase ls-1 mb-4">Jerarquía de Fuentes</h6>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label class="setting-label">Mesa</label>
+                                <select id="p-sz-mesa" class="form-select-glass w-100">
+                                    <option value="1">Normal</option>
+                                    <option value="2" selected>Grande (Doble)</option>
+                                    <option value="3">Súper (Triple)</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="setting-label">Mozo</label>
+                                <select id="p-sz-mozo" class="form-select-glass w-100">
+                                    <option value="1" selected>Normal</option>
+                                    <option value="2">Grande</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="setting-label">Productos / Ítems</label>
+                                <select id="p-sz-items" class="form-select-glass w-100">
+                                    <option value="1" selected>Estándar</option>
+                                    <option value="2">Resaltado (Negrita)</option>
+                                </select>
+                            </div>
+                            <div class="col-12 mt-3">
+                                <label class="setting-label">Título de Pre-Cuenta / Bill</label>
+                                <select id="p-bill-title" class="form-select-glass w-100">
+                                    <option value="PEDIDO DE CUENTA" selected>PEDIDO DE CUENTA</option>
+                                    <option value="PRE-CUENTA">PRE-CUENTA</option>
+                                    <option value="CONTROL DE MESA">CONTROL DE MESA</option>
+                                </select>
+                                <p class="x-small text-muted mt-2 mb-0">Título que aparecerá al pedir la cuenta/bill.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Leyenda del Ticket Glass Textarea -->
+                    <div class="setting-item">
+                        <label class="setting-label">Leyenda / Pie de Ticket</label>
+                        <textarea id="p-legend" class="form-control-glass w-100" rows="3" placeholder="Ej: ¡Gracias por visitarnos! Volvé pronto."></textarea>
+                        <p class="x-small text-muted mt-2 mb-0 italic">Aparecerá en todas las comandas y tickets de cuenta.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Ayuda / Info Destinos (Colapsable o debajo) -->
+            <div class="card glass-card border-0 rounded-4 p-4 shadow-sm opacity-75">
+                <h5 class="fw-800 text-primary mb-3"><i class="fas fa-info-circle me-2"></i>¿Cómo funciona?</h5>
+                <div class="info-step mb-4">
+                    <div class="d-flex gap-3">
+                        <div class="step-num">1</div>
+                        <div>
+                            <h6 class="fw-700 mb-1">Categorías</h6>
+                            <p class="small text-muted mb-0">Cada categoría de tu menú (Bebidas, Cocina, etc.) tiene un <strong>Destino KDS</strong> asignado.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="info-step mb-4">
+                    <div class="d-flex gap-3">
+                        <div class="step-num">2</div>
+                        <div>
+                            <h6 class="fw-700 mb-1">Ruteo por IP</h6>
+                            <p class="small text-muted mb-0">Aquí defines qué <strong>IP</strong> corresponde a cada destino. Ejemplo: "Destino Bar" -> 192.168.1.50.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="info-step">
+                    <div class="d-flex gap-3">
+                        <div class="step-num">3</div>
+                        <div>
+                            <h6 class="fw-700 mb-1">Agente Local</h6>
+                            <p class="small text-muted mb-0">Asegúrate de tener corriendo el <code>baboons_print_router</code> en la PC donde están conectadas las impresoras.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-auto pt-4">
+                    <div class="alert alert-info-soft rounded-4 border-0 mb-0">
+                        <small class="fw-700 text-primary d-block mb-1">TIP PROFESIONAL</small>
+                        <p class="x-small text-muted mb-0">Podes asignar varias impresoras al mismo destino si necesitas duplicados de comandas (próximamente).</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Impresora -->
+<div id="modal-impresora" class="premium-modal-overlay">
+    <div class="premium-modal-content glass-modal animate-scale-up" style="max-width: 480px;">
+        <div class="premium-modal-header p-4 pb-0 border-0">
+            <h4 class="mb-0 fw-800 gradient-text" id="modal-impresora-titulo">Configurar Impresora</h4>
+            <button class="btn-close-modal" onclick="window.cerrarModalImpresora()">×</button>
+        </div>
+        <form id="form-impresora">
+            <div class="premium-modal-body p-4">
+                <input type="hidden" id="imp-id">
+                <div class="form-group-premium mb-3">
+                    <label class="form-label-premium">Nombre Descriptivo</label>
+                    <input type="text" id="imp-nombre" class="form-control-glass" required placeholder="Ej: Epson Cocina Fondo">
+                </div>
+                <div class="form-group-premium mb-3">
+                    <label class="form-label-premium">Dirección IP (Red Local)</label>
+                    <input type="text" id="imp-ip" class="form-control-glass" required placeholder="Ej: 192.168.1.100">
+                    <small class="text-muted x-small">Debe ser la IP asignada a la impresora térmica.</small>
+                </div>
+                <div class="form-group-premium mb-3">
+                    <label class="form-label-premium">Vincular a Estación KDS</label>
+                    <select id="imp-estacion" class="form-select-glass">
+                        <option value="cocina">🍳 Cocina</option>
+                        <option value="bar">🍹 Barra / Bar</option>
+                        <option value="postre">🍰 Repostería</option>
+                        <option value="entrada">🥗 Entradas</option>
+                        <option value="mostrador">🥡 Take Away / Mostrador</option>
+                    </select>
+                    <small class="text-muted x-small">Las comandas dirigidas a esta estación saldrán por aquí.</small>
+                </div>
+                <div class="setting-item">
+                    <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded-4">
+                        <div>
+                            <h6 class="fw-800 text-dark mb-0 small">Caja por Defecto</h6>
+                            <p class="x-small text-muted mb-0">Usar esta impresora para Tickets de Cuenta.</p>
+                        </div>
+                        <label class="premium-switch">
+                            <input type="checkbox" id="imp-es-caja">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="premium-modal-footer p-4 pt-2 border-0 d-flex justify-content-end gap-3">
+                <button type="button" class="btn btn-blur-light rounded-pill px-4" onclick="window.cerrarModalImpresora()">Cancelar</button>
+                <button type="submit" class="btn btn-primary-premium rounded-pill px-4">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Guía de Configuración -->
+<div id="modal-guia-impresoras" class="premium-modal-overlay" style="display: none;">
+    <div class="premium-modal-content glass-modal animate-scale-up" style="max-width: 600px;">
+        <div class="premium-modal-header p-4 pb-0 border-0">
+            <h4 class="mb-0 fw-800 gradient-text">Guía de Configuración LPT230</h4>
+            <button class="btn-close-modal" onclick="window.cerrarGuiaImpresoras()">×</button>
+        </div>
+        <div class="premium-modal-body p-4">
+            <div class="mb-4">
+                <h6 class="fw-800 text-primary mb-2"><i class="fas fa-wifi me-2"></i>Conexión Wi-Fi</h6>
+                <p class="small text-muted mb-2">Si el autotest dice <b>"Router Status: Disconnect"</b>:</p>
+                <ul class="small text-muted ps-3">
+                    <li>Conecta la impresora por <b>USB</b> a una PC. local.</li>
+                    <li>Usa la herramienta <b>"Printer Setting Tool"</b>.</li>
+                    <li>Configura el SSID <b>GESTION1</b> y la clave asignada.</li>
+                </ul>
+            </div>
+            
+            <div class="mb-4">
+                <h6 class="fw-800 text-primary mb-2"><i class="fas fa-network-wired me-2"></i>Conexión Ethernet (Cable)</h6>
+                <p class="small text-muted mb-0">La IP por defecto suele ser <b>192.168.123.100</b>.</p>
+                <p class="small text-muted">Para configurarla, tu PC debe estar en el mismo rango (Ej: 192.168.123.10).</p>
+            </div>
+
+            <div class="alert alert-info-soft rounded-4 border-0 mb-4">
+                <h6 class="fw-800 mb-1">¿Cómo hacer el Autotest?</h6>
+                <p class="x-small mb-0">Apaga la impresora. Mantén presionado <b>FEED</b> y enciende. Suelta a los 2 segundos. ¡Te imprimirá la IP actual!</p>
+            </div>
+
+            <div class="mb-4">
+                <h6 class="fw-800 text-primary mb-2"><i class="fas fa-cloud me-2"></i>Configuración del Agente Cloud</h6>
+                <p class="small text-muted mb-2">Para recibir comandas desde <b>Tablets</b> o el Celular del Mozo:</p>
+                <div class="bg-light p-3 rounded-4 mb-3 border">
+                    <p class="x-small mb-1"><b>1. URL del Servidor:</b> <code>https://multinegocio.baboons.com.ar</code></p>
+                    <p class="x-small mb-1"><b>2. ID de Negocio:</b> Consultar con Administración (ej: 13)</p>
+                    <p class="x-small mb-0"><b>3. Token:</b> Tu clave secreta de acceso POS.</p>
+                </div>
+                <p class="x-small text-muted"><i>Tip: El agente se encarga de "pescar" las comandas de la nube y mandarlas a la impresora local automáticamente. No necesitas abrir puertos en el router.</i></p>
+            </div>
+
+            <div class="bg-primary bg-opacity-10 p-4 rounded-4 border border-primary border-opacity-20 mb-4">
+                <h6 class="fw-800 text-primary mb-2"><i class="fas fa-rocket me-2"></i>Inicio Automático (Recomendado)</h6>
+                <p class="small text-muted mb-2">Para que el agente arranque solo al encender la PC:</p>
+                <ol class="x-small text-muted ps-3 mb-0">
+                    <li class="mb-1">Presiona <b>Win + R</b>, escribe <code>shell:startup</code> y dale a Enter.</li>
+                    <li class="mb-1">Crea un <b>Acceso Directo</b> del programa <code>BaboonsPrintAgent.exe</code>.</li>
+                    <li>Pega ese acceso directo en la carpeta que se abrió. ¡Y listo!</li>
+                </ol>
+            </div>
+        </div>
+        <div class="premium-modal-footer p-4 pt-0 border-0">
+            <button type="button" class="btn btn-primary-premium w-100 rounded-pill" onclick="window.cerrarGuiaImpresoras()">Entendido</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .resto-impresoras-container {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background: #f8fafc;
+        min-height: 100vh;
+    }
+    .step-num {
+        width: 28px; height: 28px;
+        background: #4361ee;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center; justify-content: center;
+        font-weight: 800;
+        font-size: 0.8rem;
+        flex-shrink: 0;
+    }
+    .info-step h6 { font-size: 0.9rem; }
+    
+    /* Buttons Premium */
+    .btn-primary-premium {
+        background: linear-gradient(135deg, #4361ee, #3f37c9);
+        color: white !important;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 14px;
+        font-weight: 700;
+        box-shadow: 0 10px 20px rgba(67, 97, 238, 0.2);
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .btn-primary-premium:hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 15px 30px rgba(67, 97, 238, 0.3);
+        background: linear-gradient(135deg, #3f37c9, #4361ee);
+    }
+    
+    /* Glass Cards & Elements */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.03);
+    }
+
+    .form-select-glass, .form-control-glass {
+        background: rgba(241, 245, 249, 0.5) !important;
+        border: 1.5px solid rgba(226, 232, 240, 0.8) !important;
+        border-radius: 14px !important;
+        padding: 10px 15px !important;
+        font-weight: 600 !important;
+        color: #1e293b !important;
+        transition: all 0.2s ease !important;
+    }
+    .form-select-glass:focus, .form-control-glass:focus {
+        background: white !important;
+        border-color: #4361ee !important;
+        box-shadow: 0 0 0 4px rgba(67, 97, 238, 0.1) !important;
+        outline: none !important;
+    }
+
+    /* Premium Switch (Apple Style) */
+    .premium-switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 26px;
+    }
+    .premium-switch input { opacity: 0; width: 0; height: 0; }
+    .switch-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: #e2e8f0;
+        transition: .4s;
+        border-radius: 34px;
+    }
+    .switch-slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    input:checked + .switch-slider {
+        background-color: #4361ee;
+    }
+    input:checked + .switch-slider:before {
+        transform: translateX(24px);
+    }
+
+    .setting-label {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #475569;
+        margin-bottom: 6px;
+        display: block;
+    }
+    
+    .x-small { font-size: 0.75rem; }
+    .fw-800 { font-weight: 800; }
+    .fw-700 { font-weight: 700; }
+</style>

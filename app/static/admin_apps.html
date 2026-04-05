@@ -1,78 +1,115 @@
-<div class="container-fluid fade-in" style="padding: 20px;">
-    <div class="page-header">
-        <h2>Administración de Aplicaciones y Módulos</h2>
-        <p class="text-muted">Gestione qué módulos están visibles para cada tipo de negocio.</p>
+<div class="container-fluid" style="padding: 20px; max-width: 1400px; margin: 0 auto; background: #f8fafc;">
+    <div class="page-header mb-4">
+        <h2 class="fw-bold text-dark">🛠️ Administración de Ecosistema ERP</h2>
+        <p class="text-muted">Configure la visibilidad de módulos por industria o negocio individual.</p>
     </div>
 
-    <!-- Pestañas de Configuración -->
-    <div class="tabs-container">
-        <div class="tab-header">
-            <button class="tab-btn active" data-type="type" onclick="cambiarTabAdmin('retail')">Retail</button>
-            <button class="tab-btn" data-type="type" onclick="cambiarTabAdmin('consorcio')">Consorcio</button>
-            <button class="tab-btn" data-type="type" onclick="cambiarTabAdmin('rentals')">Rentals</button>
-            <button class="tab-btn" data-type="type" onclick="cambiarTabAdmin('distribuidora')">Distribuidora</button>
-            <button class="tab-btn" data-type="type" onclick="cambiarTabAdmin('resto')">Restó</button>
-            <button class="tab-btn" data-type="pagos" onclick="cambiarTabAdmin('pagos')"
-                style="background: #e8f5e9; color: #2e7d32; font-weight: bold;">💳 Pagos</button>
-            <button class="tab-btn" data-type="business" onclick="cambiarTabAdmin('negocio')"
-                style="background: #e3f2fd; color: #1976d2; font-weight: bold;">📍 Por Negocio</button>
+    <style>
+        .tab-btn { transition: all 0.3s ease; border-radius: 12px; font-weight: 700; padding: 10px 25px; border: 2px solid transparent; }
+        .tab-btn.active { 
+            background: #4f46e5 !important; 
+            color: white !important; 
+            border-color: #818cf8 !important;
+            box-shadow: 0 0 20px rgba(79, 70, 229, 0.5);
+            transform: translateY(-2px);
+        }
+        .form-switch .form-check-input {
+            width: 3.5em !important;
+            height: 1.75em !important;
+            cursor: pointer;
+            background-color: #cbd5e1 !important; /* Gris base */
+            border: 2px solid #94a3b8 !important;
+            transition: all 0.2s ease-in-out;
+        }
+        .form-switch .form-check-input:checked {
+            background-color: #10b981 !important; /* Verde Esmeralda Sólido */
+            border-color: #059669 !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='white'/%3e%3c/svg%3e") !important;
+        }
+        .form-switch .form-check-input:not(:checked) {
+            background-color: #475569 !important; /* Slate oscuro para OFF */
+            border-color: #334155 !important;
+        }
+        .glass-card { 
+            background: rgba(255, 255, 255, 0.9); 
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            border-radius: 15px;
+            transition: all 0.2s;
+        }
+        .glass-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    </style>
+
+    <!-- Pestañas Profesionales -->
+    <div class="d-flex mb-4 gap-2 flex-wrap" style="border-bottom: 2px solid #e2e8f0; padding-bottom: 15px;">
+        <button class="btn btn-outline-primary tab-btn active" data-type="retail">Retail</button>
+        <button class="btn btn-outline-primary tab-btn" data-type="consorcio">Consorcio</button>
+        <button class="btn btn-outline-primary tab-btn" data-type="rentals">Rentals</button>
+        <button class="btn btn-outline-primary tab-btn" data-type="distribuidora">Distribuidora</button>
+        <button class="btn btn-outline-primary tab-btn" data-type="resto">Restó</button>
+        <div style="width: 2px; background: #e2e8f0; margin: 0 10px; height: 35px;"></div>
+        <button class="btn btn-success tab-btn" data-type="pagos">💳 Suscripciones</button>
+        <button class="btn btn-info text-white tab-btn" data-type="business">📍 Por Negocio</button>
+    </div>
+
+    <!-- Filtros y Búsqueda -->
+    <div id="admin-tools-bar" class="card shadow-sm p-3 mb-4 d-flex flex-row align-items-center justify-content-between gap-3" style="display: none !important;">
+        <div id="negocio-selector-container" class="d-flex align-items-center gap-3 flex-grow-1" style="display: none;">
+            <label class="text-muted small fw-bold">NEGOCIO:</label>
+            <select id="admin-negocio-selector" class="form-select"></select>
+        </div>
+        
+        <div class="search-wrapper flex-grow-1" style="max-width: 400px;">
+            <input type="text" id="admin-module-search" class="form-control" placeholder="Buscar módulo (ej: ventas, stock)..." onkeyup="renderModules()">
         </div>
     </div>
 
-    <!-- Selector de Negocio (Solo visible en pestaña 'Por Negocio') -->
-    <div id="negocio-selector-container" class="card shadow-sm mb-3"
-        style="display: none; border-radius: 12px; margin-top: 15px; border-left: 5px solid #1976d2;">
-        <div class="card-body d-flex align-items-center gap-3">
-            <label style="margin: 0; font-weight: 600;">Seleccionar Negocio:</label>
-            <select id="admin-negocio-selector" class="form-select" style="max-width: 300px;"></select>
-            <small class="text-muted">Desactive módulos para este negocio individual.</small>
+    <div class="card shadow-sm p-4">
+        <div id="loading-permissions" class="text-center py-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-3 text-muted">Sincronizando registros...</p>
         </div>
-    </div>
 
-    <div class="card shadow-sm" style="border-radius: 12px; margin-top: 20px;">
-        <div class="card-body">
-            <div id="loading-permissions" style="text-align: center; padding: 20px;">
-                <div class="spinner"></div> Cargando configuración...
-            </div>
-
-            <div id="permissions-content" style="display: none;">
-                <h4 id="current-type-title" style="margin-bottom: 20px; color: var(--primary-color);">Configurando:
-                    Retail</h4>
-
-                <form id="permissions-form">
-                    <div class="row" id="modules-list-container">
-                        <!-- Se llenará dinámicamente con checkboxes -->
-                    </div>
-
-                    <div class="form-actions" style="margin-top: 30px; text-align: right;">
-                        <button type="button" class="btn btn-secondary" onclick="recargarPermisos()">Cancelar</button>
-                        <button type="submit" class="btn btn-primary btn-lg">Guardar Cambios</button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Sección de Pagos -->
-            <div id="pagos-content" style="display: none;">
-                <h4 style="margin-bottom: 20px; color: #2e7d32;">Control de Pagos de Suscripción</h4>
-                <div class="table-responsive">
-                    <table class="table table-hover" id="tabla-suscripciones">
-                        <thead>
-                            <tr>
-                                <th>Negocio</th>
-                                <th>Cuota</th>
-                                <th>Deuda</th>
-                                <th>Último Mes Pago</th>
-                                <th>Fecha Registro</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Se llena dinámicamente -->
-                        </tbody>
-                    </table>
+        <div id="permissions-content" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 id="current-type-title" class="m-0 fw-bold text-dark">Módulos Disponibles</h4>
+                <div class="btn-group">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="toggleAllChecks(true)">Marcar Todos</button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="toggleAllChecks(false)">Desmarcar Todos</button>
                 </div>
             </div>
+
+            <form id="permissions-form">
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="modules-list-container">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+
+                <div class="mt-5 pt-3 border-top d-flex justify-content-end gap-3">
+                    <button type="button" class="btn btn-outline-secondary" onclick="recargarPermisos()">Descartar Cambios</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i> Guardar Configuración
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Sección de Pagos (Suscripciones) -->
+        <div id="pagos-content" style="display: none;">
+            <h4 class="mb-4 fw-bold text-success">Control de Suscripciones y Mora</h4>
+            <div class="table-responsive">
+                <table class="table table-hover table-striped" id="tabla-suscripciones">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Negocio</th>
+                            <th>Cuota</th>
+                            <th>Deuda</th>
+                            <th>Último Pago</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </div>
-</div>
+</div>

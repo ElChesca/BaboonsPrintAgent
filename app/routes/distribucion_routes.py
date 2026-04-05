@@ -1,6 +1,7 @@
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, jsonify, request, g, current_app
 from app.database import get_db
 from app.auth_decorator import token_required
+import traceback
 
 bp = Blueprint('distribucion', __name__)
 
@@ -1175,7 +1176,7 @@ def asignar_carga_vehiculo(current_user):
             FROM pedidos p
             JOIN pedidos_detalle pd ON p.id = pd.pedido_id
             WHERE p.hoja_ruta_id = ANY(%s) 
-            AND p.estado IN ('pendiente', 'preparado')
+            AND p.estado = 'preparado'
             GROUP BY pd.producto_id
         """
         db.execute(query_items, (hoja_ruta_ids,))
@@ -1225,11 +1226,11 @@ def asignar_carga_vehiculo(current_user):
                               last_updated = CURRENT_TIMESTAMP
             """, (vehiculo_id, p_id, negocio_id, cant))
         
-        # C. Pasar pedidos de 'pendiente' a 'preparado' automáticamente al confirmar la carga
+        # C. Pasar pedidos de 'preparado' a 'en_camino' al confirmar la carga
         db.execute("""
             UPDATE pedidos 
-            SET estado = 'preparado' 
-            WHERE hoja_ruta_id = ANY(%s) AND estado = 'pendiente'
+            SET estado = 'en_camino' 
+            WHERE hoja_ruta_id = ANY(%s) AND estado = 'preparado'
         """, (hoja_ruta_ids,))
 
         g.db_conn.commit()
@@ -1269,7 +1270,7 @@ def get_hojas_ruta_disponibles_carga(current_user):
         FROM hoja_ruta hr
         JOIN vendedores v ON hr.vendedor_id = v.id
         LEFT JOIN vehiculos vh ON hr.vehiculo_id = vh.id
-        LEFT JOIN pedidos p ON hr.id = p.hoja_ruta_id AND p.estado IN ('pendiente', 'preparado')
+        LEFT JOIN pedidos p ON hr.id = p.hoja_ruta_id AND p.estado = 'preparado'
         LEFT JOIN pedidos_detalle pd ON p.id = pd.pedido_id
         LEFT JOIN productos pr ON pd.producto_id = pr.id
         WHERE hr.negocio_id = %s 
@@ -1291,324 +1292,196 @@ def get_hojas_ruta_disponibles_carga(current_user):
         
     return jsonify(results)
 
-@bp.route('/pedidos/<int:pedido_id>/entregar', methods=['POST'])
+@bp.route('/pedidos/<string:pedido_ids>/entregar', methods=['POST'])
 @token_required
-def entregar_pedido(current_user, pedido_id):
+def entregar_pedido(current_user, pedido_ids):
     data = request.get_json()
-    metodo_pago = data.get('metodo_pago') # 'Efectivo', 'Mercado Pago', 'Cuenta Corriente', etc.
     db = get_db()
     
+    # Manejar múltiples IDs (ej: "1023,1024")
+    ids_list = [int(i.strip()) for i in pedido_ids.split(',')]
+    print(f"🚛 [Bajada] Iniciando proceso para {len(ids_list)} pedidos: {ids_list} (Negocio: {current_user.get('negocio_id')})")
+    
     try:
-        # 1. Obtener Pedido y Validar Estado
-        db.execute("SELECT * FROM pedidos WHERE id = %s", (pedido_id,))
-        pedido = db.fetchone()
-        
-        if not pedido:
-            return jsonify({'error': 'Pedido no encontrado'}), 404
+        # Para bajada consolidada: llevar cuenta de qué se entregó ya globalmente
+        ajustes_remanentes = (data.get('items_ajustados') or {}).copy()
+
+        for p_id in ids_list:
+            # 1. Obtener Pedido y Validar Estado
+            db.execute("SELECT * FROM pedidos WHERE id = %s", (p_id,))
+            pedido = db.fetchone()
             
-        if pedido['estado'] not in ['en_camino', 'preparado', 'pendiente', 'entregado']:
-            return jsonify({'error': f"El pedido no está en estado válido para esta acción (Estado actual: {pedido['estado']})"}), 400
-            
-        negocio_id = pedido['negocio_id']
-        cliente_id = pedido['cliente_id']
-        
-        solo_bajada = data.get('solo_bajada') is True
-        solo_cobro = data.get('solo_cobro') is True
-
-        if solo_cobro and pedido['estado'] != 'entregado':
-            return jsonify({'error': 'Solo se puede registrar el cobro si el pedido ya fue entregado (bajada confirmada).'}), 400
-
-        # Si el pedido ya está cobrado (tiene venta_id), no permitir volver a cobrar
-        if pedido.get('venta_id'):
-             return jsonify({'error': 'Este pedido ya fue cobrado (tiene venta registrada)'}), 400
-
-        # 2. Verificar Caja Abierta (Solo obligatorio para registrar venta / cobrar)
-        sesion_abierta = None
-        if not solo_bajada:
-            db.execute('SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL', (negocio_id,))
-            sesion_abierta = db.fetchone()
-            if not sesion_abierta:
-                return jsonify({'error': 'La caja está cerrada. Debe abrir la caja para cobrar pedidos.'}), 409
-            
-        # 3. Obtener Detalles del Pedido
-        db.execute("""
-            SELECT pd.*, pr.nombre
-            FROM pedidos_detalle pd
-            JOIN productos pr ON pd.producto_id = pr.id
-            WHERE pd.pedido_id = %s
-        """, (pedido_id,))
-        detalles_originales = db.fetchall()
-        
-        if not detalles_originales:
-             # Caso raro: Pedido sin items. Solo actualizamos estado.
-             db.execute("UPDATE pedidos SET estado = 'entregado' WHERE id = %s", (pedido_id,))
-             g.db_conn.commit()
-             return jsonify({'message': 'Pedido entregado (sin items que cobrar)'})
-
-        # --- LÓGICA DE RECHAZO PARCIAL Y BONIFICACIONES (Solo si NO es solo_cobro) ---
-        items_ajustados = data.get('items_ajustados', {}) if not solo_cobro else {}
-        bonificaciones_ajustadas = data.get('bonificaciones_ajustadas', {}) if not solo_cobro else {}
-        motivos_ajustados = data.get('motivos_ajustados', {}) if not solo_cobro else {}
-        hr_id = pedido.get('hoja_ruta_id') or pedido.get('ho_ruta_id')
-        
-        tiene_ajustes = len(items_ajustados) > 0 or len(bonificaciones_ajustadas) > 0
-        total_devuelto = 0
-        detalles_devolucion = []
-
-        # 4. Calcular Total Venta (Basado en cantidades reales o ajustadas)
-        total_venta_calculado = 0
-        notificaciones = []
-
-        # 5. Iterar Detalles (Ajustar cantidades, guardar rebotes, calcular nuevo total)
-        from datetime import datetime
-        descuento_general = float(data.get('descuento', 0))
-        
-        items_para_venta = []
-        for item in detalles_originales:
-            producto_id = str(item['producto_id'])
-            cantidad_original = float(item['cantidad'])
-            
-            # Si solo estamos cobrando, la cantidad original grabada en pd ya es la final ajustada
-            if solo_cobro:
-                cantidad_entregada = cantidad_original
-            else:
-                cantidad_entregada = float(items_ajustados.get(producto_id, cantidad_original))
-            
-            # Si hubo rechazo parcial (y no estamos solo cobrando)
-            if not solo_cobro and cantidad_entregada < cantidad_original:
-                cantidad_rechazada = cantidad_original - cantidad_entregada
+            if not pedido:
+                print(f"⚠️ [Bajada] Pedido #{p_id} no encontrado en la base de datos.")
+                continue
                 
-                motivo_id = motivos_ajustados.get(producto_id)
-                if motivo_id and hr_id:
-                    db.execute("""
-                        INSERT INTO pedidos_rebotes (negocio_id, pedido_id, hoja_ruta_id, producto_id, cantidad, motivo_rebote_id)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (negocio_id, pedido_id, hr_id, item['producto_id'], cantidad_rechazada, motivo_id))
-
-                precio_u = float(item['precio_unitario'])
-                subtotal_rechazo = cantidad_rechazada * precio_u
-                total_devuelto += subtotal_rechazo
-                detalles_devolucion.append({
-                    'producto_id': item['producto_id'],
-                    'cantidad_devuelta': cantidad_rechazada,
-                    'precio_unitario': precio_u,
-                    'subtotal': subtotal_rechazo
-                })
-                
-                # Actualizamos la cantidad en el pedido detalle para que cuando lo cobren después ya esté bien
-                subt_nuevo = cantidad_entregada * precio_u
-                db.execute("""
-                    UPDATE pedidos_detalle SET cantidad = %s, subtotal = %s WHERE pedido_id = %s AND producto_id = %s
-                """, (cantidad_entregada, subt_nuevo, pedido_id, item['producto_id']))
-
-            precio_unitario = float(item['precio_unitario'])
+            negocio_id = pedido['negocio_id']
+            cliente_id = pedido['cliente_id']
+            hr_id = pedido.get('hoja_ruta_id') or pedido.get('ho_ruta_id')
             
-            if solo_cobro:
-                bonif_item = float(item.get('bonificacion', 0))
-            else:
-                bonif_item = float(bonificaciones_ajustadas.get(producto_id, item.get('bonificacion', 0)))
-                # Actualizar bonificacion
-                if bonif_item != float(item.get('bonificacion', 0)):
-                     db.execute("UPDATE pedidos_detalle SET bonificacion = %s WHERE pedido_id = %s AND producto_id = %s", 
-                                (bonif_item, pedido_id, item['producto_id']))
+            solo_bajada = data.get('solo_bajada') is True
+            solo_cobro = data.get('solo_cobro') is True
 
-            # La bonificación se aplica sobre la cantidad entregada
-            subtotal_item = max(0, (cantidad_entregada - bonif_item) * precio_unitario)
+            # 2. Verificar Caja Abierta
+            sesion_abierta = None
+            if not solo_bajada:
+                db.execute('SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL', (negocio_id,))
+                sesion_abierta = db.fetchone()
+                if not sesion_abierta:
+                    return jsonify({'error': 'La caja está cerrada.'}), 409
+                
+            # 3. Obtener Detalles del Pedido
+            db.execute("""
+                SELECT pd.*, pr.nombre
+                FROM pedidos_detalle pd
+                JOIN productos pr ON pd.producto_id = pr.id
+                WHERE pd.pedido_id = %s
+            """, (p_id,))
+            detalles_originales = db.fetchall()
             
-            total_venta_calculado += subtotal_item
-            items_para_venta.append({
-                'item': item,
-                'cantidad_entregada': cantidad_entregada,
-                'subtotal': subtotal_item,
-                'precio_unitario': precio_unitario,
-                'bonif': bonif_item
-            })
+            if not detalles_originales:
+                db.execute("UPDATE pedidos SET estado = 'entregado' WHERE id = %s", (p_id,))
+                continue
 
-        total_final = max(0, total_venta_calculado - descuento_general)
-        
-        # Si NO es solo cobranza, actualizamos el total del pedido por los ajustes
-        if not solo_cobro:
-            db.execute("UPDATE pedidos SET total = %s WHERE id = %s", (total_final, pedido_id))
+            items_ajustados = data.get('items_ajustados', {})
+            motivos_ajustados = data.get('motivos_ajustados', {})
+            total_devuelto = 0
+            detalles_devolucion = []
+            items_para_venta = []
+            total_venta_calculado = 0
 
-        # --- FLUJO DE COBRANZA (Venta) ---
-        venta_id = None
-        monto_cta_cte = 0
-        
-        # SI ES SOLO BAJADA (ENTREGA SIN COBRO), NO REGISTRAMOS VENTA
-        if solo_bajada:
-            metodo_pago = None # Evitar procesamiento de pagos
-            
-        if not solo_bajada and metodo_pago:
-            # Registrar Venta(s)
-            if metodo_pago == 'Mixto':
-                monto_ef = float(data.get('monto_efectivo', 0))
-                monto_mp = float(data.get('monto_mp', 0))
-                monto_cta_cte = max(0, total_final - (monto_ef + monto_mp))
+            # 5. Iterar Detalles
+            from datetime import datetime
+            for item in detalles_originales:
+                producto_id = str(item['producto_id'])
+                cantidad_en_pedido = float(item['cantidad'])
                 
-                # DETERMINAR MÉTODO PRINCIPAL PARA LOS DETALLES
-                # Si hay efectivo, la venta principal es Efectivo. Si no hay pero hay MP, es MP. Si solo hay Cta Cte, es Cta Cte.
-                metodo_principal = 'Efectivo' if monto_ef > 0 else ('Mercado Pago' if monto_mp > 0 else 'Cuenta Corriente')
-                monto_principal = monto_ef if metodo_principal == 'Efectivo' else (monto_mp if metodo_principal == 'Mercado Pago' else monto_cta_cte)
-
-                # 1. Venta Principal (Lleva los detalles para el stock/auditoría)
-                db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-                proximo_nro = db.fetchone()[0]
-                db.execute(
-                    'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id, hoja_ruta_id, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
-                    (negocio_id, cliente_id, current_user['id'], monto_principal, metodo_principal, datetime.now(), sesion_abierta['id'], descuento_general, pedido['vendedor_id'], hr_id, proximo_nro)
-                )
-                venta_id = db.fetchone()['id']
+                cantidad_entregada = cantidad_en_pedido # Fallback
                 
-                # 2. Registrar Otras Partes como Ventas adicionales (sin detalles para no duplicar stock)
-                if metodo_principal != 'Efectivo' and monto_ef > 0:
-                    db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-                    proximo_nro_sec = db.fetchone()[0]
-                    db.execute(
-                        'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id, hoja_ruta_id, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
-                        (negocio_id, cliente_id, current_user['id'], monto_ef, 'Efectivo', datetime.now(), sesion_abierta['id'], 0, pedido['vendedor_id'], hr_id, proximo_nro_sec)
-                    )
-                
-                if metodo_principal != 'Mercado Pago' and monto_mp > 0:
-                    db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-                    proximo_nro_sec = db.fetchone()[0]
-                    db.execute(
-                        'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id, hoja_ruta_id, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
-                        (negocio_id, cliente_id, current_user['id'], monto_mp, 'Mercado Pago', datetime.now(), sesion_abierta['id'], 0, pedido['vendedor_id'], hr_id, proximo_nro_sec)
-                    )
+                # --- BUSQUEDA DE AJUSTE PARA ESTE PRODUCTO ---
+                if producto_id in items_ajustados:
+                    total_entregado_parada = float(items_ajustados[producto_id])
+                    remanente = float(ajustes_remanentes.get(producto_id, cantidad_en_pedido))
+                    entrega_actual = min(cantidad_en_pedido, remanente)
+                    ajustes_remanentes[producto_id] = max(0, remanente - entrega_actual)
+                    cantidad_entregada = entrega_actual
 
-                if metodo_principal != 'Cuenta Corriente' and monto_cta_cte > 0:
-                    db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-                    proximo_nro_sec = db.fetchone()[0]
-                    db.execute(
-                        'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id, hoja_ruta_id, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
-                        (negocio_id, cliente_id, current_user['id'], monto_cta_cte, 'Cuenta Corriente', datetime.now(), sesion_abierta['id'], 0, pedido['vendedor_id'], hr_id, proximo_nro_sec)
-                    )
-                    v_cta_cte_id = db.fetchone()['id']
-                    # Registrar Deuda en Cuenta Corriente
-                    db.execute(
-                        "INSERT INTO clientes_cuenta_corriente (cliente_id, concepto, debe, haber, fecha, venta_id) VALUES (%s, %s, %s, %s, %s, %s)",
-                        (cliente_id, f"Venta Mixta (Parte Cta Cte) - Pedido #{pedido_id}", monto_cta_cte, 0, datetime.now(), v_cta_cte_id)
-                    )
-                elif metodo_principal == 'Cuenta Corriente' and monto_cta_cte > 0:
-                    # Si el principal es Cta Cte, ya tenemos la venta_id
-                    db.execute(
-                        "INSERT INTO clientes_cuenta_corriente (cliente_id, concepto, debe, haber, fecha, venta_id) VALUES (%s, %s, %s, %s, %s, %s)",
-                        (cliente_id, f"Venta Mixta (Principal Cta Cte) - Pedido #{pedido_id}", monto_cta_cte, 0, datetime.now(), venta_id)
-                    )
+                # Lógica de rebote si aplica
+                if not solo_cobro and cantidad_entregada < cantidad_en_pedido:
+                    cantidad_rechazada = cantidad_en_pedido - cantidad_entregada
+                    motivo_id = motivos_ajustados.get(producto_id)
+                    
+                    valido_motivo_id = None
+                    if motivo_id:
+                        db.execute("SELECT id FROM motivos_rebote WHERE id = %s", (motivo_id,))
+                        row_m = db.fetchone()
+                        if row_m:
+                            valido_motivo_id = row_m['id']
+                    
+                    if not valido_motivo_id:
+                        db.execute("SELECT id FROM motivos_rebote WHERE negocio_id = %s LIMIT 1", (negocio_id,))
+                        row_fallback = db.fetchone()
+                        if row_fallback:
+                            valido_motivo_id = row_fallback['id']
+                        else:
+                            valido_motivo_id = 1 
 
-            else:
-                # Venta Normal (Único método)
-                db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-                proximo_nro = db.fetchone()[0]
-                db.execute(
-                    'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id, hoja_ruta_id, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
-                    (negocio_id, cliente_id, current_user['id'], total_final, metodo_pago, datetime.now(), sesion_abierta['id'], descuento_general, pedido['vendedor_id'], hr_id, proximo_nro)
-                )
-                venta_id = db.fetchone()['id']
-                
-                # Si el método es Cuenta Corriente, registrar en movimientos
-                if metodo_pago == 'Cuenta Corriente':
-                    db.execute(
-                        "INSERT INTO clientes_cuenta_corriente (cliente_id, concepto, debe, haber, fecha, venta_id) VALUES (%s, %s, %s, %s, %s, %s)",
-                        (cliente_id, f"Venta - Pedido #{pedido_id}", total_final, 0, datetime.now(), venta_id)
-                    )
-
-            # Registrar Detalles de Venta (Solo a la venta principal para no triplicar stock/items)
-            for p_venta in items_para_venta:
-                # Persistir nombre para historial
-                db.execute('SELECT nombre FROM productos WHERE id = %s', (p_venta['item']['producto_id'],))
-                pn_res = db.fetchone()
-                p_nom = pn_res['nombre'] if pn_res else "Producto"
-
-                db.execute('INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal, bonificacion, producto_nombre) VALUES (%s, %s, %s, %s, %s, %s, %s)',
-                           (venta_id, p_venta['item']['producto_id'], p_venta['cantidad_entregada'], p_venta['precio_unitario'], p_venta['subtotal'], p_venta['bonif'], p_nom))
-
-        # --- FLUJO DE STOCK Y REBOTES (Se hace en bajada, NO en solo_cobro) ---
-        if not solo_cobro:
-            for p_venta in items_para_venta:
-                # LÓGICA DE STOCK MÓVIL: Descontar del Camión
-                if p_venta['cantidad_entregada'] > 0:
-                    # Obtener vehiculo_id de la HR
-                    db.execute("SELECT vehiculo_id FROM hoja_ruta WHERE id = %s", (hr_id,))
-                    hr_info = db.fetchone()
-                    v_id = hr_info['vehiculo_id'] if hr_info else None
-
-                    if v_id:
-                        # A. Descontar del CAMIÓN
+                    if hr_id:
                         db.execute("""
-                            UPDATE vehiculos_stock 
-                            SET cantidad = cantidad - %s 
-                            WHERE vehiculo_id = %s AND producto_id = %s
-                        """, (p_venta['cantidad_entregada'], v_id, p_venta['item']['producto_id']))
-                        
-                    else:
-                        # B. Fallback (Depósito Central) - Si por alguna razón no tiene vehículo asignado
-                        db.execute('SELECT nombre, stock, stock_minimo FROM productos WHERE id = %s', (p_venta['item']['producto_id'],))
-                        producto_info = db.fetchone()
-                        stock_anterior = float(producto_info['stock'])
-                        nuevo_stock = stock_anterior - p_venta['cantidad_entregada']
-                        db.execute('UPDATE productos SET stock = %s WHERE id = %s', (nuevo_stock, p_venta['item']['producto_id']))
-                        
-                        if stock_anterior > producto_info['stock_minimo'] and nuevo_stock <= producto_info['stock_minimo']:
-                            notificaciones.append(f"¡Bajo stock! {producto_info['nombre']} ({nuevo_stock} u.)")
+                            INSERT INTO pedidos_rebotes (negocio_id, pedido_id, hoja_ruta_id, producto_id, cantidad, motivo_rebote_id)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (negocio_id, p_id, hr_id, item['producto_id'], cantidad_rechazada, valido_motivo_id))
 
-            # 7. Registrar Devolución si hubo rechazos (Solo en bajada, sin id_venta para desacoplar)
-            # Como devoluciones exige venta_id, registramos sin venta_id o con null si la DB lo permite
-            # Ajuste de regla de negocio: Para Option 2, devoluciones debería permitir venta_id nulo
-            # Pero en devolucion está como required? Verificaremos.
+                    precio_u = float(item['precio_unitario'])
+                    total_devuelto += (cantidad_rechazada * precio_u)
+                    detalles_devolucion.append({
+                        'producto_id': item['producto_id'],
+                        'cantidad_devuelta': cantidad_rechazada,
+                        'precio_unitario': precio_u,
+                        'subtotal': cantidad_rechazada * precio_u
+                    })
+                    
+                    db.execute("UPDATE pedidos_detalle SET cantidad = %s, subtotal = %s WHERE pedido_id = %s AND producto_id = %s", 
+                               (cantidad_entregada, cantidad_entregada * precio_u, p_id, item['producto_id']))
+
+                precio_unitario = float(item['precio_unitario'])
+                bonif_item = float(item.get('bonificacion', 0))
+                subtotal_item = max(0, (cantidad_entregada - bonif_item) * precio_unitario)
+                total_venta_calculado += subtotal_item
+                items_para_venta.append({
+                    'item': item,
+                    'cantidad_entregada': cantidad_entregada,
+                    'subtotal': subtotal_item,
+                    'precio_unitario': precio_unitario,
+                    'bonif': bonif_item
+                })
+
+            # Actualizar total pedido
+            db.execute("UPDATE pedidos SET total = %s WHERE id = %s", (total_venta_calculado, p_id))
+
+            # --- STOCK MÓVIL ---
+            if not solo_cobro:
+                for p_venta in items_para_venta:
+                    if p_venta['cantidad_entregada'] > 0 and hr_id:
+                        # Corregido: la tabla es en singular 'hoja_ruta'
+                        db.execute("SELECT vehiculo_id FROM hoja_ruta WHERE id = %s", (hr_id,))
+                        hr_data = db.fetchone()
+                        if hr_data and hr_data['vehiculo_id']:
+                            v_id = hr_data['vehiculo_id']
+                            db.execute("UPDATE vehiculos_stock SET cantidad = cantidad - %s WHERE vehiculo_id = %s AND producto_id = %s", 
+                                       (p_venta['cantidad_entregada'], v_id, p_venta['item']['producto_id']))
+                        else:
+                            print(f"⚠️ [Bajada] No se pudo actualizar stock m├│vil: Hoja de Ruta #{hr_id} no encontrada o sin vehiculo.")
+
+            # --- DEVOLUCIONES ---
             if detalles_devolucion:
                 db.execute("""
-                    INSERT INTO devoluciones (negocio_id, cliente_id, venta_id, pedido_id, motivo, total_devuelto)
-                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
-                """, (negocio_id, cliente_id, venta_id, pedido_id, data.get('motivo_devolucion', 'Rechazo Parcial en Entrega'), total_devuelto))
-                devolucion_id = db.fetchone()['id']
-
+                    INSERT INTO devoluciones (negocio_id, cliente_id, pedido_id, motivo, total_devuelto)
+                    VALUES (%s, %s, %s, %s, %s) RETURNING id
+                """, (negocio_id, cliente_id, p_id, 'Rechazo Parcial en App Chofer', total_devuelto))
+                dev_id = db.fetchone()['id']
                 for dev in detalles_devolucion:
-                    db.execute("""
-        INSERT INTO devoluciones_detalle (devolucion_id, producto_id, cantidad_devuelta, precio_unitario, subtotal)
-                        VALUES (%s, %s, %s, %s, %s)
-                    """, (devolucion_id, dev['producto_id'], dev['cantidad_devuelta'], dev['precio_unitario'], dev['subtotal']))
+                    db.execute("INSERT INTO devoluciones_detalle (devolucion_id, producto_id, cantidad_devuelta, precio_unitario, subtotal) VALUES (%s, %s, %s, %s, %s)",
+                               (dev_id, dev['producto_id'], dev['cantidad_devuelta'], dev['precio_unitario'], dev['subtotal']))
 
-        # 8. Actualizar Pedido
-        if solo_bajada:
-             # Si solo bajamos mercadería, queda en 'entregado' pero sin venta_id
-             db.execute("""
-                UPDATE pedidos 
-                SET estado = 'entregado', venta_id = NULL, fecha_entrega = CURRENT_TIMESTAMP, usuario_entrega_id = %s 
-                WHERE id = %s
-             """, (current_user['id'], pedido_id))
-        else:
-             # Si hubo cobro, enlazamos la venta
-             db.execute("""
-                UPDATE pedidos 
-                SET estado = 'entregado', venta_id = %s, fecha_entrega = CURRENT_TIMESTAMP, usuario_entrega_id = %s 
-                WHERE id = %s
-             """, (venta_id, current_user['id'], pedido_id))
-        
-        # 9. Marcar visita en Hoja de Ruta (Solo en bajada)
-        if not solo_cobro:
-            if pedido.get('ho_ruta_id') or pedido.get('hoja_ruta_id'):
-                hr_id = pedido.get('ho_ruta_id') or pedido.get('hoja_ruta_id')
-                db.execute(
-                    "UPDATE hoja_ruta_items SET visitado = TRUE, fecha_visita = CURRENT_TIMESTAMP WHERE hoja_ruta_id = %s AND cliente_id = %s",
-                    (hr_id, cliente_id)
-                )
-
-        g.db_conn.commit()
-        
-        respuesta = {'message': 'Pago registrado con éxito' if solo_cobro else 'Entrega registrada con éxito'}
-        if notificaciones:
-            respuesta['notificaciones'] = notificaciones
-        if venta_id:
-            respuesta['venta_id'] = venta_id
-        if detalles_devolucion:
-            respuesta['message'] += ' con devoluciones'
+            # Finalizar pedido
+            print(f"✅ [Bajada] Marcando pedido #{p_id} como Entregado...")
+            db.execute("UPDATE pedidos SET estado = 'entregado', fecha_entrega = CURRENT_TIMESTAMP, usuario_entrega_id = %s WHERE id = %s", 
+                       (current_user['id'], p_id))
             
-        return jsonify(respuesta)
+            # --- LÓGICA DE COBRO (SIMPLIFICADA AL ESQUEMA REAL) ---
+            metodo_pago = data.get('metodo_pago')
+            if metodo_pago:
+                # 1. Crear venta física (Se vincula a la caja vía caja_sesion_id)
+                db.execute("""
+                    INSERT INTO ventas (negocio_id, cliente_id, fecha, total, metodo_pago, usuario_id, caja_sesion_id)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP, %s, %s, %s, %s) RETURNING id
+                """, (negocio_id, cliente_id, total_venta_calculado, metodo_pago, current_user['id'], sesion_abierta['id'] if sesion_abierta else None))
+                venta_id = db.fetchone()['id']
+
+                # 2. Vincular pedido con la venta (Marca como PAGADO)
+                db.execute("UPDATE pedidos SET venta_id = %s WHERE id = %s", (venta_id, p_id))
+                
+                # 3. Cuenta Corriente (si aplica)
+                if metodo_pago == 'Cuenta Corriente' or (metodo_pago == 'Mixto' and (total_venta_calculado - (float(data.get('monto_efectivo',0)) + float(data.get('monto_mp',0)))) > 0.01):
+                    monto_ctacte = total_venta_calculado if metodo_pago == 'Cuenta Corriente' else (total_venta_calculado - (float(data.get('monto_efectivo', 0)) + float(data.get('monto_mp', 0))))
+                    db.execute("""
+                        INSERT INTO clientes_cuenta_corriente (cliente_id, fecha, concepto, debe, venta_id)
+                        VALUES (%s, CURRENT_TIMESTAMP, %s, %s, %s)
+                    """, (cliente_id, f"Cargo pedido #{p_id}", monto_ctacte, venta_id))
+
+            # Marcar visita si es el último pedido o consolidado
+            db.execute("UPDATE hoja_ruta_items SET visitado = TRUE, fecha_visita = CURRENT_TIMESTAMP WHERE hoja_ruta_id = %s AND cliente_id = %s",
+                       (hr_id, cliente_id))
+
+        db.connection.commit()
+        return jsonify({'message': f'Entrega consolidada de {len(ids_list)} pedidos exitosa con cobro registrado', 'success': True})
         
     except Exception as e:
-        g.db_conn.rollback()
-        return jsonify({'error': str(e)}), 500
+        if 'db' in locals() and hasattr(db, 'connection'):
+            db.connection.rollback()
+        print(f"❌ [ErrorEntrega] {traceback.format_exc()}")
+        return jsonify({'error': f'Error procesando entrega: {str(e)}'}), 500
 
 # --- CORRECCIÓN DE PAGOS ---
 
@@ -1680,16 +1553,16 @@ def corregir_pago_pedido(current_user, pedido_id):
             
             # Crear las ventas adicionales si aplica (MP o Cta Cte adicionales)
             if metodo_principal != 'Efectivo' and monto_ef > 0:
-                db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-                proximo_nro_sec = db.fetchone()[0]
+                db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 AS proximo_nro FROM ventas WHERE negocio_id = %s", (negocio_id,))
+                proximo_nro_sec = db.fetchone()['proximo_nro']
                 db.execute(
                     'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id, hoja_ruta_id, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
                     (negocio_id, cliente_id, current_user['id'], monto_ef, 'Efectivo', datetime.now(), sesion_activa['id'], 0, pedido['vendedor_id'], pedido['hoja_ruta_id'], proximo_nro_sec)
                 )
             
             if metodo_principal != 'Mercado Pago' and monto_mp > 0:
-                db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-                proximo_nro_sec = db.fetchone()[0]
+                db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 AS proximo_nro FROM ventas WHERE negocio_id = %s", (negocio_id,))
+                proximo_nro_sec = db.fetchone()['proximo_nro']
                 db.execute(
                     'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id, hoja_ruta_id, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
                     (negocio_id, cliente_id, current_user['id'], monto_mp, 'Mercado Pago', datetime.now(), sesion_activa['id'], 0, pedido['vendedor_id'], pedido['hoja_ruta_id'], proximo_nro_sec)
@@ -1698,8 +1571,8 @@ def corregir_pago_pedido(current_user, pedido_id):
             if monto_cta_cte > 0:
                 v_cta_cte_id = venta_id if metodo_principal == 'Cuenta Corriente' else None
                 if not v_cta_cte_id:
-                     db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-                     proximo_nro_sec = db.fetchone()[0]
+                     db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 AS proximo_nro FROM ventas WHERE negocio_id = %s", (negocio_id,))
+                     proximo_nro_sec = db.fetchone()['proximo_nro']
                      db.execute(
                         'INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, descuento, vendedor_id, hoja_ruta_id, numero_interno) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
                         (negocio_id, cliente_id, current_user['id'], monto_cta_cte, 'Cuenta Corriente', datetime.now(), sesion_activa['id'], 0, pedido['vendedor_id'], pedido['hoja_ruta_id'], proximo_nro_sec)
@@ -1842,7 +1715,7 @@ def get_rutas_chofer(current_user):
         FROM hoja_ruta hr
         JOIN vendedores v ON hr.vendedor_id = v.id
         LEFT JOIN vehiculos vh ON hr.vehiculo_id = vh.id
-        LEFT JOIN pedidos p ON hr.id = p.hoja_ruta_id AND p.estado IN ('pendiente', 'preparado', 'en_camino')
+        LEFT JOIN pedidos p ON hr.id = p.hoja_ruta_id AND p.estado = 'en_camino'
         LEFT JOIN pedidos_detalle pd ON p.id = pd.pedido_id
         LEFT JOIN productos pr ON pd.producto_id = pr.id
         WHERE (hr.chofer_id = %s OR (hr.chofer_id IS NULL AND vh.chofer_default_id = %s))
@@ -1902,36 +1775,46 @@ def get_hoja_ruta_chofer(current_user, id):
         FROM pedidos p
         JOIN pedidos_detalle pd ON p.id = pd.pedido_id
         JOIN productos pr ON pd.producto_id = pr.id
-        WHERE p.hoja_ruta_id = %s AND p.estado != 'anulado'
+        WHERE p.hoja_ruta_id = %s AND p.estado = 'en_camino'
     """, (id,))
     productos_pedido = db.fetchall()
     
-    # Agrupar productos por cliente
-    pedidos_por_cliente = {}
+    # Agrupar productos por pedido_id
+    pedidos_dict = {}
     for prod in productos_pedido:
-        cid = prod['cliente_id']
-        if cid not in pedidos_por_cliente:
-            pedidos_por_cliente[cid] = {
-                'id': prod['pedido_id'],
-                'pedido_id': prod['pedido_id'],
+        pid = prod['pedido_id']
+        if pid not in pedidos_dict:
+            pedidos_dict[pid] = {
+                'id': pid,
+                'pedido_id': pid,
+                'cliente_id': prod['cliente_id'],
                 'negocio_id': prod['negocio_id'],
                 'estado': prod['estado'],
                 'total': float(prod['total']),
                 'venta_id': prod['venta_id'],
                 'productos': []
             }
-        pedidos_por_cliente[cid]['productos'].append({
+        pedidos_dict[pid]['productos'].append({
             'producto_id': prod['producto_id'],
             'nombre': prod['producto_nombre'],
             'cantidad': float(prod['cantidad']),
             'precio_unitario': float(prod['precio_unitario'])
         })
 
-    # Armar lista final
+    # Mapear pedidos a clientes (lista de pedidos por cliente)
+    pedidos_por_cliente = {}
+    for p in pedidos_dict.values():
+        cid = p['cliente_id']
+        if cid not in pedidos_por_cliente:
+            pedidos_por_cliente[cid] = []
+        pedidos_por_cliente[cid].append(p)
+
+    # Armar lista final de paradas
     items = []
     for item in items_raw:
         r = dict(item)
-        r['pedido'] = pedidos_por_cliente.get(r['cliente_id'])
+        # Se entrega una lista de pedidos (plural)
+        r['pedidos'] = pedidos_por_cliente.get(r['cliente_id'], [])
         items.append(r)
 
     result = dict(cabecera)
@@ -2004,19 +1887,20 @@ def get_recorrido_unificado(current_user):
         FROM pedidos p
         JOIN pedidos_detalle pd ON p.id = pd.pedido_id
         JOIN productos pr ON pd.producto_id = pr.id
-        WHERE p.hoja_ruta_id IN ({placeholders}) AND p.estado != 'anulado'
+        WHERE p.hoja_ruta_id IN ({placeholders}) AND p.estado = 'en_camino'
     """
     db.execute(query_pedidos, tuple(hr_ids))
     productos_pedido = db.fetchall()
 
-    # Agrupar productos por (cliente, hr)
-    pedidos_por_cliente_hr = {}
+    # Agrupar productos por pedido_id
+    pedidos_dict = {}
     for prod in productos_pedido:
-        key = f"{prod['cliente_id']}_{prod['hoja_ruta_id']}"
-        if key not in pedidos_por_cliente_hr:
-            pedidos_por_cliente_hr[key] = {
-                'id': prod['pedido_id'],
-                'pedido_id': prod['pedido_id'],
+        pid = prod['pedido_id']
+        if pid not in pedidos_dict:
+            pedidos_dict[pid] = {
+                'id': pid,
+                'pedido_id': pid,
+                'cliente_id': prod['cliente_id'],
                 'negocio_id': prod['negocio_id'],
                 'hoja_ruta_id': prod['hoja_ruta_id'],
                 'estado': prod['estado'],
@@ -2024,17 +1908,25 @@ def get_recorrido_unificado(current_user):
                 'venta_id': prod['venta_id'],
                 'productos': []
             }
-        pedidos_por_cliente_hr[key]['productos'].append({
+        pedidos_dict[pid]['productos'].append({
             'producto_id': prod['producto_id'],
             'nombre': prod['producto_nombre'],
             'cantidad': float(prod['cantidad']),
             'precio_unitario': float(prod['precio_unitario'])
         })
 
+    # Mapear pedidos a (cliente, hr)
+    pedidos_por_cliente_hr = {}
+    for p in pedidos_dict.values():
+        key = f"{p['cliente_id']}_{p['hoja_ruta_id']}"
+        if key not in pedidos_por_cliente_hr:
+            pedidos_por_cliente_hr[key] = []
+        pedidos_por_cliente_hr[key].append(p)
+
     items = []
     for item in items_raw:
         r = dict(item)
-        r['pedido'] = pedidos_por_cliente_hr.get(f"{r['cliente_id']}_{r['hoja_ruta_id']}")
+        r['pedidos'] = pedidos_por_cliente_hr.get(f"{r['cliente_id']}_{r['hoja_ruta_id']}", [])
         items.append(r)
 
     return jsonify({'items': items})
@@ -2046,11 +1938,68 @@ def get_recorrido_unificado(current_user):
 def get_motivos_rebote(current_user, negocio_id):
     db = get_db()
     db.execute("""
-        SELECT id, descripcion 
+        SELECT id, descripcion, activo, negocio_id
         FROM motivos_rebote 
-        WHERE negocio_id = %s AND activo = TRUE
+        WHERE negocio_id = %s
         ORDER BY id ASC
     """, (negocio_id,))
     motivos = db.fetchall()
     return jsonify([dict(m) for m in motivos])
+
+@bp.route('/motivos_rebote', methods=['POST'])
+@token_required
+def create_motivo_rebote(current_user):
+    data = request.get_json()
+    descripcion = data.get('descripcion', '').strip()
+    negocio_id = data.get('negocio_id')
+    
+    if not descripcion or not negocio_id:
+        return jsonify({'error': 'La descripción y el negocio son obligatorios'}), 400
+        
+    db = get_db()
+    try:
+        db.execute("""
+            INSERT INTO motivos_rebote (negocio_id, descripcion, activo)
+            VALUES (%s, %s, TRUE) RETURNING id
+        """, (negocio_id, descripcion))
+        new_id = db.fetchone()['id']
+        db.connection.commit()
+        return jsonify({'id': new_id, 'message': 'Motivo creado exitosamente'})
+    except Exception as e:
+        db.connection.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/motivos_rebote/<int:motivo_id>', methods=['PUT'])
+@token_required
+def update_motivo_rebote(current_user, motivo_id):
+    data = request.get_json()
+    descripcion = data.get('descripcion', '').strip()
+    activo = data.get('activo')
+    
+    db = get_db()
+    try:
+        db.execute("""
+            UPDATE motivos_rebote 
+            SET descripcion = COALESCE(%s, descripcion),
+                activo = COALESCE(%s, activo)
+            WHERE id = %s
+        """, (descripcion if descripcion else None, activo, motivo_id))
+        db.connection.commit()
+        return jsonify({'message': 'Motivo actualizado exitosamente'})
+    except Exception as e:
+        db.connection.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/motivos_rebote/<int:motivo_id>', methods=['DELETE'])
+@token_required
+def delete_motivo_rebote(current_user, motivo_id):
+    db = get_db()
+    try:
+        # Borrado lógico para no romper historial de pedidos
+        db.execute("UPDATE motivos_rebote SET activo = FALSE WHERE id = %s", (motivo_id,))
+        db.connection.commit()
+        return jsonify({'message': 'Motivo desactivado exitosamente'})
+    except Exception as e:
+        db.connection.rollback()
+        return jsonify({'error': str(e)}), 500
 

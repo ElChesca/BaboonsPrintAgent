@@ -8,26 +8,27 @@ let unlinkedEntities = { usuarios: [], vendedores: [] };
 export async function inicializarLogicaEmpleados() {
     console.log("Inicializando lógica de Empleados...");
 
-    // Bind Tab Events
-    const tabs = document.querySelectorAll('#empleadoTabs .nav-link');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            e.preventDefault();
-            const tabEl = e.currentTarget;
-            const targetId = tabEl.getAttribute('data-tab');
-            if (!targetId) return;
+    // Función Global Infalible para Pestañas (Simple y Efectiva)
+    window.cambiarTabEmpleado = function(targetId, el) {
+        console.log("Cambio de pestaña solicitado:", targetId);
+        
+        // 1. UI: Botones (Resaltado visual)
+        const allTabs = document.querySelectorAll('#empleadoTabs .nav-link');
+        allTabs.forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
 
-            // UI Update
-            tabs.forEach(t => t.classList.remove('active'));
-            tabEl.classList.add('active');
-
-            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-            const targetElement = document.getElementById(`tab-${targetId}`);
-            if (targetElement) {
-                targetElement.style.display = 'block';
-            }
+        // 2. UI: Contenidos (Mostrar/Ocultar)
+        document.querySelectorAll('.tab-content').forEach(c => {
+            c.style.display = 'none';
+            c.classList.remove('active', 'show');
         });
-    });
+        
+        const targetElement = document.getElementById(`tab-${targetId}`);
+        if (targetElement) {
+            targetElement.style.display = 'block';
+            setTimeout(() => targetElement.classList.add('active', 'show'), 10);
+        }
+    };
 
     // Bind Form Submit
     const form = document.getElementById('form-empleado');
@@ -204,7 +205,15 @@ function renderEmpleados(empleados) {
             'chofer': 'bg-primary',
             'vendedor': 'bg-success',
             'administrativo': 'bg-info',
-            'deposito': 'bg-warning text-dark'
+            'deposito': 'bg-warning text-dark',
+            // [NUEVO] Roles Restó
+            'adicionista': 'bg-teal',
+            'mozo': 'bg-indigo',
+            'cocinero': 'bg-orange',
+            'chef': 'bg-danger',
+            'bartender': 'bg-purple',
+            'bachero': 'bg-secondary',
+            'maitre': 'bg-dark'
         }[emp.rol] || 'bg-secondary';
 
         tr.innerHTML = `
@@ -236,13 +245,22 @@ function renderEmpleados(empleados) {
 }
 
 function abrirModalEmpleado(id = null) {
+    console.log("Abriendo modal empleado. ID:", id);
     const modal = document.getElementById('modal-empleado');
     const form = document.getElementById('form-empleado');
+    
+    if (!modal) {
+        console.error("Error: No se encontró el elemento 'modal-empleado'");
+        return;
+    }
 
-    // Reset Tabs
-    document.querySelectorAll('.nav-link').forEach(t => t.classList.remove('active'));
+    // Reset Tabs Premium
+    const modalTabs = document.querySelectorAll('#empleadoTabs .nav-link');
+    modalTabs.forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-    document.querySelector('[data-tab="datos-personales"]').classList.add('active');
+    
+    const firstTab = document.querySelector('#empleadoTabs [data-tab="datos-personales"]');
+    if (firstTab) firstTab.classList.add('active');
     document.getElementById('tab-datos-personales').style.display = 'block';
 
     // Reset Linking UI
@@ -267,7 +285,8 @@ function abrirModalEmpleado(id = null) {
         document.getElementById('empleado-id').value = '';
         document.getElementById('activo').checked = true;
         document.getElementById('modal-titulo').innerText = "Nuevo Empleado";
-        document.getElementById('rol-help').innerText = "";
+        const rHelp = document.getElementById('rol-help');
+        if (rHelp) rHelp.innerText = "";
 
         // Limpiar docs
         document.getElementById('lista-docs').innerHTML = '<tr><td colspan="4" class="text-center text-muted">Guardar empleado antes de cargar documentos</td></tr>';
@@ -275,6 +294,7 @@ function abrirModalEmpleado(id = null) {
     }
 
     modal.style.display = 'flex';
+    setTimeout(() => modal.classList.add('show'), 10);
 }
 
 function cerrarModalEmpleado() {

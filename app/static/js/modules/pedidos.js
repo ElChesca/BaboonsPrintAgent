@@ -207,7 +207,7 @@ function renderPedidos(pedidos) {
 
         tr.innerHTML = `
             <td>
-                <input type="checkbox" class="form-check-input pedido-check" value="${p.id}" onchange="actualizarBarraAcciones()">
+                <input type="checkbox" class="form-check-input pedido-check" value="${p.id}" onchange="toggleFilaSeleccionada(this)">
             </td>
             <td><span class="badge bg-light text-dark border">#${p.id}</span></td>
             <td>${new Date(p.fecha).toLocaleDateString()}</td>
@@ -319,10 +319,8 @@ async function verDetallePedido(id) {
             btns += `<button class="btn btn-primary" onclick="cambiarEstadoPedido(${id}, 'preparado')">Marcar Preparado</button>`;
             btns += `<button class="btn btn-outline-danger ms-2" onclick="anularPedido(${id})">Anular Pedido</button>`;
         } else if (p.estado === 'preparado') {
-            btns += `<button class="btn btn-info text-white" onclick="cambiarEstadoPedido(${id}, 'en_camino')">Pasar a Reparto (En Camino)</button>`;
+            // El administrador ya no puede pasarlo a reparto desde aquí. Debe hacerse desde el Control de Carga.
             btns += `<button class="btn btn-outline-danger ms-2" onclick="anularPedido(${id})">Anular Pedido</button>`;
-        } else if (p.estado === 'en_camino') {
-            btns += `<button class="btn btn-success" onclick="cambiarEstadoPedido(${id}, 'entregado')">Confirmar Entrega</button>`;
         } else if (p.estado === 'entregado' && p.venta_id) {
             btns += `<button class="btn btn-warning" onclick="abrirModalCorreccionPago(${id}, '${p.metodo_pago || ''}', ${p.total})"><i class="fas fa-edit"></i> Corregir Pago</button>`;
         }
@@ -923,8 +921,19 @@ function actualizarBarraAcciones() {
         if (bar) bar.style.display = 'block';
     } else {
         if (bar) bar.style.display = 'none';
+        const selectAll = document.getElementById('select-all-pedidos');
+        if (selectAll) selectAll.checked = false;
     }
 }
+
+window.toggleFilaSeleccionada = (el) => {
+    const tr = el.closest('tr');
+    if (tr) {
+        if (el.checked) tr.classList.add('table-active');
+        else tr.classList.remove('table-active');
+    }
+    actualizarBarraAcciones();
+};
 
 function deseleccionarTodo() {
     const checks = document.querySelectorAll('.pedido-check');

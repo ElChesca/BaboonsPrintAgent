@@ -518,6 +518,31 @@ def bulk_update_categoria(current_user):
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
+
+@bp.route('/productos/bulk/tipo', methods=['PUT'])
+@token_required
+def bulk_update_tipo(current_user):
+    if current_user['rol'] not in ['admin', 'superadmin']:
+        return jsonify({'message': 'Acción no permitida'}), 403
+
+    data = request.get_json()
+    product_ids = data.get('product_ids', [])
+    nuevo_tipo = data.get('tipo_producto')
+
+    if not product_ids or not nuevo_tipo:
+        return jsonify({'error': 'Faltan datos (IDs o Tipo)'}), 400
+
+    db = get_db()
+    try:
+        db.execute(
+            "UPDATE productos SET tipo_producto = %s WHERE id = ANY(%s)",
+            (nuevo_tipo, product_ids)
+        )
+        g.db_conn.commit()
+        return jsonify({'mensaje': f'Tipo de producto actualizado en {len(product_ids)} productos'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
 @bp.route('/productos/<int:producto_id>/upload-image', methods=['POST'])
 @token_required
 def upload_product_image(current_user, producto_id):
