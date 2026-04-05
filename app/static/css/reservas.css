@@ -1,9 +1,10 @@
 /* ✨ BABOONS PREMIUM - RESERVAS PANEL ✨ */
 .res-dashboard {
   padding: 20px;
-  max-width: 1200px;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
-  background: #0f172a; /* Fondo oscuro profundo */
+  background: transparent; /* Adaptado al fondo general del ERP */ /* Fondo oscuro profundo */
   border-radius: 20px;
   min-height: 80vh;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
@@ -52,9 +53,9 @@
 .btn-res-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(99,102,241,0.4); }
 
 .btn-res-secondary {
-  background: rgba(255,255,255,0.05);
-  color: #cbd5e1;
-  border: 1px solid rgba(255,255,255,0.1);
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
   padding: 10px 20px;
   border-radius: 12px;
   font-weight: 600;
@@ -65,7 +66,7 @@
   gap: 8px;
   font-size: 0.9rem;
 }
-.btn-res-secondary:hover { background: rgba(255,255,255,0.1); }
+.btn-res-secondary:hover { background: #e2e8f0; }
 
 .res-controls {
   display: flex;
@@ -79,8 +80,8 @@
 .res-date-nav { display: flex; align-items: center; gap: 8px; }
 
 .btn-nav-date {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   color: #94a3b8;
   width: 36px;
   height: 36px;
@@ -91,24 +92,24 @@
   align-items: center;
   justify-content: center;
 }
-.btn-nav-date:hover { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+.btn-nav-date:hover { background: rgba(99,102,241,0.2); color: #4338ca; }
 
 .res-date-input {
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #f1f5f9;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
   padding: 8px 14px;
   border-radius: 10px;
   font-size: 0.95rem;
   font-weight: 600;
-  color-scheme: dark; /* Fuerza el selector de fecha del navegador a modo oscuro */
+  color-scheme: light; /* Fuerza el selector de fecha del navegador a modo oscuro */
 }
 
 .res-estado-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .res-tab {
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   color: #94a3b8;
   padding: 7px 14px;
   border-radius: 20px;
@@ -123,7 +124,7 @@
 .res-tab:hover, .res-tab.active {
   background: rgba(99,102,241,0.2);
   border-color: rgba(99,102,241,0.4);
-  color: #a5b4fc;
+  color: #4338ca;
 }
 
 .res-badge {
@@ -147,25 +148,25 @@
 }
 
 .res-stat-pill {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 30px;
   padding: 8px 16px;
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 0.9rem;
-  color: #cbd5e1;
+  color: #475569;
   font-weight: 600;
 }
 .res-stat-pill i { color: #6366f1; }
 .res-stat-pill.warning i { color: #f59e0b; }
-.res-stat-pill span { color: #f1f5f9; font-size: 1rem; font-weight: 800; }
+.res-stat-pill span { color: #1e293b; font-size: 1rem; font-weight: 800; }
 
 /* TARJETAS DE RESERVA */
 .res-card {
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(255,255,255,0.07);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 18px 20px;
   margin-bottom: 10px;
@@ -186,13 +187,13 @@
 .res-card-hora {
   font-size: 1.6rem;
   font-weight: 900;
-  color: #a5b4fc;
+  color: #4338ca;
   text-align: center;
   min-width: 60px;
   line-height: 1;
 }
 
-.res-card-info h3 { font-size: 1rem; font-weight: 700; color: #f1f5f9; margin: 0 0 4px; }
+.res-card-info h3 { font-size: 1rem; font-weight: 700; color: #1e293b; margin: 0 0 4px; }
 .res-card-meta { display: flex; gap: 12px; flex-wrap: wrap; color: #94a3b8; font-size: 0.82rem; margin-top: 4px; }
 .res-card-meta span { display: flex; align-items: center; gap: 4px; }
 
@@ -209,7 +210,7 @@
 .badge-pendiente { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
 .badge-confirmada { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
 .badge-cancelada { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
-.badge-completada { background: rgba(99,102,241,0.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.3); }
+.badge-completada { background: rgba(99,102,241,0.15); color: #4338ca; border: 1px solid rgba(99,102,241,0.3); }
 
 .res-pax-badge {
   font-size: 0.85rem;
@@ -264,7 +265,7 @@
 }
 
 .res-modal-box {
-  background: linear-gradient(135deg, #1e293b, #0f172a);
+  background: #ffffff;
   border: 1px solid rgba(99,102,241,0.2);
   border-radius: 24px;
   width: 100%;
@@ -279,23 +280,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid #f8fafc;
 }
-.res-modal-header h2 { font-size: 1.1rem; font-weight: 800; color: #f1f5f9; margin: 0; }
+.res-modal-header h2 { font-size: 1.1rem; font-weight: 800; color: #1e293b; margin: 0; }
 .res-modal-close { background: none; border: none; color: #64748b; font-size: 1.2rem; cursor: pointer; transition: color 0.2s; }
 .res-modal-close:hover { color: #f87171; }
 
 .res-modal-body { padding: 20px 24px; }
-.res-modal-footer { padding: 16px 24px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid rgba(255,255,255,0.06); }
+.res-modal-footer { padding: 16px 24px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #f8fafc; }
 
 .res-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
 .res-form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 0; }
 .res-form-group label { font-size: 0.78rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
 
 .res-input {
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #f1f5f9;
+  background: #e2e8f0;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
   padding: 10px 14px;
   border-radius: 10px;
   font-size: 0.9rem;
@@ -304,7 +305,7 @@
   transition: border-color 0.2s;
 }
 .res-input:focus { outline: none; border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.05); }
-.res-input option { background: #1e293b; }
+.res-input option { background: #ffffff; }
 
 .wa-link-box {
   background: rgba(37,211,102,0.08);
@@ -355,14 +356,14 @@
   background: rgba(255,255,255,0.03);
   transition: all 0.2s;
 }
-.res-turn-row:hover { background: rgba(255,255,255,0.05); }
+.res-turn-row:hover { background: #f1f5f9; }
 .res-turn-row td {
   padding: 10px 12px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
 }
-.res-turn-row td:first-child { border-left: 1px solid rgba(255,255,255,0.05); border-radius: 12px 0 0 12px; font-weight: 700; color: #f1f5f9; }
-.res-turn-row td:last-child { border-right: 1px solid rgba(255,255,255,0.05); border-radius: 0 12px 12px 0; }
+.res-turn-row td:first-child { border-left: 1px solid #f1f5f9; border-radius: 12px 0 0 12px; font-weight: 700; color: #1e293b; }
+.res-turn-row td:last-child { border-right: 1px solid #f1f5f9; border-radius: 0 12px 12px 0; }
 
 .res-turn-row.inactive { opacity: 0.4; filter: grayscale(1); }
 
@@ -402,7 +403,7 @@ input:checked + .res-slider:before { transform: translateX(22px); }
   padding: 6px 12px;
   font-size: 0.75rem;
   background: rgba(99,102,241,0.1);
-  color: #a5b4fc;
+  color: #4338ca;
   border: 1px solid rgba(99,102,241,0.3);
   border-radius: 8px;
   cursor: pointer;
@@ -413,6 +414,6 @@ input:checked + .res-slider:before { transform: translateX(22px); }
 @media (max-width: 640px) {
   .res-turn-table thead { display: none; }
   .res-turn-row td { display: block; width: 100%; border: none !important; padding: 6px 16px; }
-  .res-turn-row { margin-bottom: 12px; display: block; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
-  .res-turn-row td:first-child { background: rgba(255,255,255,0.05); border-radius: 12px 12px 0 0; }
+  .res-turn-row { margin-bottom: 12px; display: block; border-radius: 12px; border: 1px solid #e2e8f0; }
+  .res-turn-row td:first-child { background: #f1f5f9; border-radius: 12px 12px 0 0; }
 }
