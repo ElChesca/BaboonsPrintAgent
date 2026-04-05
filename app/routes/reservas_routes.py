@@ -97,6 +97,13 @@ def _migrate_reservas():
             new_token = uuid.uuid4().hex[:12]
             db.execute("UPDATE negocios SET reserva_token = %s WHERE id = %s", (new_token, row['id']))
 
+        # 7. MIGRACION CRM: Enriquecer crm_leads para recibir datos de reservas
+        db.execute("ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS cliente_erp_id INT REFERENCES clientes(id) ON DELETE SET NULL")
+        db.execute("ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS reserva_cliente_id INT REFERENCES reservas_clientes(id) ON DELETE SET NULL")
+        db.execute("ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS fecha_nacimiento DATE")
+        db.execute("ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS ultima_actividad TIMESTAMPTZ")
+        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_crm_leads_email_negocio ON crm_leads(email, negocio_id) WHERE email IS NOT NULL")
+
         g.db_conn.commit()
     except Exception as e:
         g.db_conn.rollback()
@@ -106,6 +113,68 @@ def _migrate_reservas():
 # ============================================================
 # --- HELPERS ---
 # ============================================================
+
+def _upsert_crm_lead(negocio_id, nombre, email, telefono, fecha_reserva, hora_reserva, num_comensales, fecha_nacimiento=None):
+    """
+    Crea o actualiza un Lead en el CRM a partir de una reserva.
+    - Si ya existe un lead con ese email en ese negocio → actualiza y registra actividad.
+    - Si no existe → crea un lead nuevo con origen='reserva'.
+    Esta función es tolerante a fallos: si algo sale mal, no interrumpe el flujo principal.
+    """
+    if not email:
+        return  # Sin email no podemos identificar al contacto de forma única
+    try:
+        db = get_db()
+        actividad_desc = (
+            f"Reserva: {fecha_reserva} a las {hora_reserva} "
+            f"({num_comensales} pers.)"
+        )
+
+        # Buscar lead existente por email + negocio_id
+        db.execute(
+            "SELECT id FROM crm_leads WHERE email = %s AND negocio_id = %s AND fecha_baja IS NULL",
+            (email.strip().lower(), negocio_id)
+        )
+        existente = db.fetchone()
+
+        if existente:
+            lead_id = existente['id']
+            # Actualizar datos de contacto y marcar actividad reciente
+            db.execute(
+                """
+                UPDATE crm_leads
+                SET telefono = COALESCE(%s, telefono),
+                    fecha_nacimiento = COALESCE(%s, fecha_nacimiento),
+                    ultima_actividad = NOW()
+                WHERE id = %s
+                """,
+                (telefono, fecha_nacimiento, lead_id)
+            )
+        else:
+            # Crear nuevo lead
+            nombre_limpio = (nombre or '').strip() or 'Sin nombre'
+            db.execute(
+                """
+                INSERT INTO crm_leads
+                    (negocio_id, nombre, email, telefono, estado, origen, fecha_nacimiento, ultima_actividad)
+                VALUES (%s, %s, %s, %s, 'nuevo', 'reserva', %s, NOW())
+                RETURNING id
+                """,
+                (negocio_id, nombre_limpio, email.strip().lower(), telefono, fecha_nacimiento)
+            )
+            lead_id = db.fetchone()['id']
+
+        # Registrar actividad en el historial del lead
+        db.execute(
+            """
+            INSERT INTO crm_actividades (lead_id, tipo_accion, descripcion, negocio_id)
+            VALUES (%s, 'reserva', %s, %s)
+            """,
+            (lead_id, actividad_desc, negocio_id)
+        )
+        # Nota: NO hacemos commit aquí, el caller ya lo hace.
+    except Exception as e:
+        current_app.logger.warning(f"[CRM] No se pudo sincronizar lead desde reserva: {e}")
 
 def _generar_slots(hora_inicio, hora_fin, intervalo_min):
     """Genera una lista de strings de horarios disponibles."""
@@ -323,6 +392,19 @@ def portal_crear_reserva_v2():
               data.get('fecha_nacimiento'), data.get('sector_preferido')))
         
         rid = db.fetchone()['id']
+
+        # ✨ [CRM Fase 1] Sincronizar al CRM automáticamente
+        _upsert_crm_lead(
+            negocio_id=negocio_id,
+            nombre=nombre,
+            email=email,
+            telefono=telefono,
+            fecha_reserva=data.get('fecha'),
+            hora_reserva=data.get('hora'),
+            num_comensales=data.get('num_comensales', 2),
+            fecha_nacimiento=data.get('fecha_nacimiento')
+        )
+
         g.db_conn.commit()
         return jsonify({'message': '¡Reserva recibida exitosamente!', 'id': rid}), 201
     except Exception as e:
@@ -379,6 +461,19 @@ def admin_crear_reserva(current_user, negocio_id):
               data.get('mesa_id'), data.get('notas'), token, data.get('origen', 'manual'),
               data.get('fecha_nacimiento'), data.get('sector_preferido')))
         rid = db.fetchone()['id']
+
+        # ✨ [CRM Fase 1] Sincronizar al CRM automáticamente
+        _upsert_crm_lead(
+            negocio_id=negocio_id,
+            nombre=data.get('nombre_cliente'),
+            email=data.get('email'),
+            telefono=data.get('telefono'),
+            fecha_reserva=data.get('fecha_reserva'),
+            hora_reserva=data.get('hora_reserva'),
+            num_comensales=data.get('num_comensales', 2),
+            fecha_nacimiento=data.get('fecha_nacimiento')
+        )
+
         g.db_conn.commit()
         return jsonify({'id': rid, 'message': 'Reserva manual creada'}), 201
     except Exception as e:
