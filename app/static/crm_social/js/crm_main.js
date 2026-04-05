@@ -14,6 +14,8 @@ let appState = {
     negocioId: localStorage.getItem('negocioActivoId') || '1'
 };
 let leadsCache = [];
+let currentPage = 1;
+const PAGE_SIZE = 500;
 
 /**
  * INICIALIZACIÓN PRINCIPAL
@@ -92,12 +94,18 @@ export async function inicializarCRM() {
 export async function loadLeads() {
     showGlobalLoader();
     try {
-        const payload = await fetchData(`/api/crm/leads?negocio_id=${appState.negocioId}&limit=500`); // Kanban loads more leads at once
+        const payload = await fetchData(`/api/crm/leads?negocio_id=${appState.negocioId}&limit=${PAGE_SIZE}&page=${currentPage}`);
         leadsCache = payload && payload.data ? payload.data : (Array.isArray(payload) ? payload : []);
+
         renderKanban(leadsCache);
         // Sincronizar números de la UI
         actualizarContadoresVisibles();
         actualizarBarraProgreso();
+        if (payload && payload.total !== undefined) {
+            renderPagination(payload.total);
+        } else {
+            renderPagination(leadsCache.length);
+        }
     } catch (error) {
         console.error("Error:", error);
         mostrarNotificacion("Error al obtener leads", "error");
@@ -157,6 +165,33 @@ function renderKanban(leads) {
 
     initSortable(estados);
 }
+
+function renderPagination(total) {
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+    const start = Math.min((currentPage-1)*PAGE_SIZE+1, total);
+    const end   = Math.min(currentPage*PAGE_SIZE, total);
+    
+    const info = document.getElementById('crm-pag-info');
+    if (info) info.textContent = total ? `Mostrando ${start}–${end} de ${total}` : '';
+    
+    const container = document.getElementById('crm-pag-buttons');
+    if (!container) return;
+    if (totalPages <= 1) { container.innerHTML = ''; return; }
+    
+    let html = `<button class="crm-pag-btn" ${currentPage===1?'disabled':''} onclick="window.__crmKanbanPage(${currentPage-1})"><i class="fas fa-chevron-left"></i></button>`;
+    for (let i=1; i<=totalPages; i++) {
+        if (totalPages<=7 || i===1 || i===totalPages || Math.abs(i-currentPage)<=1) {
+            html += `<button class="crm-pag-btn${i===currentPage?' active':''}" onclick="window.__crmKanbanPage(${i})">${i}</button>`;
+        } else if (Math.abs(i-currentPage)===2) { html += '<span class="text-muted px-1">…</span>'; }
+    }
+    html += `<button class="crm-pag-btn" ${currentPage===totalPages?'disabled':''} onclick="window.__crmKanbanPage(${currentPage+1})"><i class="fas fa-chevron-right"></i></button>`;
+    container.innerHTML = html;
+}
+
+window.__crmKanbanPage = p => {
+    currentPage = p;
+    loadLeads();
+};
 
 /**
  * LÓGICA DE CONTADORES (La que no estaba andando)
