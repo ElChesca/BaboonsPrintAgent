@@ -289,6 +289,13 @@ export const ERP_REGISTRY = {
         category: 'operaciones',
         color: 'rgba(235, 77, 75, 0.12)'
     },
+    'crm_contactos': {
+        label: 'CRM Contactos',
+        icon: 'static/img/icons/clientes.png',
+        path: 'static/crm_social/crm_contactos.html',
+        category: 'operaciones',
+        color: 'rgba(79, 70, 229, 0.12)'
+    },
     'gastos': {
         label: 'Gestión de Gastos',
         icon: 'static/img/icons/gastos.png',

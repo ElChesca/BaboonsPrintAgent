@@ -10,7 +10,7 @@ except ImportError:
 bp = Blueprint('admin_apps', __name__)
 
 # Flag global para evitar sembrado redundante en cada request (Optimización Fly.io)
-_modules_seeded = False 
+_modules_seeded = False  # resetear para forzar re-seed con nuevos módulos (crm_contactos)
 
 import time
 
@@ -88,7 +88,8 @@ def _ensure_modules_seeded(db):
             # Gestión de Eventos
             ('eventos', 'Gestión de Eventos', 'Gestión Especial', ['retail', 'distribuidora', 'resto']),
             # CRM & Marketing
-            ('crm_social', 'CRM & Marketing Digital', 'Ventas', ['resto'])
+            ('crm_social', 'CRM & Marketing Digital', 'Ventas', ['resto']),
+            ('crm_contactos', 'CRM Contactos / Leads', 'Ventas', ['resto', 'distribuidora', 'retail'])
         ]
         valid_codes = [item[0] for item in erp_catalogue]
         mod_values = [(item[0], item[1], item[2]) for item in erp_catalogue]
