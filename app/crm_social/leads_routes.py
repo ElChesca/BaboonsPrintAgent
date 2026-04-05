@@ -194,12 +194,19 @@ def get_leads():
 
     db = get_db()
     db.execute(
-        "SELECT id, nombre, email, telefono, estado, origen, notas, fecha_creacion FROM crm_leads WHERE negocio_id = %s ORDER BY fecha_creacion DESC",
+        """SELECT id, nombre, email, telefono, estado, origen, notas,
+                  ultima_actividad,
+                  COALESCE(
+                      to_char(ultima_actividad, 'YYYY-MM-DD"T"HH24:MI:SS'),
+                      to_char(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS')
+                  ) AS fecha_creacion
+           FROM crm_leads
+           WHERE negocio_id = %s AND fecha_baja IS NULL
+           ORDER BY COALESCE(ultima_actividad, NOW()) DESC""",
         (negocio_id,)
     )
     leads = db.fetchall()
 
-    # Convert rows to dicts
     leads_list = []
     for row in leads:
         leads_list.append({
@@ -210,7 +217,8 @@ def get_leads():
             'estado': row['estado'],
             'origen': row['origen'],
             'notas': row['notas'],
-            'fecha_creacion': row['fecha_creacion']
+            'fecha_creacion': row['fecha_creacion'],
+            'ultima_actividad': str(row['ultima_actividad']) if row['ultima_actividad'] else None,
         })
 
     return jsonify(leads_list)

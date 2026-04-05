@@ -291,7 +291,7 @@ export const ERP_REGISTRY = {
     },
     'crm_contactos': {
         label: 'CRM Contactos',
-        icon: 'static/img/icons/clientes.png',
+        icon: 'static/img/icons/leads.png',
         path: 'static/crm_social/crm_contactos.html',
         category: 'operaciones',
         color: 'rgba(79, 70, 229, 0.12)'
