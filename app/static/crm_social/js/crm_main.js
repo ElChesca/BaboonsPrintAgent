@@ -92,7 +92,8 @@ export async function inicializarCRM() {
 export async function loadLeads() {
     showGlobalLoader();
     try {
-        leadsCache = await fetchData(`/api/crm/leads?negocio_id=${appState.negocioId}`);
+        const payload = await fetchData(`/api/crm/leads?negocio_id=${appState.negocioId}&limit=500`); // Kanban loads more leads at once
+        leadsCache = payload && payload.data ? payload.data : (Array.isArray(payload) ? payload : []);
         renderKanban(leadsCache);
         // Sincronizar números de la UI
         actualizarContadoresVisibles();
