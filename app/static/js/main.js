@@ -1,4 +1,4 @@
-﻿// app/static/js/main.js
+// app/static/js/main.js
 // âœ… ARCHIVO COMPLETO (VersiÃ³n 1.7.1 - DYNAMIC MODULES FIX) âœ…
 
 // --- 1. CONFIGURACIÃ“N CENTRAL DE VERSIÃ“N ---

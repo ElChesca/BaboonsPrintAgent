@@ -5,8 +5,35 @@ import io
 bp = Blueprint('crm_leads', __name__)
 
 
+def ensure_crm_table():
+    """Crea la tabla crm_leads si no existe. Llamar al inicio de cada endpoint."""
+    db = get_db()
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS crm_leads (
+            id              SERIAL PRIMARY KEY,
+            negocio_id      INT NOT NULL,
+            nombre          VARCHAR(255) NOT NULL,
+            email           VARCHAR(255),
+            telefono        VARCHAR(50),
+            estado          VARCHAR(50) DEFAULT 'nuevo',
+            origen          VARCHAR(100) DEFAULT 'manual',
+            notas           TEXT,
+            fecha_baja      TIMESTAMPTZ,
+            ultima_actividad TIMESTAMPTZ DEFAULT NOW(),
+            cliente_erp_id  INT,
+            reserva_cliente_id INT,
+            fecha_nacimiento DATE
+        )
+    """)
+    # Indice unico por email+negocio (ignora NULLs)
+    db.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_crm_leads_email_negocio
+        ON crm_leads(email, negocio_id) WHERE email IS NOT NULL
+    """)
+
+
 # ============================================================
-# --- IMPORTACIÓN DE CONTACTOS ---
+# --- IMPORTACION DE CONTACTOS ---
 # ============================================================
 
 @bp.route('/negocios/<int:negocio_id>/crm/contactos/plantilla', methods=['GET'])
@@ -192,36 +219,43 @@ def get_leads():
     if not negocio_id:
         return jsonify({'error': 'negocio_id es requerido'}), 400
 
-    db = get_db()
-    db.execute(
-        """SELECT id, nombre, email, telefono, estado, origen, notas,
-                  ultima_actividad,
-                  COALESCE(
-                      to_char(ultima_actividad, 'YYYY-MM-DD"T"HH24:MI:SS'),
-                      to_char(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS')
-                  ) AS fecha_creacion
-           FROM crm_leads
-           WHERE negocio_id = %s AND fecha_baja IS NULL
-           ORDER BY COALESCE(ultima_actividad, NOW()) DESC""",
-        (negocio_id,)
-    )
-    leads = db.fetchall()
+    try:
+        ensure_crm_table()
+        db = get_db()
+        db.execute(
+            """SELECT id, nombre, email, telefono, estado, origen, notas,
+                      ultima_actividad,
+                      COALESCE(
+                          to_char(ultima_actividad, 'YYYY-MM-DD"T"HH24:MI:SS'),
+                          to_char(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS')
+                      ) AS fecha_creacion
+               FROM crm_leads
+               WHERE negocio_id = %s AND fecha_baja IS NULL
+               ORDER BY COALESCE(ultima_actividad, NOW()) DESC""",
+            (negocio_id,)
+        )
+        leads = db.fetchall()
 
-    leads_list = []
-    for row in leads:
-        leads_list.append({
-            'id': row['id'],
-            'nombre': row['nombre'],
-            'email': row['email'],
-            'telefono': row['telefono'],
-            'estado': row['estado'],
-            'origen': row['origen'],
-            'notas': row['notas'],
-            'fecha_creacion': row['fecha_creacion'],
-            'ultima_actividad': str(row['ultima_actividad']) if row['ultima_actividad'] else None,
-        })
+        leads_list = []
+        for row in leads:
+            leads_list.append({
+                'id': row['id'],
+                'nombre': row['nombre'],
+                'email': row['email'],
+                'telefono': row['telefono'],
+                'estado': row['estado'],
+                'origen': row['origen'],
+                'notas': row['notas'],
+                'fecha_creacion': row['fecha_creacion'],
+                'ultima_actividad': str(row['ultima_actividad']) if row['ultima_actividad'] else None,
+            })
 
-    return jsonify(leads_list)
+        return jsonify(leads_list)
+
+    except Exception as e:
+        current_app.logger.error(f"[CRM] get_leads error: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
 
 @bp.route('/leads', methods=['POST'])
 def create_lead():
