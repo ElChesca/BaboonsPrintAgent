@@ -80,3 +80,38 @@ Antes de cada despliegue o finalización:
 ## 8. Idioma de Comunicación y Documentación
 - **Idioma Principal**: Toda la comunicación con el usuario, así como la generación de artefactos (`implementation_plan.md`, `walkthrough.md`, `task.md`), DEBE realizarse exclusivamente en **Español**.
 - **Consistencia**: Evitar el uso de términos técnicos en inglés si existe una alternativa clara en español, a menos que se trate de términos de código (ej: variables, funciones).
+
+## 9. Protocolo Obligatorio de Edición de Archivos (Encoding UTF-8)
+
+> [!CAUTION]
+> **VIOLACIÓN CRÍTICA.** El uso incorrecto de PowerShell para editar archivos JS/HTML/CSS con caracteres especiales (tildes, ñ, emojis) destruye el encoding y rompe el Navbar, los módulos y la experiencia del usuario. Esto ya ocurrió y no debe repetirse. Cumplimiento **absoluto y sin excepciones**.
+
+### Métodos PERMITIDOS (en orden de preferencia)
+
+| Situación | Método correcto |
+|---|---|
+| Edición de líneas puntuales | Herramienta `replace_file_content` o `multi_replace_file_content` del sistema |
+| Búsqueda y reemplazo de texto con tildes/ñ | `python -c` con `open(path, encoding='utf-8')` y `str.replace()` |
+| Restaurar un archivo desde git | `git checkout <hash> -- <archivo>` (directo, **sin pipe**) |
+| Crear un archivo nuevo | Herramienta `write_to_file` del sistema |
+| Verificar encoding de un archivo | `python -c "with open(p,'rb') as f: print(f.read(4))"` — si empieza en `[239, 187, 191]` tiene BOM |
+| Eliminar BOM de un archivo | `python -c "..." ` leyendo en modo `'rb'`, cortando los primeros 3 bytes si son EF BB BF, y escribiendo en modo `'wb'` |
+
+### Métodos PROHIBIDOS para archivos con caracteres especiales
+
+- ❌ `Set-Content -Encoding utf8` (PowerShell 5.x agrega BOM silenciosamente)
+- ❌ `Out-File -Encoding utf8` (mismo problema)
+- ❌ `git show <hash>:archivo | Out-File ...` (doble-codifica los bytes UTF-8)
+- ❌ `Get-Content | Set-Content` (pierde encoding original)
+- ❌ Cualquier pipe de PowerShell que termine en `Out-File` o `Set-Content` sobre archivos con tildes
+
+### Síntomas de encoding roto (señales de alarma)
+- El Navbar muestra `AdministraciÃ³n`, `ConfiguraciÃ³n` en lugar de `Administración`, `Configuración`
+- Un modal HTML muestra `SubÃ­ tu archivo` en lugar de `Subí tu archivo`
+- La consola del browser muestra `intent├│ cargar` en lugar de `intentó cargar`
+
+### Proceso de recuperación ante encoding roto
+1. Verificar qué archivo tiene BOM: `python -c "..."` en los primeros 3 bytes
+2. Restaurar con `git checkout <ultimo_commit_limpio> -- <archivo>`
+3. Re-aplicar SOLO los cambios funcionales necesarios usando `python -c` con `open(encoding='utf-8')`
+4. Verificar el archivo resultante antes de commitear
