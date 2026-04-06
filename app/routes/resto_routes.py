@@ -1779,21 +1779,35 @@ def finalizar_cobro_comanda(current_user, id):
         # 4. Obtener un cliente por defecto
         db.execute("SELECT id FROM clientes WHERE negocio_id = %s LIMIT 1", (negocio_id,))
         cliente_ref = db.fetchone()
-        cliente_id = cliente_ref['id'] if cliente_ref else None
+        cliente_id = cliente_ref['id'] if (cliente_ref and 'id' in dict(cliente_ref)) else None
 
         # 5. Calcular Próximo Número Interno para el Negocio
         db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-        proximo_nro = db.fetchone()[0]
+        nro_row = db.fetchone()
+        proximo_nro = nro_row[0] if nro_row else 1
 
         # 6. Crear Venta Central (Categoría: Ventas Restó)
-        db.execute(
-            """INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, vendedor_id,
-                                   tarjeta_marca, tarjeta_ultimos_4, tarjeta_lote, tarjeta_cupon, numero_interno) 
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-            (negocio_id, cliente_id, current_user['id'], total_pago, f"Ventas Restó ({metodo_pago})", datetime.datetime.now(), 
-             sesion_abierta['id'], comanda['mozo_id'], t_marca, t_u4, t_lote, t_cupon, proximo_nro)
-        )
-        venta_id = db.fetchone()['id']
+        # BUGFIX: Asegurar que mozo_id no sea None si es NOT NULL en DB
+        vendedor_id = comanda.get('mozo_id') or current_user.get('id')
+        
+        insert_sql = """
+            INSERT INTO ventas (
+                negocio_id, cliente_id, usuario_id, total, metodo_pago, 
+                fecha, caja_sesion_id, vendedor_id,
+                tarjeta_marca, tarjeta_ultimos_4, tarjeta_lote, tarjeta_cupon, numero_interno
+            ) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+        """
+        db.execute(insert_sql, (
+            negocio_id, cliente_id, current_user['id'], total_pago, f"Ventas Restó ({metodo_pago})", 
+            datetime.datetime.now(), sesion_abierta['id'], vendedor_id, 
+            t_marca, t_u4, t_lote, t_cupon, proximo_nro
+        ))
+        
+        res_venta = db.fetchone()
+        if not res_venta:
+            raise Exception("No se pudo obtener el ID de la venta generada")
+        venta_id = res_venta['id']
         
         # 6. Insertar detalles y descontar stock
         for d in detalles:
