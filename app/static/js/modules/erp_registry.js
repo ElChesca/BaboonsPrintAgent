@@ -62,6 +62,13 @@ export const ERP_REGISTRY = {
         category: 'operaciones',
         color: 'rgba(127, 140, 141, 0.12)'
     },
+    'gestion_destinos_kds': {
+        label: 'Gestión de Destinos KDS',
+        icon: 'static/img/icons/configuracion.png',
+        path: 'static/resto_impresoras.html',
+        category: 'operaciones',
+        color: 'rgba(127, 140, 141, 0.12)'
+    },
 
     // --- 🚚 LOGÍSTICA ---
     'hoja_ruta': {

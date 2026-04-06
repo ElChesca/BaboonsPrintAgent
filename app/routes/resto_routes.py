@@ -175,6 +175,78 @@ def setup_default_menu(current_user, negocio_id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
+# --- DESTINOS KDS (Estaciones de Trabajo) ---
+
+@bp.route('/negocios/<int:negocio_id>/destinos-kds', methods=['GET'])
+@token_required
+def get_destinos_kds(current_user, negocio_id):
+    db = get_db()
+    try:
+        db.execute("SELECT * FROM resto_destinos_kds WHERE negocio_id = %s ORDER BY nombre", (negocio_id,))
+        return jsonify([dict(r) for r in db.fetchall()])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/destinos-kds', methods=['POST'])
+@token_required
+def save_destino_kds(current_user, negocio_id):
+    data = request.get_json()
+    nombre = data.get('nombre')
+    color_ui = data.get('color_ui', '#3498db')
+
+    if not nombre:
+        return jsonify({'error': 'El nombre es obligatorio'}), 400
+
+    db = get_db()
+    try:
+        db.execute(
+            "INSERT INTO resto_destinos_kds (negocio_id, nombre, color_ui) VALUES (%s, %s, %s) RETURNING id",
+            (negocio_id, nombre, color_ui)
+        )
+        nuevo_id = db.fetchone()['id']
+        g.db_conn.commit()
+        return jsonify({'id': nuevo_id, 'message': 'Destino creado con éxito'}), 201
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/destinos-kds/<int:id>', methods=['PUT', 'DELETE'])
+@token_required
+def manage_destino_kds(current_user, id):
+    db = get_db()
+    if request.method == 'DELETE':
+        try:
+            # Primero desvincular impresoras y categorías (SET NULL ya está en el FK, pero aseguramos)
+            db.execute("UPDATE resto_impresoras SET destino_id = NULL WHERE destino_id = %s", (id,))
+            db.execute("UPDATE menu_categorias SET destino_id = NULL WHERE destino_id = %s", (id,))
+            db.execute("DELETE FROM resto_destinos_kds WHERE id = %s", (id,))
+            g.db_conn.commit()
+            return jsonify({'message': 'Destino eliminado'})
+        except Exception as e:
+            g.db_conn.rollback()
+            return jsonify({'error': f"Error al eliminar: {str(e)}"}), 500
+
+    # PUT
+    data = request.get_json()
+    campos = []
+    valores = []
+    for k in ['nombre', 'color_ui']:
+        if k in data:
+            campos.append(f"{k} = %s")
+            valores.append(data[k])
+    
+    if not campos:
+        return jsonify({'error': 'Sin campos para editar'}), 400
+        
+    valores.append(id)
+    try:
+        db.execute(f"UPDATE resto_destinos_kds SET {', '.join(campos)} WHERE id = %s", tuple(valores))
+        g.db_conn.commit()
+        return jsonify({'message': 'Destino actualizado'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
 # --- CONFIGURACIÓN DE IMPRESORAS ---
 
 @bp.route('/negocios/<int:negocio_id>/impresoras', methods=['GET'])
@@ -193,7 +265,8 @@ def save_impresora(current_user, negocio_id):
     data = request.get_json()
     nombre = data.get('nombre')
     ip = data.get('ip')
-    estacion = data.get('estacion', 'cocina') # barra, cocina, postre, etc.
+    estacion = data.get('estacion', 'cocina') # Legacy
+    destino_id = data.get('destino_id')
     es_caja = data.get('es_caja', False)
 
     if not nombre or not ip:
@@ -206,8 +279,8 @@ def save_impresora(current_user, negocio_id):
             db.execute("UPDATE resto_impresoras SET es_caja = FALSE WHERE negocio_id = %s", (negocio_id,))
 
         db.execute(
-            "INSERT INTO resto_impresoras (negocio_id, nombre, ip, estacion, es_caja) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-            (negocio_id, nombre, ip, estacion, es_caja)
+            "INSERT INTO resto_impresoras (negocio_id, nombre, ip, estacion, es_caja, destino_id) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+            (negocio_id, nombre, ip, estacion, es_caja, destino_id)
         )
         nuevo_id = db.fetchone()['id']
         g.db_conn.commit()
@@ -249,7 +322,7 @@ def manage_impresora(current_user, id):
         campos.append("es_caja = %s")
         valores.append(data['es_caja'])
 
-    for k in ['nombre', 'ip', 'estacion']:
+    for k in ['nombre', 'ip', 'estacion', 'destino_id']:
         if k in data:
             campos.append(f"{k} = %s")
             valores.append(data[k])
@@ -395,6 +468,19 @@ def save_sectores(current_user, negocio_id):
     sectores = data.get('sectores', [])
     db = get_db()
     try:
+        # Obtener IDs actuales para saber cuáles borrar
+        db.execute("SELECT id FROM mesas_sectores WHERE negocio_id = %s", (negocio_id,))
+        ids_actuales = [r['id'] for r in db.fetchall()]
+        ids_recibidos = [s['id'] for s in sectores if s.get('id')]
+
+        # 1. Borrar sectores que no están en la lista nueva
+        for id_actual in ids_actuales:
+            if id_actual not in ids_recibidos:
+                # Opcional: Podríamos verificar si tiene mesas antes, pero el usuario dijo que no tiene mesas.
+                # Si tuviera mesas, la BD fallaría por FK si no está en cascada.
+                db.execute("DELETE FROM mesas_sectores WHERE id = %s AND negocio_id = %s", (id_actual, negocio_id))
+
+        # 2. Actualizar o Insertar el resto
         for s in sectores:
             if s.get('id'):
                 db.execute("UPDATE mesas_sectores SET nombre = %s, orden = %s WHERE id = %s AND negocio_id = %s",
@@ -402,8 +488,9 @@ def save_sectores(current_user, negocio_id):
             else:
                 db.execute("INSERT INTO mesas_sectores (negocio_id, nombre, orden) VALUES (%s, %s, %s)",
                            (negocio_id, s['nombre'], s.get('orden', 0)))
+        
         g.db_conn.commit()
-        return jsonify({'message': 'Sectores guardados correctamente'})
+        return jsonify({'message': 'Sectores sincronizados correctamente'})
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
@@ -743,6 +830,7 @@ def add_menu_categoria(current_user, negocio_id):
     nombre = data.get('nombre')
     orden = data.get('orden', 0)
     estacion = data.get('estacion', 'cocina')
+    destino_id = data.get('destino_id')
     
     if not nombre:
         return jsonify({'error': 'El nombre es obligatorio'}), 400
@@ -751,8 +839,8 @@ def add_menu_categoria(current_user, negocio_id):
     try:
         grupo = data.get('grupo')
         db.execute(
-            "INSERT INTO menu_categorias (negocio_id, nombre, orden, estacion, grupo) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-            (negocio_id, nombre, orden, estacion, grupo)
+            "INSERT INTO menu_categorias (negocio_id, nombre, orden, estacion, grupo, destino_id) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+            (negocio_id, nombre, orden, estacion, grupo, destino_id)
         )
         nuevo_id = db.fetchone()['id']
         g.db_conn.commit()
@@ -793,6 +881,9 @@ def manage_menu_categoria(current_user, id):
     if 'grupo' in data:
         campos.append("grupo = %s")
         valores.append(data['grupo'])
+    if 'destino_id' in data:
+        campos.append("destino_id = %s")
+        valores.append(data['destino_id'])
         
     if not campos:
         return jsonify({'error': 'No hay campos para actualizar'}), 400
@@ -1009,11 +1100,17 @@ def add_menu_item(current_user, negocio_id):
             
     db = get_db()
     try:
+        # 1. Asegurar columna destino_id (Migración silenciosa)
+        try:
+            db.execute("ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS destino_id INTEGER REFERENCES resto_destinos_kds(id)")
+            g.db_conn.commit()
+        except: pass
+
         db.execute(
-            """INSERT INTO menu_items (negocio_id, categoria_id, nombre, descripcion, precio, imagen_url, stock_control, producto_id)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+            """INSERT INTO menu_items (negocio_id, categoria_id, nombre, descripcion, precio, imagen_url, stock_control, producto_id, destino_id)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
             (negocio_id, data['categoria_id'], data['nombre'], data.get('descripcion', ''), data['precio'], 
-             data.get('imagen_url', ''), data.get('stock_control', False), data.get('producto_id'))
+             data.get('imagen_url', ''), data.get('stock_control', False), data.get('producto_id'), data.get('destino_id'))
         )
         nuevo_id = db.fetchone()['id']
         
@@ -1091,6 +1188,9 @@ def bulk_update_menu(current_user, negocio_id):
         elif field == 'destino_kds':
             db.execute(f"UPDATE menu_items SET destino_kds = %s WHERE id IN ({','.join(['%s']*len(ids))})", (value, *ids))
             
+        elif field == 'destino_id':
+            db.execute(f"UPDATE menu_items SET destino_id = %s WHERE id IN ({','.join(['%s']*len(ids))})", (value, *ids))
+            
         g.db_conn.commit()
         return jsonify({'message': f'{len(ids)} items actualizados correctamente'})
     except Exception as e:
@@ -1099,7 +1199,7 @@ def bulk_update_menu(current_user, negocio_id):
             
     # PUT
     data = request.get_json()
-    validos = ['categoria_id', 'nombre', 'descripcion', 'precio', 'imagen_url', 'disponible', 'stock_control', 'producto_id', 'destino_kds']
+    validos = ['categoria_id', 'nombre', 'descripcion', 'precio', 'imagen_url', 'disponible', 'stock_control', 'producto_id', 'destino_kds', 'destino_id']
     campos = [f"{k} = %s" for k in data.keys() if k in validos]
     valores = [v for k, v in data.items() if k in validos]
     
@@ -1225,14 +1325,15 @@ def add_items_to_comanda(current_user, id):
             
         db.execute("UPDATE comandas SET total = total + %s WHERE id = %s", (total_a_sumar, id))
         
-        # --- NUEVO: Generar trabajos de impresión ---
+        # --- NUEVO: Generar trabajos de impresión Inteligentes ---
         print_jobs = []
         if added_ids:
-            # Traer los datos extra de los items agregados (estación y nombres)
+            # Traer los datos con DESTINOS KDS Ofciales (IDs)
             db.execute("""
                 SELECT 
                     cd.cantidad, cd.notas, mi.nombre, 
-                    COALESCE(mi.destino_kds, cat.estacion, 'cocina') as destino,
+                    COALESCE(mi.destino_id, cat.destino_id) as effective_destino_id,
+                    COALESCE(mi.destino_kds, cat.estacion, 'cocina') as destino_str_fallback,
                     m.numero as mesa_num, v.nombre as mozo_nom, c.num_comensales,
                     c.negocio_id
                 FROM comandas_detalle cd
@@ -1250,39 +1351,37 @@ def add_items_to_comanda(current_user, id):
                 pax_val = int(rows[0]['num_comensales'] or 0)
                 header_info = { 'mesa': rows[0]['mesa_num'], 'mozo': rows[0]['mozo_nom'], 'pax': pax_val }
                 
-                # Agrupar items por destino
-                grouped_items = {}
-                for r in rows:
-                    dest = (r['destino'] or 'cocina').lower()
-                    if dest not in grouped_items: grouped_items[dest] = []
-                    grouped_items[dest].append(r)
-
                 # Obtener nombre negocio y configuraciones
                 db.execute("SELECT nombre FROM negocios WHERE id = %s", (negocio_id,))
-                neg_row = db.fetchone()
-                negocio_nombre = neg_row['nombre'] if neg_row else "Baboons Restó"
+                negocio_nombre = (db.fetchone() or {'nombre': 'Baboons Restó'})['nombre']
 
                 db.execute("SELECT clave, valor FROM configuraciones WHERE negocio_id = %s", (negocio_id,))
                 configs = {r['clave']: r['valor'] for r in db.fetchall()}
                 sz_mesa = configs.get('resto_print_sz_mesa', '2')
                 sz_mozo = configs.get('resto_print_sz_mozo', '1')
 
-                # Consultar impresoras
-                db.execute("""
-                    SELECT ip, nombre as printer_name, estacion, es_caja
-                    FROM resto_impresoras 
-                    WHERE negocio_id = %s
-                """, (negocio_id,))
+                # Consultar impresoras con sus nuevos destinos_id
+                db.execute("SELECT ip, nombre as printer_name, estacion, destino_id, es_caja FROM resto_impresoras WHERE negocio_id = %s", (negocio_id,))
                 impresoras = db.fetchall()
                 
                 for printer in impresoras:
-                    target_estacion = (printer['estacion'] or "").lower()
-                    
                     items_para_esta_imp = []
+                    
                     if printer['es_caja']:
                         items_para_esta_imp = rows
-                    elif target_estacion in grouped_items:
-                        items_para_esta_imp = grouped_items[target_estacion]
+                    else:
+                        for it in rows:
+                            match = False
+                            # 1. Ruteo por ID oficial
+                            if printer['destino_id'] and it['effective_destino_id'] == printer['destino_id']:
+                                match = True
+                            # 2. Ruteo por Texto (fallback retrocompatible)
+                            elif not printer['destino_id'] and printer['estacion']:
+                                if (printer['estacion'] or "").lower() == (it['destino_str_fallback'] or "").lower():
+                                    match = True
+                            
+                            if match:
+                                items_para_esta_imp.append(it)
 
                     if items_para_esta_imp:
                         lineas = [
@@ -1297,11 +1396,7 @@ def add_items_to_comanda(current_user, id):
                             cant_float = float(it['cantidad'])
                             lineas.append(f"[{int(cant_float)}] {it['nombre']}")
                             if it.get('notas'): lineas.append(f"  > {it['notas']}")
-                            items_payload.append({
-                                'nombre': it['nombre'], 
-                                'cantidad': cant_float, 
-                                'notas': it.get('notas') or ""
-                            })
+                            items_payload.append({'nombre': it['nombre'], 'cantidad': cant_float, 'notas': it.get('notas') or ""})
 
                         payload = {
                             'printer_name': printer['printer_name'],

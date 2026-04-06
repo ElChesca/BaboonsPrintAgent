@@ -10,7 +10,7 @@ except ImportError:
 bp = Blueprint('admin_apps', __name__)
 
 # Flag global para evitar sembrado redundante en cada request (Optimización Fly.io)
-_modules_seeded = False  # resetear para forzar re-seed con nuevos módulos (crm_contactos)
+_modules_seeded = False  # resetear para forzar re-seed con nuevos módulos (gestion_destinos_kds)
 
 import time
 
@@ -84,6 +84,7 @@ def _ensure_modules_seeded(db):
             ('gestion_mesas', 'Adm. de Mesas', 'Gestión Restó', ['resto']),
             ('resto_stats', 'Estadísticas Restó', 'Gestión Restó', ['resto']),
             ('resto_impresoras', 'Adm. de Impresoras', 'Gestión Restó', ['resto']),
+            ('gestion_destinos_kds', 'Gestión de Destinos KDS', 'Gestión Restó', ['resto']),
             
             # Gestión de Eventos
             ('eventos', 'Gestión de Eventos', 'Gestión Especial', ['retail', 'distribuidora', 'resto']),

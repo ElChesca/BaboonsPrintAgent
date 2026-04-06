@@ -494,7 +494,7 @@ function renderMesas() {
             <div class="mesa-num">${mesa.numero}</div>
             <div class="mesa-footer">
                 <span><i class="fas fa-users me-1"></i> ${mesa.comanda_pax || mesa.capacidad || 0}</span>
-                ${estado !== 'libre' ? `<span><i class="fas fa-user me-1"></i> ${mesa.mozo_nombre ? mesa.mozo_nombre.split(' ')[0] : 'Ocupada'}</span>` : '<span>Libre</span>'}
+                ${estado !== 'libre' ? `<span><i class="fas fa-user me-1"></i> ${mesa.active_mozo_nombre ? mesa.active_mozo_nombre.split(' ')[0] : (mesa.mozo_fijo_nombre ? mesa.mozo_fijo_nombre.split(' ')[0] : 'Ocupada')}</span>` : '<span>Libre</span>'}
             </div>
             ${estado === 'en_cobro' ? '<div class="mesa-badge-cuenta" style="position:absolute; top:5px; right:5px; background:white; color:#d97706; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; box-shadow:0 2px 4px rgba(0,0,0,0.1);"><i class="fas fa-file-invoice-dollar"></i></div>' : ''}
         `;

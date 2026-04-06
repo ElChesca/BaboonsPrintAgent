@@ -4,16 +4,26 @@ import { mostrarNotificacion } from './notifications.js';
 import { appState } from '../main.js';
 
 let impresorasCache = [];
+let destinosCache = [];
 
 export async function inicializarRestoImpresoras() {
     console.log("🖨️ Módulo de Configuración de Impresoras Inicializado");
 
-    const form = document.getElementById('form-impresora');
-    if (form) {
-        form.onsubmit = guardarImpresora;
+    const formImp = document.getElementById('form-impresora');
+    if (formImp) formImp.onsubmit = guardarImpresora;
+
+    const formDest = document.getElementById('form-destino');
+    if (formDest) formDest.onsubmit = guardarDestino;
+
+    // Sincronizar input color con texto hex
+    const colorInput = document.getElementById('dest-color');
+    if (colorInput) {
+        colorInput.addEventListener('input', (e) => {
+            document.getElementById('dest-color-hex').value = e.target.value.toUpperCase();
+        });
     }
 
-    // Bind windows globals
+    // Bind windows globals (Printers)
     window.abrirNuevaImpresora = abrirNuevaImpresora;
     window.cerrarModalImpresora = cerrarModalImpresora;
     window.editarImpresora = editarImpresora;
@@ -23,28 +33,169 @@ export async function inicializarRestoImpresoras() {
     window.cerrarGuiaImpresoras = cerrarGuiaImpresoras;
     window.guardarAjustesPro = guardarAjustesPro;
 
+    // Bind windows globals (Destinations)
+    window.abrirNuevoDestino = abrirNuevoDestino;
+    window.cerrarModalDestino = cerrarModalDestino;
+    window.editarDestino = editarDestino;
+    window.eliminarDestino = eliminarDestino;
+
+    // Carga inicial
+    await cargarDestinos(); // Cargar destinos primero para usarlos en la tabla de impresoras
     await cargarImpresoras();
     await cargarAjustesPro();
     await verificarEstadoAgente();
 }
 
+/* --- LÓGICA DE DESTINOS KDS --- */
+
+async function cargarDestinos() {
+    const idNegocio = appState.negocioActivoId;
+    if (!idNegocio) return;
+    try {
+        destinosCache = await fetchData(`/api/negocios/${idNegocio}/destinos-kds`);
+        renderizarTablaDestinos();
+        actualizarSelectDestinos();
+    } catch (error) {
+        console.error("Error al cargar destinos:", error);
+    }
+}
+
+function renderizarTablaDestinos() {
+    const body = document.getElementById('destinos-kds-body');
+    const noDestinos = document.getElementById('no-destinos');
+    if (!body) return;
+    body.innerHTML = '';
+
+    if (destinosCache.length === 0) {
+        if (noDestinos) noDestinos.style.display = 'block';
+        return;
+    }
+    if (noDestinos) noDestinos.style.display = 'none';
+
+    destinosCache.forEach(dest => {
+        const tr = document.createElement('tr');
+        tr.className = 'animate__animated animate__fadeIn';
+        tr.innerHTML = `
+            <td class="ps-4">
+                <div class="d-flex align-items-center">
+                    <div class="rounded-circle me-3" style="width: 12px; height: 12px; background: ${dest.color_ui}"></div>
+                    <div class="fw-800 text-dark">${dest.nombre}</div>
+                </div>
+            </td>
+            <td><code>${dest.color_ui}</code></td>
+            <td class="text-end pe-4">
+                <div class="btn-group gap-2">
+                    <button class="btn btn-sm btn-light border rounded-3" onclick="window.editarDestino(${dest.id})">
+                        <i class="fas fa-pencil-alt"></i>
+                    </button>
+                    <button class="btn btn-sm btn-light border text-danger rounded-3" onclick="window.eliminarDestino(${dest.id})">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        body.appendChild(tr);
+    });
+}
+
+function actualizarSelectDestinos() {
+    const select = document.getElementById('imp-destino-id');
+    if (!select) return;
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">-- Seleccionar --</option>';
+    destinosCache.forEach(dest => {
+        const opt = document.createElement('option');
+        opt.value = dest.id;
+        opt.textContent = dest.nombre;
+        select.appendChild(opt);
+    });
+    select.value = currentVal;
+}
+
+function abrirNuevoDestino() {
+    const modal = document.getElementById('modal-destino');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.getElementById('modal-destino-titulo').innerText = 'Crear Destino KDS';
+        document.getElementById('form-destino').reset();
+        document.getElementById('dest-id').value = '';
+        document.getElementById('dest-color-hex').value = '#3498DB';
+    }
+}
+
+function cerrarModalDestino() {
+    const modal = document.getElementById('modal-destino');
+    if (modal) modal.style.display = 'none';
+}
+
+function editarDestino(id) {
+    const dest = destinosCache.find(d => d.id == id);
+    if (!dest) return;
+    abrirNuevoDestino();
+    document.getElementById('modal-destino-titulo').innerText = 'Editar Destino';
+    document.getElementById('dest-id').value = dest.id;
+    document.getElementById('dest-nombre').value = dest.nombre;
+    document.getElementById('dest-color').value = dest.color_ui;
+    document.getElementById('dest-color-hex').value = dest.color_ui;
+}
+
+async function guardarDestino(e) {
+    e.preventDefault();
+    const id = document.getElementById('dest-id').value;
+    const idNegocio = appState.negocioActivoId;
+    const data = {
+        nombre: document.getElementById('dest-nombre').value,
+        color_ui: document.getElementById('dest-color').value
+    };
+    const url = id ? `/api/destinos-kds/${id}` : `/api/negocios/${idNegocio}/destinos-kds`;
+    const method = id ? 'PUT' : 'POST';
+
+    try {
+        await sendData(url, data, method);
+        mostrarNotificacion("Destino guardado correctamente", "success");
+        cerrarModalDestino();
+        await cargarDestinos();
+    } catch (error) {
+        mostrarNotificacion(error.message, "error");
+    }
+}
+
+async function eliminarDestino(id) {
+    const result = await Swal.fire({
+        title: '¿Eliminar Destino?',
+        text: 'Se desvincularán las impresoras y categorías asociadas.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar'
+    });
+    if (result.isConfirmed) {
+        try {
+            await sendData(`/api/destinos-kds/${id}`, {}, 'DELETE');
+            mostrarNotificacion("Destino eliminado", "success");
+            await cargarDestinos();
+            await cargarImpresoras(); // Refrescar impresoras por si perdieron el vínculo
+        } catch (error) {
+            mostrarNotificacion(error.message, "error");
+        }
+    }
+}
+
+/* --- LÓGICA DE IMPRESORAS --- */
+
 async function cargarImpresoras() {
     const idNegocio = appState.negocioActivoId;
     if (!idNegocio) return;
-
     try {
         impresorasCache = await fetchData(`/api/negocios/${idNegocio}/impresoras`);
         renderizarTabla();
     } catch (error) {
         mostrarNotificacion("Error al cargar impresoras", "error");
-        console.error(error);
     }
 }
 
 function renderizarTabla() {
     const body = document.getElementById('impresoras-body');
     const noImpresoras = document.getElementById('no-impresoras');
-    
     if (!body) return;
     body.innerHTML = '';
 
@@ -52,10 +203,13 @@ function renderizarTabla() {
         if (noImpresoras) noImpresoras.style.display = 'block';
         return;
     }
-
     if (noImpresoras) noImpresoras.style.display = 'none';
 
     impresorasCache.forEach(imp => {
+        const destino = destinosCache.find(d => d.id == imp.destino_id);
+        const labelDestino = destino ? destino.nombre : (imp.estacion || 'SIN DESTINO');
+        const colorDestino = destino ? destino.color_ui : '#95a5a6';
+
         const tr = document.createElement('tr');
         tr.className = 'animate__animated animate__fadeIn';
         tr.innerHTML = `
@@ -65,8 +219,8 @@ function renderizarTabla() {
             </td>
             <td class="fw-700 text-primary">${imp.ip}</td>
             <td>
-                <span class="badge bg-primary-soft text-primary px-3 py-2 rounded-pill fw-700">
-                    <i class="fas fa-terminal me-2"></i>${imp.estacion.toUpperCase()}
+                <span class="badge px-3 py-2 rounded-pill fw-700" style="background: ${colorDestino}20; color: ${colorDestino}">
+                    <i class="fas fa-terminal me-2"></i>${labelDestino.toUpperCase()}
                 </span>
             </td>
             <td class="text-center">
@@ -74,13 +228,13 @@ function renderizarTabla() {
             </td>
             <td class="text-end pe-4">
                 <div class="btn-group gap-2">
-                    <button class="btn btn-sm btn-outline-warning rounded-3" onclick="window.probarImpresora(${imp.id})" title="Probar Impresión">
+                    <button class="btn btn-sm btn-outline-warning rounded-3" onclick="window.probarImpresora(${imp.id})">
                         <i class="fas fa-bolt"></i> PRUEBA
                     </button>
-                    <button class="btn btn-sm btn-light border rounded-3" onclick="window.editarImpresora(${imp.id})" title="Editar">
+                    <button class="btn btn-sm btn-light border rounded-3" onclick="window.editarImpresora(${imp.id})">
                         <i class="fas fa-pencil-alt"></i>
                     </button>
-                    <button class="btn btn-sm btn-light border text-danger rounded-3" onclick="window.eliminarImpresora(${imp.id})" title="Eliminar">
+                    <button class="btn btn-sm btn-light border text-danger rounded-3" onclick="window.eliminarImpresora(${imp.id})">
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
@@ -94,10 +248,11 @@ function abrirNuevaImpresora() {
     const modal = document.getElementById('modal-impresora');
     if (modal) {
         modal.style.display = 'flex';
-        document.getElementById('modal-impresora-titulo').innerText = 'Registrar Impresora';
+        document.getElementById('modal-impresora-titulo').innerText = 'Configurar Impresora';
         document.getElementById('form-impresora').reset();
         document.getElementById('imp-id').value = '';
         document.getElementById('imp-es-caja').checked = false;
+        actualizarSelectDestinos();
     }
 }
 
@@ -109,13 +264,13 @@ function cerrarModalImpresora() {
 function editarImpresora(id) {
     const imp = impresorasCache.find(i => i.id == id);
     if (!imp) return;
-
     abrirNuevaImpresora();
     document.getElementById('modal-impresora-titulo').innerText = 'Editar Impresora';
     document.getElementById('imp-id').value = imp.id;
     document.getElementById('imp-nombre').value = imp.nombre;
     document.getElementById('imp-ip').value = imp.ip;
-    document.getElementById('imp-estacion').value = imp.estacion;
+    document.getElementById('imp-estacion').value = imp.estacion || '';
+    document.getElementById('imp-destino-id').value = imp.destino_id || '';
     document.getElementById('imp-es-caja').checked = !!imp.es_caja;
 }
 
@@ -123,17 +278,15 @@ async function guardarImpresora(e) {
     e.preventDefault();
     const id = document.getElementById('imp-id').value;
     const idNegocio = appState.negocioActivoId;
-
     const data = {
         nombre: document.getElementById('imp-nombre').value,
         ip: document.getElementById('imp-ip').value,
         estacion: document.getElementById('imp-estacion').value,
+        destino_id: document.getElementById('imp-destino-id').value || null,
         es_caja: document.getElementById('imp-es-caja').checked
     };
-
     const url = id ? `/api/impresoras/${id}` : `/api/negocios/${idNegocio}/impresoras`;
     const approach = id ? 'PUT' : 'POST';
-
     try {
         await sendData(url, data, approach);
         mostrarNotificacion(id ? "Impresora actualizada" : "Impresora registrada", "success");
@@ -151,10 +304,8 @@ async function eliminarImpresora(id) {
         icon: 'warning',
         showCancelButton: true,
         confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#e74c3c'
+        cancelButtonColor: '#e74c3c'
     });
-
     if (result.isConfirmed) {
         try {
             await sendData(`/api/impresoras/${id}`, {}, 'DELETE');
@@ -165,37 +316,27 @@ async function eliminarImpresora(id) {
         }
     }
 }
-function getAgentUrl() {
-    const hubIp = document.getElementById('p-print-hub-ip')?.value || '';
-    if (hubIp && hubIp.trim() !== '') {
-        return `http://${hubIp.trim()}:5001`;
-    }
-    return 'http://localhost:5001';
-}
+
+/* --- UTILIDADES Y AGENTE --- */
 
 async function verificarEstadoAgente() {
     const dot = document.getElementById('agent-status-dot');
     const text = document.getElementById('agent-status-text');
     if (!dot || !text) return;
-
     try {
         const idNegocio = appState.negocioActivoId;
         const res = await fetchData(`/api/negocios/${idNegocio}/agente/status`, { silent: true });
-        
         if (res && res.status === 'online') {
-            dot.style.background = '#00b894'; // Verde esmeralda
+            dot.style.background = '#00b894';
             text.textContent = 'Agente Online (Nube)';
-            text.style.color = '#2d3436';
         } else {
-            // Fallback: intentar ver si hay un agente local corriendo para compatibilidad
             const localRes = await fetch('http://localhost:5001/api/health', { signal: AbortSignal.timeout(1000) }).catch(() => null);
             if (localRes && localRes.ok) {
-                dot.style.background = '#0984e3'; // Azul (Local)
+                dot.style.background = '#0984e3';
                 text.textContent = 'Agente Online (Local)';
             } else {
-                dot.style.background = '#e74c3c'; // Rojo coral
+                dot.style.background = '#e74c3c';
                 text.textContent = 'Agente Offline';
-                text.style.color = '#636e72';
             }
         }
     } catch (e) {
@@ -207,7 +348,6 @@ async function verificarEstadoAgente() {
 async function probarImpresora(id) {
     const imp = impresorasCache.find(i => i.id == id);
     if (!imp) return;
-
     const payload = {
         printer_name: imp.nombre,
         ip_destino: imp.ip,
@@ -216,22 +356,16 @@ async function probarImpresora(id) {
         mozo: "AGENTE CLOUD",
         negocio_nombre: "Baboons Test",
         items: [
-            { cantidad: 1, nombre: "CERVEZA DE PRUEBA", notas: "Esquema Oficial v1" },
+            { cantidad: 1, nombre: "CERVEZA DE PRUEBA", notas: "Esquema Oficial v2" },
             { cantidad: 2, nombre: "EMPANADA TECNICA", notas: "Datos Reales" }
         ]
     };
-
     try {
         const idNegocio = appState.negocioActivoId;
-        // ENVIAR A LA COLA CLOUD EN LUGAR DE LOCALHOST
-        await sendData(`/api/negocios/${idNegocio}/impresion-cola/test`, { 
-            payload: payload 
-        });
-        
-        mostrarNotificacion("¡Comanda de prueba enviada a la Nube con éxito!", "success");
+        await sendData(`/api/negocios/${idNegocio}/impresion-cola/test`, { payload: payload });
+        mostrarNotificacion("¡Comanda de prueba enviada con éxito!", "success");
     } catch (e) {
-        console.error("Error al enviar prueba a la nube:", e);
-        mostrarNotificacion("No se pudo enviar la prueba a la nube. Verifique su conexión.", "error");
+        mostrarNotificacion("No se pudo enviar la prueba.", "error");
     }
 }
 
@@ -244,36 +378,21 @@ function cerrarGuiaImpresoras() {
     const modal = document.getElementById('modal-guia-impresoras');
     if (modal) modal.style.display = 'none';
 }
+
 async function cargarAjustesPro() {
     const idNegocio = appState.negocioActivoId;
     try {
         const configs = await fetchData(`/api/negocios/${idNegocio}/configuraciones`, { silent: true });
-        
-        // Mapear los valores a los inputs del modal
         if (configs.resto_print_fallback !== undefined) {
             document.getElementById('p-fallback').checked = configs.resto_print_fallback === 'true' || configs.resto_print_fallback === true;
         }
-        if (configs.resto_print_legend !== undefined) {
-            document.getElementById('p-legend').value = configs.resto_print_legend;
-        }
-        if (configs.resto_print_sz_mesa !== undefined) {
-            document.getElementById('p-sz-mesa').value = configs.resto_print_sz_mesa;
-        }
-        if (configs.resto_print_sz_mozo !== undefined) {
-            document.getElementById('p-sz-mozo').value = configs.resto_print_sz_mozo;
-        }
-        if (configs.resto_print_sz_items !== undefined) {
-            document.getElementById('p-sz-items').value = configs.resto_print_sz_items;
-        }
-        if (configs.resto_print_bill_title !== undefined) {
-            document.getElementById('p-bill-title').value = configs.resto_print_bill_title;
-        }
-        if (configs.resto_print_hub_ip !== undefined) {
-            document.getElementById('p-print-hub-ip').value = configs.resto_print_hub_ip;
-        }
-    } catch (e) {
-        console.warn("⚠️ No se pudieron cargar los ajustes PRO de impresión:", e);
-    }
+        if (configs.resto_print_legend !== undefined) document.getElementById('p-legend').value = configs.resto_print_legend;
+        if (configs.resto_print_sz_mesa !== undefined) document.getElementById('p-sz-mesa').value = configs.resto_print_sz_mesa;
+        if (configs.resto_print_sz_mozo !== undefined) document.getElementById('p-sz-mozo').value = configs.resto_print_sz_mozo;
+        if (configs.resto_print_sz_items !== undefined) document.getElementById('p-sz-items').value = configs.resto_print_sz_items;
+        if (configs.resto_print_bill_title !== undefined) document.getElementById('p-bill-title').value = configs.resto_print_bill_title;
+        if (configs.resto_print_hub_ip !== undefined) document.getElementById('p-print-hub-ip').value = configs.resto_print_hub_ip;
+    } catch (e) { console.warn("Ajustes PRO omitidos"); }
 }
 
 async function guardarAjustesPro() {
@@ -287,12 +406,8 @@ async function guardarAjustesPro() {
         resto_print_bill_title: document.getElementById('p-bill-title').value,
         resto_print_hub_ip: document.getElementById('p-print-hub-ip').value
     };
-
     try {
         await sendData(`/api/negocios/${idNegocio}/configuraciones`, payload, 'POST');
-        mostrarNotificacion("✅ Ajustes de impresión guardados", "success");
-        await cargarAjustesPro(); // Refrescar
-    } catch (e) {
-        mostrarNotificacion("❌ Error al guardar ajustes", "error");
-    }
+        mostrarNotificacion("✅ Ajustes guardados", "success");
+    } catch (e) { mostrarNotificacion("❌ Error al guardar", "error"); }
 }

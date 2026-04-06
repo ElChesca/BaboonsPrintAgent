@@ -9,6 +9,7 @@ let listasPreciosCache = []; // NUEVO: Cache para listas de precios
 let itemsOriginales = [];
 let itemsFiltrados = [];
 let categoriaActiva = 'all';
+let destinosKDSCache = [];
 
 let appStateMenu = {
     viewMode: 'table', 
@@ -117,12 +118,23 @@ function cambiarPagina(p) {
 async function cargarCategorias() {
     try {
         const idNegocio = appState.negocioActivoId;
+        // Cargar destinos primero
+        await cargarDestinosKDS();
         categoriasCache = await fetchData(`/api/negocios/${idNegocio}/menu/categorias`);
         renderizarTabsCategorias();
         poblarSelectCategorias();
     } catch (error) {
         console.error(error);
         mostrarNotificacion('Error al cargar categorías', 'error');
+    }
+}
+
+async function cargarDestinosKDS() {
+    try {
+        const idNegocio = appState.negocioActivoId;
+        destinosKDSCache = await fetchData(`/api/negocios/${idNegocio}/destinos-kds`);
+    } catch (error) {
+        console.warn("No se pudieron cargar destinos KDS:", error);
     }
 }
 
@@ -175,6 +187,7 @@ window.editarCategoria = (id) => {
     document.getElementById('cat-grupo').value = cat.grupo || '';
     document.getElementById('cat-orden').value = cat.orden || 0;
     document.getElementById('cat-estacion').value = cat.estacion || 'cocina';
+    document.getElementById('cat-destino-id').value = cat.destino_id || '';
 };
 
 function poblarSelectCategorias() {
@@ -185,6 +198,24 @@ function poblarSelectCategorias() {
     categoriasCache.forEach(c => {
         select.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
     });
+
+    // Poblar selectores de Destinos KDS
+    const selCatDest = document.getElementById('cat-destino-id');
+    const selItemDest = document.getElementById('item-destino-kds');
+    
+    if (selCatDest) {
+        selCatDest.innerHTML = '<option value="">-- Seleccionar --</option>';
+        destinosKDSCache.forEach(d => {
+            selCatDest.innerHTML += `<option value="${d.id}">${d.nombre}</option>`;
+        });
+    }
+
+    if (selItemDest) {
+        selItemDest.innerHTML = '<option value="">Heredado de categoría</option>';
+        destinosKDSCache.forEach(d => {
+            selItemDest.innerHTML += `<option value="${d.nombre}">${d.nombre}</option>`;
+        });
+    }
 }
 
 window.filtrarPorCategoria = (id) => {
@@ -669,7 +700,8 @@ async function guardarCategoria(e) {
         nombre: document.getElementById('cat-nombre').value,
         grupo: document.getElementById('cat-grupo').value.trim() || null,
         orden: parseInt(document.getElementById('cat-orden').value || 0),
-        estacion: document.getElementById('cat-estacion').value
+        estacion: document.getElementById('cat-estacion').value,
+        destino_id: document.getElementById('cat-destino-id').value || null
     };
 
     const idNegocio = appState.negocioActivoId;
@@ -716,7 +748,7 @@ async function guardarItem(e) {
         })?.precio || 0, // El precio base es el de la lista default
         categoria_id: parseInt(document.getElementById('item-categoria').value),
         descripcion: document.getElementById('item-descripcion').value,
-        destino_kds: document.getElementById('item-destino-kds').value.trim() || null,
+        destino_kds: document.getElementById('item-destino-kds').value || null,
         imagen_url: document.getElementById('item-imagen').value,
         disponible: document.getElementById('item-disponible').checked,
         stock_control: stockChecked,
