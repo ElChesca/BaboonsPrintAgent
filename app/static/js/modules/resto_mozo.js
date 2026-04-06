@@ -881,9 +881,7 @@ async function selectMesa(mesa) {
             try {
                 const success = await cargarComandaDeMesa(mesa.id);
                 if (success) {
-                    document.getElementById('pos-view').style.display = 'block';
-                    document.getElementById('salon-view').style.display = 'none';
-                    renderOrderSummary();
+                    showPOSView();
                     
                     const btnCloseMesa = document.getElementById('btn-close-mesa');
                     if (btnCloseMesa) {
