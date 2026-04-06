@@ -7,6 +7,9 @@ on:
       - '.github/workflows/build-agent.yml'
   workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -33,9 +36,14 @@ jobs:
           --hidden-import "tkinter" `
           baboons_print_router.py
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
+    - name: Create Release and Upload
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
       with:
-        name: Agente-Impresion-Windows
-        path: dist/Agente_Impresion_Baboons.exe
-        retention-days: 7
+        tag_name: latest-agent
+        name: "Último Agente Compilado"
+        files: dist/Agente_Impresion_Baboons.exe
+        make_latest: true
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
