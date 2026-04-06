@@ -1750,20 +1750,6 @@ def finalizar_cobro_comanda(current_user, id):
     monto_cta_cte = float(data.get('monto_cta_cte', 0))
 
     try:
-        # 0. Asegurar columnas de tarjeta (Migración automática segura para Postgres/SQLite)
-        try:
-            db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS tarjeta_marca TEXT")
-            db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS tarjeta_ultimos_4 TEXT")
-            db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS tarjeta_lote TEXT")
-            db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS tarjeta_cupon TEXT")
-            # En Postgres, IF NOT EXISTS evita el error si ya existe. 
-            # Si falla (ej. en SQLite antiguo), caemos al except.
-            g.db_conn.commit()
-        except:
-            # En Postgres, si un comando falla, la transacción debe ser revertida antes de seguir.
-            g.db_conn.rollback()
-            # El resto de la ejecución usará una nueva transacción implícita o fallará sanamente si faltan columnas.
-
         # 1. Obtener comanda y validar
 
         db.execute("SELECT * FROM comandas WHERE id = %s", (id,))
