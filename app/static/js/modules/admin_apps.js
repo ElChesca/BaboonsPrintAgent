@@ -17,7 +17,7 @@ export async function inicializarAdminApps() {
         return;
     }
 
-    const tabs = document.querySelectorAll('.tab-btn');
+    const tabs = document.querySelectorAll('.admin-tab-btn');
     tabs.forEach(btn => {
         btn.onclick = (e) => {
             e.preventDefault();
@@ -70,6 +70,7 @@ export async function inicializarAdminApps() {
 
     // Exponer recarga de pagos para el modal de confirmación
     window._adminRecargarPagos = cargarPagosSuscripciones;
+    window.confirmarPago = confirmarRegistroPago;
 
     await cargarDatosIniciales();
 }
@@ -259,12 +260,13 @@ async function confirmarRegistroPago() {
 
         mostrarNotificacion("Pago registrado correctamente", "success");
 
-        const modalEl = document.getElementById('modalRegistrarPago');
-        bootstrap.Modal.getInstance(modalEl)?.hide();
+        const modal = document.getElementById('admin-modal-pago');
+        if (modal) modal.classList.remove('open');
 
         await cargarPagosSuscripciones();
     } catch (error) {
-        mostrarNotificacion("Error al registrar pago", "error");
+        console.error(error);
+        mostrarNotificacion("Error al registrar pago: " + (error.message || error), "error");
     }
 }
 

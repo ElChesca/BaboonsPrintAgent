@@ -267,24 +267,4 @@
   </div>
 </div>
 
-<script>
-// Inicialización del módulo Admin Apps desde el HTML (override temporal)
-// La función real está en admin_apps.js pero necesitamos hookear el modal
-window.confirmarPago = async function() {
-  const id    = document.getElementById('reg-pago-negocio-id').value;
-  const mes   = document.getElementById('reg-pago-mes').value;
-  const anio  = document.getElementById('reg-pago-anio').value;
-  const monto = document.getElementById('reg-pago-monto').value;
-  try {
-    await window.sendData('/api/admin/suscripciones/registrar-pago', {
-      negocio_id: id, mes: parseInt(mes), anio: parseInt(anio), monto: parseFloat(monto)
-    });
-    window.mostrarNotificacion('Pago registrado correctamente', 'success');
-    document.getElementById('admin-modal-pago').classList.remove('open');
-    // Recargar tabla
-    if (window._adminRecargarPagos) window._adminRecargarPagos();
-  } catch(e) {
-    window.mostrarNotificacion('Error al registrar pago: ' + e.message, 'error');
-  }
-};
-</script>
+</div>

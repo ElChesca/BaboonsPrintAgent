@@ -1148,12 +1148,27 @@ def asignar_carga_vehiculo(current_user):
         peso_req = float(totales['total_peso'])
         vol_req = float(totales['total_volumen'])
         
+        # ✨ Nueva Validación: Asegurar que todos los pedidos estén en estado 'preparado'
+        # Si hay pedidos 'pendiente', la carga no será completa y generará inconsistencias.
+        db.execute("""
+            SELECT count(*) as pendientes 
+            FROM pedidos 
+            WHERE hoja_ruta_id = ANY(%s) AND estado = 'pendiente'
+        """, (hoja_ruta_ids,))
+        count_pendientes = db.fetchone()['pendientes']
+        
+        if count_pendientes > 0:
+            return jsonify({
+                'error': f'Inconsistencia: Hay {count_pendientes} pedidos en estado PENDIENTE.',
+                'detalle': 'Todos los pedidos de la Hoja de Ruta deben estar en PREPARADO antes de cargar el camión.'
+            }), 400
+            
         # 3. Validar Capacidad (Si el vehículo tiene limites definidos > 0)
         errores = []
         if cap_kg > 0 and peso_req > cap_kg:
-            errores.append(f"Exceso de Peso: {peso_req}kg > {cap_kg}kg")
+            errores.append(f"Exceso de Peso: {peso_req} kg > {cap_kg} kg")
         if cap_m3 > 0 and vol_req > cap_m3:
-            errores.append(f"Exceso de Volumen: {vol_req}m3 > {cap_m3}m3")
+            errores.append(f"Exceso de Volumen: {vol_req} m3 > {cap_m3} m3")
             
         if errores:
              return jsonify({
@@ -1314,6 +1329,10 @@ def entregar_pedido(current_user, pedido_ids):
             if not pedido:
                 print(f"⚠️ [Bajada] Pedido #{p_id} no encontrado en la base de datos.")
                 continue
+
+            if pedido['estado'] in ['anulado', 'rechazado']:
+                print(f"⚠️ [Bajada] Pedido #{p_id} está en estado '{pedido['estado']}'. Se omite para evitar saldos incorrectos.")
+                continue
                 
             negocio_id = pedido['negocio_id']
             cliente_id = pedido['cliente_id']
@@ -1452,11 +1471,11 @@ def entregar_pedido(current_user, pedido_ids):
             # --- LÓGICA DE COBRO (SIMPLIFICADA AL ESQUEMA REAL) ---
             metodo_pago = data.get('metodo_pago')
             if metodo_pago:
-                # 1. Crear venta física (Se vincula a la caja vía caja_sesion_id)
+                # 1. Crear venta física (Se vincula a la caja vía caja_sesion_id y a la hoja de ruta)
                 db.execute("""
-                    INSERT INTO ventas (negocio_id, cliente_id, fecha, total, metodo_pago, usuario_id, caja_sesion_id)
-                    VALUES (%s, %s, CURRENT_TIMESTAMP, %s, %s, %s, %s) RETURNING id
-                """, (negocio_id, cliente_id, total_venta_calculado, metodo_pago, current_user['id'], sesion_abierta['id'] if sesion_abierta else None))
+                    INSERT INTO ventas (negocio_id, cliente_id, fecha, total, metodo_pago, usuario_id, caja_sesion_id, hoja_ruta_id)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP, %s, %s, %s, %s, %s) RETURNING id
+                """, (negocio_id, cliente_id, total_venta_calculado, metodo_pago, current_user['id'], sesion_abierta['id'] if sesion_abierta else None, hr_id))
                 venta_id = db.fetchone()['id']
 
                 # 2. Vincular pedido con la venta (Marca como PAGADO)

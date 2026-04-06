@@ -24,6 +24,7 @@ Este documento es la **ÚNICA fuente de verdad** para la lógica de entrega y co
 *   `negocio_id`: integer
 *   `cliente_id`: integer
 *   `caja_sesion_id`: integer (Link a la sesión de caja abierta en `caja_sesiones`)
+*   `hoja_ruta_id`: integer (Link a la ruta; OBLIGATORIO para que figure en la Liquidación de la HR)
 *   `total`: real (Cuidado: Tipo `real`, no `numeric` en esta tabla)
 *   `metodo_pago`: text ('Efectivo', 'Mercado Pago', 'Cuenta Corriente', 'Mixto')
 *   `fecha`: timestamp (CURRENT_TIMESTAMP)
@@ -41,19 +42,33 @@ Este documento es la **ÚNICA fuente de verdad** para la lógica de entrega y co
 
 Al confirmar la bajada/entrega de un pedido (o conjunto de ellos) en el Modo Repartidor:
 
-1.  **Validar Sesión de Caja**: Se debe buscar una sesión abierta para el `negocio_id` en `caja_sesiones` donde `fecha_cierre` sea NULL.
-2.  **Actualizar Pedido**: Cambiar `estado` a 'entregado'.
-3.  **Generar Venta**: 
+1.  **Validación de Integridad**: ES OBLIGATORIO abortar u omitir cualquier pedido cuyo `estado` sea 'anulado' o 'rechazado' para no generar deudas fantasmas si el frontend los llegase a enviar por error.
+2.  **Validar Sesión de Caja**: Se debe buscar una sesión abierta para el `negocio_id` en `caja_sesiones` donde `fecha_cierre` sea NULL.
+3.  **Actualizar Pedido**: Cambiar `estado` a 'entregado'.
+4.  **Generar Venta**: 
     - Crear registro en `ventas`.
     - Capturar el `id` generado (`RETURNING id`).
     - **IMPORTANTE**: No intentar insertar `pedido_id` en `ventas`, no existe la columna.
-4.  **Vincular**: Ejecutar `UPDATE pedidos SET venta_id = <venta_id> WHERE id = <p_id>`.
-5.  **Cta. Cte.**: Si el método es 'Cuenta Corriente' o 'Mixto' (con remanente), insertar en `clientes_cuenta_corriente` usando la columna `debe`.
+    - **IMPORTANTE 2**: Asegurarse de insertar el `hoja_ruta_id` de forma explícita para no romper los paneles de resumen en las liquidaciones.
+5.  **Vincular**: Ejecutar `UPDATE pedidos SET venta_id = <venta_id> WHERE id = <p_id>`.
+6.  **Cta. Cte.**: Si el método es 'Cuenta Corriente' o 'Mixto' (con remanente), insertar en `clientes_cuenta_corriente` usando la columna `debe`.
 
-## 🛠️ DESARROLLO FRONTEND (`logistica.js`)
-- La función `abrirModalEntregaMulti` maneja la consolidación de varios pedidos del mismo cliente en una sola parada.
-- Debe calcular el total sumando los pedidos que aún no están entregados.
-- El envío al backend se hace secuencialmente por cada `pedido_id` en el bucle de confirmación.
+## 🛠️ DESARROLLO FRONTEND (`logistica.js` y `hoja_ruta.js`)
+- **Filtros de Paradas (`logistica.js`)**: Los pedidos anulados y rechazados DEBEN excluirse explícitamente de la lista de `validOrders` en la función `abrirModoRepartidor` para evitar sumatorias de cuentas erróneas en pantalla.
+- **Cobros Consolidados**: La función `abrirModalEntregaMulti` maneja la consolidación de varios pedidos del mismo cliente en una sola parada sumando los pendientes de entregar válidos.
+- **Liquidaciones (`hoja_ruta.js`)**: Los apartados de Resumen de Cobros extraen información haciendo JOIN a la tabla `ventas` desde `hoja_ruta_id`. Cualquier desvinculación previa provoca un apagón visual del componente dinámico.
 
 ---
-**NOTA PARA LA IA**: Este flujo fue estabilizado tras errores de esquema. NO CAMBIAR nombres de columnas ni lógicas de inserción sin verificar este documento primero.
+
+## 🚚 PROCESO DE CARGA Y DESPACHO (Backend: `asignar_carga_vehiculo`)
+
+1.  **Requisito de Estado**: Antes de asignar un vehículo y marcar `carga_confirmada = TRUE`, el sistema valida que **el 100% de los pedidos** de la Hoja de Ruta estén en estado `preparado`. Si hay pedidos en `pendiente`, la operación se aborta (Error 400).
+2.  **Movimiento de Inventario**:
+    *   Se calcula el total por SKU de todos los pedidos de la HR.
+    *   Se descuenta del stock global (`productos.stock`).
+    *   Se incrementa el stock del vehículo (`vehiculos_stock`).
+3.  **Transición de Ventas**: Todos los pedidos en `preparado` cambian automáticamente su estado a `en_camino`.
+4.  **Vehículo Asignado**: La Hoja de Ruta queda vinculada al `vehiculo_id`, lo cual es indispensable para que los pedidos aparezcan en el "Modo Repartidor" del chofer asignado.
+
+---
+**NOTA PARA LA IA**: Este flujo fue estabilizado tras errores de esquema e inconsistencias de estado (HR #143). NO CAMBIAR nombres de columnas ni lógicas de inserción sin verificar este documento primero.

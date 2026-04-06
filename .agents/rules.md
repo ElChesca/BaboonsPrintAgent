@@ -68,6 +68,13 @@ Antes de cada despliegue o finalización:
 - **PROHIBIDO** realizar modificaciones en `app/static/js/main.js`, `app/static/js/modules/erp_registry.js` o archivos "cerebro" del sistema sin que los cambios estén **EXPRESAMENTE DETALLADOS** y justificados en el `implementation_plan.md` aprobado por el usuario. 
 - Cualquier edición accidental o no planificada en estos archivos se considera una violación grave de la integridad del proyecto.
 
+### 6.6. RESTRICCIÓN DEL FLUJO DE DISTRIBUCIÓN
+- **PROHIBIDO** modificar la lógica de entregas, hojas de ruta o liquidaciones en `app/routes/distribucion_routes.py`, `app/static/js/modules/logistica.js` y `app/static/js/modules/hoja_ruta.js` a menos que el usuario lo solicite expresamente.
+- Antes de realizar CUALQUIER cambio en el esquema o en los pasos de cobro/entrega de Distribuidora, el Agente DEBE leer y obedecer obligatoriamente el contenido de `.agents/KNOWLEDGE_LOGISTICA_DISTRIBUCION.md`. Su inobservancia generará descuadres contables graves.
+
+### 6.7. REGLA DE CARGA (VALIDACIÓN DE "PREPARADO")
+- **OBLIGATORIO**: Para marcar una Hoja de Ruta como `carga_confirmada = TRUE`, el sistema debe validar que el 100% de los pedidos estén en estado `'preparado'`. 
+- **BLOQUEO**: Se prohíbe realizar confirmaciones de carga si existen pedidos en estado `'pendiente'`, ya que esto genera discrepancias de stock entre el depósito y el vehículo (Causa raíz de la inconsistencia en HR #143).
 ## 7. Protección Estricta de Diseño y Admin Apps
 > [!CAUTION]
 > **EL DISEÑO VISUAL ESTABILIZADO ES INTOCABLE.** 
