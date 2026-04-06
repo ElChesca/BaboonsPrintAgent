@@ -1,0 +1,41 @@
+name: Build Printing Agent (EXE)
+
+on:
+  push:
+    paths:
+      - 'baboons_print_router.py'
+      - '.github/workflows/build-agent.yml'
+  workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11' # Versión estable y compatible
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests python-escpos tk pyinstaller
+
+    - name: Build EXE with PyInstaller
+      run: |
+        pyinstaller --noconsole --onefile --clean `
+          --name "Agente_Impresion_Baboons" `
+          --hidden-import "escpos.printer" `
+          --hidden-import "tkinter" `
+          baboons_print_router.py
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Agente-Impresion-Windows
+        path: dist/Agente_Impresion_Baboons.exe
+        retention-days: 7
