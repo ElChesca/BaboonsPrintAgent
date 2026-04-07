@@ -6,9 +6,17 @@ import { getCurrentUser } from './auth.js';
 
 let pendingItems = [];
 let kdsInterval = null;
-let estacionActual = 'cocina';
+let estacionActual = 'cocina'; 
 let viewMode = 'grid'; // 'grid' o 'kanban'
 let unifyByTable = false;
+
+/**
+ * Permite forzar la estación desde el cargador de módulos (main.js)
+ */
+export function setKDSStation(estacion) {
+    console.log(`📡 Estación KDS establecida en: ${estacion}`);
+    estacionActual = estacion.toLowerCase();
+}
 
 export async function inicializarRestoCocina() {
     console.log("🔥 Monitor de Producción KDS Inicializado...");
@@ -24,7 +32,19 @@ export async function inicializarRestoCocina() {
     const user = getCurrentUser();
     if (user && user.nombre) {
         const nameEl = document.getElementById('kds-user-name');
-        if (nameEl) nameEl.innerText = `👨‍🍳 ${user.nombre}`;
+        const icon = estacionActual === 'bar' ? '🍹' : (estacionActual === 'dolce' ? '☕' : '👨‍🍳');
+        if (nameEl) nameEl.innerText = `${icon} ${user.nombre}`;
+    }
+    
+    // Titular dinámico
+    const titleEl = document.querySelector('.page-header h2');
+    if (titleEl) {
+        const titulos = {
+            'cocina': 'Monitor de Cocina',
+            'bar': 'Monitor de Barra / Bebidas',
+            'dolce': 'Monitor Dolce (Cafetería y Pastelería)'
+        };
+        titleEl.innerHTML = `<i class="fas ${estacionActual === 'bar' ? 'fa-cocktail' : (estacionActual === 'dolce' ? 'fa-birthday-cake' : 'fa-fire')} me-2"></i> ${titulos[estacionActual] || 'Monitor'}`;
     }
 
     // Initial Load
@@ -107,6 +127,31 @@ async function cargarPendientes(silent = false) {
         console.error("Error KDS:", error);
         if (!silent) mostrarNotificacion("Error al sincronizar producción", "error");
     }
+
+    // ✨ APLICAR TEMA VISUAL DINÁMICO
+    aplicarTemaEstacion();
+}
+
+async function aplicarTemaEstacion() {
+    const negId = appState.negocioActivoId;
+    if (!negId) return;
+
+    try {
+        // En un entorno productivo, cachearíamos esto o vendría en el init context
+        const configs = await fetchData(`/api/negocios/${negId}/configuraciones`);
+        const themeColor = configs[`resto_station_color_${estacionActual}`] || '#f0883e';
+        
+        const root = document.getElementById('kds-app');
+        if (root) {
+            root.style.setProperty('--kds-warning', themeColor);
+            root.style.setProperty('--kds-accent', themeColor);
+            root.style.setProperty('--kds-cooking', themeColor);
+            
+            // Actualizar gradiente del icono de acuerdo al tema
+            const icon = root.querySelector('.kds-brand-icon');
+            if (icon) icon.style.background = `linear-gradient(135deg, ${themeColor}, #000)`;
+        }
+    } catch (e) { }
 }
 window.cargarPendientes = cargarPendientes;
 
@@ -228,7 +273,10 @@ function renderGridView(groups, container) {
                         <div class="kds-item-left">
                             <div class="kds-item-qty">${Math.round(item.cantidad)}</div>
                             <div class="kds-item-info">
-                                <span class="kds-item-name">${item.producto_nombre}</span>
+                                <span class="kds-item-name">
+                                    ${item.producto_nombre}
+                                    ${item.parent_detalle_id ? `<span class="badge-combo-link"><i class="fas fa-link"></i> COMBO</span>` : ''}
+                                </span>
                                 ${item.pedido_observaciones ? `<span class="kds-item-note"><i class="fas fa-exclamation-circle"></i> ${item.pedido_observaciones}</span>` : ''}
                             </div>
                         </div>
@@ -332,6 +380,7 @@ function renderKanbanView(groups, container) {
                     ${group.items.map(i => `
                         <div class="mb-1 fw-700 ${i.detalle_estado === 'listo' ? 'text-muted text-decoration-line-through' : ''}" style="font-size: 1.1rem;">
                            ${Math.round(i.cantidad)}x <span class="text-white">${i.producto_nombre}</span>
+                           ${i.parent_detalle_id ? `<span class="badge-combo-link-sm"><i class="fas fa-link"></i> COMBO</span>` : ''}
                         </div>
                     `).join('')}
                 </div>

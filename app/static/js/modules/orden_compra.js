@@ -71,7 +71,7 @@ async function cargarOrdenes() {
                 </td>
                 <td class="pe-4 text-center">
                     <div class="btn-group shadow-sm" style="border-radius: 8px; overflow: hidden;">
-                        <button class="btn btn-white btn-sm px-3 border" onclick="window.open('/api/negocios/${appState.negocioActivoId}/compras/orden/${oc.id}/pdf', '_blank')" title="Ver PDF">
+                        <button class="btn btn-white btn-sm px-3 border" onclick="window.descargarPDFOC(${oc.id}, '${oc.numero_oc}', '${oc.proveedor_nombre}')" title="Ver PDF">
                             <i class="fas fa-file-pdf text-danger"></i>
                         </button>
                         ${oc.estado === 'abierta' ? `
@@ -324,7 +324,7 @@ window.cancelarOC = async (id) => {
         }
     }
 }
-async function descargarPDFOC(id, numero, proveedor) {
+window.descargarPDFOC = async function(id, numero, proveedor) {
     try {
         const url = `/api/negocios/${appState.negocioActivoId}/compras/orden/${id}/pdf`;
         const authHeaders = getAuthHeaders();

@@ -2,8 +2,9 @@
 // ✅ ARCHIVO COMPLETO (Versión 1.7.1 - DYNAMIC MODULES FIX) ✅
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-export const APP_VERSION = "1.8.8";
+export const APP_VERSION = "1.9.7";
 // HISTORIAL DE VERSIONES:
+// 1.9.6: High Contrast KDS and Bar/Dolce station fixes sync.
 // 1.7.1: Final Fix regarding cross-module cache mismatches: Dynamic imports between modules + modal visibility.
 // 1.7.0: Critical Fix: Hoisting of confirmarReparto in hoja_ruta.js + module-safety.
 // 1.6.9: Fix Hoja de Ruta: window. prefix en onclicks + globalización inmediata.
@@ -232,7 +233,7 @@ function loadPageCSS(pageName) {
 
         // Caso especial para rentals si tuvieran CSS espec├¡fico en su carpeta (opcional)
         // Caso especial: Evitar cargar CSS específicos si no existen
-        if (pageName.startsWith('rentals_') || pageName === 'crm_social' || pageName === 'crm_contactos') {
+        if (pageName.startsWith('rentals_') || pageName === 'crm_social' || pageName === 'crm_contactos' || pageName === 'resto_roles' || pageName === 'resto_bar' || pageName === 'resto_dolce') {
             return;
         }
 
@@ -506,23 +507,34 @@ export async function fetchAppPermissions() {
             }
         }
 
-        // 3. Si es VENDEDOR, cargar permisos espec├¡ficos del negocio activo
-        if (user && user.rol === 'vendedor' && appState.negocioActivoId) {
+        // 3. Si es VENDEDOR o PERSONAL RESTO, cargar permisos específicos del negocio activo
+        if (user && appState.negocioActivoId && (user.rol === 'vendedor' || appState.userEspecialidad)) {
             try {
-                const vendedorPerms = await fetchData(`/api/negocios/${appState.negocioActivoId}/permisos-rol/vendedor`);
+                // ✨ LÓGICA DE PERMISOS DINÁMICOS
+                // Si tiene especialidad, pedimos permisos de esa especialidad, sino del rol base
+                let rolParaPermisos = user.rol;
+                if (appState.userEspecialidad) {
+                    rolParaPermisos = appState.userEspecialidad.toLowerCase().trim();
+                }
+
+                console.log(`🛡️ Cargando permisos dinámicos desde el ABM para: ${rolParaPermisos}`);
+                const vendedorPerms = await fetchData(`/api/admin/negocios/${appState.negocioActivoId}/permisos-rol/${rolParaPermisos}`);
+                
                 if (vendedorPerms) {
-                    const tipoActual = appState.negocioActivoTipo || 'distribuidora';
-                    // Fusionamos con los permisos espec├¡ficos (asegurando que el home est├® siempre)
                     const modules = new Set(vendedorPerms || []);
-
-                    // Asegurar Homes base (Red de seguridad)
+                    // Asegurar Acceso Base (Red de seguridad redundante)
                     modules.add('home_retail');
-                    modules.add('home_consorcio');
+                    modules.add('home_resto');
                     modules.add('home_distribuidora');
-                    modules.add('rentals_dashboard');
 
+                    const tipoActual = appState.negocioActivoTipo || 'resto';
                     appState.permissions[tipoActual] = Array.from(modules);
-                    console.log(`­ƒöÉ Permisos din├ímicos aplicados para Vendedor en negocio ${appState.negocioActivoId}`);
+                    
+                    if (appState.negocioActivoTipo === 'resto') {
+                        appState.permissions['resto'] = Array.from(modules);
+                    }
+
+                    console.log(`🛡️ [ABM Sync] Permisos cargados exitosamente para ${rolParaPermisos}:`, Array.from(modules));
                 }
             } catch (err) {
                 console.warn("No se pudieron cargar permisos espec├¡ficos de vendedor, usando defaults.");
@@ -614,21 +626,28 @@ export async function actualizarUIAutenticacion() {
             if (appState.negocioActivoTipo === 'distribuidora') defaultHomePage = 'home_distribuidora';
             if (appState.negocioActivoTipo === 'resto') defaultHomePage = 'home_resto';
             
-            // ✨ LÓGICA MOZO / PERSONAL RESTO (App Mode)
-            const esPersonalResto = (appState.userRol === 'vendedor' && appState.userEspecialidad && ['mozo', 'cocinero', 'barman', 'bachero'].includes(appState.userEspecialidad));
-            if (esPersonalResto || appState.userRol === 'mozo') {
-                // Si es mozo, va directo al Salón Digital. Si es cocinero, al monitor de cocina.
-                if (appState.userEspecialidad === 'cocinero') {
+            // ✨ LÓGICA DE RUTEO POR ESPECIALIDAD (Flex-Matching)
+            const especialidad = (appState.userEspecialidad || '').toLowerCase().trim();
+            
+            if (appState.negocioActivoTipo === 'resto' && (especialidad || appState.userRol === 'mozo' || appState.userRol === 'vendedor')) {
+                // Redirección inteligente por palabras clave
+                if (especialidad.includes('cocina') || especialidad.includes('cocinero') || especialidad.includes('fuego')) {
                     defaultHomePage = 'resto_cocina';
-                } else if (appState.userEspecialidad === 'barman') {
-                    defaultHomePage = 'resto_cocina'; // El monitor de cocina filtra por destino
+                } else if (especialidad.includes('bar') || especialidad.includes('barman') || especialidad.includes('bartender') || especialidad.includes('bebida')) {
+                    defaultHomePage = 'resto_bar'; 
+                } else if (especialidad.includes('dolce') || especialidad.includes('pastel') || especialidad.includes('cafeteria')) {
+                    defaultHomePage = 'resto_dolce';
                 } else {
+                    // Por defecto para mozos y otros vendedores de salón
                     defaultHomePage = 'resto_mozo';
                 }
 
-                if (mainNav) mainNav.style.display = 'none';
-                if (businessSelectorBar) businessSelectorBar.style.display = 'none';
-                document.body.classList.add('app-mozo-mode');
+                // Si no es admin/superadmin, ocultamos la interfaz de navegación del ERP
+                if (appState.userRol !== 'admin' && appState.userRol !== 'superadmin') {
+                    if (mainNav) mainNav.style.display = 'none';
+                    if (businessSelectorBar) businessSelectorBar.style.display = 'none';
+                    document.body.classList.add('app-mozo-mode');
+                }
             }
 
             // Ô£¿ L├ôGICA CHOFER
@@ -1008,8 +1027,22 @@ async function inicializarModulo(page) {
                 break;
 
             case 'resto_cocina':
-                const { inicializarRestoCocina } = await import(`./modules/resto_cocina.js${v}`);
-                inicializarRestoCocina();
+                const resto_cocina = await import(`./modules/resto_cocina.js${v}`);
+                resto_cocina.setKDSStation('cocina');
+                resto_cocina.inicializarRestoCocina();
+                break;
+            case 'resto_bar':
+                const resto_bar = await import(`./modules/resto_bar.js${v}`);
+                resto_bar.inicializarRestoBar();
+                break;
+            case 'resto_dolce':
+                const resto_dolce = await import(`./modules/resto_dolce.js${v}`);
+                resto_dolce.inicializarRestoDolce();
+                break;
+
+            case 'resto_roles':
+                const resto_roles = await import(`./modules/resto_roles.js${v}`);
+                resto_roles.inicializarRestoRoles();
                 break;
 
             case 'resto_caja':

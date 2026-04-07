@@ -314,7 +314,10 @@ function renderizarCards(items, container) {
                         ${i.producto_id ? '<i class="fas fa-sync text-primary opacity-50 xx-small" title="Sincronizado"></i>' : ''}
                     </div>
                     <div class="d-flex gap-1 mt-auto">
-                        <button class="btn btn-xs btn-outline-primary flex-grow-1 btn-action" data-action="receta" data-id="${i.id}" title="Ver Receta">
+                        <button class="btn btn-xs btn-outline-primary flex-grow-1 btn-action" data-action="combo" data-id="${i.id}" title="Configurar Combo Inteligente">
+                            <i class="fas fa-layer-group"></i>
+                        </button>
+                        <button class="btn btn-xs btn-outline-secondary btn-action" data-action="receta" data-id="${i.id}" title="Ver Receta">
                             <i class="fas fa-calculator"></i>
                         </button>
                         <button class="btn btn-xs btn-outline-secondary btn-action" data-action="editar" data-id="${i.id}" title="Editar Plato">
@@ -364,6 +367,7 @@ function renderizarTabla(items, tableBody) {
             </td>
             <td class="text-end">
                 <div class="btn-group">
+                    <button class="btn btn-sm btn-light border btn-action" data-action="combo" data-id="${i.id}" title="Configurar Combo"><i class="fas fa-layer-group text-primary"></i></button>
                     <button class="btn btn-sm btn-light border btn-action" data-action="receta" data-id="${i.id}" title="Receta"><i class="fas fa-calculator"></i></button>
                     <button class="btn btn-sm btn-light border btn-action" data-action="editar" data-id="${i.id}" title="Editar"><i class="fas fa-pencil-alt"></i></button>
                     <button class="btn btn-sm btn-light border text-danger btn-action" data-action="eliminar" data-id="${i.id}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>
@@ -970,6 +974,10 @@ function vincularEventosSeleccionMenu() {
                     if (typeof window.abrirModalReceta === 'function') window.abrirModalReceta(id);
                     else console.error("❌ window.abrirModalReceta no es una función");
                 }
+                else if (action === 'combo') {
+                    if (typeof window.abrirModalCombo === 'function') window.abrirModalCombo(id);
+                    else console.error("❌ window.abrirModalCombo no es una función");
+                }
                 else if (action === 'eliminar') {
                     if (typeof window.eliminarItem === 'function') window.eliminarItem(id);
                     else console.error("❌ window.eliminarItem no es una función");
@@ -1007,6 +1015,7 @@ function vincularEventosSeleccionMenu() {
                 const action = btn.getAttribute('data-action');
                 if (action === 'editar') window.editarItem(id);
                 else if (action === 'receta') window.abrirModalReceta(id);
+                else if (action === 'combo') window.abrirModalCombo(id);
                 return;
             }
 
@@ -1530,4 +1539,145 @@ window.eliminarLista = async (id) => {
     } catch (error) {
         mostrarNotificacion(error.message, "error");
     }
+};
+
+// ==========================================
+// 📦 GESTIÓN DE COMBOS INTELIGENTES
+// ==========================================
+
+let currentComboParentId = null;
+
+window.abrirModalCombo = function(id) {
+    currentComboParentId = id;
+    const item = itemsOriginales.find(it => it.id == id);
+    if (!item) return;
+
+    const modalTitle = document.getElementById('combo-parent-nombre');
+    if (modalTitle) modalTitle.innerText = item.nombre;
+    
+    const modal = document.getElementById('modal-combo');
+    if (modal) modal.style.display = 'flex';
+    
+    // Poblar el selector de componentes (todos los items menos el mismo)
+    const select = document.getElementById('combo-component-id');
+    if (select) {
+        select.innerHTML = '<option value="">Buscar plato...</option>';
+        // Ordenar alfabéticamente para mejor UX
+        const sortedItems = [...itemsOriginales].sort((a,b) => a.nombre.localeCompare(b.nombre));
+        sortedItems.forEach(it => {
+            if (it.id != id) {
+                const opt = document.createElement('option');
+                opt.value = it.id;
+                opt.innerText = it.nombre;
+                select.appendChild(opt);
+            }
+        });
+    }
+
+    cargarComponentesCombo(id);
+};
+
+window.cerrarModalCombo = function() {
+    const modal = document.getElementById('modal-combo');
+    if (modal) modal.style.display = 'none';
+    currentComboParentId = null;
+};
+
+function cargarComponentesCombo(parentId) {
+    fetchData(`/api/negocios/${appState.negocioActivoId}/menu/items/${parentId}/combo`)
+    .then(data => {
+        const body = document.getElementById('combo-components-body');
+        if (!body) return;
+
+        body.innerHTML = '';
+        const noItemsMsg = document.getElementById('no-combo-items');
+        
+        if (!data || data.length === 0) {
+            if (noItemsMsg) noItemsMsg.style.display = 'block';
+            return;
+        }
+        
+        if (noItemsMsg) noItemsMsg.style.display = 'none';
+        
+        data.forEach(comp => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="fw-600">${comp.component_nombre}</td>
+                <td class="text-center fw-800 text-primary">${comp.cantidad}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-light border text-danger" onclick="window.eliminarComponenteDeCombo(${comp.id})">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            `;
+            body.appendChild(tr);
+        });
+    })
+    .catch(err => {
+        console.error("Error al cargar componentes del combo:", err);
+        // Si el error es una respuesta fallida pero no un 401 (ya manejado por api.js)
+        if (err.message && err.message.includes('forEach')) {
+            document.getElementById('no-combo-items').style.display = 'block';
+        }
+    });
+}
+
+// Listener para el botón de agregar ítem al combo
+document.addEventListener('click', (e) => {
+    if (e.target && (e.target.id === 'btn-add-item-combo' || e.target.closest('#btn-add-item-combo'))) {
+        const componentId = document.getElementById('combo-component-id').value;
+        const qty = document.getElementById('combo-component-qty').value;
+        const negocioId = appState.negocioActivoId;
+
+        if (!componentId || !qty || qty <= 0) {
+            Swal.fire({
+                ...swalPremium,
+                title: 'Atención',
+                text: 'Selecciona un plato y una cantidad válida',
+                icon: 'warning'
+            });
+            return;
+        }
+
+        const payload = {
+            component_item_id: componentId,
+            cantidad: qty
+        };
+
+        sendData(`/api/negocios/${appState.negocioActivoId}/menu/items/${currentComboParentId}/combo`, payload)
+        .then(res => {
+            if (res.success) {
+                document.getElementById('combo-component-id').value = '';
+                document.getElementById('combo-component-qty').value = '1';
+                cargarComponentesCombo(currentComboParentId);
+                mostrarNotificacion("Componente agregado al combo", "success");
+            } else {
+                Swal.fire('Error', res.error || 'No se pudo guardar', 'error');
+            }
+        })
+        .catch(err => console.error("Error add combo component:", err));
+    }
+});
+
+window.eliminarComponenteDeCombo = function(compId) {
+    Swal.fire({
+        ...swalPremium,
+        title: '¿Quitar del combo?',
+        text: "Este plato ya no se restará del stock ni se enviará al KDS como parte de este combo.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, quitar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            sendData(`/api/negocios/${appState.negocioActivoId}/menu/items/combo/comp/${compId}`, {}, 'DELETE')
+            .then(res => {
+                if (res.success) {
+                    cargarComponentesCombo(currentComboParentId);
+                    mostrarNotificacion("Componente eliminado", "info");
+                }
+            })
+            .catch(err => console.error("Error deleting combo component:", err));
+        }
+    });
 };

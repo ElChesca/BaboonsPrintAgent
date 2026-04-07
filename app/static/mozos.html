@@ -4,9 +4,14 @@
         <h2 style="color: var(--primary-color);">
             <i class="fas fa-user-tie me-2"></i> Gestión de Mozos / Personal
         </h2>
-        <button id="btn-nuevo-mozo" type="button" class="btn btn-primary shadow-sm">
-            <i class="fas fa-plus me-1"></i> Nuevo Empleado Restó
-        </button>
+        <div class="d-flex gap-2">
+            <button id="btn-config-roles" type="button" class="btn btn-outline-secondary shadow-sm" onclick="window.location.hash='#resto_roles'">
+                <i class="fas fa-user-shield me-1"></i> Roles y Estaciones
+            </button>
+            <button id="btn-nuevo-mozo" type="button" class="btn btn-primary shadow-sm">
+                <i class="fas fa-plus me-1"></i> Nuevo Empleado Restó
+            </button>
+        </div>
     </div>
 
     <div class="card shadow-sm mt-4" style="border-radius: 12px; border: none; overflow: hidden;">

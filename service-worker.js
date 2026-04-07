@@ -4,8 +4,10 @@
 // ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
 // ✨ ¡DEBE SER IDÉNTICA a la de tu main.js!
 // ✨ ========================================================================
-const APP_VERSION = "1.6.6";
+const APP_VERSION = "1.9.6";
 // HISTORIAL DE VERSIONES:
+// 1.9.6: High Contrast KDS and Bar/Dolce station fixes sync.
+// 1.6.7: High Contrast KDS and Bar/Dolce station fixes.
 // 1.6.6: Fix Resto pre-bill formatting and auto-start guide.
 // 1.6.5: Final contrast fixes on header buttons.
 // 1.6.4: Fix Navbar dropdown hover gap.
@@ -48,6 +50,7 @@ const urlsToCache = [
     `/static/hoja_ruta.html${v}`,
     `/static/historial_ajustes.html${v}`,
     `/static/js/modules/historial_ajustes.js${v}`,
+    `/static/css/kds.css${v}`,
 
     // --- Recursos estáticos (no cambian) ---
     '/static/img/logo.png',

@@ -1,0 +1,44 @@
+<!-- app/static/resto_dolce.html -->
+<div class="kds-app" id="kds-app">
+    <!-- KDS Top Bar -->
+    <header class="kds-topbar">
+        <div class="kds-topbar-left">
+            <div class="kds-brand">
+                <div class="kds-brand-icon" style="background: linear-gradient(135deg, #db2777, #9d174d);">
+                    <i class="fas fa-birthday-cake"></i>
+                </div>
+                <div class="kds-brand-text">
+                    <h1>DOLCE</h1>
+                    <span id="kds-user-name" class="kds-user-badge" style="background:rgba(219,39,119,0.12); color:#f472b6 !important;">☕ Cafetería</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+            <h2 class="mb-0 fw-800 d-none d-md-block" style="font-family: 'Inter'; letter-spacing: -0.5px;">Monitor Pastelería / Cafetería</h2>
+        </div>
+
+        <div class="kds-topbar-right">
+            <div class="kds-counters">
+                <div class="kds-counter">
+                    <span class="kds-counter-value" id="stats-total">0</span>
+                    <span class="kds-counter-label">Tickets</span>
+                </div>
+            </div>
+            <button class="kds-btn-icon" title="Actualizar" onclick="window.cargarPendientes()">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+            <button class="kds-btn-icon kds-btn-logout" title="Cerrar Sesión" onclick="window.logout()">
+                <i class="fas fa-power-off"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="kds-board" id="kds-orders-container">
+        <div class="kds-empty">
+            <div class="kds-empty-icon" style="background:rgba(219,39,119,0.1);"><i class="fas fa-coffee" style="color:#db2777;"></i></div>
+            <h2>¡Todo listo en Dolce!</h2>
+            <p>A la espera de pedidos dulces y café.</p>
+        </div>
+    </main>
+</div>

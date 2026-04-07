@@ -6,7 +6,10 @@ import datetime
 
 bp = Blueprint('resto', __name__)
 
-# --- MESAS ---
+# ✨ VARIABLES GLOBALES PARA OPTIMIZACIÓN ✨
+MIGRACION_COMBOS_REALIZADA = False
+
+#  MESAS 
 
 @bp.route('/negocios/<int:negocio_id>/stats', methods=['GET'])
 @token_required
@@ -79,7 +82,7 @@ def get_resto_stats(current_user, negocio_id):
 
         # 6. Tiempo Promedio de Preparación (Hoy)
         db.execute("""
-            SELECT AVG(EXTRACT(EPOCH FROM (fecha_estado_cambiado - fecha_pedido)) / 60) as promedio_min
+            SELECT AVG(EXTRACT(EPOCH FROM (fecha_estado_cambiado  fecha_pedido)) / 60) as promedio_min
             FROM comandas_detalle
             WHERE estado IN ('cobrado', 'entregado') 
               AND fecha_pedido::date = %s
@@ -99,9 +102,9 @@ def get_resto_stats(current_user, negocio_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# --- CATEGORÍAS Y LISTAS DE PRECIOS ---
+#  CATEGORÍAS Y LISTAS DE PRECIOS 
 
-@bp.route('/negocios/<int:negocio_id>/menu/setup-default', methods=['POST'])
+@bp.route('/negocios/<int:negocio_id>/menu/setupdefault', methods=['POST'])
 @token_required
 def setup_default_menu(current_user, negocio_id):
     db = get_db()
@@ -159,7 +162,7 @@ def setup_default_menu(current_user, negocio_id):
                 negocio_id INTEGER REFERENCES negocios(id),
                 nombre VARCHAR(100),
                 ip VARCHAR(50),
-                estacion VARCHAR(50), -- Link con cat.estacion (cocina, barra, etc.)
+                estacion VARCHAR(50),  Link con cat.estacion (cocina, barra, etc.)
                 es_caja BOOLEAN DEFAULT FALSE,
                 fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -175,9 +178,9 @@ def setup_default_menu(current_user, negocio_id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-# --- DESTINOS KDS (Estaciones de Trabajo) ---
+#  DESTINOS KDS (Estaciones de Trabajo) 
 
-@bp.route('/negocios/<int:negocio_id>/destinos-kds', methods=['GET'])
+@bp.route('/negocios/<int:negocio_id>/destinoskds', methods=['GET'])
 @token_required
 def get_destinos_kds(current_user, negocio_id):
     db = get_db()
@@ -187,7 +190,7 @@ def get_destinos_kds(current_user, negocio_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/negocios/<int:negocio_id>/destinos-kds', methods=['POST'])
+@bp.route('/negocios/<int:negocio_id>/destinoskds', methods=['POST'])
 @token_required
 def save_destino_kds(current_user, negocio_id):
     data = request.get_json()
@@ -210,7 +213,7 @@ def save_destino_kds(current_user, negocio_id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/destinos-kds/<int:id>', methods=['PUT', 'DELETE'])
+@bp.route('/destinoskds/<int:id>', methods=['PUT', 'DELETE'])
 @token_required
 def manage_destino_kds(current_user, id):
     db = get_db()
@@ -247,7 +250,7 @@ def manage_destino_kds(current_user, id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-# --- CONFIGURACIÓN DE IMPRESORAS ---
+#  CONFIGURACIÓN DE IMPRESORAS 
 
 @bp.route('/negocios/<int:negocio_id>/impresoras', methods=['GET'])
 @token_required
@@ -355,7 +358,7 @@ def get_menu_listas(current_user, negocio_id):
     listas = db.fetchall()
     
     if not listas:
-        # Auto-crear lista por defecto si no hay ninguna activa
+        # Autocrear lista por defecto si no hay ninguna activa
         db.execute("INSERT INTO menu_listas (negocio_id, nombre, es_default, activa) VALUES (%s, 'General', TRUE, TRUE)", (negocio_id,))
         g.db_conn.commit()
         db.execute("SELECT * FROM menu_listas WHERE negocio_id = %s AND activa = TRUE ORDER BY es_default DESC, nombre", (negocio_id,))
@@ -449,7 +452,7 @@ def get_mesas(current_user, negocio_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# --- SECTORES DE MESAS ---
+#  SECTORES DE MESAS 
 
 @bp.route('/negocios/<int:negocio_id>/sectores', methods=['GET'])
 @token_required
@@ -545,7 +548,7 @@ def add_mesa(current_user, negocio_id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/negocios/<int:negocio_id>/mesas/bulk-create', methods=['POST'])
+@bp.route('/negocios/<int:negocio_id>/mesas/bulkcreate', methods=['POST'])
 @token_required
 def bulk_create_mesas(current_user, negocio_id):
     data = request.get_json()
@@ -631,29 +634,60 @@ def bulk_update_mesas(current_user, negocio_id):
     try:
         # PostgreSQL permite usar IN con una tupla
         query = f"UPDATE mesas SET {', '.join(campos)} WHERE negocio_id = %s AND id IN %s"
-        db.execute(query, tuple(valores + [tuple(ids)]))
+        db.execute(query, tuple(valores  [tuple(ids)]))
         g.db_conn.commit()
         return jsonify({'message': f'{len(ids)} mesas actualizadas correctamente'})
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-# --- COCINA / COMANDAS ---
+#  COCINA / COMANDAS 
 
 @bp.route('/negocios/<int:negocio_id>/cocina/pendientes', methods=['GET'])
 @token_required
 def get_cocina_pendientes(current_user, negocio_id):
     db = get_db()
+    
+    #  AUTOMIGRACIÓN PROACTIVA (Optimizada y Blindada) 
+    global MIGRACION_COMBOS_REALIZADA
+    if not MIGRACION_COMBOS_REALIZADA:
+        try:
+            # Cada alter/create por separado para evitar que un fallo bloquee al resto
+            try:
+                db.execute("ALTER TABLE menu_categorias ADD COLUMN IF NOT EXISTS estacion VARCHAR(50) DEFAULT 'cocina'")
+                g.db_conn.commit()
+            except: pass
+            
+            try:
+                db.execute("ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS destino_kds VARCHAR(50)")
+                g.db_conn.commit()
+            except: pass
+            
+            try:
+                db.execute("ALTER TABLE comandas_detalle ADD COLUMN IF NOT EXISTS parent_detalle_id INTEGER")
+                g.db_conn.commit()
+            except: pass
+            
+            try:
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS menu_item_combos (
+                        id SERIAL PRIMARY KEY,
+                        combo_item_id INTEGER NOT NULL REFERENCES menu_items(id),
+                        component_item_id INTEGER NOT NULL REFERENCES menu_items(id),
+                        cantidad DECIMAL DEFAULT 1,
+                        negocio_id INTEGER
+                    )
+                """)
+                g.db_conn.commit()
+            except: pass
+            
+            MIGRACION_COMBOS_REALIZADA = True
+        except Exception as e:
+            print(f"Error migración combos: {e}")
+            g.db_conn.rollback()
+
     try:
         estacion = request.args.get('estacion', 'cocina')
-        
-        # Primero aseguramos que la columna exista (Migración simple)
-        try:
-            db.execute("ALTER TABLE menu_categorias ADD COLUMN IF NOT EXISTS estacion VARCHAR(50) DEFAULT 'cocina'")
-            db.execute("ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS destino_kds VARCHAR(50)")
-            g.db_conn.commit()
-        except:
-            pass # Si falla (ej. SQLite no soporta IF NOT EXISTS en ALTER), seguimos con precaución
             
         # Traer detalles de comandas que no estén 'entregados' ni 'anulados'
         # Filtrando por la estación de la categoría
@@ -670,7 +704,8 @@ def get_cocina_pendientes(current_user, negocio_id):
                 cd.fecha_pedido as pedido_fecha,
                 cd.notas as pedido_observaciones,
                 cat.nombre as categoria_nombre,
-                v.nombre as mozo_nombre
+                v.nombre as mozo_nombre,
+                cd.parent_detalle_id
             FROM comandas_detalle cd
             JOIN comandas c ON cd.comanda_id = c.id
             JOIN menu_items mi ON cd.menu_item_id = mi.id
@@ -765,9 +800,11 @@ def get_mozo_notificaciones(current_user, negocio_id):
         """
         params = [negocio_id]
         
-        # Opcional: Filtrar por mozo si el usuario es mozo
-        # Para simplificar ahora, traemos todos los del negocio
-        
+        # Filtrar por mozo si el usuario es mozo (vendedor)
+        if current_user.get('rol') == 'vendedor' and current_user.get('vendedor_id'):
+            query += " AND c.mozo_id = %s"
+            params.append(current_user['vendedor_id'])
+
         db.execute(query, tuple(params))
         notifs = db.fetchall()
         return jsonify([dict(n) for n in notifs])
@@ -791,7 +828,7 @@ def delete_mesa(current_user, id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/comandas/reset-mesa/<int:mesa_id>', methods=['POST'])
+@bp.route('/comandas/resetmesa/<int:mesa_id>', methods=['POST'])
 @token_required
 def reset_mesa_status(current_user, mesa_id):
     """Fuerza la liberación de una mesa en caso de error de sincronización."""
@@ -807,7 +844,7 @@ def reset_mesa_status(current_user, mesa_id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-# --- CARTA (MENÚ) ---
+#  CARTA (MENÚ) 
 
 @bp.route('/negocios/<int:negocio_id>/menu/categorias', methods=['GET'])
 def get_menu_categorias(negocio_id):
@@ -1017,7 +1054,7 @@ def get_top_pedidos(current_user, negocio_id):
 
         rows = db.fetchall()
         
-        # 4. Re-ordenar por la popularidad/orden original
+        # 4. Reordenar por la popularidad/orden original
         order_map = {id: i for i, id in enumerate(top_ids)}
         sorted_rows = sorted([dict(r) for r in rows], key=lambda x: order_map.get(x['id'], 999))
         
@@ -1026,7 +1063,7 @@ def get_top_pedidos(current_user, negocio_id):
         print(f"Error en get_top_pedidos: {e}")
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/negocios/<int:negocio_id>/menu/sync-inventory/list', methods=['GET'])
+@bp.route('/negocios/<int:negocio_id>/menu/syncinventory/list', methods=['GET'])
 @token_required
 def list_inventory_for_sync(current_user, negocio_id):
     db = get_db()
@@ -1045,7 +1082,7 @@ def list_inventory_for_sync(current_user, negocio_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/negocios/<int:negocio_id>/menu/sync-inventory/batch', methods=['POST'])
+@bp.route('/negocios/<int:negocio_id>/menu/syncinventory/batch', methods=['POST'])
 @token_required
 def sync_menu_batch(current_user, negocio_id):
     data = request.get_json()
@@ -1081,7 +1118,7 @@ def sync_menu_batch(current_user, negocio_id):
                     SET categoria_id = %s, nombre = %s, precio = %s, descripcion = %s
                     WHERE id = %s
                 """, (cat_menu_id, p['nombre'], p.get('precio_venta') or 0, p.get('alias') or '', item_existente['id']))
-            total_sync += 1
+            total_sync = 1
             
         g.db_conn.commit()
         return jsonify({'message': f'Lote de {len(productos)} procesado', 'sync_count': total_sync})
@@ -1158,7 +1195,7 @@ def manage_menu_item(current_user, id):
             g.db_conn.rollback()
             return jsonify({'error': str(e)}), 500
 
-@bp.route('/negocios/<int:negocio_id>/menu/bulk-update', methods=['POST'])
+@bp.route('/negocios/<int:negocio_id>/menu/bulkupdate', methods=['POST'])
 @token_required
 def bulk_update_menu(current_user, negocio_id):
     data = request.get_json()
@@ -1174,7 +1211,7 @@ def bulk_update_menu(current_user, negocio_id):
         if field == 'precio':
             str_val = str(value)
             if '%' in str_val:
-                factor = 1 + (float(str_val.replace('%', '')) / 100)
+                factor = 1  (float(str_val.replace('%', '')) / 100)
                 db.execute(f"UPDATE menu_items SET precio = ROUND(precio * %s, 2) WHERE id IN ({','.join(['%s']*len(ids))})", (factor, *ids))
             else:
                 db.execute(f"UPDATE menu_items SET precio = %s WHERE id IN ({','.join(['%s']*len(ids))})", (value, *ids))
@@ -1226,7 +1263,7 @@ def bulk_update_menu(current_user, negocio_id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-# --- POS / OPERATIVA MOZOS ---
+#  POS / OPERATIVA MOZOS 
 
 @bp.route('/negocios/<int:negocio_id>/mesas/<int:mesa_id>/comanda', methods=['POST'])
 @token_required
@@ -1314,26 +1351,40 @@ def add_items_to_comanda(current_user, id):
         added_ids = []
         for item in items:
             subt = float(item['cantidad']) * float(item['precio_unitario'])
-            total_a_sumar += subt
+            total_a_sumar = subt
             
+            # 1. Insertar el ítem "Padre"
             db.execute(
                 """INSERT INTO comandas_detalle (comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, estado, notas)
                    VALUES (%s, %s, %s, %s, %s, 'pendiente', %s) RETURNING id""",
                 (id, item['menu_item_id'], item['cantidad'], item['precio_unitario'], subt, item.get('notas', ''))
             )
-            added_ids.append(db.fetchone()['id'])
+            parent_id = db.fetchone()['id']
+            added_ids.append(parent_id)
+
+            # 2. ¿Es un Combo?
+            db.execute("SELECT component_item_id, cantidad FROM menu_item_combos WHERE combo_item_id = %s", (item['menu_item_id'],))
+            componentes = db.fetchall()
+            
+            if componentes:
+                for comp in componentes:
+                    qty_total = float(item['cantidad']) * float(comp['cantidad'])
+                    db.execute(
+                        """INSERT INTO comandas_detalle (comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, estado, notas, parent_detalle_id)
+                           VALUES (%s, %s, %s, 0, 0, 'pendiente', %s, %s) RETURNING id""",
+                        (id, comp['component_item_id'], qty_total, f"Componente de combo: {item.get('notas', '')}", parent_id)
+                    )
+                    added_ids.append(db.fetchone()['id'])
             
         db.execute("UPDATE comandas SET total = total + %s WHERE id = %s", (total_a_sumar, id))
         
-        # --- NUEVO: Generar trabajos de impresión Inteligentes ---
+        #  NUEVO: Generar trabajos de impresión Inteligentes 
         print_jobs = []
         if added_ids:
-            # Traer los datos con DESTINOS KDS Ofciales (IDs)
             db.execute("""
                 SELECT 
                     cd.cantidad, cd.notas, mi.nombre, 
-                    COALESCE(mi.destino_id, cat.destino_id) as effective_destino_id,
-                    COALESCE(mi.destino_kds, cat.estacion, 'cocina') as destino_str_fallback,
+                    COALESCE(mi.destino_kds, cat.destino_id::text, cat.estacion, 'cocina') as effective_destino_kds,
                     m.numero as mesa_num, v.nombre as mozo_nom, c.num_comensales,
                     c.negocio_id
                 FROM comandas_detalle cd
@@ -1351,46 +1402,30 @@ def add_items_to_comanda(current_user, id):
                 pax_val = int(rows[0]['num_comensales'] or 0)
                 header_info = { 'mesa': rows[0]['mesa_num'], 'mozo': rows[0]['mozo_nom'], 'pax': pax_val }
                 
-                # Obtener nombre negocio y configuraciones
                 db.execute("SELECT nombre FROM negocios WHERE id = %s", (negocio_id,))
                 negocio_nombre = (db.fetchone() or {'nombre': 'Baboons Restó'})['nombre']
-
+                
                 db.execute("SELECT clave, valor FROM configuraciones WHERE negocio_id = %s", (negocio_id,))
                 configs = {r['clave']: r['valor'] for r in db.fetchall()}
+                
                 sz_mesa = configs.get('resto_print_sz_mesa', '2')
                 sz_mozo = configs.get('resto_print_sz_mozo', '1')
-
-                # Consultar impresoras con sus nuevos destinos_id
-                db.execute("SELECT ip, nombre as printer_name, estacion, destino_id, es_caja FROM resto_impresoras WHERE negocio_id = %s", (negocio_id,))
+                
+                # 4. Ruteo de Impresión / KDS
+                db.execute("SELECT ip, nombre as printer_name, estacion, es_caja FROM resto_impresoras WHERE negocio_id = %s", (negocio_id,))
                 impresoras = db.fetchall()
                 
                 for printer in impresoras:
                     items_para_esta_imp = []
-                    
                     if printer['es_caja']:
                         items_para_esta_imp = rows
                     else:
                         for it in rows:
-                            match = False
-                            # 1. Ruteo por ID oficial
-                            if printer['destino_id'] and it['effective_destino_id'] == printer['destino_id']:
-                                match = True
-                            # 2. Ruteo por Texto (fallback retrocompatible)
-                            elif not printer['destino_id'] and printer['estacion']:
-                                if (printer['estacion'] or "").lower() == (it['destino_str_fallback'] or "").lower():
-                                    match = True
-                            
-                            if match:
+                            if printer['estacion'] and (it['effective_destino_kds'] or "").lower() == (printer['estacion'] or "").lower():
                                 items_para_esta_imp.append(it)
-
+                    
                     if items_para_esta_imp:
-                        lineas = [
-                            f"[S{sz_mesa}]COMANDA", 
-                            f"[S{sz_mesa}]Mesa: {header_info['mesa']}", 
-                            f"[S{sz_mozo}]Mozo: {header_info['mozo']}", 
-                            f"Pax: {header_info['pax']}",
-                            "-" * 20
-                        ]
+                        lineas = [f"--- MESA {header_info['mesa']} ---", f"Mozo: {header_info['mozo']}", ""]
                         items_payload = []
                         for it in items_para_esta_imp:
                             cant_float = float(it['cantidad'])
@@ -1484,7 +1519,7 @@ def reimprimir_comanda(current_user, id):
                     f"[S{sz_mesa}]Mesa: {rows[0]['mesa_num']}", 
                     f"[S{sz_mozo}]Mozo: {rows[0]['mozo_nom']}", 
                     f"Pax: {pax_val}",
-                    "-" * 20
+                    "" * 20
                 ]
                 
                 items_payload = []
@@ -1547,7 +1582,7 @@ def update_comanda_pax(current_user, id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/comandas/<int:id>/mover-mesa', methods=['PUT'])
+@bp.route('/comandas/<int:id>/movermesa', methods=['PUT'])
 @token_required
 def mover_mesa(current_user, id):
     data = request.get_json()
@@ -1620,7 +1655,7 @@ def cerrar_comanda(current_user, id):
         detalles = db.fetchall()
         
         if not detalles:
-            # All items already cobrado (e.g. via pago parcial) — auto-close comanda & free mesa
+            # All items already cobrado (e.g. via pago parcial) — autoclose comanda & free mesa
             db.execute("UPDATE comandas SET estado = 'cerrada' WHERE id = %s", (id,))
             db.execute("UPDATE mesas SET estado = 'libre', comanda_id = NULL WHERE id = %s", (comanda['mesa_id'],))
             g.db_conn.commit()
@@ -1678,7 +1713,7 @@ def cerrar_comanda(current_user, id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/negocios/<int:negocio_id>/comandas/pendientes-cobro', methods=['GET'])
+@bp.route('/negocios/<int:negocio_id>/comandas/pendientescobro', methods=['GET'])
 @token_required
 def get_comandas_pendientes_cobro(current_user, negocio_id):
     db = get_db()
@@ -1703,7 +1738,7 @@ def get_comandas_pendientes_cobro(current_user, negocio_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/comandas/<int:id>/solicitar-cuenta', methods=['POST'])
+@bp.route('/comandas/<int:id>/solicitarcuenta', methods=['POST'])
 @token_required
 def solicitar_cuenta_comanda(current_user, id):
     db = get_db()
@@ -1760,14 +1795,14 @@ def solicitar_cuenta_comanda(current_user, id):
             # Formatear contenido con tamaños
             content = [
                 f"[S2]{ticket_title}",
-                f"*** PRE-CUENTA ***",
+                f"*** PRECUENTA ***",
                 f"NO VALIDO COMO FACTURA",
-                f"--------------------------------",
+                f"",
                 f"[S{sz_mesa}]Mesa: {comanda['mesa_num']}",
                 f"[S{sz_mozo}]Mozo: {comanda['mozo_nom']}",
                 f"Pax: {comanda.get('num_comensales', 0)}",
                 f"Fecha: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}",
-                "--------------------------------",
+                "",
             ]
             
             # Detalle itemizado: Nombre x Cant @ $Unit ... $Sub
@@ -1778,11 +1813,11 @@ def solicitar_cuenta_comanda(current_user, id):
                 linea_det = f"  {int(d['cantidad'])} x ${float(d['precio_unitario']):.2f} = ${float(d['subtotal']):.2f}"
                 content.append(linea_det)
 
-            content.append("--------------------------------")
+            content.append("")
             content.append(f"[S2]TOTAL: ${float(comanda['total']):.2f}")
             
             if legend:
-                content.append("--------------------------------")
+                content.append("")
                 content.append(legend)
             
             content.append("\nGracias por su visita!")
@@ -1821,7 +1856,7 @@ def solicitar_cuenta_comanda(current_user, id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/comandas/<int:id>/finalizar-cobro', methods=['POST'])
+@bp.route('/comandas/<int:id>/finalizarcobro', methods=['POST'])
 @token_required
 def finalizar_cobro_comanda(current_user, id):
     db = get_db()
@@ -1946,7 +1981,7 @@ def finalizar_cobro_comanda(current_user, id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/comandas/<int:id>/pago-parcial', methods=['POST'])
+@bp.route('/comandas/<int:id>/pagoparcial', methods=['POST'])
 @token_required
 def pago_parcial_comanda(current_user, id):
     data = request.get_json()
@@ -1998,7 +2033,7 @@ def pago_parcial_comanda(current_user, id):
                 cant_cobrar = float(d['cantidad'])
 
             subt = cant_cobrar * float(d['precio_unitario'])
-            total_venta += subt
+            total_venta = subt
             detalles_finales.append({
                 'id': d['id'],
                 'producto_id': d['producto_id'],
@@ -2013,7 +2048,7 @@ def pago_parcial_comanda(current_user, id):
                 db.execute("UPDATE comandas_detalle SET estado = 'cobrado' WHERE id = %s", (d['id'],))
             else:
                 # Dividir el ítem
-                db.execute("UPDATE comandas_detalle SET cantidad = cantidad - %s, subtotal = subtotal - %s WHERE id = %s", 
+                db.execute("UPDATE comandas_detalle SET cantidad = cantidad  %s, subtotal = subtotal  %s WHERE id = %s", 
                            (cant_cobrar, subt, d['id']))
                 db.execute("""INSERT INTO comandas_detalle (comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, estado, notas)
                               VALUES (%s, %s, %s, %s, %s, 'cobrado', %s)""", 
@@ -2076,7 +2111,7 @@ def pago_parcial_comanda(current_user, id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-# --- PERSONAL / MOZOS / EMPLEADOS ---
+#  PERSONAL / MOZOS / EMPLEADOS 
 
 @bp.route('/negocios/<int:negocio_id>/staff', methods=['GET'])
 @token_required
@@ -2087,9 +2122,9 @@ def get_staff(current_user, negocio_id):
         query = "SELECT * FROM vendedores WHERE negocio_id = %s"
         params = [negocio_id]
         if esp:
-            query += " AND especialidad_resto = %s"
+            query = " AND especialidad_resto = %s"
             params.append(esp)
-        query += " ORDER BY nombre"
+        query = " ORDER BY nombre"
         
         db.execute(query, tuple(params))
         rows = db.fetchall()
@@ -2098,7 +2133,7 @@ def get_staff(current_user, negocio_id):
         return jsonify({'error': str(e)}), 500
 
 
-# --- GESTIÓN DE RECETAS (BOM) ---
+#  GESTIÓN DE RECETAS (BOM) 
 
 @bp.route('/menu/items/<int:item_id>/receta', methods=['GET'])
 @token_required
@@ -2164,7 +2199,7 @@ def delete_insumo_receta(current_user, id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-# --- HISTÓRICO DE COMANDAS ---
+#  HISTÓRICO DE COMANDAS 
 
 @bp.route('/negocios/<int:negocio_id>/comandas', methods=['GET'])
 @token_required
@@ -2173,7 +2208,7 @@ def get_historico_comandas(current_user, negocio_id):
     db = get_db()
     try:
         estado = request.args.get('estado', 'cerrada')
-        fecha = request.args.get('fecha')  # YYYY-MM-DD
+        fecha = request.args.get('fecha')  # YYYYMMDD
         limit = request.args.get('limit', 50, type=int)
 
         if not fecha:
@@ -2200,15 +2235,15 @@ def get_historico_comandas(current_user, negocio_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# --- COLA DE IMPRESIÓN PRO (POLLING) ---
+#  COLA DE IMPRESIÓN PRO (POLLING) 
 
-@bp.route('/negocios/<int:negocio_id>/impresion-cola/pendientes', methods=['GET'])
+@bp.route('/negocios/<int:negocio_id>/impresioncola/pendientes', methods=['GET'])
 @token_required
 def get_print_queue_pendientes(current_user, negocio_id):
     """Endpoint para que el AGENTE consulte trabajos pendientes."""
     db = get_db()
     try:
-        # AUTO-CREAR TABLA SI NO EXISTE (Solución para errores 500 en producción)
+        # AUTOCREAR TABLA SI NO EXISTE (Solución para errores 500 en producción)
         db.execute("""
             CREATE TABLE IF NOT EXISTS resto_cola_impresion (
                 id SERIAL PRIMARY KEY,
@@ -2229,7 +2264,7 @@ def get_print_queue_pendientes(current_user, negocio_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/impresion-cola/<int:job_id>/listo', methods=['POST'])
+@bp.route('/impresioncola/<int:job_id>/listo', methods=['POST'])
 @token_required
 def mark_print_job_done(current_user, job_id):
     """Marca un trabajo como impreso."""
@@ -2242,13 +2277,13 @@ def mark_print_job_done(current_user, job_id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/negocios/<int:negocio_id>/impresion-cola/limpiar', methods=['POST'])
+@bp.route('/negocios/<int:negocio_id>/impresioncola/limpiar', methods=['POST'])
 @token_required
 def clear_print_queue(current_user, negocio_id):
     """Limpia la cola (mantenimiento)."""
     db = get_db()
     try:
-        db.execute("DELETE FROM resto_cola_impresion WHERE negocio_id = %s AND (estado = 'impreso' OR created_at < NOW() - INTERVAL '2 days')", (negocio_id,))
+        db.execute("DELETE FROM resto_cola_impresion WHERE negocio_id = %s AND (estado = 'impreso' OR created_at < NOW()  INTERVAL '2 days')", (negocio_id,))
         g.db_conn.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -2272,7 +2307,7 @@ def agent_heartbeat(current_user, negocio_id):
             )
         """)
         
-        # Intentar borrado y re-inserción robusta
+        # Intentar borrado y reinserción robusta
         db.execute("DELETE FROM configuraciones WHERE negocio_id = %s AND clave = 'agente_last_seen'", (negocio_id,))
         db.execute("INSERT INTO configuraciones (negocio_id, clave, valor) VALUES (%s, 'agente_last_seen', CURRENT_TIMESTAMP::text)", (negocio_id,))
         g.db_conn.commit()
@@ -2295,7 +2330,7 @@ def get_agent_status(current_user, negocio_id):
             
         last_seen = row['valor']
         # Comparación PostgreSQL
-        db.execute("SELECT (CURRENT_TIMESTAMP - %s::timestamp < INTERVAL '1 minute') as is_online", (last_seen,))
+        db.execute("SELECT (CURRENT_TIMESTAMP  %s::timestamp < INTERVAL '1 minute') as is_online", (last_seen,))
         res = db.fetchone()
         is_online = res['is_online'] if res else False
         
@@ -2303,7 +2338,7 @@ def get_agent_status(current_user, negocio_id):
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
-@bp.route('/negocios/<int:negocio_id>/impresion-cola/test', methods=['POST'])
+@bp.route('/negocios/<int:negocio_id>/impresioncola/test', methods=['POST'])
 @token_required
 def test_print_queue(current_user, negocio_id):
     """Inserta un trabajo de prueba en la cola cloud."""
@@ -2331,4 +2366,64 @@ def test_print_queue(current_user, negocio_id):
     except Exception as e:
         g.db_conn.rollback()
         print(f"❌ FALLO TEST CLOUD: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+#  GESTIÓN DE COMBOS INTELIGENTES 
+
+@bp.route('/negocios/<int:negocio_id>/menu/items/<int:item_id>/combo', methods=['GET'])
+@token_required
+def get_item_combo_components(current_user, negocio_id, item_id):
+    db = get_db()
+    try:
+        db.execute("""
+            SELECT 
+                mic.id, 
+                mic.component_item_id, 
+                mic.cantidad,
+                mi.nombre as component_nombre,
+                mi.precio as component_precio
+            FROM menu_item_combos mic
+            JOIN menu_items mi ON mic.component_item_id = mi.id
+            WHERE mic.combo_item_id = %s AND mic.negocio_id = %s
+        """, (item_id, negocio_id))
+        return jsonify(db.fetchall())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/menu/items/<int:item_id>/combo', methods=['POST'])
+@token_required
+def add_combo_component(current_user, negocio_id, item_id):
+    data = request.get_json()
+    db = get_db()
+    try:
+        # Verificar si ya existe para actualizar o insertar
+        db.execute("SELECT id FROM menu_item_combos WHERE combo_item_id = %s AND component_item_id = %s AND negocio_id = %s", 
+                   (item_id, data['component_item_id'], negocio_id))
+        existente = db.fetchone()
+        
+        if existente:
+            db.execute("UPDATE menu_item_combos SET cantidad = %s WHERE id = %s", 
+                       (data['cantidad'], existente['id']))
+        else:
+            db.execute("""
+                INSERT INTO menu_item_combos (combo_item_id, component_item_id, cantidad, negocio_id)
+                VALUES (%s, %s, %s, %s)
+            """, (item_id, data['component_item_id'], data['cantidad'], negocio_id))
+            
+        g.db_conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/menu/items/combo/comp/<int:comp_id>', methods=['DELETE'])
+@token_required
+def delete_combo_component(current_user, negocio_id, comp_id):
+    db = get_db()
+    try:
+        db.execute("DELETE FROM menu_item_combos WHERE id = %s AND negocio_id = %s", (comp_id, negocio_id))
+        g.db_conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500

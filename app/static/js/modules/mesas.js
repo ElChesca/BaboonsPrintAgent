@@ -170,6 +170,7 @@ function renderizarTabla() {
     mesasFiltradas.forEach(m => {
         const tr = document.createElement('tr');
         const isSelected = seleccionados.has(m.id);
+        if (isSelected) tr.classList.add('selected-row');
 
         let badgeClass = 'bg-success';
         let estadoLabel = 'Libre';
@@ -236,8 +237,20 @@ window.toggleSeleccionMesa = toggleSeleccionMesa;
 export function actualizarBarraMasivaMesas() {
     const bar = document.getElementById('bulk-actions-bar-mesas');
     const label = document.getElementById('selected-mesas-count');
-    if (bar) bar.style.display = seleccionados.size > 0 ? 'flex' : 'none';
+    if (bar) {
+        if (seleccionados.size > 0) bar.classList.add('active');
+        else bar.classList.remove('active');
+    }
     if (label) label.innerText = seleccionados.size;
+
+    // Actualizar visualmente filas seleccionadas
+    document.querySelectorAll('.select-mesa').forEach(cb => {
+        const tr = cb.closest('tr');
+        if (tr) {
+            if (cb.checked) tr.classList.add('selected-row');
+            else tr.classList.remove('selected-row');
+        }
+    });
 }
 
 export function deseleccionarTodasMesas() {
@@ -422,6 +435,63 @@ window.ejecutarBulkCreate = async (e) => {
         await sendData(`/api/negocios/${idNegocio}/mesas/bulk-create`, data, 'POST');
         mostrarNotificacion('Mesas creadas correctamente', 'success');
         window.cerrarModalBulkMesas();
+        await cargarMesas();
+    } catch (error) {
+        mostrarNotificacion(error.message, 'error');
+    }
+};
+
+// --- ACCIONES MASIVAS (API PATCH) ---
+
+window.asignarSectorMasivo = async () => {
+    if (seleccionados.size === 0) return;
+    
+    // Simplificar: Usar prompt para elegir el sector de la lista
+    const sector = prompt("Ingrese el nombre del sector a asignar:\n" + sectoresCache.map(s => s.nombre).join(", "));
+    if (!sector) return;
+
+    if (!sectoresCache.find(s => s.nombre === sector)) {
+        mostrarNotificacion("Sector no válido", "error");
+        return;
+    }
+
+    try {
+        const idNegocio = appState.negocioActivoId;
+        await sendData(`/api/negocios/${idNegocio}/mesas/bulk`, {
+            ids: Array.from(seleccionados),
+            zona: sector
+        }, 'PATCH');
+        
+        mostrarNotificacion(`Sector asignado a ${seleccionados.size} mesas`, 'success');
+        deseleccionarTodasMesas();
+        await cargarMesas();
+    } catch (error) {
+        mostrarNotificacion(error.message, 'error');
+    }
+};
+
+window.asignarMozoMasivo = async () => {
+    if (seleccionados.size === 0) return;
+
+    const lista = mozosCache.map(m => `${m.id}: ${m.nombre}`).join("\n");
+    const res = prompt("Ingrese el ID del mozo a asignar:\n" + lista);
+    if (!res) return;
+
+    const mozoId = parseInt(res);
+    if (isNaN(mozoId) || !mozosCache.find(m => m.id === mozoId)) {
+        mostrarNotificacion("ID de mozo no válido", "error");
+        return;
+    }
+
+    try {
+        const idNegocio = appState.negocioActivoId;
+        await sendData(`/api/negocios/${idNegocio}/mesas/bulk`, {
+            ids: Array.from(seleccionados),
+            mozo_id: mozoId
+        }, 'PATCH');
+        
+        mostrarNotificacion(`Mozo asignado a ${seleccionados.size} mesas`, 'success');
+        deseleccionarTodasMesas();
         await cargarMesas();
     } catch (error) {
         mostrarNotificacion(error.message, 'error');

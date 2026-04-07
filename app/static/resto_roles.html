@@ -1,0 +1,151 @@
+<!-- app/static/resto_roles.html -->
+<div class="container-fluid fade-in" style="padding: 20px;">
+    <div class="page-header d-flex justify-content-between align-items-center">
+        <h2 style="color: var(--primary-color);">
+            <i class="fas fa-user-shield me-2"></i> Configuración de Roles y Estaciones
+        </h2>
+        <button id="btn-nuevo-rol" type="button" class="btn btn-primary shadow-sm">
+            <i class="fas fa-plus me-1"></i> Nuevo Rol
+        </button>
+    </div>
+
+    <div class="alert alert-info mt-4" style="border-radius: 12px; border: none; background: #f0f7ff; color: #0056b3;">
+        <i class="fas fa-info-circle me-2"></i> 
+        Aquí puedes definir qué estaciones de despacho (Cocina, Bar, Dolce) y qué módulos puede ver cada puesto de trabajo.
+    </div>
+
+    <div class="card shadow-sm mt-3" style="border-radius: 12px; border: none; overflow: hidden;">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="tabla-roles-resto">
+                    <thead style="background: #f8f9fa;">
+                        <tr>
+                            <th style="padding-left: 25px;">Nombre del Rol</th>
+                            <th>Estación Principal</th>
+                            <th>Módulos Permitidos</th>
+                            <th>Nivel de Acceso</th>
+                            <th style="text-align: right; padding-right: 25px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Se llena dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Configurar Rol -->
+<div id="modal-rol-resto" class="premium-modal-overlay">
+    <div class="premium-modal-content" style="max-width: 600px; width: 95%;">
+        <div class="premium-modal-header">
+            <h4 class="mb-0 fw-bold" id="modal-rol-titulo">Configuración de Rol</h4>
+            <button class="btn-close-modal" id="btn-cerrar-modal-rol" type="button">×</button>
+        </div>
+
+        <form id="form-rol-resto">
+            <div class="premium-modal-body" style="background: #fff;">
+                <input type="hidden" id="rol-id">
+
+                <div class="form-group mb-4">
+                    <label for="rol-nombre" class="form-label fw-bold">Nombre del Rol:</label>
+                    <input type="text" id="rol-nombre" class="form-control" required placeholder="Ej: Jefe de Barra, Mozo VIP, etc.">
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label for="rol-estacion" class="form-label fw-bold">Estación de Despacho (KDS):</label>
+                        <select id="rol-estacion" class="form-select">
+                            <option value="none">-- Sin Monitor --</option>
+                            <option value="cocina">Cocina (Fuegos)</option>
+                            <option value="bar">Bar (Bebidas)</option>
+                            <option value="dolce">Dolce (Cafetería/Pastelería)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="rol-home" class="form-label fw-bold">Pantalla de Inicio:</label>
+                        <select id="rol-home" class="form-select">
+                            <option value="resto_mozo">Salón de Mozos</option>
+                            <option value="resto_cocina">Monitor de Cocina</option>
+                            <option value="resto_bar">Monitor de Bar</option>
+                            <option value="resto_dolce">Monitor Dolce</option>
+                            <option value="resto_caja">Caja de Restó</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group mb-4">
+                    <label class="form-label fw-bold d-block">Color de Identidad (Monitor):</label>
+                    <div id="theme-color-picker" class="d-flex gap-2 flex-wrap mt-2">
+                        <div class="color-option active" data-color="#f0883e" style="width: 32px; height: 32px; border-radius: 8px; cursor: pointer; background: #f0883e; border: 2px solid #fff; box-shadow: 0 0 0 2px #f0883e;"></div>
+                        <div class="color-option" data-color="#58a6ff" style="width: 32px; height: 32px; border-radius: 8px; cursor: pointer; background: #58a6ff; border: 2px solid #fff; box-shadow: 0 0 0 1px #eee;"></div>
+                        <div class="color-option" data-color="#bc8cff" style="width: 32px; height: 32px; border-radius: 8px; cursor: pointer; background: #bc8cff; border: 2px solid #fff; box-shadow: 0 0 0 1px #eee;"></div>
+                        <div class="color-option" data-color="#3fb950" style="background: #3fb950; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 1px #eee;"></div>
+                        <div class="color-option" data-color="#f85149" style="background: #f85149; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 1px #eee;"></div>
+                        <div class="color-option" data-color="#1f6feb" style="background: #1f6feb; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 1px #eee;"></div>
+                    </div>
+                </div>
+
+                <div class="form-group mb-4">
+                    <label class="form-label fw-bold mb-3 d-block">Módulos permitidos en el Menú:</label>
+                    <div class="row g-2 px-2" id="modulos-checklist">
+                        <!-- Checkboxes dinámicos -->
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="resto_mozo" id="chk-mozo">
+                                <label class="form-check-label" for="chk-mozo">Salón (Mozos)</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="resto_caja" id="chk-caja">
+                                <label class="form-check-label" for="chk-caja">Caja Restó</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="reservas" id="chk-reservas">
+                                <label class="form-check-label" for="chk-reservas">Reservas</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="historico_comandas" id="chk-history">
+                                <label class="form-check-label" for="chk-history">Histórico</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="resto_cocina" id="chk-kds-cocina">
+                                <label class="form-check-label" for="chk-kds-cocina">Monitor Cocina</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="resto_bar" id="chk-kds-bar">
+                                <label class="form-check-label" for="chk-kds-bar">Monitor Bar</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="resto_dolce" id="chk-kds-dolce">
+                                <label class="form-check-label" for="chk-kds-dolce">Monitor Dolce</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning py-2 mb-0" style="font-size: 0.85rem; border-radius: 8px;">
+                    <i class="fas fa-exclamation-triangle me-1"></i> 
+                    Los usuarios asignados a este rol heredarán estos permisos al iniciar sesión.
+                </div>
+            </div>
+
+            <div class="premium-modal-footer">
+                <button type="button" id="btn-cancelar-rol" class="btn btn-secondary">Cancelar</button>
+                <button type="submit" class="btn btn-primary px-4">Guardar Configuración</button>
+            </div>
+        </form>
+    </div>
+</div>

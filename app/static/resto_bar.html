@@ -1,0 +1,44 @@
+<!-- app/static/resto_bar.html -->
+<div class="kds-app" id="kds-app">
+    <!-- KDS Top Bar -->
+    <header class="kds-topbar">
+        <div class="kds-topbar-left">
+            <div class="kds-brand">
+                <div class="kds-brand-icon" style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
+                    <i class="fas fa-cocktail"></i>
+                </div>
+                <div class="kds-brand-text">
+                    <h1>BARRA</h1>
+                    <span id="kds-user-name" class="kds-user-badge" style="background:rgba(79,70,229,0.12); color:#818cf8 !important;">🍹 Barman</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+            <h2 class="mb-0 fw-800 d-none d-md-block" style="font-family: 'Inter'; letter-spacing: -0.5px;">Monitor de Barra</h2>
+        </div>
+
+        <div class="kds-topbar-right">
+            <div class="kds-counters">
+                <div class="kds-counter">
+                    <span class="kds-counter-value" id="stats-total">0</span>
+                    <span class="kds-counter-label">Pendientes</span>
+                </div>
+            </div>
+            <button class="kds-btn-icon" title="Actualizar" onclick="window.cargarPendientes()">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+            <button class="kds-btn-icon kds-btn-logout" title="Cerrar Sesión" onclick="window.logout()">
+                <i class="fas fa-power-off"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="kds-board" id="kds-orders-container">
+        <div class="kds-empty">
+            <div class="kds-empty-icon"><i class="fas fa-glass-martini-alt"></i></div>
+            <h2>¡Barra despejada!</h2>
+            <p>No hay tragos ni bebidas pendientes.</p>
+        </div>
+    </main>
+</div>

@@ -11,8 +11,8 @@
                     <i class="fas fa-bars"></i>
                 </button>
                 <div class="mozo-brand">
-                    <h1><i class="fas fa-chair"></i> Salón</h1>
-                    <span id="mozo-user-name" class="mozo-user-badge">Mozo</span>
+                    <span class="mozo-label">SALÓN</span>
+                    <span id="mozo-user-name" class="mozo-name-premium">Mozo</span>
                 </div>
             </div>
             <div class="mozo-topbar-right">
@@ -59,15 +59,11 @@
                 <button class="active" data-zone="all">🏠 Todas</button>
                 <!-- Dynamic -->
             </div>
-            <div class="mozo-filter-row">
-                <div class="mozo-select-wrap mozo-select-compact">
-                    <i class="fas fa-filter"></i>
-                    <select id="filter-estado" class="mozo-select">
-                        <option value="all">Todos</option>
-                        <option value="libre">🟢 Libres</option>
-                        <option value="ocupada">🔴 Ocupadas</option>
-                        <option value="cuenta">🟡 En Cuenta</option>
-                    </select>
+                <div class="mozo-status-pills" id="status-filter-pills">
+                    <button class="filter-pill active" data-status="all" onclick="window.setStatusFilter('all')">Todas</button>
+                    <button class="filter-pill" data-status="libre" onclick="window.setStatusFilter('libre')">Libres</button>
+                    <button class="filter-pill" data-status="ocupada" onclick="window.setStatusFilter('ocupada')">Ocupadas</button>
+                    <button class="filter-pill" data-status="cuenta" onclick="window.setStatusFilter('cuenta')">En Cobro</button>
                 </div>
                 <!-- Hidden mozo filter for admin -->
                 <div class="mozo-select-wrap mozo-select-compact" id="filter-mozo-wrap" style="display:none;">
@@ -229,10 +225,10 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
     :root {
-        --mozo-bg: #f0f2f5;
+        --mozo-bg: #f8fafc;
         --mozo-surface: #ffffff;
         --mozo-primary: #4f46e5;
-        --mozo-primary-dark: #4338ca;
+        --mozo-primary-dark: #3730a3;
         --mozo-primary-soft: rgba(79,70,229,0.08);
         --mozo-success: #10b981;
         --mozo-danger: #ef4444;
@@ -242,10 +238,110 @@
         --mozo-text: #1e293b;
         --mozo-text-dim: #64748b;
         --mozo-border: #e2e8f0;
-        --mozo-radius: 14px;
-        --mozo-glass: rgba(255, 255, 255, 0.7);
-        --mozo-glass-border: rgba(255, 255, 255, 0.3);
+        --mozo-radius: 16px;
     }
+
+    .mozo-topbar {
+        background: #0f172a !important;
+        color: white;
+        padding: 0 16px;
+        height: 70px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+
+    .mozo-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .mozo-label {
+        font-size: 1rem !important;
+        font-weight: 800 !important;
+        color: #ffffff !important;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin-right: 5px;
+    }
+
+    .mozo-name-premium {
+        font-size: 1.6rem !important;
+        font-weight: 900 !important;
+        color: #ffffff !important;
+        padding-left: 15px;
+        border-left: 2.5px solid rgba(255,255,255,0.4);
+        line-height: 1.2;
+    }
+
+    /* ---- FILTERS & PILLS ---- */
+    .mozo-status-pills {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        padding: 4px 0;
+        -webkit-overflow-scrolling: touch;
+    }
+    .mozo-status-pills::-webkit-scrollbar { display: none; }
+
+    .filter-pill {
+        background: #f1f5f9;
+        border: 2px solid transparent;
+        border-radius: 50px;
+        padding: 8px 18px;
+        font-size: 0.85rem;
+        font-weight: 800;
+        color: #64748b;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .filter-pill.active {
+        background: #4f46e5;
+        color: white;
+        box-shadow: 0 4px 12px rgba(79,70,229,0.25);
+    }
+
+    /* ---- PAX GRID (Tablet Friendly) ---- */
+    .pax-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        padding: 10px 0;
+    }
+
+    .pax-tap-btn {
+        height: 65px;
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 14px;
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: #1e293b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .pax-tap-btn.active {
+        background: #4f46e5;
+        color: white;
+        border-color: #4f46e5;
+        box-shadow: 0 8px 20px rgba(79,70,229,0.3);
+        transform: translateY(-2px);
+    }
+
+    .pax-tap-btn:active { transform: scale(0.9); }
+    
 
     .mozo-app {
 
@@ -819,9 +915,9 @@
         transform: scale(0.96);
     }
 
-    .mesa-item-v3.libre { border-bottom: 5px solid var(--mozo-success); }
-    .mesa-item-v3.ocupada { border-bottom: 5px solid var(--mozo-danger); }
-    .mesa-item-v3.cuenta { border-bottom: 5px solid var(--mozo-warning); }
+    .mesa-item-v3.libre { border-bottom: 6px solid #10b981 !important; }
+    .mesa-item-v3.ocupada { border-bottom: 6px solid #ef4444 !important; }
+    .mesa-item-v3.cuenta, .mesa-item-v3.en_cobro { border-bottom: 6px solid #f59e0b !important; }
 
     .mesa-item-v3 .mesa-zone {
         font-size: 0.6rem;

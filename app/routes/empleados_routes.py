@@ -113,21 +113,32 @@ def create_empleado(current_user):
         
         # 2. Lógica de Vinculación o Creación Automática
         
-        if data['rol'] == 'vendedor':
+        if data['rol'] in ['mozo', 'cocinero', 'barman', 'dolce', 'adicionista', 'bachero']:
             if link_seller_id:
-                # Vincular a vendedor existente
-                db.execute("UPDATE vendedores SET empleado_id = %s WHERE id = %s", (empleado_id, link_seller_id))
-                print(f"🔗 Empleado {empleado_id} vinculado a Vendedor existente {link_seller_id}")
+                # Vincular a vendedor existente y propagar especialidad
+                db.execute("UPDATE vendedores SET empleado_id = %s, especialidad_resto = %s WHERE id = %s", (empleado_id, data['rol'], link_seller_id))
+                print(f"🔗 Empleado {empleado_id} vinculado a Vendedor {link_seller_id} con especialidad {data['rol']}")
             else:
-                # Crear nuevo vendedor automático
+                # Crear nuevo vendedor automático con su especialidad Restó
+                nombre_completo = f"{data['nombre']} {data['apellido']}"
+                db.execute("""
+                    INSERT INTO vendedores (negocio_id, nombre, telefono, email, activo, empleado_id, especialidad_resto)
+                    VALUES (%s, %s, %s, %s, TRUE, %s, %s)
+                    RETURNING id
+                """, (data['negocio_id'], nombre_completo, data.get('telefono'), data.get('email'), empleado_id, data['rol']))
+                new_vid = db.fetchone()['id']
+                print(f"✨ Vendedor creado automáticamente (ID: {new_vid}) con ROl {data['rol']}")
+        
+        elif data['rol'] == 'vendedor':
+            # Vendedor genérico (Retail)
+            if link_seller_id:
+                db.execute("UPDATE vendedores SET empleado_id = %s WHERE id = %s", (empleado_id, link_seller_id))
+            else:
                 nombre_completo = f"{data['nombre']} {data['apellido']}"
                 db.execute("""
                     INSERT INTO vendedores (negocio_id, nombre, telefono, email, activo, empleado_id)
                     VALUES (%s, %s, %s, %s, TRUE, %s)
-                    RETURNING id
                 """, (data['negocio_id'], nombre_completo, data.get('telefono'), data.get('email'), empleado_id))
-                new_vid = db.fetchone()['id']
-                print(f"✨ Vendedor creado automáticamente (ID: {new_vid}) para empleado {empleado_id}")
         
         else:
             # Otros roles (admin, administrativo, deposito, chofer)
@@ -181,6 +192,9 @@ def update_empleado(current_user, id):
         # para asegurar que tengan el empleado_id vinculado.
         if data.get('email'):
             db.execute("UPDATE usuarios SET empleado_id = %s WHERE email = %s AND empleado_id IS NULL", (id, data['email']))
+        
+        # Propagar especialidad a vendedores vinculados
+        db.execute("UPDATE vendedores SET especialidad_resto = %s WHERE empleado_id = %s", (data['rol'], id))
         
         db.connection.commit()
         return jsonify({'message': 'Empleado actualizado'})

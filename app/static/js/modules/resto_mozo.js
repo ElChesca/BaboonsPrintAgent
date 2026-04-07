@@ -34,6 +34,12 @@ export async function inicializarRestoMozo() {
         if (nameEl) nameEl.innerText = `👤 ${user.nombre}`;
         const menuNameEl = document.getElementById('mozo-menu-user-name');
         if (menuNameEl) menuNameEl.innerText = user.nombre;
+
+        // AUTO-FILTER: Si el usuario tiene un ID de mozo (vendedor), filtrar por él automáticamente
+        if (user.vendedor_id) {
+            console.log("👤 Auto-filtrando por Mozo ID:", user.vendedor_id);
+            filterMozoId = String(user.vendedor_id);
+        }
     }
 
     // Hamburger Side Menu
@@ -458,10 +464,20 @@ function renderMesas() {
 
     const mesasFiltradas = mesasCache.filter(mesa => {
         const mesaEstado = (mesa.estado || 'libre').toLowerCase();
+        const normalizedMesaEstado = (mesaEstado === 'en_cobro' || mesaEstado === 'cuenta') ? 'cuenta' : mesaEstado;
+        
         const mesaMozoId = mesa.mozo_id ? String(mesa.mozo_id) : 'none';
         const matchZona = currentZone === 'all' || mesa.zona === currentZone;
-        const matchEstado = filterEstado === 'all' || mesaEstado === filterEstado.toLowerCase();
+        
+        const matchEstado = filterEstado === 'all' || 
+                           (filterEstado === 'ocupada' && normalizedMesaEstado === 'ocupada') ||
+                           (filterEstado === 'libre' && normalizedMesaEstado === 'libre') ||
+                           (filterEstado === 'cuenta' && normalizedMesaEstado === 'cuenta');
+        
+        // MOZO FILTER: Si hay un mozo seleccionado, filtrar estrictamente. 
+        // Pero si es Mozo nivel usuario, por defecto ve sus mesas + las libres.
         const matchMozo = filterMozoId === 'all' || mesaMozoId === String(filterMozoId);
+        
         return matchZona && matchEstado && matchMozo;
     });
 
@@ -489,14 +505,16 @@ function renderMesas() {
         let div = grid.querySelector(`.mesa-item-v3[data-id="${mesa.id}"]`);
         const estado = (mesa.estado || 'libre').toLowerCase();
         
+        const normalizedEstadoFooter = (estado === 'libre' || estado === 'disponible') ? 'libre' : estado;
+        
         const contentHTML = `
             <div class="mesa-zone">${mesa.zona || 'Salón Principal'}</div>
             <div class="mesa-num">${mesa.numero}</div>
             <div class="mesa-footer">
                 <span><i class="fas fa-users me-1"></i> ${mesa.comanda_pax || mesa.capacidad || 0}</span>
-                ${estado !== 'libre' ? `<span><i class="fas fa-user me-1"></i> ${mesa.active_mozo_nombre ? mesa.active_mozo_nombre.split(' ')[0] : (mesa.mozo_fijo_nombre ? mesa.mozo_fijo_nombre.split(' ')[0] : 'Ocupada')}</span>` : '<span>Libre</span>'}
+                ${normalizedEstadoFooter === 'libre' ? '<span>Libre</span>' : `<span><i class="fas fa-user me-1"></i> ${mesa.active_mozo_nombre ? mesa.active_mozo_nombre.split(' ')[0] : (mesa.mozo_fijo_nombre ? mesa.mozo_fijo_nombre.split(' ')[0] : 'Ocupada')}</span>`}
             </div>
-            ${estado === 'en_cobro' ? '<div class="mesa-badge-cuenta" style="position:absolute; top:5px; right:5px; background:white; color:#d97706; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; box-shadow:0 2px 4px rgba(0,0,0,0.1);"><i class="fas fa-file-invoice-dollar"></i></div>' : ''}
+            ${estado === 'en_cobro' || estado === 'cuenta' ? '<div class="mesa-badge-cuenta" style="position:absolute; top:5px; right:5px; background:white; color:#d97706; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; box-shadow:0 2px 4px rgba(0,0,0,0.1);"><i class="fas fa-file-invoice-dollar"></i></div>' : ''}
         `;
 
         if (!div) {
@@ -592,21 +610,29 @@ async function cargarMozos() {
 }
 
 window.resetFilters = () => {
+    const user = getCurrentUser();
     currentZone = 'all';
     filterEstado = 'all';
-    filterMozoId = 'all';
     
+    // Si es Mozo, mantener el filtro de su ID para no filtrar mesas de otros
+    if (user && user.vendedor_id) {
+        filterMozoId = String(user.vendedor_id);
+    } else {
+        filterMozoId = 'all';
+    }
+    
+    // Actualizar selectores si existen
     const elFilterEstado = document.getElementById('filter-estado');
     if (elFilterEstado) elFilterEstado.value = 'all';
     
     const elFilterMozo = document.getElementById('filter-mozo');
-    if (elFilterMozo) elFilterMozo.value = 'all';
+    if (elFilterMozo) elFilterMozo.value = filterMozoId;
     
-    // Update zone tabs active state
-    const zoneTabs = document.getElementById('zone-tabs');
-    if (zoneTabs) {
-        zoneTabs.querySelectorAll('button').forEach(b => {
-            b.classList.toggle('active', b.dataset.zone === 'all');
+    // Resetear las pastillas de estado (pills)
+    const container = document.getElementById('status-filter-pills');
+    if (container) {
+        container.querySelectorAll('.filter-pill').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.status === 'all');
         });
     }
 
@@ -906,25 +932,52 @@ async function selectMesa(mesa) {
 
         if (estadoMesa === 'libre' || !mesa.comanda_id) {
             const mozos = await fetchData(`/api/negocios/${appState.negocioActivoId}/vendedores`);
+            const targetVendedorId = user.vendedor_id || user.id;
+
             const { value: formValues } = await Swal.fire({
                 title: `Mesa ${mesa.numero}`,
-                html: `<div class="text-start p-2">
-                    <label class="small fw-bold">Mozo</label>
-                    <select id="swal-mozo-id" class="form-select mb-3">
-                        ${mozos.map(m => `<option value="${m.id}" ${m.id == user.id ? 'selected' : ''}>${m.nombre}</option>`).join('')}
-                    </select>
-                    <label class="small fw-bold">Comensales</label>
-                    <input type="number" id="swal-pax" class="form-control" value="1" min="1">
-                </div>`,
-                preConfirm: () => ({
-                    mozoId: document.getElementById('swal-mozo-id').value,
-                    pax: document.getElementById('swal-pax').value,
-                    listaId: listasPreciosCache.find(l => l.es_default)?.id || ''
-                }),
-                showCancelButton: true
+                html: `
+                    <div class="text-start p-2">
+                        <div class="mb-4">
+                            <label class="small fw-bold text-muted mb-2 d-block">Asignar Mozo</label>
+                            <select id="swal-mozo-id" class="form-select" style="height: 55px; font-size: 1.1rem; font-weight: 700; border: 2px solid #cbd5e1; border-radius: 12px;">
+                                ${mozos.map(m => `<option value="${m.id}" ${String(m.id) === String(targetVendedorId) ? 'selected' : ''}>${m.nombre}</option>`).join('')}
+                            </select>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="small fw-bold text-muted mb-3 d-block">Cantidad de Comensales</label>
+                            <input type="hidden" id="swal-pax" value="2">
+                            <div class="pax-grid">
+                                <button type="button" class="pax-tap-btn" onclick="selectPax(1, this)">1</button>
+                                <button type="button" class="pax-tap-btn active" onclick="selectPax(2, this)">2</button>
+                                <button type="button" class="pax-tap-btn" onclick="selectPax(3, this)">3</button>
+                                <button type="button" class="pax-tap-btn" onclick="selectPax(4, this)">4</button>
+                                <button type="button" class="pax-tap-btn" onclick="selectPax(5, this)">5</button>
+                                <button type="button" class="pax-tap-btn" onclick="selectPax(6, this)">6+</button>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                didOpen: () => {
+                    window.selectPax = (val, btn) => {
+                        document.getElementById('swal-pax').value = val;
+                        document.querySelectorAll('.pax-tap-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                    };
+                },
+                showCancelButton: true,
+                confirmButtonText: 'ABRIR MESA',
+                confirmButtonColor: '#4f46e5',
+                cancelButtonText: 'Cancelar',
+                width: '90%',
+                maxWidth: '450px'
             });
+
             if (formValues) {
-                await abrirComanda(mesa.id, formValues.pax, formValues.mozoId, formValues.listaId);
+                const paxValue = document.getElementById('swal-pax').value;
+                const mozoValue = document.getElementById('swal-mozo-id').value;
+                await abrirComanda(mesa.id, paxValue, mozoValue, listasPreciosCache.find(l => l.es_default)?.id || '');
             }
         } else {
             // Sincronización
@@ -1868,3 +1921,18 @@ async function abrirHistoricoComandasMozo() {
     }
 }
 window.abrirHistoricoComandasMozo = abrirHistoricoComandasMozo;
+
+window.setStatusFilter = (status) => {
+    console.log("🎯 Filtrando por estado:", status);
+    filterEstado = status;
+    
+    // Actualizar UI de los botones (pills)
+    const container = document.getElementById('status-filter-pills');
+    if (container) {
+        container.querySelectorAll('.filter-pill').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.status === status);
+        });
+    }
+    
+    renderMesas();
+};

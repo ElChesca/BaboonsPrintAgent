@@ -1,0 +1,175 @@
+/* app/static/css/kds.css - FIXED PREMIUM VERSION */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;800&family=Outfit:wght@300;400;600;800&display=swap');
+
+:root {
+    --kds-bg: #0d1117;
+    --kds-surface: #161b22;
+    --kds-surface-hover: #1c2128;
+    --kds-border: rgba(255,255,255,0.08);
+    --kds-text: #f0f6fc;
+    --kds-text-dim: #8b949e;
+    --kds-accent: #58a6ff;
+    --kds-warning: #f0883e;
+    --kds-danger: #ff7b72;
+    --kds-success: #3fb950;
+    --kds-cooking: #d29922;
+    --kds-radius-lg: 20px;
+    --kds-radius-md: 12px;
+}
+
+.kds-app {
+    font-family: 'Outfit', sans-serif;
+    background: var(--kds-bg) !important;
+    color: var(--kds-text);
+    -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: fixed;
+    top:0; left:0; bottom:0; right:0;
+    z-index: 9999;
+}
+
+.kds-topbar {
+    background: rgba(22, 27, 34, 0.85);
+    backdrop-filter: blur(12px);
+    height: 70px;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--kds-border);
+}
+
+.kds-board {
+    padding: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+    overflow-y: auto;
+    height: calc(100vh - 70px);
+}
+
+.kds-card {
+    background: var(--kds-surface);
+    border: 1px solid var(--kds-border);
+    border-radius: var(--kds-radius-lg);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.kds-card-head {
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--kds-border);
+}
+
+.kds-card-mesa {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.kds-mesa-badge { font-weight: 800; font-size: 1.2rem; color: var(--kds-accent); }
+.kds-mozo-tag { font-size: 0.85rem; color: var(--kds-text-dim); }
+
+.kds-card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.kds-timer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--kds-warning);
+    background: rgba(240, 136, 62, 0.1);
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+.kds-item {
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.kds-item-qty {
+    background: var(--kds-accent);
+    color: #000;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+}
+
+.kds-card-actions {
+    padding: 16px 20px;
+}
+
+.kds-action-btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: var(--kds-radius-md);
+    font-weight: 800;
+    font-size: 1rem;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+.btn-prepare { background: linear-gradient(135deg, #f0883e, #d29922); color: #000; }
+.btn-dispatch { background: linear-gradient(135deg, #3fb950, #238636); color: #fff; }
+
+@keyframes slide-in-top {
+    0% { transform: translateY(-50px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+
+.slide-in-top { animation: slide-in-top 0.4s ease-out both; }
+
+/* Estilos para Badges de Combos */
+.badge-combo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-left: 8px;
+    vertical-align: middle;
+    letter-spacing: 0.5px;
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.1);
+}
+
+.badge-combo-link i {
+    font-size: 0.6rem;
+}
+
+.badge-combo-link-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(255, 193, 7, 0.1);
+    color: #ffc107;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    margin-left: 5px;
+}

@@ -81,6 +81,7 @@ def _ensure_modules_seeded(db):
             ('comandas_cocina', 'Monitor de Cocina', 'Gestión Restó', ['resto']),
             ('reservas', 'Gestión de Reservas', 'Gestión Restó', ['resto']),
             ('mozos', 'Gestión de Mozos', 'Gestión Restó', ['resto']),
+            ('resto_roles', 'Roles y Estaciones Restó', 'Gestión Restó', ['resto']),
             ('gestion_mesas', 'Adm. de Mesas', 'Gestión Restó', ['resto']),
             ('resto_stats', 'Estadísticas Restó', 'Gestión Restó', ['resto']),
             ('resto_impresoras', 'Adm. de Impresoras', 'Gestión Restó', ['resto']),
@@ -210,24 +211,67 @@ def update_permissions(current_user):
 @bp.route('/admin/negocios/<int:negocio_id>/permisos-rol/<string:rol>', methods=['GET'])
 @token_required
 def get_negocio_rol_permissions(current_user, negocio_id, rol):
-    if current_user['rol'] != 'superadmin':
-        return jsonify({'message': 'Acceso denegado'}), 403
     db = get_db()
+    # Si no es superadmin, verificar si el usuario pertenece a este negocio
+    if current_user['rol'] != 'superadmin':
+        db.execute("SELECT 1 FROM usuarios_negocios WHERE usuario_id = %s AND negocio_id = %s", (current_user['id'], negocio_id))
+        if not db.fetchone():
+            return jsonify({'message': 'Acceso denegado'}), 403
     try:
-        db.execute("SELECT module_code FROM negocio_rol_permisos WHERE negocio_id = %s AND role = %s", (negocio_id, rol))
+        # Usamos LOWER para evitar problemas de mayúsculas/minúsculas entre el login y el ABM
+        db.execute("SELECT module_code FROM negocio_rol_permisos WHERE negocio_id = %s AND LOWER(role) = LOWER(%s)", (negocio_id, rol))
         rows = db.fetchall()
-        return jsonify([r['module_code'] for r in rows])
+        permissions = [r['module_code'] for r in rows]
+        
+        # ✨ LÓGICA DE ROLES ESTÁNDAR (Safety Net)
+        # Si el rol es barman/cocinero/dolce y la lista de permisos está vacía, entregamos lo mínimo necesario
+        if not permissions:
+            rol_norm = rol.lower().strip()
+            if 'bar' in rol_norm: permissions = ['resto_bar', 'home_resto', 'home_retail']
+            elif 'cocina' in rol_norm or 'cocinero' in rol_norm: permissions = ['resto_cocina', 'home_resto', 'home_retail']
+            elif 'dolce' in rol_norm or 'pastel' in rol_norm: permissions = ['resto_dolce', 'home_resto', 'home_retail']
+            elif 'mozo' in rol_norm: permissions = ['salon_digital', 'home_resto', 'home_retail']
+            elif 'adicionista' in rol_norm: permissions = ['pos', 'home_resto', 'home_retail']
+
+        return jsonify(permissions)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/admin/negocios/<int:negocio_id>/permisos-rol-all', methods=['GET'])
+@token_required
+def get_negocio_all_rol_permissions(current_user, negocio_id):
+    db = get_db()
+    # Si no es superadmin, verificar si pertenece a este negocio
+    if current_user['rol'] != 'superadmin':
+        db.execute("SELECT 1 FROM usuarios_negocios WHERE usuario_id = %s AND negocio_id = %s", (current_user['id'], negocio_id))
+        if not db.fetchone(): return jsonify({'message': 'Acceso denegado'}), 403
+    try:
+        db.execute("SELECT role, module_code FROM negocio_rol_permisos WHERE negocio_id = %s", (negocio_id,))
+        rows = db.fetchall()
+        
+        # Agrupar por rol (normalizando a minúsculas para consistencia)
+        result = {}
+        for r in rows:
+            rol_key = r['role'].lower().strip()
+            if rol_key not in result: result[rol_key] = []
+            result[rol_key].append(r['module_code'])
+            
+        return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/admin/negocios/<int:negocio_id>/permisos-rol/<string:rol>', methods=['POST'])
 @token_required
 def update_negocio_rol_permissions(current_user, negocio_id, rol):
-    if current_user['rol'] != 'superadmin':
-        return jsonify({'message': 'Acceso denegado'}), 403
-    data = request.get_json()
-    modules = data.get('modules')
     db = get_db()
+    # Si no es superadmin, verificar si el usuario pertenece a este negocio
+    if current_user['rol'] != 'superadmin':
+        db.execute("SELECT 1 FROM usuarios_negocios WHERE usuario_id = %s AND negocio_id = %s", (current_user['id'], negocio_id))
+        if not db.fetchone():
+            return jsonify({'message': 'Acceso denegado'}), 403
+            
+    data = request.get_json()
+    modules = data.get('modules', [])
     try:
         db.execute("DELETE FROM negocio_rol_permisos WHERE negocio_id = %s AND role = %s", (negocio_id, rol))
         for m in modules:
@@ -319,9 +363,12 @@ def registrar_pago_suscripcion(current_user):
 @bp.route('/admin/negocios/<int:negocio_id>/pagos-historial', methods=['GET'])
 @token_required
 def get_historial_pagos_suscripcion(current_user, negocio_id):
-    if current_user['rol'] != 'superadmin':
-        return jsonify({'message': 'Acceso denegado'}), 403
     db = get_db()
+    # Si no es superadmin, verificar si el usuario pertenece a este negocio
+    if current_user['rol'] != 'superadmin':
+        db.execute("SELECT 1 FROM usuarios_negocios WHERE usuario_id = %s AND negocio_id = %s", (current_user['id'], negocio_id))
+        if not db.fetchone():
+            return jsonify({'message': 'Acceso denegado'}), 403
     try:
         db.execute("""
             SELECT mes, anio, monto, fecha_registro, registrado_por as registrador 

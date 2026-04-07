@@ -28,11 +28,32 @@ export const ERP_REGISTRY = {
         color: 'rgba(162, 155, 254, 0.1)'
     },
     'comandas_cocina': {
-        label: 'Monitor de Cocina',
+        label: 'Monitor de Cocina (Legacy)',
         icon: 'static/img/icons/cocina.png',
         path: 'static/resto_cocina.html',
         category: 'operaciones',
         color: 'rgba(78, 205, 196, 0.1)'
+    },
+    'resto_cocina': {
+        label: 'KDS Cocina',
+        icon: 'static/img/icons/cocina.png',
+        path: 'static/resto_cocina.html',
+        category: 'operaciones',
+        color: 'rgba(78, 205, 196, 0.1)'
+    },
+    'resto_bar': {
+        label: 'KDS Bar',
+        icon: 'static/img/icons/cocktail.png',
+        path: 'static/resto_cocina.html',
+        category: 'operaciones',
+        color: 'rgba(99, 102, 241, 0.12)'
+    },
+    'resto_dolce': {
+        label: 'KDS Dolce',
+        icon: 'static/img/icons/pastelero.png',
+        path: 'static/resto_cocina.html',
+        category: 'operaciones',
+        color: 'rgba(255, 159, 67, 0.1)'
     },
     'reservas': {
         label: 'Gestión de Reservas',
@@ -47,6 +68,13 @@ export const ERP_REGISTRY = {
         path: 'static/mozos.html',
         category: 'operaciones',
         color: 'rgba(255, 107, 107, 0.1)'
+    },
+    'resto_roles': {
+        label: 'Roles y Estaciones',
+        icon: 'static/img/icons/configuracion.png',
+        path: 'static/resto_roles.html',
+        category: 'operaciones',
+        color: 'rgba(99, 102, 241, 0.12)'
     },
     'resto_stats': {
         label: 'Estadísticas Restó',
