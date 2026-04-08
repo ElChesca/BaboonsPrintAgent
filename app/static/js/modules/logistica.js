@@ -4,6 +4,10 @@ import { appState } from '../main.js';
 
 let vehiculosCache = [];
 
+export async function init() {
+    return inicializarLogistica();
+}
+
 export async function inicializarLogistica() {
     console.log("🚛 [Logística] Inicializando módulo...");
     if (!appState.negocioActivoId) {
@@ -335,8 +339,9 @@ export async function abrirModoRepartidor(hrId) {
         if (title) title.innerText = `HR #${detalle.id} - ${detalle.fecha}`;
 
         const pArr = Array.isArray(pedidos) ? pedidos : (pedidos.pedidos || []);
-        // Copy to consume without affecting original
-        const availablePedidos = [...pArr];
+        // ✨ REGLA #57: Los pedidos anulados DEBEN excluirse de la carga del repartidor
+        const availablePedidos = pArr.filter(p => p.estado !== 'anulado' && p.estado !== 'rechazado');
+
 
         container.innerHTML = '';
         container.className = 'row g-3 p-3'; // Desktop grid

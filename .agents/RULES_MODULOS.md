@@ -34,6 +34,14 @@ Cada vez que se cree un nuevo módulo o funcionalidad (ej. `gestion_repartos`), 
 - **NO crear** permisos manualmente en la base de datos sin registrarlos en `admin_routes.py`.
 - **NO omitir** el incremento de versión en `main.js` (APP_VERSION) si se cambia la estructura del registro.
 
+## 🔒 Sincronización de Seguridad (Safety Nets)
+
+Para evitar que módulos críticos queden ocultos por errores de configuración en la DB o cambios de nombre, se deben implementar "Redes de Seguridad" en `main.js`:
+
+1.  **Vínculo Acción-Reporte**: Si el usuario tiene acceso al historial/reporte de una funcionalidad (ej. `historial_ingresos`), el sistema debe habilitar automáticamente el módulo de acción correspondiente (ej. `ingresos`).
+2.  **Unificación de Nombres**: Se deben evitar prefijos o sufijos redundantes. El nombre estandarizado para cargas es el código base (ej: `ingresos` en lugar de `ingreso_mercaderia`).
+3.  **Migración Transparente**: Al renombrar un módulo en el catálogo, se debe incluir un bloque de actualización SQL en `_ensure_modules_seeded` para migrar los permisos de roles antiguos al nuevo código automáticamente.
+
 ---
 > [!TIP]
 > Si el módulo es de "Administrador solamente", asegúrate de que el contenedor en el HTML tenga la clase `admin-only`.

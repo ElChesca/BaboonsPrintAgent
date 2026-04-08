@@ -1,14 +1,22 @@
 <div class="seccion-contenido-dinamico animate__animated animate__fadeIn p-2">
-    <div class="page-header d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h4 class="fw-bold mb-0 text-dark">
-                <i class="fas fa-file-invoice-dollar me-2 text-primary"></i>Gestión de Ingresos
+    <div class="row align-items-center mb-4">
+        <div class="col-md-6">
+            <h4 class="mb-0 fw-bold text-dark d-flex align-items-center">
+                <i class="fas fa-file-invoice-dollar me-3 text-primary"></i>
+                Ingreso de Mercadería <span class="badge bg-primary-subtle text-primary ms-3 opacity-75 small fw-normal" style="font-size: 0.65rem;">MÓDULO DE COMPRAS</span>
             </h4>
-            <p class="text-muted small mb-0">Carga de comprobantes ARCA (ex-AFIP)</p>
         </div>
-        <button id="btn-importar-oc" class="btn btn-premium-secondary btn-sm shadow-sm">
-            <i class="fas fa-file-import me-1 text-primary"></i> Importar OC
-        </button>
+        <div class="col-md-6 text-end d-flex justify-content-end gap-2">
+            <button id="btn-ia-scanner" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm fw-bold">
+                <i class="fas fa-robot me-2"></i> Escanear con IA
+            </button>
+            <button id="btn-ver-historial-ingresos" class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-sm fw-bold">
+                <i class="fas fa-history me-2"></i> Ver Historial
+            </button>
+            <button id="btn-importar-oc" class="btn btn-white btn-sm rounded-pill px-3 shadow-sm fw-bold border text-primary">
+                <i class="fas fa-file-import me-2"></i> Importar OC
+            </button>
+        </div>
     </div>
 
     <div class="row g-3">
@@ -40,7 +48,7 @@
                                     <option value="01">01 - Factura A</option>
                                     <option value="06">06 - Factura B</option>
                                     <option value="11">11 - Factura C</option>
-                                    <option value="99">99 - Otro / Recibo</option>
+                                    <option value="99">99 - Otro / Recibo / Remito</option>
                                 </select>
                             </div>
                             <div class="col-md-2">
@@ -126,9 +134,23 @@
                             <input type="number" id="ingreso-item-dto2"
                                 class="form-control form-control-sm h-32 text-center" placeholder="%" value="0">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label class="micro-label fw-bold mb-1">IVA ITEM</label>
+                            <select id="ingreso-item-iva" class="form-select form-select-sm h-32">
+                                <option value="21">IVA 21%</option>
+                                <option value="10.5">IVA 10.5%</option>
+                                <option value="27">IVA 27%</option>
+                                <option value="2.5">IVA 2.5%</option>
+                                <option value="0">Exento / 0%</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1 text-center">
+                            <label class="micro-label fw-bold mb-1 d-block">BONIF.</label>
+                            <input type="checkbox" id="ingreso-item-bonificado" class="form-check-input" style="width: 20px; height: 20px; margin-top: 5px;">
+                        </div>
+                        <div class="col-md-2">
                             <button type="submit" class="btn btn-primary btn-sm w-100 h-32 fw-bold shadow-sm">
-                                <i class="fas fa-plus-circle me-1"></i> Añadir a la lista
+                                <i class="fas fa-plus-circle me-1"></i> Añadir
                             </button>
                         </div>
                     </form>
@@ -198,7 +220,7 @@
         </div>
 
         <div class="col-lg-3">
-            <div class="card premium-card border-0 shadow sticky-top" style="top: 80px;">
+            <div class="card premium-card border-0 shadow summary-card-sticky">
                 <div class="card-header bg-dark text-white border-0 py-3 px-3 rounded-top-4">
                     <h6 class="fw-bold mb-0 text-center uppercase tracking-wider">Resumen de Importes</h6>
                 </div>
@@ -212,29 +234,45 @@
                         <span id="total-descuentos" class="text-danger fw-bold small">-$ 0,00</span>
                     </div>
 
-                    <div class="tax-grid p-2 rounded-3 bg-light mb-3 mt-3">
+                    <div class="tax-grid p-2 rounded-3 bg-light mb-2 mt-3">
                         <div class="row g-2 mb-2">
                             <div class="col-6">
-                                <label class="micro-label text-uppercase fw-bold text-muted">IVA 21%</label>
-                                <input type="number" id="tax-iva-21"
-                                    class="form-control form-control-sm tax-input-compact" value="3150">
+                                <label class="micro-label text-uppercase fw-bold text-muted">IVA 27%</label>
+                                <input type="number" id="tax-iva-27" class="form-control form-control-sm tax-input-compact" value="0" step="0.01">
                             </div>
                             <div class="col-6">
-                                <label class="micro-label text-uppercase fw-bold text-muted">IVA 10.5%</label>
-                                <input type="number" id="tax-iva-105"
-                                    class="form-control form-control-sm tax-input-compact" value="0">
+                                <label class="micro-label text-uppercase fw-bold text-muted">IVA 21%</label>
+                                <input type="number" id="tax-iva-21" class="form-control form-control-sm tax-input-compact" value="0" step="0.01">
                             </div>
                         </div>
-                        <div class="row g-2">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="micro-label text-uppercase fw-bold text-muted">IVA 10.5%</label>
+                                <input type="number" id="tax-iva-105" class="form-control form-control-sm tax-input-compact" value="0" step="0.01">
+                            </div>
+                            <div class="col-6">
+                                <label class="micro-label text-uppercase fw-bold text-muted">IVA 2.5%</label>
+                                <input type="number" id="tax-iva-25" class="form-control form-control-sm tax-input-compact" value="0" step="0.01">
+                            </div>
+                        </div>
+                        <div class="row g-2 border-top pt-2 mt-2">
                             <div class="col-6">
                                 <label class="micro-label text-uppercase fw-bold text-muted">Perc. IIBB</label>
-                                <input type="number" id="tax-iibb"
-                                    class="form-control form-control-sm tax-input-compact" value="0">
+                                <input type="number" id="tax-iibb" class="form-control form-control-sm tax-input-compact" value="0" step="0.01" style="background: #fff4e5 !important;">
                             </div>
                             <div class="col-6">
                                 <label class="micro-label text-uppercase fw-bold text-muted">Perc. IVA</label>
-                                <input type="number" id="tax-percep-iva"
-                                    class="form-control form-control-sm tax-input-compact" value="0">
+                                <input type="number" id="tax-percep-iva" class="form-control form-control-sm tax-input-compact" value="0" step="0.01" style="background: #e5f1ff !important;">
+                            </div>
+                        </div>
+                        <div class="row g-2 mt-2">
+                            <div class="col-6">
+                                <label class="micro-label text-uppercase fw-bold text-muted">Exento</label>
+                                <input type="number" id="tax-exento" class="form-control form-control-sm tax-input-compact" value="0" step="0.01">
+                            </div>
+                            <div class="col-6">
+                                <label class="micro-label text-uppercase fw-bold text-muted">No Gravado</label>
+                                <input type="number" id="tax-no-gravado" class="form-control form-control-sm tax-input-compact" value="0" step="0.01">
                             </div>
                         </div>
                     </div>
@@ -364,6 +402,30 @@
     :root {
         --premium-bg: rgba(255, 255, 255, 0.95);
         --primary-soft: #eef2ff;
+    }
+
+    /* Asegurar que el resumen no tape el menú de navegación */
+    .summary-card-sticky {
+        position: sticky;
+        top: 80px;
+        z-index: 10; /* Valor bajo para no tapar dropdowns */
+    }
+
+    /* Estilo para los inputs de impuestos compactos */
+    .tax-input-compact {
+        font-size: 0.75rem !important;
+        height: 28px !important;
+        padding: 0.2rem 0.4rem !important;
+        text-align: right;
+        font-weight: 600;
+        border: 1px solid #dee2e6;
+        background: #f8f9fa;
+    }
+    
+    .tax-input-compact:focus {
+        background: #fff;
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
     }
 
     /* OVERLAY Y MODAL */

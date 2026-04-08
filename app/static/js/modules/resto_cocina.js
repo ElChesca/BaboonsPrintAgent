@@ -9,6 +9,9 @@ let kdsInterval = null;
 let estacionActual = 'cocina'; 
 let viewMode = 'grid'; // 'grid' o 'kanban'
 let unifyByTable = false;
+let sortMode = 'tiempo'; // 'tiempo' o 'mesa'
+let mesaFilter = "";
+let tiempoFilter = "all"; // 'all', 1, 2, 3
 
 /**
  * Permite forzar la estación desde el cargador de módulos (main.js)
@@ -28,23 +31,42 @@ export async function inicializarRestoCocina() {
     // Actualizar UI de botones
     actualizarBotonesVista();
 
-    // Display cocinero name
+    // Display user name and icon based on station
     const user = getCurrentUser();
     if (user && user.nombre) {
         const nameEl = document.getElementById('kds-user-name');
-        const icon = estacionActual === 'bar' ? '🍹' : (estacionActual === 'dolce' ? '☕' : '👨‍🍳');
-        if (nameEl) nameEl.innerText = `${icon} ${user.nombre}`;
+        const iconPrefix = estacionActual === 'bar' ? '🍹' : (estacionActual === 'dolce' ? '🍰' : '👨‍🍳');
+        if (nameEl) {
+            nameEl.innerText = `${iconPrefix} ${user.nombre}`;
+            // Remove previous station classes and add current
+            nameEl.classList.remove('badge-cocina', 'badge-bar', 'badge-dolce');
+            nameEl.classList.add(`badge-${estacionActual}`);
+        }
     }
     
-    // Titular dinámico
-    const titleEl = document.querySelector('.page-header h2');
-    if (titleEl) {
+    // Dynamic Branding (Title & Station Name)
+    const mainTitleEl = document.getElementById('kds-main-title');
+    const stationNameEl = document.getElementById('kds-station-name');
+    const brandIconI = document.querySelector('.kds-brand-icon i');
+
+    if (mainTitleEl) mainTitleEl.innerText = `KDS ${estacionActual.toUpperCase()}`;
+    
+    if (stationNameEl) {
         const titulos = {
             'cocina': 'Monitor de Cocina',
             'bar': 'Monitor de Barra / Bebidas',
-            'dolce': 'Monitor Dolce (Cafetería y Pastelería)'
+            'dolce': 'Monitor Dolce (Cafetería y Pastas)'
         };
-        titleEl.innerHTML = `<i class="fas ${estacionActual === 'bar' ? 'fa-cocktail' : (estacionActual === 'dolce' ? 'fa-birthday-cake' : 'fa-fire')} me-2"></i> ${titulos[estacionActual] || 'Monitor'}`;
+        stationNameEl.innerText = titulos[estacionActual] || 'Monitor de Producción';
+    }
+
+    if (brandIconI) {
+        const icons = {
+            'cocina': 'fa-fire-alt',
+            'bar': 'fa-cocktail',
+            'dolce': 'fa-ice-cream'
+        };
+        brandIconI.className = `fas ${icons[estacionActual] || 'fa-fire-alt'}`;
     }
 
     // Initial Load
@@ -95,11 +117,39 @@ export function cambiarEstacion(nueva) {
 }
 window.cambiarEstacion = cambiarEstacion;
 
+export function cambiarOrden(mode) {
+    sortMode = mode;
+    document.querySelectorAll('.kds-filter-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`btn-sort-${mode}`)?.classList.add('active');
+    renderKDS();
+}
+window.cambiarOrden = cambiarOrden;
+
+export function filtrarMesa(val) {
+    mesaFilter = val.trim();
+    renderKDS();
+}
+window.filtrarMesa = filtrarMesa;
+
+export function filtrarTiempo(tiempo) {
+    tiempoFilter = tiempo;
+    
+    // UI Update
+    document.querySelectorAll('.kds-filter-btn[onclick*="filtrarTiempo"]').forEach(btn => btn.classList.remove('active'));
+    
+    const targetId = tiempo === 'all' ? 'btn-tiempo-all' : `btn-tiempo-${tiempo}`;
+    document.getElementById(targetId)?.classList.add('active');
+    
+    renderKDS();
+}
+window.filtrarTiempo = filtrarTiempo;
+
 function startKDSPolling() {
     if (kdsInterval) clearInterval(kdsInterval);
 
     kdsInterval = setInterval(() => {
-        if (window.location.hash === '#resto_cocina') {
+        const h = window.location.hash;
+        if (h === '#resto_cocina' || h === '#resto_bar' || h === '#resto_dolce') {
             cargarPendientes(true);
         } else {
             clearInterval(kdsInterval);
@@ -109,7 +159,8 @@ function startKDSPolling() {
 
     // Register active timers for cards
     setInterval(() => {
-        if (window.location.hash === '#resto_cocina') {
+        const h = window.location.hash;
+        if (h === '#resto_cocina' || h === '#resto_bar' || h === '#resto_dolce') {
             actualizarRelojes();
         }
     }, 1000);
@@ -172,10 +223,23 @@ function renderKDS() {
         return;
     }
 
-    // --- PROCESAMIENTO Y AGRUPACIÓN ---
+    // --- PROCESAMIENTO, FILTRADO Y ORDENAMIENTO ---
+    const allGroups = [];
     const groups = {};
+    
     pendingItems.forEach(item => {
-        // La clave de agrupación depende de si unificamos por mesa o por comanda suelta
+        // [NUEVO] DOBLE SEGURIDAD: Filtrar por estación también en el frontend por si el backend fallara
+        const itemEst = (item.categoria_estacion || 'cocina').toLowerCase();
+        if (itemEst !== estacionActual.toLowerCase()) {
+            return; 
+        }
+
+        // Filtro por Mesa
+        if (mesaFilter && String(item.mesa_numero) !== mesaFilter) return;
+
+        // [NUEVO] Filtro por Tiempo
+        if (tiempoFilter !== 'all' && item.tiempo != tiempoFilter) return;
+
         const key = unifyByTable ? `mesa-${item.mesa_numero}` : `comanda-${item.comanda_id}`;
         
         if (!groups[key]) {
@@ -187,9 +251,11 @@ function renderKDS() {
                 openedAt: new Date(item.pedido_fecha).getTime(),
                 mozo: item.mozo_nombre || 'Mozo',
                 items: [],
-                status: 'pending' // 'pending' o 'cooking'
+                status: 'pending'
             };
+            allGroups.push(groups[key]);
         }
+        
         // Consolidación de items por producto para vista unificada
         const productKey = `${item.producto_id}-${item.detalle_estado}`;
         let existingItem = groups[key].items.find(i => `${i.producto_id}-${i.detalle_estado}` === productKey);
@@ -211,9 +277,40 @@ function renderKDS() {
         // Mantener la hora de apertura más antigua para el cronómetro del grupo
         const itemTime = new Date(item.pedido_fecha).getTime();
         if (itemTime < groups[key].openedAt) groups[key].openedAt = itemTime;
+
+        // [NUEVO] Seguir el tiempo predominante (mínimo tiempo pendiente)
+        if (!groups[key].dominantTiempo || item.tiempo < groups[key].dominantTiempo) {
+            if (item.detalle_estado !== 'listo') {
+                groups[key].dominantTiempo = item.tiempo;
+            }
+        }
     });
 
-    const allGroups = Object.values(groups).sort((a, b) => a.openedAt - b.openedAt);
+    // Post-procesamiento de grupos para detectar disparos
+    Object.values(groups).forEach(group => {
+        if (!group.dominantTiempo) group.dominantTiempo = 1; // Fallback
+
+        // Chequear si T1 está todo listo para disparar T2
+        const itemsT1 = group.items.filter(i => i.tiempo == 1);
+        const allT1Ready = itemsT1.length > 0 && itemsT1.every(i => i.detalle_estado === 'listo');
+        if (allT1Ready) {
+            group.nextCourseReady = true;
+        }
+    });
+
+    // APLICAR ORDENAMIENTO
+    if (sortMode === 'tiempo') {
+        allGroups.sort((a, b) => a.openedAt - b.openedAt);
+    } else if (sortMode === 'mesa') {
+        allGroups.sort((a, b) => {
+            const valA = String(a.mesa);
+            const valB = String(b.mesa);
+            const numA = parseInt(valA.replace(/\D/g, '')) || 0;
+            const numB = parseInt(valB.replace(/\D/g, '')) || 0;
+            if (numA !== numB) return numA - numB;
+            return valA.localeCompare(valB);
+        });
+    }
 
     // Limpiar mensaje de "Todo al día" o estructuras previas si hay datos
     if (allGroups.length > 0) {
@@ -254,7 +351,14 @@ function renderGridView(groups, container) {
         const diffMin = Math.floor((now - group.openedAt) / 60000);
         let prioClass = (diffMin >= 15) ? 'prio-high' : (diffMin >= 8 ? 'prio-medium' : 'prio-low');
         const isCooking = group.status === 'cooking';
-        const isBar = estacionActual === 'bar';
+        
+        // Dynamic labels and icons
+        const stationConfig = {
+            'cocina': { prepareIcon: 'fa-fire', prepareText: 'PREPARAR TODO', dispatchIcon: 'fa-check-double', dispatchText: 'DESPACHAR' },
+            'bar': { prepareIcon: 'fa-wine-glass-alt', prepareText: 'PREPARAR', dispatchIcon: 'fa-concierge-bell', dispatchText: 'SERVIR' },
+            'dolce': { prepareIcon: 'fa-coffee', prepareText: 'PREPARAR', dispatchIcon: 'fa-utensils', dispatchText: 'ENTREGAR' }
+        };
+        const config = stationConfig[estacionActual] || stationConfig['cocina'];
 
         const cardContentHTML = `
             <div class="kds-card-head">
@@ -270,15 +374,14 @@ function renderGridView(groups, container) {
             <div class="kds-card-items">
                 ${group.items.map(item => `
                     <div class="kds-item ${item.detalle_estado === 'cocinando' ? 'is-cooking' : ''} ${item.detalle_estado === 'listo' ? 'is-done' : ''}">
-                        <div class="kds-item-left">
-                            <div class="kds-item-qty">${Math.round(item.cantidad)}</div>
-                            <div class="kds-item-info">
-                                <span class="kds-item-name">
-                                    ${item.producto_nombre}
-                                    ${item.parent_detalle_id ? `<span class="badge-combo-link"><i class="fas fa-link"></i> COMBO</span>` : ''}
-                                </span>
-                                ${item.pedido_observaciones ? `<span class="kds-item-note"><i class="fas fa-exclamation-circle"></i> ${item.pedido_observaciones}</span>` : ''}
-                            </div>
+                        <div class="kds-item-qty">${Math.round(item.cantidad)}</div>
+                        <div class="kds-item-info">
+                            <span class="kds-item-name">
+                                <span class="kds-tiempo-badge tiempo-${item.tiempo || 1}">T${item.tiempo || 1}</span>
+                                ${item.producto_nombre}
+                                ${item.parent_detalle_id ? `<span class="badge-combo-link"><i class="fas fa-link"></i> COMBO</span>` : ''}
+                            </span>
+                            ${item.pedido_observaciones ? `<span class="kds-item-note"><i class="fas fa-exclamation-circle"></i> ${item.pedido_observaciones}</span>` : ''}
                         </div>
                         <span class="kds-item-status"><i class="fas ${item.detalle_estado === 'cocinando' ? 'fa-spinner fa-spin' : (item.detalle_estado === 'listo' ? 'fa-check' : 'fa-clock')}"></i></span>
                     </div>
@@ -287,11 +390,11 @@ function renderGridView(groups, container) {
             <div class="kds-card-actions">
                 ${!isCooking ? `
                     <button class="kds-action-btn btn-prepare" onclick="window.updateGrupoEstado('${group.id}', 'cocinando')">
-                        <i class="fas ${isBar ? 'fa-wine-glass-alt' : 'fa-fire'}"></i> ${isBar ? 'PREPARAR' : 'PREPARAR TODO'}
+                        <i class="fas ${config.prepareIcon}"></i> ${config.prepareText}
                     </button>
                 ` : `
                     <button class="kds-action-btn btn-dispatch" onclick="window.updateGrupoEstado('${group.id}', 'listo')">
-                        <i class="fas ${isBar ? 'fa-concierge-bell' : 'fa-check-double'}"></i> ${isBar ? 'SERVIR' : 'DESPACHAR'}
+                        <i class="fas ${config.dispatchIcon}"></i> ${config.dispatchText}
                     </button>
                 `}
             </div>
@@ -300,11 +403,15 @@ function renderGridView(groups, container) {
         if (!card) {
             card = document.createElement('div');
             card.id = divId;
-            card.className = `kds-card ${prioClass} ${isCooking ? 'is-cooking' : ''} slide-in-top`;
+            const tiempoClass = `tiempo-${group.dominantTiempo || 1}`;
+            const readyClass = group.nextCourseReady ? 'tiempo-ready' : '';
+            card.className = `kds-card ${prioClass} ${isCooking ? 'is-cooking' : ''} ${tiempoClass} ${readyClass} slide-in-top`;
             card.innerHTML = cardContentHTML;
             container.appendChild(card);
         } else {
-            card.className = `kds-card ${prioClass} ${isCooking ? 'is-cooking' : ''}`;
+            const tiempoClass = `tiempo-${group.dominantTiempo || 1}`;
+            const readyClass = group.nextCourseReady ? 'tiempo-ready' : '';
+            card.className = `kds-card ${prioClass} ${isCooking ? 'is-cooking' : ''} ${tiempoClass} ${readyClass}`;
             if (card.innerHTML.replace(/\s/g, '') !== cardContentHTML.replace(/\s/g, '')) {
                 card.innerHTML = cardContentHTML;
             }
@@ -360,38 +467,47 @@ function renderKanbanView(groups, container) {
     document.getElementById('badge-todo').innerText = todoGroups.length;
     document.getElementById('badge-doing').innerText = doingGroups.length;
 
-    const renderList = (groupsList, element) => {
-        const existingIds = new Set();
-        groupsList.forEach(group => {
-            const divId = `kanban-card-${group.id}`;
-            existingIds.add(divId);
-            let card = document.getElementById(divId);
-            
-            const diffMin = Math.floor((now - group.openedAt) / 60000);
-            
-            const cardHTML = `
-                <div class="kds-card-head py-2 px-3">
-                    <div class="d-flex justify-content-between w-100 align-items-center">
-                        <span class="kds-mesa-badge" style="font-size: 0.85rem; padding: 3px 8px;">MESA ${group.mesa}</span>
-                        <span class="kds-timer" style="font-size: 0.9rem;" data-start="${group.openedAt}"><i class="fas fa-clock"></i> ${diffMin}m</span>
-                    </div>
-                </div>
-                <div class="px-3 py-2 bg-black bg-opacity-10">
-                    ${group.items.map(i => `
-                        <div class="mb-1 fw-700 ${i.detalle_estado === 'listo' ? 'text-muted text-decoration-line-through' : ''}" style="font-size: 1.1rem;">
-                           ${Math.round(i.cantidad)}x <span class="text-white">${i.producto_nombre}</span>
-                           ${i.parent_detalle_id ? `<span class="badge-combo-link-sm"><i class="fas fa-link"></i> COMBO</span>` : ''}
+        // Dynamic labels and icons
+        const stationConfig = {
+            'cocina': { prepareIcon: 'fa-fire', prepareText: 'COMENZAR', dispatchIcon: 'fa-check-double', dispatchText: 'LISTO' },
+            'bar': { prepareIcon: 'fa-wine-glass-alt', prepareText: 'PREPARAR', dispatchIcon: 'fa-concierge-bell', dispatchText: 'SERVIR' },
+            'dolce': { prepareIcon: 'fa-coffee', prepareText: 'PREPARAR', dispatchIcon: 'fa-utensils', dispatchText: 'LISTO' }
+        };
+        const config = stationConfig[estacionActual] || stationConfig['cocina'];
+
+        const renderList = (groupsList, element) => {
+            const existingIds = new Set();
+            groupsList.forEach(group => {
+                const divId = `kanban-card-${group.id}`;
+                existingIds.add(divId);
+                let card = document.getElementById(divId);
+                
+                const diffMin = Math.floor((now - group.openedAt) / 60000);
+                
+                const cardHTML = `
+                    <div class="kds-card-head py-2 px-3">
+                        <div class="d-flex justify-content-between w-100 align-items-center">
+                            <span class="kds-mesa-badge" style="font-size: 0.85rem; padding: 3px 8px;">MESA ${group.mesa}</span>
+                            <span class="kds-timer" style="font-size: 0.9rem;" data-start="${group.openedAt}"><i class="fas fa-clock"></i> ${diffMin}m</span>
                         </div>
-                    `).join('')}
-                </div>
-                <div class="p-2">
-                    <button class="kds-action-btn ${group.status === 'pending' ? 'btn-prepare' : 'btn-dispatch'} py-2"
-                            style="font-size: 0.9rem;"
-                            onclick="window.updateGrupoEstado('${group.id}', '${group.status === 'pending' ? 'cocinando' : 'listo'}')">
-                        ${group.status === 'pending' ? '<i class="fas fa-fire"></i> COMENZAR' : '<i class="fas fa-check-double"></i> LISTO'}
-                    </button>
-                </div>
-            `;
+                    </div>
+                    <div class="px-3 py-2 bg-black bg-opacity-10">
+                        ${group.items.map(i => `
+                            <div class="mb-1 fw-700 ${i.detalle_estado === 'listo' ? 'text-muted text-decoration-line-through' : ''}" style="font-size: 1.1rem;">
+                               <span class="badge bg-secondary me-1" style="font-size: 0.7rem;">T${i.tiempo || 1}</span>
+                               ${Math.round(i.cantidad)}x <span class="text-white">${i.producto_nombre}</span>
+                               ${i.parent_detalle_id ? `<span class="badge-combo-link-sm"><i class="fas fa-link"></i> COMBO</span>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="p-2">
+                        <button class="kds-action-btn ${group.status === 'pending' ? 'btn-prepare' : 'btn-dispatch'} py-2"
+                                style="font-size: 0.9rem;"
+                                onclick="window.updateGrupoEstado('${group.id}', '${group.status === 'pending' ? 'cocinando' : 'listo'}')">
+                            ${group.status === 'pending' ? `<i class="fas ${config.prepareIcon}"></i> ${config.prepareText}` : `<i class="fas ${config.dispatchIcon}"></i> ${config.dispatchText}`}
+                        </button>
+                    </div>
+                `;
 
             if (!card) {
                 card = document.createElement('div');

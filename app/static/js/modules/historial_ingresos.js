@@ -35,10 +35,10 @@ const formatFacturaNro = (tipo, prefijo, numero) => {
 
 const getEstadoBadgeClass = (estado) => {
     switch (String(estado).toLowerCase()) {
-        case 'pagada': return 'status-pagada'; // Necesitas definir .status-pagada en global.css (ej. background verde)
-        case 'parcial': return 'status-parcial'; // Necesitas definir .status-parcial (ej. background naranja)
-        case 'pendiente': return 'status-pendiente'; // Ya la tienes? (ej. background amarillo)
-        default: return 'status-desconocido'; // Añadir un default (ej. background gris)
+        case 'pagada': return 'status-pagada';
+        case 'parcial': return 'status-parcial';
+        case 'pendiente': return 'status-pendiente';
+        default: return 'status-desconocido';
     }
 };
 
@@ -47,12 +47,8 @@ const getEstadoBadgeClass = (estado) => {
 
 /** Renderiza la tabla del historial de ingresos */
 function renderizarHistorial(ingresos) {
-    // Re-chequeo por si acaso
-    if (!tablaBody) {
-        console.error("renderizarHistorial: tablaBody no está disponible.");
-        return;
-    }
-    tablaBody.innerHTML = ''; // Limpiar
+    if (!tablaBody) return;
+    tablaBody.innerHTML = ''; 
 
     if (!ingresos || ingresos.length === 0) {
         tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No hay ingresos para mostrar con los filtros seleccionados.</td></tr>';
@@ -63,240 +59,319 @@ function renderizarHistorial(ingresos) {
         const row = document.createElement('tr');
         const estadoPago = ingreso.estado_pago || 'pendiente';
         row.innerHTML = `
-            <td>${formatDate(ingreso.fecha)}</td>
-            <td>${ingreso.proveedor_nombre || 'N/A'}</td>
+            <td class="ps-4">${formatDate(ingreso.fecha)}</td>
+            <td class="fw-bold text-slate-700">${ingreso.proveedor_nombre || 'N/A'}</td>
             <td>${formatFacturaNro(ingreso.factura_tipo, ingreso.factura_prefijo, ingreso.factura_numero)}</td>
-            <td>${ingreso.referencia || '-'}</td>
-            <td>${formatCurrency(ingreso.total_factura)}</td>
-            <td>${formatCurrency(ingreso.monto_pagado)}</td>
-            <td>${formatCurrency(ingreso.saldo_pendiente)}</td>
-            <td><span class="status-badge ${getEstadoBadgeClass(estadoPago)}">${estadoPago}</span></td>
-            <td><button class="btn btn-info btn-sm btn-ver-detalles" data-id="${ingreso.id}">Ver</button></td>
+            <td><small class="text-muted">${ingreso.referencia || '-'}</small></td>
+            <td class="text-end fw-bold text-slate-800">${formatCurrency(ingreso.total_factura)}</td>
+            <td class="text-end text-success">${formatCurrency(ingreso.monto_pagado || 0)}</td>
+            <td class="text-end text-danger">${formatCurrency(ingreso.saldo_pendiente || 0)}</td>
+            <td class="text-center"><span class="status-badge ${getEstadoBadgeClass(estadoPago)}">${estadoPago}</span></td>
+            <td class="pe-4">
+                <div class="btn-group shadow-sm" style="border-radius: 8px; overflow: hidden;">
+                    <button class="btn btn-white btn-sm px-3 border btn-ver-detalles" data-id="${ingreso.id}" title="Ver Detalles">
+                        <i class="fas fa-eye text-primary"></i>
+                    </button>
+                    <button class="btn btn-white btn-sm px-3 border border-start-0" onclick="window.descargarPDFIngreso(${ingreso.id})" title="Imprimir PDF">
+                        <i class="fas fa-print text-muted"></i>
+                    </button>
+                </div>
+            </td>
         `;
         tablaBody.appendChild(row);
+    });
+
+    // Delegación de eventos para los botones "Ver"
+    tablaBody.querySelectorAll('.btn-ver-detalles').forEach(btn => {
+        btn.onclick = () => mostrarDetailModal(btn.dataset.id);
     });
 }
 
 /** Carga y muestra los detalles de un ingreso en el modal */
-// Asegúrate que main.js exporte esta función si se llama desde ahí, o quita el export si no.
-// UPDATE: main.js ya la exporta (window.mostrarDetalleIngreso), así que mantenemos el export aquí.
-export async function mostrarDetalle(ingresoId) {
-    // Re-chequeo de elementos del modal
-    if (!modalDetalles || !contenidoModal || !closeModalBtn) {
-         console.error("mostrarDetalle: Elementos del modal no encontrados.");
-         mostrarNotificacion("Error al intentar abrir los detalles.", "error");
-         return;
+export async function mostrarDetailModal(ingresoId) {
+    if (!modalDetalles || !contenidoModal || !closeModalBtn) return;
+    
+    contenidoModal.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted small">Consultando detalles fiscales...</p></div>';
+    modalDetalles.style.display = 'flex';
+
+    // Asignar evento al botón de impresión del modal
+    const btnImp = document.getElementById('btn-imprimir-ingreso-modal');
+    if (btnImp) {
+        btnImp.onclick = () => window.descargarPDFIngreso(ingresoId);
     }
-    contenidoModal.innerHTML = '<p>Cargando detalles...</p>';
-    modalDetalles.style.display = 'flex'; // Mostrar modal
 
     try {
-        const detalles = await fetchData(`/api/ingresos/${ingresoId}/detalles`);
+        const response = await fetchData(`/api/ingresos/${ingresoId}/detalles`);
+        const { maestro, detalles } = response;
+
         if (!detalles || detalles.length === 0) {
-            contenidoModal.innerHTML = '<p>Este ingreso no tiene detalles registrados.</p>';
+            contenidoModal.innerHTML = '<p class="text-center p-4">No se encontraron detalles para este ingreso.</p>';
             return;
         }
 
         let tablaHtml = `
-            <h4>Items del Ingreso</h4>
-            <table class="tabla-bonita" style="margin-top: 15px;">
-                <thead>
-                    <tr>
-                        <th>Producto</th>
-                        <th>Cantidad</th>
-                        <th>Costo Unit.</th>
-                        <th>Subtotal</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div class="table-responsive">
+                <table class="table table-sm table-borderless align-middle mb-0" style="font-size: 0.85rem;">
+                    <thead class="bg-light text-muted">
+                        <tr>
+                            <th class="ps-3">PRODUCTO</th>
+                            <th class="text-center">CANT.</th>
+                            <th class="text-end">UNIT. BRUTO</th>
+                            <th class="text-center">DCTOS %</th>
+                            <th class="text-center">IVA %</th>
+                            <th class="text-end pe-3">SUBTOTAL (NETO)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="border-top">
         `;
-        let totalCalculado = 0;
+
+        let totalNetoItems = 0;
         detalles.forEach(d => {
-            const cantidad = Number(d.cantidad) || 0;
-            // Asegurarse que el costo sea numérico antes de multiplicar
-            const costoUnit = d.precio_costo_unitario !== null ? Number(d.precio_costo_unitario) : 0;
-            const subtotal = cantidad * costoUnit;
-            totalCalculado += subtotal;
+            const cant = Number(d.cantidad) || 0;
+            const bruto = Number(d.precio_costo_unitario) || 0;
+            const dto1 = Number(d.descuento_1) || 0;
+            const dto2 = Number(d.descuento_2) || 0;
+            const iva = Number(d.iva_porcentaje) || 21;
+            
+            const netoUnit = bruto * (1 - dto1 / 100) * (1 - dto2 / 100);
+            const subtotalNeto = cant * netoUnit;
+            totalNetoItems += subtotalNeto;
+
             tablaHtml += `
-                <tr>
-                    <td>${d.nombre || 'Producto desconocido'}</td>
-                    <td>${cantidad}</td>
-                    <td>${d.precio_costo_unitario !== null ? formatCurrency(costoUnit) : '-'}</td>
-                    <td>${formatCurrency(subtotal)}</td>
+                <tr class="border-bottom text-slate-700">
+                    <td class="ps-3 py-2 fw-bold text-slate-800">${d.nombre}</td>
+                    <td class="text-center">${cant}</td>
+                    <td class="text-end text-muted">$ ${bruto.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
+                    <td class="text-center"><small>${dto1 > 0 || dto2 > 0 ? `${dto1}% + ${dto2}%` : '-'}</small></td>
+                    <td class="text-center"><span class="badge bg-light text-dark border">${iva}%</span></td>
+                    <td class="text-end pe-3 fw-bold">$ ${subtotalNeto.toLocaleString('es-AR', {minimumFractionDigits: 2})}</td>
                 </tr>
             `;
         });
+
+        const totalPercepciones = (Number(maestro.iva_percepcion) || 0) + (Number(maestro.iibb_percepcion) || 0);
+
         tablaHtml += `
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <th colspan="3" style="text-align: right;">Total Items:</th>
-                        <th>${formatCurrency(totalCalculado)}</th>
-                    </tr>
-                </tfoot>
-            </table>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="row mt-4 pt-3 border-top g-3">
+                <div class="col-md-7">
+                    <p class="small text-muted mb-2 text-uppercase fw-bold tracking-wider">Conceptos Globales</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <div class="bg-light rounded p-2 px-3 border shadow-xs">
+                            <label class="d-block micro-label text-muted">IVA 21%</label>
+                            <span class="fw-bold">$ ${Number(maestro.iva_21 || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})}</span>
+                        </div>
+                        <div class="bg-light rounded p-2 px-3 border shadow-xs">
+                            <label class="d-block micro-label text-muted">IVA 10.5%</label>
+                            <span class="fw-bold">$ ${Number(maestro.iva_105 || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})}</span>
+                        </div>
+                        <div class="bg-light rounded p-2 px-3 border shadow-xs">
+                            <label class="d-block micro-label text-muted">PERCEPCIONES</label>
+                            <span class="fw-bold text-orange-600">$ ${totalPercepciones.toLocaleString('es-AR', {minimumFractionDigits: 2})}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="baboons-card p-3 bg-slate-900 text-white border-0 shadow-lg text-end">
+                        <label class="d-block text-white-50 small mb-1 tracking-wider text-uppercase">Total Comprobante</label>
+                        <h2 class="mb-0 fw-bold">$ ${Number(maestro.total_factura || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})}</h2>
+                    </div>
+                </div>
+            </div>
         `;
         contenidoModal.innerHTML = tablaHtml;
 
     } catch (error) {
-        mostrarNotificacion('Error al cargar los detalles del ingreso.', 'error');
         console.error("Error mostrando detalle ingreso:", error);
-        contenidoModal.innerHTML = `<p style="color: red;">Error al cargar detalles: ${error.message}</p>`;
+        mostrarNotificacion('Error al cargar la información fiscal.', 'error');
+        contenidoModal.innerHTML = `<div class="p-4 text-center text-danger"><i class="fas fa-exclamation-triangle fa-2x mb-2"></i><p>Error: ${error.message}</p></div>`;
     }
 }
 
+// Re-exportamos con el nombre original para compatibilidad si fuera necesario
+export const mostrarDetalle = mostrarDetailModal;
+
 // --- Lógica Principal ---
 
-/** Carga el historial de ingresos desde la API, aplicando filtros */
 async function cargarHistorial() {
-    // Re-chequeo de elementos
-    if (!tablaBody || !filtroProveedorSelect) {
-        console.error("cargarHistorial: Faltan elementos tablaBody o filtroProveedorSelect.");
-        return;
-    }
-    if (!appState.negocioActivoId) {
-         tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Seleccione un negocio activo.</td></tr>';
-         filtroProveedorSelect.disabled = true; // Deshabilitar filtro si no hay negocio
+    if (!tablaBody || !filtroProveedorSelect) return;
+    
+    // ✨ PROTECCIÓN: Si el ID es null o no está listo, esperamos un poco
+    if (!appState.negocioActivoId || appState.negocioActivoId === 'null') {
+         console.warn("[Historial] Esperando negocioActivoId válido...");
+         tablaBody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Sincronizando negocio...</td></tr>';
+         setTimeout(cargarHistorial, 1000);
          return;
-    } else {
-        // Asegurarse de habilitarlo si SÍ hay negocio (por si se deshabilitó antes)
-        filtroProveedorSelect.disabled = false;
     }
 
-    tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Cargando historial...</td></tr>'; // Mostrar 'Cargando'
+    filtroProveedorSelect.disabled = false;
+    tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Cargando historial...</td></tr>';
 
     let url = `/api/negocios/${appState.negocioActivoId}/ingresos`;
     const proveedorIdSeleccionado = filtroProveedorSelect.value;
-
-    if (proveedorIdSeleccionado) {
+    if (proveedorIdSeleccionado && proveedorIdSeleccionado !== 'null') {
         url += `?proveedor_id=${proveedorIdSeleccionado}`;
     }
 
     try {
-        console.log(`Cargando historial desde: ${url}`);
         const ingresos = await fetchData(url);
-        renderizarHistorial(ingresos);
+        if (Array.isArray(ingresos)) {
+            renderizarHistorial(ingresos);
+        } else {
+            console.error("Respuesta inesperada de la API:", ingresos);
+            throw new Error("La respuesta no es una lista válida.");
+        }
     } catch (error) {
+        console.error("Error cargando historial:", error);
         mostrarNotificacion('Error al cargar el historial de ingresos.', 'error');
-        console.error("Error cargando historial ingresos:", error);
-        tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: red;">Error al cargar historial. Intente nuevamente.</td></tr>';
+        tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: red;">Error al cargar historial. Reintente en un momento.</td></tr>';
     }
 }
 
-/** Llena el selector de proveedores para el filtro */
 async function poblarFiltroProveedores() {
-    if (!filtroProveedorSelect) {
-         console.error("poblarFiltroProveedores: filtroProveedorSelect no definido.");
-         return Promise.reject("Elemento select no encontrado");
-    }
+    if (!filtroProveedorSelect) return Promise.reject("Elemento select no encontrado");
     filtroProveedorSelect.innerHTML = '<option value="">-- Todos --</option>';
     filtroProveedorSelect.disabled = true;
 
-    if (!appState.negocioActivoId) {
-         console.warn("poblarFiltroProveedores: No hay negocio activo.");
-         return Promise.resolve(); // Resuelve, no hay nada que cargar
-    }
+    if (!appState.negocioActivoId) return Promise.resolve();
 
     try {
-        console.log("Poblando filtro de proveedores para historial ingresos...");
         const proveedores = await fetchData(`/api/negocios/${appState.negocioActivoId}/proveedores`);
         proveedores.forEach(p => {
             filtroProveedorSelect.appendChild(new Option(p.nombre, p.id));
         });
 
-        // Leer ID de proveedor desde query params (si existe) DESPUÉS de poblar
         const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
-        const proveedorIdFromUrl = urlParams.get('proveedor');
-
-        if (proveedorIdFromUrl) {
-            if (Array.from(filtroProveedorSelect.options).some(opt => opt.value === proveedorIdFromUrl)) {
-                 filtroProveedorSelect.value = proveedorIdFromUrl;
-                 console.log(`Filtro proveedor preseleccionado a ID: ${proveedorIdFromUrl}`);
-            } else {
-                 console.warn(`Proveedor ID ${proveedorIdFromUrl} del hash no existe en la lista, mostrando todos.`);
-                 filtroProveedorSelect.value = "";
-            }
-        } else {
-            filtroProveedorSelect.value = ""; // Asegurar "Todos" si no hay filtro
-        }
+        const provUrl = urlParams.get('proveedor');
+        if (provUrl) filtroProveedorSelect.value = provUrl;
 
         filtroProveedorSelect.disabled = false;
-        console.log("Filtro de proveedores poblado.");
-        return Promise.resolve(); // Indicar éxito
-
+        return Promise.resolve();
     } catch (error) {
-        console.error("Error poblando filtro proveedores:", error);
         filtroProveedorSelect.innerHTML = '<option value="">Error al cargar</option>';
-        filtroProveedorSelect.disabled = true;
-        return Promise.reject(error); // Indicar fallo
+        return Promise.reject(error);
     }
 }
 
-// --- Handler para clicks en la tabla ---
 function handleTablaClick(event) {
-    const target = event.target; // Elemento clickeado
-    if (target.classList.contains('btn-ver-detalles')) {
-        const ingresoId = target.dataset.id;
-        if (ingresoId) {
-            console.log(`Mostrando detalles para ingreso ID: ${ingresoId}`);
-            mostrarDetalle(ingresoId); // Llama a la función exportada
-        } else {
-            console.warn("Botón 'Ver Detalles' clickeado sin data-id.");
-        }
+    const target = event.target;
+    if (target.classList.contains('btn-ver-detalles') || target.closest('.btn-ver-detalles')) {
+        const btn = target.classList.contains('btn-ver-detalles') ? target : target.closest('.btn-ver-detalles');
+        const id = btn.dataset.id;
+        if (id) mostrarDetailModal(id);
     }
-    // Añadir lógica para otros botones si es necesario
 }
 
-// Handler nombrado para cerrar modal
 function closeModalHandler() {
     if(modalDetalles) modalDetalles.style.display = 'none';
 }
 
-
-// --- Inicialización del Módulo ---
-// Exportar con el nombre que espera main.js
 export function inicializarLogicaHistorialIngresos() {
-    console.log("Inicializando módulo Historial de Ingresos...");
-
-    // Seleccionar elementos DENTRO de init
     tablaBody = document.querySelector('#tabla-historial-ingresos tbody');
     modalDetalles = document.getElementById('modal-detalles-ingreso');
     closeModalBtn = document.getElementById('close-detalles-ingreso');
     contenidoModal = document.getElementById('contenido-detalles-ingreso');
     filtroProveedorSelect = document.getElementById('filtro-proveedor-ingresos');
 
-    // Comprobar que TODOS los elementos críticos existen
-    if (!tablaBody || !modalDetalles || !closeModalBtn || !contenidoModal || !filtroProveedorSelect) {
-        console.error("Error crítico: Faltan elementos HTML esenciales en historial_ingresos.html.");
-        mostrarNotificacion("Error al cargar la página de historial (elementos faltantes).", "error");
-        const contentArea = document.getElementById('content-area');
-        if (contentArea) contentArea.innerHTML = '<p style="color: red; text-align: center;">Error al cargar el módulo. Faltan componentes HTML.</p>';
-        return; // Detener ejecución
-    }
-    console.log("Elementos HTML de Historial Ingresos encontrados.");
+    if (!tablaBody || !modalDetalles || !closeModalBtn || !contenidoModal || !filtroProveedorSelect) return;
 
-    // Limpiar listeners anteriores
-    tablaBody.removeEventListener('click', handleTablaClick);
-    closeModalBtn.removeEventListener('click', closeModalHandler);
-    filtroProveedorSelect.removeEventListener('change', cargarHistorial);
-    console.log("Listeners de Historial Ingresos limpiados.");
-
-    // Añadir listeners
     tablaBody.addEventListener('click', handleTablaClick);
     closeModalBtn.addEventListener('click', closeModalHandler);
     filtroProveedorSelect.addEventListener('change', cargarHistorial);
-    console.log("Nuevos listeners de Historial Ingresos añadidos.");
 
-    // Carga inicial: poblar filtro y LUEGO cargar historial
     (async () => {
         try {
-            await poblarFiltroProveedores(); // Espera a que se llene y seleccione
-            await cargarHistorial(); // Carga con el filtro correcto
+            await poblarFiltroProveedores();
+            await cargarHistorial();
         } catch (error) {
-            console.error("Error durante la inicialización de Historial Ingresos:", error);
-            if(tablaBody) tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: red;">Error al inicializar. Verifique la consola.</td></tr>';
+            console.error(error);
         }
     })();
-
-    console.log("Inicialización de Historial de Ingresos completada.");
 }
+
+// --- PDF GENERATION ---
+window.descargarPDFIngreso = async function(ingresoId) {
+    try {
+        const { jsPDF } = window.jspdf;
+        if (!jsPDF) {
+            mostrarNotificacion('jsPDF no disponible', 'error');
+            return;
+        }
+
+        mostrarNotificacion('Generando PDF...', 'info');
+        const { maestro, detalles } = await fetchData(`/api/ingresos/${ingresoId}/detalles`);
+        
+        let config = null;
+        const negocioPrincipal = (appState.negociosCache || []).find(n => n.id == appState.negocioActivoId) || { nombre: 'Baboons ERP' };
+        
+        try {
+            config = await fetchData(`/api/negocios/${appState.negocioActivoId}/compras/config`);
+            if (!config.razon_social) config.razon_social = negocioPrincipal.nombre;
+            if (!config.domicilio) config.domicilio = negocioPrincipal.direccion || '';
+        } catch(e) {
+            config = { razon_social: negocioPrincipal.nombre, domicilio: negocioPrincipal.direccion || '' };
+        }
+
+        const doc = new jsPDF();
+        
+        // Cabecera
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(15, 23, 42); 
+        doc.text(config.razon_social.toUpperCase(), 105, 20, { align: 'center' });
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${config.domicilio || ''} | CUIT: ${config.cuit || ''}`, 105, 26, { align: 'center' });
+        doc.line(14, 30, 196, 30);
+
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(79, 70, 229);
+        doc.text("COMPROBANTE DE INGRESO", 14, 40);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        doc.text(`Comprobante: ${maestro?.factura_tipo || ''} ${maestro?.factura_prefijo || ''}-${maestro?.factura_numero || ''}`, 14, 48);
+        doc.text(`Proveedor: ${maestro?.proveedor_nombre || 'N/A'}`, 14, 54);
+        doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 196, 48, { align: 'right' });
+        if (maestro?.cae) doc.text(`CAE: ${maestro.cae}`, 196, 54, { align: 'right' });
+
+        const tableData = detalles.map((d, i) => [
+            i + 1,
+            d.nombre,
+            d.cantidad,
+            `$ ${Number(d.precio_costo_unitario || 0).toFixed(2)}`,
+            `${d.iva_porcentaje}%`,
+            `$ ${(Number(d.cantidad || 0) * Number(d.precio_costo_unitario || 0) * (1 - (Number(d.descuento_1 || 0) / 100))).toFixed(2)}`
+        ]);
+
+        doc.autoTable({
+            startY: 60,
+            head: [['#', 'Producto', 'Cant.', 'Bruto', 'IVA', 'Subtotal']],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: [79, 70, 229] }
+        });
+
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.setFontSize(11);
+        doc.text(`RESUMEN FISCAL`, 140, finalY);
+        doc.setFontSize(9);
+        doc.text(`IVA 21%: $ ${(Number(maestro?.iva_21) || 0).toFixed(2)}`, 140, finalY + 6);
+        doc.text(`IVA 10.5%: $ ${(Number(maestro?.iva_105) || 0).toFixed(2)}`, 140, finalY + 11);
+        doc.text(`Percepciones: $ ${((Number(maestro?.iva_percepcion)||0) + (Number(maestro?.iibb_percepcion)||0)).toFixed(2)}`, 140, finalY + 16);
+        
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(`TOTAL: $ ${(Number(maestro?.total_factura) || 0).toFixed(2)}`, 140, finalY + 25);
+
+        doc.save(`Ingreso_${ingresoId}.pdf`);
+        mostrarNotificacion('PDF guardado', 'success');
+    } catch (e) {
+        console.error(e);
+        mostrarNotificacion('Error al generar PDF', 'error');
+    }
+};

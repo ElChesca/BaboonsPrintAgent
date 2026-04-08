@@ -109,7 +109,7 @@ export async function inicializarRestoMozo() {
     if (btnReprintComanda) btnReprintComanda.onclick = () => reimprimirComanda();
 
     const btnSplitAccount = document.getElementById('btn-split-account');
-    if (btnSplitAccount) btnSplitAccount.onclick = () => abrirModalDivision();
+    if (btnSplitAccount) btnSplitAccount.onclick = () => window.abrirModalDivision();
 
     const btnMoveMesa = document.getElementById('btn-move-mesa');
     if (btnMoveMesa) btnMoveMesa.onclick = () => moverMesa();
@@ -716,7 +716,8 @@ function addToDraft(item) {
             id: item.id,
             nombre: item.nombre,
             precio: item.precio,
-            cantidad: 1
+            cantidad: 1,
+            tiempo: 1 // Default: Tiempo 1 (Entradas)
         });
     }
     renderOrderSummary();
@@ -844,16 +845,47 @@ function renderOrderSummary() {
         orderDraft.forEach((item, index) => {
             total += (item.precio * item.cantidad);
             html += `
-                <div class="order-item-v2 draft">
-                    <div class="oi-left">
-                        <span class="oi-name text-primary">${item.nombre}</span>
-                        <span class="oi-price">${formatearMoneda(item.precio)}</span>
+                <div class="order-item-v2 draft d-block">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="oi-left me-2">
+                            <span class="oi-name text-primary fw-800">${item.nombre}</span>
+                            <span class="oi-price d-block mt-1">${formatearMoneda(item.precio)}</span>
+                        </div>
+                        <div class="oi-qty">
+                            <button class="qty-btn" onclick="window.updateDraftQty(${index}, -1)">-</button>
+                            <span class="fw-bold mx-2" style="font-size:1.1rem; color:#1e293b;">${item.cantidad}</span>
+                            <button class="qty-btn" onclick="window.updateDraftQty(${index}, 1)">+</button>
+                        </div>
                     </div>
-                    <div class="oi-qty">
-                        <button class="qty-btn" onclick="window.updateDraftQty(${index}, -1)">-</button>
-                        <span class="fw-bold">${item.cantidad}</span>
-                        <button class="qty-btn" onclick="window.updateDraftQty(${index}, 1)">+</button>
+                    
+                    <div class="oi-tiempos-selector segmented-control mb-3">
+                         <button class="t-pill ${item.tiempo == 1 ? 'active' : ''}" onclick="window.updateDraftTiempo(${index}, 1)">T1</button>
+                         <button class="t-pill ${item.tiempo == 2 ? 'active' : ''}" onclick="window.updateDraftTiempo(${index}, 2)">T2</button>
+                         <button class="t-pill ${item.tiempo == 3 ? 'active' : ''}" onclick="window.updateDraftTiempo(${index}, 3)">T3</button>
                     </div>
+
+                    <div class="nota-cat-title px-1 d-flex align-items-center justify-content-between">
+                        <span>Términos y Notas <small class="text-muted ms-1" style="font-size:0.5rem; letter-spacing:0px;">>>></small></span>
+                        <button class="btn btn-sm p-0" style="color:var(--mozo-primary); background:transparent; border:none;" onclick="window.abrirModalNotaManual(${index})" title="Nota manual">
+                            <i class="fas fa-feather-alt" style="font-size:0.8rem"></i>
+                        </button>
+                    </div>
+                    <div class="oi-notas-wrapper mb-2">
+                        ${(TABULATED_NOTES['Carnes']).map(n => `
+                            <div class="nota-chip ${item.notas && item.notas.includes(n) ? 'active' : ''}" onclick="window.updateDraftNota(${index}, '${n}')">${n}</div>
+                        `).join('')}
+                        ${(TABULATED_NOTES['General']).map(n => `
+                            <div class="nota-chip ${item.notas && item.notas.includes(n) ? 'active' : ''}" onclick="window.updateDraftNota(${index}, '${n}')">${n}</div>
+                        `).join('')}
+                    </div>
+
+                    ${item.notas_manuales ? `
+                        <div class="oi-manual-note-display px-1">
+                            <span class="badge rounded-pill bg-light text-muted border" style="font-size:0.65rem; font-weight:600; padding:4px 10px;">
+                                <i class="fas fa-edit me-1 opacity-50"></i> ${item.notas_manuales}
+                            </span>
+                        </div>
+                    ` : ''}
                 </div>
             `;
         });
@@ -872,6 +904,13 @@ window.updateDraftQty = (index, delta) => {
         orderDraft.splice(index, 1);
     }
     renderOrderSummary();
+}
+
+window.updateDraftTiempo = (index, tiempo) => {
+    if (orderDraft[index]) {
+        orderDraft[index].tiempo = tiempo;
+        renderOrderSummary();
+    }
 }
 
 window.toggleOrderListCollapse = () => {
@@ -1085,12 +1124,17 @@ async function enviarComanda() {
     document.getElementById('pos-loading').style.display = 'flex';
     try {
         const payload = {
-            detalles: orderDraft.map(i => ({
-                menu_item_id: i.id,
-                cantidad: i.cantidad,
-                precio_unitario: i.precio,
-                nombre: i.nombre
-            }))
+            detalles: orderDraft.map(i => {
+                const combinedNotes = [i.notas, i.notas_manuales].filter(n => n).join(' | ');
+                return {
+                    menu_item_id: i.id,
+                    cantidad: i.cantidad,
+                    precio_unitario: i.precio,
+                    nombre: i.nombre,
+                    tiempo: i.tiempo || 1,
+                    notas: combinedNotes
+                };
+            })
         };
 
         const res = await sendData(`/api/comandas/${activeComanda.id}/items`, payload, 'POST');
@@ -1935,4 +1979,112 @@ window.setStatusFilter = (status) => {
     }
     
     renderMesas();
+};
+
+// ==========================================
+// 💸 NUEVAS FUNCIONES MOZOS (Dividir & Notas)
+// ==========================================
+
+const TABULATED_NOTES = {
+    'Carnes': ['Bleu', 'Jugoso', 'A punto', 'Cocido', 'Bien cocido'],
+    'General': ['Sin Sal', 'Para Celíacos', 'Rápido', 'Frío', 'Caliente']
+};
+
+window.updateDraftNota = (index, nota) => {
+    if (!orderDraft[index]) return;
+    
+    let currentNotas = orderDraft[index].notas || "";
+    let notasArray = currentNotas ? currentNotas.split(', ').filter(n => n) : [];
+
+    if (notasArray.includes(nota)) {
+        // Quitar si ya existe
+        notasArray = notasArray.filter(n => n !== nota);
+    } else {
+        // Agregar si no existe
+        notasArray.push(nota);
+    }
+
+    orderDraft[index].notas = notasArray.join(', ');
+    renderOrderSummary(); // Refrescar para ver el estado activo del chip
+};
+
+window.updateManualNota = (index, val) => {
+    if (orderDraft[index]) {
+        orderDraft[index].notas_manuales = val;
+        renderOrderSummary();
+    }
+};
+
+window.abrirModalNotaManual = async (index) => {
+    const item = orderDraft[index];
+    if (!item) return;
+
+    const { value: nota } = await Swal.fire({
+        title: 'Nota Manual',
+        input: 'textarea',
+        inputLabel: 'Instrucciones especiales para cocina',
+        inputValue: item.notas_manuales || '',
+        inputPlaceholder: 'Ej: Sin cebolla, extra picante...',
+        showCancelButton: true,
+        confirmButtonText: 'Guardar Nota',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#4f46e5',
+        customClass: { popup: 'premium-swal-v2' }
+    });
+
+    if (nota !== undefined) {
+        window.updateManualNota(index, nota);
+    }
+};
+
+window.abrirModalDivision = async () => {
+    if (!activeComanda) {
+        mostrarNotificacion("No hay una cuenta activa", "warning");
+        return;
+    }
+
+    const total = parseFloat(activeComanda.total || 0);
+    const paxDefault = parseInt(activeComanda.num_comensales || 1);
+
+    if (total <= 0) {
+        mostrarNotificacion("Sin consumo registrado", "info");
+        return;
+    }
+
+    const { value: divisionComensales } = await Swal.fire({
+        title: 'Dividir Cuenta',
+        text: '¿En cuántos comensales se divide la cuenta?',
+        input: 'number',
+        inputAttributes: { min: 1, max: 50, step: 1 },
+        inputValue: paxDefault,
+        showCancelButton: true,
+        confirmButtonText: 'Calcular División',
+        cancelButtonText: 'Cerrar',
+        confirmButtonColor: '#4f46e5',
+        customClass: { popup: 'premium-swal-v2' }
+    });
+
+    if (divisionComensales) {
+        const n = parseInt(divisionComensales);
+        const porCadaUno = total / n;
+        
+        Swal.fire({
+            title: `Cuentas Divididas (x${n})`,
+            html: `
+                <div class="text-center p-3" style="background:#f8fafc; border-radius:30px; border:4px dashed #cbd5e1;">
+                    <div style="font-size:0.75rem; color:#94a3b8; font-weight:800; text-transform:uppercase; margin-bottom:12px; letter-spacing:0.5px;">Gasto Total de Mesa</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:15px;">${formatearMoneda(total)}</div>
+                    
+                    <div style="height:2px; background:#e2e8f0; margin:15px 0;"></div>
+                    
+                    <div style="font-size:3.2rem; font-weight:950; color:#4f46e5; line-height:1; letter-spacing:-2px;">${formatearMoneda(porCadaUno)}</div>
+                    <div style="font-size:0.9rem; color:#64748b; font-weight:800; margin-top:10px;">POR PERSONA</div>
+                </div>
+                <div class="small text-muted mt-3 fw-600">Calculado para ${n} comensales</div>
+            `,
+            confirmButtonText: 'ENTENDIDO',
+            confirmButtonColor: '#4f46e5',
+            customClass: { popup: 'premium-swal-v2' }
+        });
+    }
 };

@@ -5,6 +5,7 @@ import { appState } from '../main.js';
 
 let reservasCache = [];
 let mesasCache = [];
+let sectoresCache = [];
 let waConfig = { wa_template: null };
 let filtroEstado = 'all';
 let fechaActual = new Date().toISOString().split('T')[0];
@@ -21,6 +22,7 @@ export function inicializarReservas() {
     }
     cargarReservas();
     cargarMesasParaSelect();
+    cargarSectores();
     cargarWAConfig(); // Cargar config de WhatsApp al inicio
     
     if (updateInterval) clearInterval(updateInterval);
@@ -211,6 +213,9 @@ function verDetalleReserva(id) {
 
     actions.innerHTML = `
       <button class="btn-res-secondary" onclick="window.cerrarModal()">Cerrar</button>
+      <button class="btn-res-secondary" style="background:#f1f5f9; border-color:#cbd5e1;" onclick="window.generarTarjetaDigital(${r.id})">
+        <i class="fas fa-id-card"></i> Tarjeta Digital
+      </button>
       ${r.estado === 'pendiente' ? `<button class="btn-res-primary" style="background:#10b981;" onclick="window.cambiarEstadoReserva(${r.id},'confirmada')">Confirmar</button>` : ''}
       ${r.estado !== 'cancelada' ? `<button class="btn-res-primary" onclick="window.asignarMesaReserva(${r.id})">Guardar Mesa</button>` : ''}
       ${r.estado === 'confirmada' ? `<button class="btn-res-primary" style="background:#0ea5e9;" onclick="window.cambiarEstadoReserva(${r.id},'completada')">Marcar Completada</button>` : ''}
@@ -261,6 +266,12 @@ function confirmarCancelar(id) {
 function abrirModalNuevaReserva() {
     document.getElementById('nr-fecha').value = fechaActual;
     document.getElementById('wa-link-container').style.display = 'none';
+    
+    const secSelect = document.getElementById('nr-sector');
+    if (secSelect) {
+        secSelect.innerHTML = sectoresCache.map(s => `<option value="${s.nombre}">${s.nombre}</option>`).join('');
+    }
+    
     document.getElementById('modal-nueva-reserva').style.display = 'flex';
     cargarHorasDisponibles();
 }
@@ -347,6 +358,13 @@ async function actualizarBadgePendientes() {
     } catch (e) {}
 }
 
+async function cargarSectores() {
+    try {
+        const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/sectores`);
+        sectoresCache = data || [];
+    } catch (e) { console.error("Error al cargar sectores", e); }
+}
+
 // --- CONFIGURACIÓN GENERAL (NUEVO GESTOR DE BLOQUES) ---
 
 let turnosTemporales = []; // Estado local para el gestor de bloques
@@ -371,6 +389,9 @@ async function abrirModalConfigGeneral() {
         
         const selAviso = document.getElementById('config-aviso-min');
         if (selAviso) selAviso.value = configData.aviso_apertura_min || 60;
+
+        const inputAntelacion = document.getElementById('config-antelacion-dias');
+        if (inputAntelacion) inputAntelacion.value = configData.antelacion_minima_dias || 0;
 
         // Cargar link público
         const publicLinkInput = document.getElementById('res-public-link-input');
@@ -462,7 +483,8 @@ function eliminarTurnoBloque(index) {
 async function guardarConfigGeneral() {
     const configPayload = {
         wa_template: document.getElementById('wa-template-input').value,
-        aviso_apertura_min: parseInt(document.getElementById('config-aviso-min').value) || 60
+        aviso_apertura_min: parseInt(document.getElementById('config-aviso-min').value) || 60,
+        antelacion_minima_dias: parseInt(document.getElementById('config-antelacion-dias').value) || 0
     };
 
     try {
@@ -489,9 +511,117 @@ function compartirPortal() {
     mostrarNotificacion('Link del portal copiado al portapapeles 📋', 'success');
 }
 
+// --- TARJETA DIGITAL (NUEVO) ---
+
+let currentCardImage = null;
+
+async function generarTarjetaDigital(id) {
+    const r = reservasCache.find(x => x.id === id);
+    if (!r) return;
+    
+    // Población de template
+    const biz = appState.negociosCache.find(n => String(n.id) === String(appState.negocioActivoId));
+    const nombreFull = r.nombre_cliente || `${r.cliente_nombre_reg || ''} ${r.cliente_apellido || ''}`.trim();
+    
+    document.getElementById('card-client-name').innerText = nombreFull.toUpperCase();
+    document.getElementById('card-hora').innerText = (r.hora_reserva || '20:00').substring(0,5) + ' HS';
+    
+    // Formatear fecha DD/MM
+    let fechaDisplay = r.fecha_reserva;
+    try {
+        const partsF = r.fecha_reserva.split('-');
+        if(partsF.length === 3) fechaDisplay = `${partsF[2]}/${partsF[1]}`;
+    } catch(e) {}
+    document.getElementById('card-fecha').innerText = fechaDisplay;
+
+    document.getElementById('card-pax').innerText = r.num_comensales + ' PERSONAS';
+    document.getElementById('card-address').innerText = biz ? (biz.direccion || '') : '';
+
+    const modal = document.getElementById('modal-reserva-digital');
+    const preview = document.getElementById('res-card-preview-container');
+    
+    modal.style.display = 'flex';
+    preview.innerHTML = `<div class="res-loading"><i class="fas fa-spinner fa-spin"></i> Generando Tarjeta...</div>`;
+
+    setTimeout(async () => {
+        try {
+            const template = document.getElementById('res-card-template');
+            
+            // Forzar carga de todas las imágenes en el template (logo y trama)
+            const images = template.querySelectorAll('img');
+            const promises = Array.from(images).map(img => {
+                if (img.complete) return Promise.resolve();
+                return new Promise(res => { img.onload = res; img.onerror = res; });
+            });
+
+            // También esperar a que la fuente esté lista si es posible
+            await document.fonts.ready;
+            await Promise.all(promises);
+
+            const canvas = await html2canvas(template, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: null,
+                logging: false,
+                onclone: (doc) => {
+                    // Asegurar visibilidad en el clon
+                    const el = doc.getElementById('res-card-template');
+                    if (el) el.style.position = 'relative';
+                }
+            });
+            currentCardImage = canvas.toDataURL("image/png");
+            preview.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = currentCardImage;
+            img.className = 'res-card-img-preview';
+            img.style.maxWidth = '100%';
+            img.style.borderRadius = '12px';
+            img.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+            preview.appendChild(img);
+        } catch (e) {
+            console.error("[Tarjeta] Error:", e);
+            preview.innerHTML = `<p style="color:red;">Error al generar imagen de la tarjeta.</p>`;
+        }
+    }, 800);
+}
+
+async function compartirTarjeta() {
+    if (!currentCardImage) return;
+    try {
+        const blob = await (await fetch(currentCardImage)).blob();
+        const file = new File([blob], 'reserva_vitaclub.png', { type: 'image/png' });
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                files: [file],
+                title: 'Confirmación de Reserva',
+                text: '¡Tu mesa está lista!'
+            });
+        } else {
+            descargarTarjeta();
+            mostrarNotificacion("Tu navegador no soporta compartir archivos. Se descargó la imagen.", "info");
+        }
+    } catch (e) {
+        console.error("[Share Error]", e);
+        descargarTarjeta();
+    }
+}
+
+function descargarTarjeta() {
+    if (!currentCardImage) return;
+    const link = document.createElement('a');
+    link.download = 'TarjetaReserva.png';
+    link.href = currentCardImage;
+    link.click();
+}
+
 // --- EXPOSICIÓN GLOBAL ---
 window.abrirModalConfigGeneral = abrirModalConfigGeneral;
 window.agregarBloqueTurno = agregarBloqueTurno;
 window.eliminarTurnoBloque = eliminarTurnoBloque;
 window.guardarConfigGeneral = guardarConfigGeneral;
 window.compartirPortal = compartirPortal;
+window.generarTarjetaDigital = generarTarjetaDigital;
+window.compartirTarjeta = compartirTarjeta;
+window.descargarTarjeta = descargarTarjeta;

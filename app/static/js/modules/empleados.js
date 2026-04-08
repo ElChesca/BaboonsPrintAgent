@@ -201,12 +201,12 @@ function renderEmpleados(empleados) {
 
     empleados.forEach(emp => {
         const tr = document.createElement('tr');
+        const rolKey = (emp.rol || "").toLowerCase();
         const badgeClass = {
             'chofer': 'bg-primary',
             'vendedor': 'bg-success',
             'administrativo': 'bg-info',
             'deposito': 'bg-warning text-dark',
-            // [NUEVO] Roles Restó
             'adicionista': 'bg-teal',
             'mozo': 'bg-indigo',
             'cocinero': 'bg-orange',
@@ -214,14 +214,16 @@ function renderEmpleados(empleados) {
             'bartender': 'bg-purple',
             'bachero': 'bg-secondary',
             'maitre': 'bg-dark'
-        }[emp.rol] || 'bg-secondary';
+        }[rolKey] || 'bg-secondary';
+
+        const rolText = (emp.rol || "Sin Puesto").toUpperCase();
 
         tr.innerHTML = `
             <td>
                 <div class="fw-bold">${emp.nombre} ${emp.apellido}</div>
                 <small class="text-muted">${emp.dni || '-'}</small>
             </td>
-            <td><span class="badge ${badgeClass}">${emp.rol.toUpperCase()}</span></td>
+            <td><span class="badge ${badgeClass}">${rolText}</span></td>
             <td>${emp.telefono || '-'}</td>
             <td>${emp.email || '-'}</td>
             <td>

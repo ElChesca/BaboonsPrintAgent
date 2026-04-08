@@ -57,17 +57,23 @@ def login():
     especialidad = None
 
     if user['rol'] == 'vendedor':
-        db.execute('SELECT id, negocio_id, especialidad_resto FROM vendedores WHERE email = %s AND negocio_id IS NOT NULL', (user['email'],))
-        vendedor_row = db.fetchone()
-        if vendedor_row:
-            vendedor_id = vendedor_row['id']
-            negocio_id = vendedor_row['negocio_id']
-            especialidad = vendedor_row.get('especialidad_resto')
-    elif user['rol'] == 'chofer':
-        db.execute('SELECT id, negocio_id FROM empleados WHERE email = %s AND negocio_id IS NOT NULL', (user['email'],))
-        empleado_row = db.fetchone()
-        if empleado_row:
-            negocio_id = empleado_row['negocio_id']
+        # Buscamos primero en empleados para tener la especialidad real (Barman/Mozo)
+        db.execute('SELECT id, negocio_id, rol FROM empleados WHERE email = %s', (user['email'],))
+        emp_row = db.fetchone()
+        if emp_row:
+            negocio_id = emp_row['negocio_id']
+            especialidad = emp_row['rol']
+            empleado_id = emp_row['id']
+        
+        # Si no estaba en empleados o falta el negocio, probamos en vendedores (Legacy/Distribuidora)
+        if not negocio_id:
+            db.execute('SELECT id, negocio_id, especialidad_resto FROM vendedores WHERE email = %s AND negocio_id IS NOT NULL', (user['email'],))
+            vendedor_row = db.fetchone()
+            if vendedor_row:
+                vendedor_id = vendedor_row['id']
+                negocio_id = vendedor_row['negocio_id']
+                if not especialidad:
+                    especialidad = vendedor_row.get('especialidad_resto')
 
     # Si aún no tenemos negocio_id (ej: es admin/superadmin), buscamos el primero al que tenga acceso
     if not negocio_id:
@@ -79,14 +85,24 @@ def login():
     # If not vendedor but the usuario mismo tiene empleado_id
     empleado_id = user.get('empleado_id')
     
-    # --- ✨ AUTO-VINCULACIÓN (Self-healing) ---
+    # --- ✨ AUTO-VINCULACIÓN Y ESPECIALIDAD (Self-healing) ---
     if not empleado_id:
-        db.execute('SELECT id FROM empleados WHERE email = %s', (user['email'],))
+        db.execute('SELECT id, rol FROM empleados WHERE email = %s', (user['email'],))
         emp_row = db.fetchone()
         if emp_row:
             empleado_id = emp_row['id']
+            # Priorizamos la especialidad del empleado si el rol de usuario es genérico
+            if not especialidad or especialidad == 'vendedor':
+                especialidad = emp_row.get('rol')
             db.execute('UPDATE usuarios SET empleado_id = %s WHERE id = %s', (empleado_id, user['id']))
             g.db_conn.commit()
+    else:
+        # Si ya teníamos empleado_id pero la especialidad es genérica o nula, la buscamos
+        if not especialidad or especialidad == 'vendedor':
+            db.execute('SELECT rol FROM empleados WHERE id = %s', (empleado_id,))
+            emp_row = db.fetchone()
+            if emp_row:
+                especialidad = emp_row.get('rol')
 
     token_payload = {
         'id': user['id'],

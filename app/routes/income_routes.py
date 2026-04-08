@@ -22,26 +22,7 @@ def registrar_ingreso(current_user, negocio_id):
     factura_numero = data.get('factura_numero')
 
     db = get_db()
-    # --- MIGRACIÓN AUTOMÁTICA (ARCA + IMPUESTOS) ---
-    try:
-        db.execute("ALTER TABLE productos ADD COLUMN IF NOT EXISTS iva_porcentaje DECIMAL DEFAULT 21.0")
-        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS punto_venta INTEGER")
-        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS cae VARCHAR(20)")
-        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS cae_vencimiento DATE")
-        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS fecha_emision DATE")
-        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS iva_21 DECIMAL DEFAULT 0")
-        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS iva_105 DECIMAL DEFAULT 0")
-        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS iva_percepcion DECIMAL DEFAULT 0")
-        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS iibb_percepcion DECIMAL DEFAULT 0")
-        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS neto_gravado DECIMAL DEFAULT 0")
-        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS exento DECIMAL DEFAULT 0")
-        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS no_gravado DECIMAL DEFAULT 0")
-        db.execute("ALTER TABLE ingresos_mercaderia_detalle ADD COLUMN IF NOT EXISTS iva_porcentaje DECIMAL DEFAULT 21.0")
-        db.execute("ALTER TABLE ingresos_mercaderia_detalle ADD COLUMN IF NOT EXISTS descuento_1 DECIMAL DEFAULT 0")
-        db.execute("ALTER TABLE ingresos_mercaderia_detalle ADD COLUMN IF NOT EXISTS descuento_2 DECIMAL DEFAULT 0")
-        g.db_conn.commit()
-    except: pass
-
+    
     if not detalles:
         return jsonify({'error': 'El ingreso no tiene productos'}), 400
     if not proveedor_id:
@@ -62,8 +43,10 @@ def registrar_ingreso(current_user, negocio_id):
             try: punto_venta = int(factura_prefijo)
             except: punto_venta = 0
 
+        iva_27 = float(data.get('iva_27') or 0)
         iva_21 = float(data.get('iva_21') or 0)
         iva_105 = float(data.get('iva_105') or 0)
+        iva_25 = float(data.get('iva_25') or 0)
         iva_percepcion = float(data.get('iva_percepcion') or 0)
         iibb_percepcion = float(data.get('iibb_percepcion') or 0)
         neto_gravado = float(data.get('neto_gravado') or 0)
@@ -78,19 +61,42 @@ def registrar_ingreso(current_user, negocio_id):
                 (negocio_id, proveedor_id, referencia, fecha, usuario_id, 
                  factura_tipo, factura_prefijo, factura_numero, total_factura, orden_compra_id,
                  punto_venta, cae, cae_vencimiento, fecha_emision,
-                 iva_21, iva_105, iva_percepcion, iibb_percepcion, neto_gravado, exento, no_gravado) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                 iva_27, iva_21, iva_105, iva_25, iva_percepcion, iibb_percepcion, neto_gravado, exento, no_gravado) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """,
             (negocio_id, proveedor_id, referencia, datetime.datetime.now(datetime.timezone.utc), current_user['id'],
              factura_tipo, factura_prefijo, factura_numero, total_comprobante, orden_compra_id,
              punto_venta, cae, cae_vencimiento, fecha_emision,
-             iva_21, iva_105, iva_percepcion, iibb_percepcion, neto_gravado, exento, no_gravado) 
+             iva_27, iva_21, iva_105, iva_25, iva_percepcion, iibb_percepcion, neto_gravado, exento, no_gravado) 
         )
         ingreso_id = db.fetchone()['id']
         
         # 2. Procesar cada detalle
         for item in detalles:
-            producto_id = item['producto_id']
+            producto_id = item.get('producto_id')
+            nombre_ia = item.get('nombre') # Nombre que viene del scanner si producto_id es null
+            
+            # --- CREACIÓN AL VUELO ---
+            if not producto_id:
+                # Buscar o crear categoría por defecto para items de IA
+                db.execute("SELECT id FROM productos_categoria WHERE negocio_id = %s AND nombre = 'IA Scanner' LIMIT 1", (negocio_id,))
+                cat_row = db.fetchone()
+                if cat_row:
+                    categoria_id = cat_row['id']
+                else:
+                    db.execute("INSERT INTO productos_categoria (negocio_id, nombre) VALUES (%s, 'IA Scanner') RETURNING id", (negocio_id,))
+                    categoria_id = db.fetchone()['id']
+                
+                # Crear el producto
+                db.execute(
+                    """
+                    INSERT INTO productos (negocio_id, categoria_id, nombre, precio_costo, stock, iva_porcentaje)
+                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+                    """,
+                    (negocio_id, categoria_id, nombre_ia or "Producto Nuevo IA", 0, 0, float(item.get('iva_porcentaje') or 21.0))
+                )
+                producto_id = db.fetchone()['id']
+
             cantidad = float(item['cantidad'])
             try:
                 precio_costo_nuevo = float(item['precio_costo']) if item.get('precio_costo') is not None else None
@@ -240,47 +246,73 @@ def registrar_comprobante(current_user, negocio_id, proveedor_id):
 @bp.route('/negocios/<int:negocio_id>/ingresos', methods=['GET'])
 @token_required
 def get_historial_ingresos(current_user, negocio_id):
-    """Devuelve la lista maestra de ingresos, ahora con proveedor, factura y estado."""
+    """Devuelve la lista maestra de ingresos con soporte para saldos básicos."""
     db = get_db()
+    proveedor_id = request.args.get('proveedor_id')
+    
     try:
-        # --- CAMBIO AQUÍ: Traemos los nuevos campos ---
-        db.execute(
-            """
+        query = """
             SELECT 
                 i.id, i.fecha, i.referencia, i.total_factura, p.nombre as proveedor_nombre,
-                i.factura_tipo, i.factura_prefijo, i.factura_numero, i.estado_pago 
+                i.factura_tipo, i.factura_prefijo, i.factura_numero, i.estado_pago,
+                COALESCE(i.monto_pagado, 0) as monto_pagado,
+                (COALESCE(i.total_factura, 0) - COALESCE(i.monto_pagado, 0)) as saldo_pendiente
             FROM 
                 ingresos_mercaderia i
             LEFT JOIN 
                 proveedores p ON i.proveedor_id = p.id
             WHERE 
                 i.negocio_id = %s 
-            ORDER BY 
-                i.fecha DESC
-            """,
-            (negocio_id,)
-        )
-        ingresos = db.fetchall()
-        # Formatear el número de factura para la respuesta (opcional)
-        for ingreso in ingresos:
-             ingreso['factura_completa'] = f"{ingreso.get('factura_tipo','')} {ingreso.get('factura_prefijo','')}-{ingreso.get('factura_numero','')}"
+        """
+        params = [negocio_id]
         
-        return jsonify([dict(row) for row in ingresos])
+        if proveedor_id and proveedor_id != 'null':
+            query += " AND i.proveedor_id = %s "
+            params.append(int(proveedor_id))
+            
+        query += " ORDER BY i.fecha DESC "
+        
+        db.execute(query, tuple(params))
+        ingresos = db.fetchall()
+        
+        result = []
+        for row in ingresos:
+            d = dict(row)
+            # ✨ Formateo correcto en Python (usando f-strings con padding)
+            prefijo = str(d.get('factura_prefijo') or 0).zfill(4)
+            numero = str(d.get('factura_numero') or 0).zfill(8)
+            d['factura_completa'] = f"{d.get('factura_tipo','FC')} {prefijo}-{numero}"
+            result.append(d)
+        
+        return jsonify(result)
     except Exception as e:
         print(f"Error en get_historial_ingresos: {e}")
-        traceback.print_exc()
-        return jsonify({'error': 'Ocurrió un error al obtener el historial de ingresos.'}), 500
+        return jsonify({'error': str(e)}), 500
 
 
 @bp.route('/ingresos/<int:ingreso_id>/detalles', methods=['GET'])
 @token_required
 def get_detalles_ingreso(current_user, ingreso_id):
-    """Devuelve los productos de un ingreso específico."""
+    """Devuelve los productos y los totales fiscales de un ingreso específico."""
     db = get_db()
     try:
+        # 1. Obtener datos maestro (cabecera fiscal completa)
         db.execute(
             """
-            SELECT d.cantidad, d.precio_costo_unitario, p.nombre, p.sku 
+            SELECT i.total_factura, i.iva_21, i.iva_105, i.iva_percepcion, i.iibb_percepcion, 
+                   i.neto_gravado, i.exento, i.no_gravado, i.factura_tipo, i.factura_prefijo, 
+                   i.factura_numero, i.cae, i.fecha_emision, p.nombre as proveedor_nombre
+            FROM ingresos_mercaderia i
+            LEFT JOIN proveedores p ON i.proveedor_id = p.id
+            WHERE i.id = %s
+            """, (ingreso_id,)
+        )
+        maestro = db.fetchone()
+
+        # 2. Obtener detalles de productos
+        db.execute(
+            """
+            SELECT d.cantidad, d.precio_costo_unitario, d.iva_porcentaje, d.descuento_1, d.descuento_2, p.nombre, p.sku 
             FROM ingresos_mercaderia_detalle d 
             JOIN productos p ON d.producto_id = p.id 
             WHERE d.ingreso_id = %s
@@ -288,7 +320,11 @@ def get_detalles_ingreso(current_user, ingreso_id):
             (ingreso_id,)
         )
         detalles = db.fetchall()
-        return jsonify([dict(row) for row in detalles])
+        
+        return jsonify({
+            'maestro': dict(maestro) if maestro else {},
+            'detalles': [dict(row) for row in detalles]
+        })
     except Exception as e:
         print(f"Error en get_detalles_ingreso: {e}")
         traceback.print_exc()

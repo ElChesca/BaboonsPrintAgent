@@ -82,10 +82,12 @@ def _migrate_reservas():
                 negocio_id INT PRIMARY KEY REFERENCES negocios(id) ON DELETE CASCADE,
                 wa_template TEXT,
                 aviso_apertura_min INT DEFAULT 60,
+                antelacion_minima_dias INT DEFAULT 0,
                 updated_at TIMESTAMPTZ DEFAULT NOW()
             )
         """)
         db.execute("ALTER TABLE resto_reservas_config ADD COLUMN IF NOT EXISTS aviso_apertura_min INT DEFAULT 60")
+        db.execute("ALTER TABLE resto_reservas_config ADD COLUMN IF NOT EXISTS antelacion_minima_dias INT DEFAULT 0")
 
         # 6. MIGRACION: Columna de token de reserva en tabla negocios
         db.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS reserva_token VARCHAR(100)")
@@ -306,10 +308,29 @@ def _procesar_disponibilidad(negocio_id):
         except ValueError:
             return jsonify({'error': 'Formato de fecha inválido'}), 400
 
-        dia_semana = fecha.weekday()
         db = get_db()
+        
+        # 0. Verificar antelación mínima (lead time)
+        db.execute("SELECT antelacion_minima_dias FROM resto_reservas_config WHERE negocio_id = %s", (negocio_id,))
+        config_row = db.fetchone()
+        antelacion = config_row['antelacion_minima_dias'] if config_row else 0
+        
+        hoy = datetime.date.today()
+        dias_diff = (fecha - hoy).days
+        if dias_diff < antelacion:
+            return jsonify({
+                'slots': [], 
+                'message': f'Por reglas del negocio, solo se puede reservar con al menos {antelacion} días de anticipación.',
+                'lead_time_error': True
+            })
 
-        # Obtener TODOS los rangos configurados para ese día
+        dia_semana = fecha.weekday()
+
+        # 1. Obtener Sectores (Dinámico de mesas_sectores)
+        db.execute("SELECT id, nombre FROM mesas_sectores WHERE negocio_id = %s ORDER BY orden, nombre", (negocio_id,))
+        sectores = [dict(s) for s in db.fetchall()]
+
+        # 2. Obtener rangos configurados para ese día
         db.execute("""
             SELECT hora_inicio, hora_fin, intervalo_min
             FROM resto_turnos_config
@@ -326,7 +347,7 @@ def _procesar_disponibilidad(negocio_id):
         all_slots_generated = sorted(list(set(all_slots_generated)))
 
         if not all_slots_generated:
-            return jsonify({'slots': [], 'message': 'No hay turnos disponibles para este día'})
+            return jsonify({'slots': [], 'sectores': sectores, 'message': 'No hay turnos disponibles para este día'})
 
         db.execute("""
             SELECT hora_reserva::text, COUNT(*) as cantidad
@@ -350,7 +371,7 @@ def _procesar_disponibilidad(negocio_id):
                 'libres': max(0, total_mesas - ocupadas)
             })
 
-        return jsonify({'slots': slots_disponibles, 'fecha': fecha_str})
+        return jsonify({'slots': slots_disponibles, 'fecha': fecha_str, 'sectores': sectores})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -588,40 +609,43 @@ def admin_reserva_config(current_user, negocio_id):
     db = get_db()
     if request.method == 'GET':
         db.execute("""
-            SELECT c.wa_template, c.aviso_apertura_min, n.reserva_token 
+            SELECT c.wa_template, c.aviso_apertura_min, c.antelacion_minima_dias, n.reserva_token 
             FROM resto_reservas_config c
             JOIN negocios n ON c.negocio_id = n.id
             WHERE c.negocio_id = %s
         """, (negocio_id,))
         res = db.fetchone()
         if not res:
-            # Si no hay config, al menos devolvemos el token del negocio
             db.execute("SELECT reserva_token FROM negocios WHERE id = %s", (negocio_id,))
             res = db.fetchone()
             return jsonify({
                 'wa_template': None, 
                 'aviso_apertura_min': 60, 
+                'antelacion_minima_dias': 0,
                 'reserva_token': res['reserva_token'] if res else None
             })
             
         return jsonify({
             'wa_template': res['wa_template'], 
             'aviso_apertura_min': res['aviso_apertura_min'], 
+            'antelacion_minima_dias': res['antelacion_minima_dias'],
             'reserva_token': res['reserva_token']
         })
     
     data = request.get_json() or {}
     wa_template = data.get('wa_template')
     aviso_min = data.get('aviso_apertura_min', 60)
+    antelacion = data.get('antelacion_minima_dias', 0)
     try:
         db.execute("""
-            INSERT INTO resto_reservas_config (negocio_id, wa_template, aviso_apertura_min)
-            VALUES (%s, %s, %s)
+            INSERT INTO resto_reservas_config (negocio_id, wa_template, aviso_apertura_min, antelacion_minima_dias)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (negocio_id) DO UPDATE 
             SET wa_template = EXCLUDED.wa_template, 
                 aviso_apertura_min = EXCLUDED.aviso_apertura_min,
+                antelacion_minima_dias = EXCLUDED.antelacion_minima_dias,
                 updated_at = NOW()
-        """, (negocio_id, wa_template, aviso_min))
+        """, (negocio_id, wa_template, aviso_min, antelacion))
         g.db_conn.commit()
         return jsonify({'message': 'Configuración guardada'})
     except Exception as e:

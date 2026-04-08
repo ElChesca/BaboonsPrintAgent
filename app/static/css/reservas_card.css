@@ -1,0 +1,153 @@
+/* static/css/reservas_card.css */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300;400;600&display=swap');
+
+.res-card-digital-container {
+    padding: 20px;
+    background: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: absolute;
+    top: -9000px;
+    left: -9000px;
+    z-index: -100;
+}
+
+.res-card-digital {
+    width: 600px;
+    height: 750px;
+    background-color: #f3f7f9;
+    /* Usamos la trama real del usuario ahora que los archivos existen */
+    background-image: url('../img/trama_reserva.png');
+    background-repeat: repeat;
+    background-size: 300px;
+    background-position: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 40px;
+    font-family: 'Outfit', sans-serif;
+    box-sizing: border-box;
+}
+
+/* El "Sello" central */
+.res-card-stamp {
+    position: relative;
+    width: 480px;
+    height: 600px;
+    background-color: #1a2a47 !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff !important;
+    padding: 40px;
+    text-align: center;
+    box-sizing: border-box;
+    box-shadow: 0 15px 50px rgba(0,0,0,0.5);
+    border: 3px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+}
+
+/* Bordes dentados (compatibles con html2canvas) */
+.res-card-stamp::before, .res-card-stamp::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 20px;
+    background-image: radial-gradient(circle, #f3f7f9 8px, transparent 9px);
+    background-size: 20px 20px;
+    left: 0;
+    z-index: 5;
+}
+.res-card-stamp::before { top: -10px; }
+.res-card-stamp::after { bottom: -10px; }
+
+/* Lados dentados */
+.res-card-stamp-sides::before, .res-card-stamp-sides::after {
+    content: '';
+    position: absolute;
+    height: 100%;
+    width: 20px;
+    background-image: radial-gradient(circle, #f3f7f9 8px, transparent 9px);
+    background-size: 20px 20px;
+    top: 0;
+    z-index: 5;
+}
+.res-card-stamp-sides::before { left: -10px; }
+.res-card-stamp-sides::after { right: -10px; }
+
+
+.res-card-business-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+    z-index: 10;
+    width: 100%;
+}
+
+.res-card-logo {
+    max-width: 280px;
+    height: auto;
+    margin-bottom: 10px;
+    display: block;
+}
+
+.res-card-reservas-text {
+    font-family: 'Playfair Display', serif !important;
+    font-size: 3.5rem !important;
+    font-style: italic !important;
+    font-weight: 400 !important;
+    color: #ffffff !important;
+    margin: -20px 0 0 0 !important;
+    z-index: 15;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.res-card-client-name {
+    font-family: 'Playfair Display', serif !important;
+    font-size: 3.2rem !important;
+    font-weight: 700 !important;
+    margin-top: 30px !important;
+    margin-bottom: 20px !important;
+    border-top: 1px solid rgba(255,255,255,0.4) !important;
+    border-bottom: 1px solid rgba(255,255,255,0.4) !important;
+    padding: 20px 0 !important;
+    width: 90%;
+    z-index: 100;
+    color: #ffffff !important; 
+    text-transform: uppercase;
+    text-align: center;
+    line-height: 1.1;
+}
+
+.res-card-info-row {
+    display: flex;
+    justify-content: center;
+    gap: 25px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-size: 1.2rem;
+    color: #e2e8f0 !important;
+    z-index: 10;
+}
+
+.res-card-address {
+    position: absolute;
+    bottom: 30px;
+    width: 85%;
+    text-align: center;
+    font-size: 0.95rem;
+    color: #1a2a47;
+    font-weight: 800;
+    background: #ffffff;
+    padding: 10px 20px;
+    border-radius: 50px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    z-index: 20;
+    text-transform: uppercase;
+}

@@ -667,6 +667,12 @@ def get_cocina_pendientes(current_user, negocio_id):
                 db.execute("ALTER TABLE comandas_detalle ADD COLUMN IF NOT EXISTS parent_detalle_id INTEGER")
                 g.db_conn.commit()
             except: pass
+
+            # ⏳ NUEVO: Soporte para Tiempos (1=Entrada, 2=Principal, 3=Postre)
+            try:
+                db.execute("ALTER TABLE comandas_detalle ADD COLUMN IF NOT EXISTS tiempo INTEGER DEFAULT 1")
+                g.db_conn.commit()
+            except: pass
             
             try:
                 db.execute("""
@@ -704,8 +710,10 @@ def get_cocina_pendientes(current_user, negocio_id):
                 cd.fecha_pedido as pedido_fecha,
                 cd.notas as pedido_observaciones,
                 cat.nombre as categoria_nombre,
+                cat.estacion as categoria_estacion,
                 v.nombre as mozo_nombre,
-                cd.parent_detalle_id
+                cd.parent_detalle_id,
+                cd.tiempo
             FROM comandas_detalle cd
             JOIN comandas c ON cd.comanda_id = c.id
             JOIN menu_items mi ON cd.menu_item_id = mi.id
@@ -1355,9 +1363,9 @@ def add_items_to_comanda(current_user, id):
             
             # 1. Insertar el ítem "Padre"
             db.execute(
-                """INSERT INTO comandas_detalle (comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, estado, notas)
-                   VALUES (%s, %s, %s, %s, %s, 'pendiente', %s) RETURNING id""",
-                (id, item['menu_item_id'], item['cantidad'], item['precio_unitario'], subt, item.get('notas', ''))
+                """INSERT INTO comandas_detalle (comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, estado, notas, tiempo)
+                   VALUES (%s, %s, %s, %s, %s, 'pendiente', %s, %s) RETURNING id""",
+                (id, item['menu_item_id'], item['cantidad'], item['precio_unitario'], subt, item.get('notas', ''), item.get('tiempo', 1))
             )
             parent_id = db.fetchone()['id']
             added_ids.append(parent_id)
@@ -1370,9 +1378,9 @@ def add_items_to_comanda(current_user, id):
                 for comp in componentes:
                     qty_total = float(item['cantidad']) * float(comp['cantidad'])
                     db.execute(
-                        """INSERT INTO comandas_detalle (comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, estado, notas, parent_detalle_id)
-                           VALUES (%s, %s, %s, 0, 0, 'pendiente', %s, %s) RETURNING id""",
-                        (id, comp['component_item_id'], qty_total, f"Componente de combo: {item.get('notas', '')}", parent_id)
+                        """INSERT INTO comandas_detalle (comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, estado, notas, parent_detalle_id, tiempo)
+                           VALUES (%s, %s, %s, 0, 0, 'pendiente', %s, %s, %s) RETURNING id""",
+                        (id, comp['component_item_id'], qty_total, f"Componente de combo: {item.get('notas', '')}", parent_id, item.get('tiempo', 1))
                     )
                     added_ids.append(db.fetchone()['id'])
             
@@ -1383,7 +1391,7 @@ def add_items_to_comanda(current_user, id):
         if added_ids:
             db.execute("""
                 SELECT 
-                    cd.cantidad, cd.notas, mi.nombre, 
+                    cd.cantidad, cd.notas, cd.tiempo, mi.nombre, 
                     COALESCE(mi.destino_kds, cat.destino_id::text, cat.estacion, 'cocina') as effective_destino_kds,
                     m.numero as mesa_num, v.nombre as mozo_nom, c.num_comensales,
                     c.negocio_id
@@ -1429,9 +1437,14 @@ def add_items_to_comanda(current_user, id):
                         items_payload = []
                         for it in items_para_esta_imp:
                             cant_float = float(it['cantidad'])
-                            lineas.append(f"[{int(cant_float)}] {it['nombre']}")
+                            lineas.append(f"[{int(cant_float)}] {it['nombre']} (T{it.get('tiempo', 1)})")
                             if it.get('notas'): lineas.append(f"  > {it['notas']}")
-                            items_payload.append({'nombre': it['nombre'], 'cantidad': cant_float, 'notas': it.get('notas') or ""})
+                            items_payload.append({
+                                'nombre': it['nombre'], 
+                                'cantidad': cant_float, 
+                                'notas': it.get('notas') or "",
+                                'tiempo': it.get('tiempo', 1)
+                            })
 
                         payload = {
                             'printer_name': printer['printer_name'],

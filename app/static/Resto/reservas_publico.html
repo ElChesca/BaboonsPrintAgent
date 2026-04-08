@@ -205,12 +205,9 @@
         </div>
 
         <div class="form-group">
-            <label><i class="fas fa-map-marker-alt"></i> Sector Preferido</label>
+            <label><i class="fas fa-map-marker-alt"></i> Sector</label>
             <select id="res-sector" class="input-control">
-                <option value="Salon">Salón Principal</option>
-                <option value="Terraza">Terraza / Exterior</option>
-                <option value="VIP">Sector VIP</option>
-                <option value="Barra">Barra</option>
+                <option value="">Cargando sectores...</option>
             </select>
         </div>
 
@@ -279,6 +276,27 @@
             if(data.error) {
                 containerSlots.innerHTML = `<p style="grid-column: 1/-1; color:red;">${data.error}</p>`;
                 return;
+            }
+
+            // Manejo de error de antelación (lead time)
+            if (data.lead_time_error) {
+                containerSlots.innerHTML = `
+                    <div style="grid-column: 1/-1; background: #fff1f2; color: #e11d48; padding: 15px; border-radius: 12px; border: 1px solid #fda4af; text-align: center;">
+                        <i class="fas fa-exclamation-circle" style="font-size: 1.5rem; display: block; margin-bottom: 8px;"></i>
+                        <p style="font-weight: 600;">${data.message}</p>
+                    </div>`;
+                document.getElementById('res-sector').parentElement.style.display = 'none';
+                return;
+            } else {
+                document.getElementById('res-sector').parentElement.style.display = 'block';
+            }
+
+            // Popular sectores dinámicamente
+            const selectSector = document.getElementById('res-sector');
+            if (data.sectores && data.sectores.length > 0) {
+                selectSector.innerHTML = data.sectores.map(s => `<option value="${s.nombre}">${s.nombre}</option>`).join('');
+            } else {
+                selectSector.innerHTML = `<option value="Salon">Salón Principal</option>`;
             }
 
             if(data.slots && data.slots.length > 0) {

@@ -2,7 +2,7 @@
 // ✅ ARCHIVO COMPLETO (Versión 1.7.1 - DYNAMIC MODULES FIX) ✅
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-export const APP_VERSION = "1.9.7";
+export const APP_VERSION = "1.9.8";
 // HISTORIAL DE VERSIONES:
 // 1.9.6: High Contrast KDS and Bar/Dolce station fixes sync.
 // 1.7.1: Final Fix regarding cross-module cache mismatches: Dynamic imports between modules + modal visibility.
@@ -485,6 +485,14 @@ export async function fetchAppPermissions() {
 
         // 1. Cargar permisos globales por tipo de negocio
         const perms = await fetchData('/api/admin/permissions');
+        
+        // ✨ GLOBAL SAFETY NET: Asegurar sincronización de Ingresos
+        Object.keys(perms).forEach(type => {
+            if (perms[type].includes('historial_ingresos') && !perms[type].includes('ingresos')) {
+                perms[type].push('ingresos');
+            }
+        });
+        
         appState.permissions = perms;
 
         // 2. Cargar configuraci├│n espec├¡fica del negocio activo (exclusiones)
@@ -521,11 +529,12 @@ export async function fetchAppPermissions() {
                 const vendedorPerms = await fetchData(`/api/admin/negocios/${appState.negocioActivoId}/permisos-rol/${rolParaPermisos}`);
                 
                 if (vendedorPerms) {
-                    const modules = new Set(vendedorPerms || []);
-                    // Asegurar Acceso Base (Red de seguridad redundante)
-                    modules.add('home_retail');
-                    modules.add('home_resto');
-                    modules.add('home_distribuidora');
+                    let modules = new Set(vendedorPerms || []);
+                    
+                    // ✨ PARCHE DE HIERRO: Si tiene el historial, TIENE QUE TENER el cargador
+                    if (modules.has('historial_ingresos')) {
+                        modules.add('ingresos');
+                    }
 
                     const tipoActual = appState.negocioActivoTipo || 'resto';
                     appState.permissions[tipoActual] = Array.from(modules);
@@ -544,9 +553,43 @@ export async function fetchAppPermissions() {
         console.error("Error cargando permisos:", error);
         // Fallback de emergencia
         appState.permissions = {
-            'retail': ['home_retail', 'ventas_nueva', 'tablero_control', 'cobro_ctacte'],
-            'distribuidora': ['home_distribuidora', 'vendedores', 'hoja_ruta', 'pedidos', 'mapa_clientes', 'logistica', 'ventas_nueva', 'clientes_gestion', 'presupuestos', 'caja_control', 'productos', 'proveedores', 'gastos', 'ingresos_mercaderia', 'unidades_medida', 'historial_inventario', 'historial_presupuestos', 'historial_ajustes', 'historial_pagos_proveedores', 'historial_ingresos', 'cobro_ctacte']
+            'retail': ['home_retail', 'ventas_nueva', 'tablero_control', 'cobro_ctacte', 'ingresos'],
+            'distribuidora': ['home_distribuidora', 'vendedores', 'hoja_ruta', 'pedidos', 'mapa_clientes', 'logistica', 'ventas_nueva', 'clientes_gestion', 'presupuestos', 'caja_control', 'productos', 'proveedores', 'gastos', 'ingresos', 'unidades_medida', 'historial_inventario', 'historial_presupuestos', 'historial_ajustes', 'historial_pagos_proveedores', 'historial_ingresos', 'cobro_ctacte'],
+            'resto': ['home_resto', 'resto_mozo', 'salon_digital', 'resto_menu', 'resto_cocina', 'resto_bar', 'resto_dolce', 'reservas', 'mozos', 'resto_roles', 'gestion_mesas', 'resto_stats', 'resto_impresoras', 'gastos', 'ingresos', 'tablero_control', 'productos']
         };
+    }
+
+    // ✨ AUTO-REDIRECCIÓN INTELIGENTE (Sin Dashboard intermedio para personal operativo)
+    const currentHash = window.location.hash;
+    const targets = ['#', '', '#home_distribuidora', '#home_retail', '#home_resto', '#dashboard'];
+    
+    if (targets.includes(currentHash)) {
+        const user = getCurrentUser();
+        if (user) {
+            const tipoActual = appState.negocioActivoTipo || 'distribuidora';
+            const myPerms = appState.permissions[tipoActual] || [];
+            const espec = (appState.userEspecialidad || '').toLowerCase().trim();
+            const rol = (user.rol || '').toLowerCase().trim();
+
+            // 🎯 Lógica por Distribuidora
+            if (tipoActual === 'distribuidora') {
+                if (myPerms.includes('seller') && rol === 'vendedor') { window.location.hash = '#seller'; return; }
+                if (myPerms.includes('home_chofer') && (rol === 'chofer' || rol === 'repartidor' || rol === 'driver')) { window.location.hash = '#home_chofer'; return; }
+            }
+
+            // 🎯 Lógica por Restó (Prioridad: Especialidad > Rol)
+            if (tipoActual === 'resto') {
+                const target = espec || rol;
+                console.log(`🎯 Evaluando redirección para Restó. Especialidad/Rol: ${target}`);
+                
+                if (target === 'mozo') { window.location.hash = '#resto_mozo'; return; }
+                if (target === 'barman') { window.location.hash = '#resto_bar'; return; }
+                if (target === 'cocinero') { window.location.hash = '#resto_cocina'; return; }
+                if (target === 'dolce') { window.location.hash = '#resto_dolce'; return; }
+                if (target === 'adicionista') { window.location.hash = '#resto_caja'; return; }
+                if (target === 'cajero') { window.location.hash = '#pos'; return; }
+            }
+        }
     }
 }
 
@@ -1016,6 +1059,13 @@ async function inicializarModulo(page) {
                 inicializarLogicaMozos();
                 break;
 
+            case 'seller':
+                import('./modules/seller.js?v=2').then(m => m.default ? m.default() : m.init());
+                break;
+            case 'home_chofer':
+                import('./modules/logistica.js?v=2').then(m => m.default ? m.default() : m.init());
+                break;
+
             case 'resto_menu':
                 const { inicializarRestoMenu } = await import(`./modules/resto_menu.js${v}`);
                 inicializarRestoMenu();
@@ -1029,20 +1079,26 @@ async function inicializarModulo(page) {
             case 'resto_cocina':
                 const resto_cocina = await import(`./modules/resto_cocina.js${v}`);
                 resto_cocina.setKDSStation('cocina');
-                resto_cocina.inicializarRestoCocina();
+                await resto_cocina.inicializarRestoCocina();
                 break;
             case 'resto_bar':
-                const resto_bar = await import(`./modules/resto_bar.js${v}`);
-                resto_bar.inicializarRestoBar();
+                const resto_bar = await import(`./modules/resto_cocina.js${v}`);
+                resto_bar.setKDSStation('bar');
+                await resto_bar.inicializarRestoCocina();
                 break;
             case 'resto_dolce':
-                const resto_dolce = await import(`./modules/resto_dolce.js${v}`);
-                resto_dolce.inicializarRestoDolce();
+                const resto_dolce = await import(`./modules/resto_cocina.js${v}`);
+                resto_dolce.setKDSStation('dolce');
+                await resto_dolce.inicializarRestoCocina();
                 break;
 
             case 'resto_roles':
                 const resto_roles = await import(`./modules/resto_roles.js${v}`);
                 resto_roles.inicializarRestoRoles();
+                break;
+            case 'negocio_roles':
+                const negocio_roles = await import(`./modules/negocio_roles.js${v}`);
+                negocio_roles.inicializarNegocioRoles();
                 break;
 
             case 'resto_caja':
@@ -1076,7 +1132,12 @@ async function inicializarModulo(page) {
                 const { inicializarRentals } = await import(`../rentals/js/rentals.js${v}`);
                 inicializarRentals(pageName);
                 break;
-
+            case 'seller':
+                import('./modules/seller.js?v=2').then(m => m.default ? m.default() : m.init());
+                break;
+            case 'home_chofer':
+                import('./modules/logistica.js?v=2').then(m => m.default ? m.default() : m.init());
+                break;
             default:
                 console.warn(`No se encontró lógica de inicialización para: ${pageName}`);
         }
@@ -1141,23 +1202,42 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     const queryString = pageParts.length > 1 ? `?${pageParts[1]}` : '';
     const pageName = pagePath.split('/').pop().replace('.html', '');
 
-    // --- ­ƒøí´©Å RESUCITACI├ôN (RED DE SEGURIDAD SECUNDARIA) ---
+    // --- 🛡️ RESUCITACIÓN (RED DE SEGURIDAD SECUNDARIA) ---
     if (!appState.negocioActivoTipo) {
         const tipoGuardado = localStorage.getItem('negocioActivoTipo');
         const idGuardado = localStorage.getItem('negocioActivoId');
+        const rolGuardado = localStorage.getItem('userRol');
+        const especGuardada = localStorage.getItem('userEspecialidad');
+
         if (tipoGuardado && tipoGuardado !== 'null' && tipoGuardado !== 'undefined') {
             appState.negocioActivoTipo = tipoGuardado;
             appState.negocioActivoId = idGuardado;
+            appState.userRol = rolGuardado;
+            appState.userEspecialidad = especGuardada;
+
+            // ⚡ REDIRECCIÓN INSTANTÁNEA (Anti-parpadeo)
+            const hashActual = window.location.hash;
+            if (!hashActual || hashActual === '#' || hashActual === '#home' || hashActual === '#home_distribuidora' || hashActual === '#home_retail' || hashActual === '#home_resto') {
+                 if (tipoGuardado === 'distribuidora') {
+                     if (rolGuardado === 'vendedor' || especGuardada === 'vendedor') { window.location.hash = '#seller'; return; }
+                     if (rolGuardado === 'chofer' || especGuardada === 'chofer') { window.location.hash = '#home_chofer'; return; }
+                 }
+                 if (tipoGuardado === 'resto') {
+                     if (especGuardada === 'mozo') { window.location.hash = '#resto_mozo'; return; }
+                     if (especGuardada === 'barman') { window.location.hash = '#resto_bar'; return; }
+                 }
+            }
         }
     }
 
     const tipoAppActual = appState.negocioActivoTipo;
 
-    // (DEBUG ALERT QUITADO PARA PRODUCCI├ôN)
+    // 🚀 RUTAS COMUNES (Acceso para todos)
+    const rutasComunes = ['home', 'login_secure', 'home_consorcio', 'home_rentals', 'home_retail', 'home_resto', 'home_distribuidora', 'error_acceso'];
 
-    if (tipoAppActual && pageName !== 'login' && pageName !== 'admin_apps' && pageName !== 'agente_facturacion' && appState.userRol !== 'superadmin') {
+    if (tipoAppActual && pageName !== 'login' && pageName !== 'admin_apps' && pageName !== 'agente_facturacion' && appState.userRol !== 'superadmin' && !rutasComunes.includes(pageName)) {
         const rutasPermitidas = appState.permissions[tipoAppActual] || [];
-        const rutasComunes = appState.permissions['comun'] || ['configuracion', 'usuarios', 'negocios']; // Fallback comun
+        const rutasComunesPermisos = appState.permissions['comun'] || ['configuracion', 'usuarios', 'negocios'];
 
         const esHomeDelNegocio = (pageName === 'home_retail' || pageName === 'home_consorcio' || pageName === 'home_distribuidora' || pageName === 'rentals_dashboard' || pageName === 'home_chofer' || pageName === 'home_resto');
 
@@ -1169,12 +1249,21 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
 
         const isChoferRouteBlocked = (appState.userRol !== 'chofer' && pageName === 'home_chofer');
 
-        // 🛡️ REGLA DE PERMISOS DINÁMICA
-        const permissionKey = getRegistryKeyByPath(pageName);
-        const hasPermission = rutasPermitidas.includes(permissionKey) || rutasComunes.includes(permissionKey) || esHomeDelNegocio;
+        // 🛡️ REGLA DE PERMISOS DINÁMICA (Soporta múltiples llaves para el mismo archivo)
+        const fullPath = `static/${pageName}.html`;
+        const possibleKeys = new Set(
+            Object.entries(ERP_REGISTRY)
+                .filter(([k, v]) => v.path === fullPath)
+                .map(([k, v]) => k)
+        );
+        possibleKeys.add(pageName); 
+        if (pageName === 'resto_mozo') possibleKeys.add('salon_digital');
+
+        const hasPermission = Array.from(possibleKeys).some(key => rutasPermitidas.includes(key) || rutasComunes.includes(key)) || esHomeDelNegocio;
 
         if (isChoferRouteBlocked || (appState.userRol !== 'chofer' && !hasPermission)) {
-            console.warn(`ACCESO DENEGADO: ${tipoAppActual} -> ${pageName} (Key: ${permissionKey}).`);
+            const currentKeys = Array.from(possibleKeys).join(', ');
+            console.warn(`ACCESO DENEGADO: ${tipoAppActual} -> ${pageName} (Posibles laves: ${currentKeys}).`);
 
             // Renderizar Pantalla de Error Estática (Detiene el bucle/parpadeo)
             const contentArea = document.getElementById('content-area');
@@ -1184,19 +1273,19 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
                         tipoAppActual === 'distribuidora' ? 'home_distribuidora' : 
                             tipoAppActual === 'resto' ? 'home_resto' : 'home_retail');
 
+                const permisosActuales = (appState.permissions[tipoAppActual] || []);
+                const posiblesLlaves = Array.from(possibleKeys);
+
                 contentArea.innerHTML = `
                     <div class="container text-center" style="margin-top: 50px;">
                         <h1 class="text-danger">🚫 Acceso Denegado</h1>
-                        <p class="lead">No tienes permisos para acceder al módulo <strong>${pageName}</strong>.</p>
-                        <div class="alert alert-warning">
-                            Tu tipo de negocio es detectado como: <strong>${tipoAppActual}</strong>
-                        </div>
-                        <hr>
-                        <div class="text-start mx-auto" style="max-width: 600px; background: #f8f9fa; padding: 15px; border-radius: 8px; font-family: monospace;">
-                            <strong>Debug Info:</strong><br>
-                            - Rol: ${appState.userRol}<br>
-                            - Permisos para '${tipoAppActual}': ${(appState.permissions[tipoAppActual] || []).join(', ')}<br>
-                            - Requerido: ${permissionKey}
+                        <div class="bg-light p-4 rounded-3 border mb-4" style="font-family: 'Courier New', Courier, monospace; font-size: 0.9rem;">
+                            <p class="mb-2"><strong>🔍 Diagnóstico de Acceso:</strong></p>
+                            <ul class="list-unstyled mb-0">
+                                <li>- Puesto: <span class="badge bg-primary">${(appState.userEspecialidad || appState.userRol || 'Usuario').toUpperCase()}</span></li>
+                                <li>- Permisos activos: <span class="text-secondary">${permisosActuales.join(', ') || 'NINGUNO'}</span></li>
+                                <li>- Módulos necesarios: <span class="text-danger">${posiblesLlaves.join(', ')}</span></li>
+                            </ul>
                         </div>
                         <br><br>
                         <div style="display: flex; gap: 10px; justify-content: center;">

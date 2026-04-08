@@ -6,13 +6,14 @@
 
 export const ERP_REGISTRY = {
     // --- 🍽️ GESTIÓN RESTÓ ---
-    'salon_digital': {
+    'resto_mozo': {
         label: 'Salón y Mesas',
         icon: 'static/img/icons/camarero.png',
         path: 'static/resto_mozo.html',
         category: 'operaciones',
         color: 'rgba(255, 107, 107, 0.1)'
     },
+    'salon_digital': { path: 'static/resto_mozo.html' }, // ALIAS LEGACY
     'gestion_mesas': {
         label: 'Adm. de Mesas',
         icon: 'static/img/icons/mesa.png',
@@ -27,31 +28,28 @@ export const ERP_REGISTRY = {
         category: 'operaciones',
         color: 'rgba(162, 155, 254, 0.1)'
     },
-    'comandas_cocina': {
-        label: 'Monitor de Cocina (Legacy)',
-        icon: 'static/img/icons/cocina.png',
-        path: 'static/resto_cocina.html',
-        category: 'operaciones',
-        color: 'rgba(78, 205, 196, 0.1)'
-    },
     'resto_cocina': {
-        label: 'KDS Cocina',
+        label: 'KDS Cocina (Monitor)',
         icon: 'static/img/icons/cocina.png',
         path: 'static/resto_cocina.html',
         category: 'operaciones',
         color: 'rgba(78, 205, 196, 0.1)'
     },
+    'comandas_cocina': { 
+        path: 'static/resto_cocina.html' 
+    }, // ALIAS SILENCIOSO PARA COMPATIBILIDAD
+
     'resto_bar': {
         label: 'KDS Bar',
         icon: 'static/img/icons/cocktail.png',
-        path: 'static/resto_cocina.html',
+        path: 'static/resto_bar.html',
         category: 'operaciones',
         color: 'rgba(99, 102, 241, 0.12)'
     },
     'resto_dolce': {
         label: 'KDS Dolce',
         icon: 'static/img/icons/pastelero.png',
-        path: 'static/resto_cocina.html',
+        path: 'static/resto_dolce.html',
         category: 'operaciones',
         color: 'rgba(255, 159, 67, 0.1)'
     },
@@ -107,7 +105,7 @@ export const ERP_REGISTRY = {
     },
     'repartidores': {
         label: 'Gestión Repartidores',
-        icon: 'static/img/icons/.png',
+        icon: 'static/img/icons/empleados.png',
         path: 'static/vendedores.html',
         category: 'operaciones'
     },
@@ -150,9 +148,23 @@ export const ERP_REGISTRY = {
         category: 'operaciones',
         color: 'rgba(52, 152, 219, 0.12)'
     },
+    'seller': {
+        label: 'App Vendedores (Mobile)',
+        icon: 'static/img/icons/ventas.png',
+        path: 'static/seller.html',
+        category: 'operaciones',
+        color: 'rgba(52, 152, 219, 0.12)'
+    },
+    'home_chofer': {
+        label: 'App Repartidores (Mobile)',
+        icon: 'static/img/icons/camiones.png',
+        path: 'static/home_chofer.html',
+        category: 'operaciones',
+        color: 'rgba(46, 204, 113, 0.12)'
+    },
 
     // --- 📦 COMPRAS & ABASTECIMIENTO ---
-    'ingreso_mercaderia': {
+    'ingresos': {
         label: 'Ingreso Mercadería',
         icon: 'static/img/icons/ingresos.png',
         path: 'static/ingresos.html',
@@ -342,5 +354,12 @@ export const ERP_REGISTRY = {
         icon: 'static/img/icons/ctacte.png',
         path: 'static/cobro_ctacte.html',
         category: 'administrativo'
+    },
+    'negocio_roles': {
+        label: 'Roles y Permisos',
+        icon: 'static/img/icons/configuracion.png',
+        path: 'static/negocio_roles.html',
+        category: 'reglas',
+        color: 'rgba(79, 70, 229, 0.12)'
     }
 };

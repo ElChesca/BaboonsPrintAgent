@@ -1,0 +1,83 @@
+<!-- app/static/negocio_roles.html -->
+<div class="container-fluid fade-in" style="padding: 20px;">
+    <div class="page-header d-flex justify-content-between align-items-center">
+        <h2 style="color: var(--primary-color);">
+            <i class="fas fa-user-shield me-2"></i> Gestión de Roles y Permisos
+        </h2>
+        <button id="btn-nuevo-rol" type="button" class="btn btn-primary shadow-sm" style="display:none;">
+            <i class="fas fa-plus me-1"></i> Nuevo Rol
+        </button>
+    </div>
+
+    <div class="alert alert-info mt-4" style="border-radius: 12px; border: none; background: #f0f7ff; color: #0056b3;">
+        <i class="fas fa-info-circle me-2"></i> 
+        Define qué módulos puede ver cada puesto de trabajo en este negocio. Los cambios impactarán en el siguiente inicio de sesión de los usuarios.
+    </div>
+
+    <div class="card shadow-sm mt-3" style="border-radius: 12px; border: none; overflow: hidden;">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="tabla-roles-negocio">
+                    <thead style="background: #f8f9fa;">
+                        <tr>
+                            <th style="padding-left: 25px;">Nombre del Rol</th>
+                            <th>Módulos Permitidos</th>
+                            <th style="text-align: right; padding-right: 25px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Se llena dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Configurar Rol -->
+<div id="modal-rol-negocio" class="premium-modal-overlay shadow-lg" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+    <div class="premium-modal-content" style="max-width: 700px; width: 95%; background: white; border-radius: 20px; overflow: hidden; animation: modalIn 0.3s ease;">
+        <div class="premium-modal-header" style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+            <h4 class="mb-0 fw-bold" id="modal-rol-titulo">Configuración de Permisos</h4>
+            <button class="btn-close-modal" id="btn-cerrar-modal-rol" type="button" style="border:none; background:none; font-size: 24px;">×</button>
+        </div>
+
+        <form id="form-rol-negocio">
+            <div class="premium-modal-body" style="padding: 24px; max-height: 70vh; overflow-y: auto;">
+                <input type="hidden" id="rol-id">
+                
+                <div class="form-group mb-4">
+                    <label class="form-label fw-bold mb-3 d-block" style="font-size: 1.1rem;">
+                        <i class="fas fa-th-large me-2 text-primary"></i> Seleccionar Módulos Habilitados:
+                    </label>
+                    <div id="admin-module-search-wrap" class="mb-3">
+                        <input type="text" id="rol-module-search" class="form-control" placeholder="🔍 Filtrar módulos...">
+                    </div>
+                    <div class="row g-3" id="modulos-checklist-negocio">
+                        <!-- Módulos dinámicos -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="premium-modal-footer" style="padding: 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc;">
+                <button type="button" id="btn-cancelar-rol" class="btn btn-secondary px-4" style="border-radius: 10px;">Cancelar</button>
+                <button type="submit" class="btn btn-primary px-5 shadow-sm" style="border-radius: 10px; font-weight: 700;">
+                    <i class="fas fa-save me-2"></i> Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+@keyframes modalIn { from { transform: scale(0.9) translateY(20px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+.module-item-check {
+    padding: 10px;
+    border: 1.5px solid #eee;
+    border-radius: 12px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.module-item-check:hover { background: #f0f7ff; border-color: #3b82f6; }
+.module-item-check.active { background: #eff6ff; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+</style>

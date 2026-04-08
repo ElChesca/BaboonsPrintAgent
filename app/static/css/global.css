@@ -1529,4 +1529,20 @@ body.rol-superadmin .superadmin-only {
 .btn-remove-bloque:hover {
     background: #ef4444;
     color: white;
-}
+}
+
+/* --- RESTO BADGES & UTILITIES --- */
+.bg-teal { background-color: #0d9488 !important; color: #fff !important; }
+.bg-indigo { background-color: #6366f1 !important; color: #fff !important; }
+.bg-orange { background-color: #f97316 !important; color: #fff !important; }
+.bg-purple { background-color: #a855f7 !important; color: #fff !important; }
+
+/* Custom Badge Adjustments */
+.badge {
+    padding: 6px 10px !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+

@@ -705,6 +705,68 @@ function handleTablaClick(e) {
     else if (target.closest('.btn-cargar-comprobante')) abrirModalComprobante(id);
     else if (target.closest('.btn-registrar-pago')) abrirModalPagoProveedor(id);
 }
+
+// --- Importación Masiva ---
+async function descargarPlantilla() {
+    const url = `/api/negocios/${appState.negocioActivoId}/proveedores/plantilla`;
+    const token = localStorage.getItem('jwt_token');
+    try {
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error("No se pudo descargar la plantilla");
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = "plantilla_proveedores.xlsx";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+        mostrarNotificacion(error.message, 'error');
+    }
+}
+
+async function handleImportExcel(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!confirm(`¿Desea importar proveedores desde "${file.name}"?`)) {
+        e.target.value = '';
+        return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+        mostrarNotificacion('Procesando catálogo de proveedores...', 'info');
+        
+        const token = localStorage.getItem('jwt_token');
+        const response = await fetch(`/api/negocios/${appState.negocioActivoId}/proveedores/importar`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Authorization': `Bearer ${token}`
+                // IMPORTANTE: No setear Content-Type para FormData
+            }
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Error en la importación');
+
+        mostrarNotificacion(`Importación Finalizada: ${data.creados} nuevos, ${data.actualizados} actualizados.`, 'success');
+        if (data.errores?.length > 0) {
+            console.warn("Errores parciales:", data.errores);
+            mostrarNotificacion(`Hubo ${data.errores.length} filas con errores.`, 'warning');
+        }
+        await cargarProveedores();
+    } catch (error) {
+        mostrarNotificacion(error.message || 'Error en la importación', 'error');
+    } finally {
+        e.target.value = '';
+    }
+}
+
 function closeModalCtaCteHandler() { if (modalCtaCte) modalCtaCte.style.display = 'none'; }
 
 export function inicializarLogicaProveedores() {
@@ -816,6 +878,12 @@ export function inicializarLogicaProveedores() {
         if (btnAgregarMetodo) btnAgregarMetodo.onclick = agregarFilaMetodoPago;
         if (formPago) formPago.onsubmit = handleConfirmarPago;
     }
+
+    // Importación Excel
+    const btnDescargar = document.getElementById('btn-descargar-plantilla-prov');
+    const inputImport = document.getElementById('import-excel-prov');
+    if (btnDescargar) btnDescargar.onclick = descargarPlantilla;
+    if (inputImport) inputImport.onchange = handleImportExcel;
 
     cargarProveedores();
     resetFormulario();

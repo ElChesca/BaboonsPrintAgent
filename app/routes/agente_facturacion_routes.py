@@ -8,9 +8,13 @@ Endpoints:
   GET  /api/agente/facturacion/distribucion-mes → vista previa del calendario mensual
 """
 
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request, current_app, g
 from app.auth_decorator import token_required
 from datetime import date
+import os
+import io
+from google.cloud import documentai_v1 as documentai
+from app.database import get_db
 
 bp = Blueprint('agente_facturacion', __name__)
 
@@ -127,3 +131,131 @@ def distribucion_mes(current_user):
         "anio": anio, "mes": mes, "total": total,
         "distribucion": resultado
     }), 200
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# POST /api/scan-factura
+# OCR de facturas usando Google Cloud Document AI y almacenamiento en Neon
+# ────────────────────────────────────────────────────────────────────────────
+@bp.route('/scan-factura', methods=['POST'])
+@token_required
+def scan_factura(current_user):
+    if 'file' not in request.files:
+        return jsonify({'error': 'No se subió ningún archivo.'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'Nombre de archivo vacío.'}), 400
+
+    try:
+        content = file.read()
+        document = _process_document_ocr(content, file.content_type)
+        data = _parse_document_entities(document)
+        
+        # Validar y guardar en Neon
+        db = get_db()
+        negocio_id = request.form.get('negocio_id', current_user.get('negocio_id'))
+        
+        if not negocio_id:
+            return jsonify({'error': 'No se especificó negocio_id.'}), 400
+
+        # Validar duplicados (CUIT + PV + Número)
+        db.execute("""
+            SELECT id FROM compras_facturas 
+            WHERE cuit_emisor = %s AND punto_venta = %s AND numero_comprobante = %s
+        """, (data['cuit_emisor'], data['punto_venta'], data['numero_comprobante']))
+        
+        if db.fetchone():
+             return jsonify({
+                 'error': 'Factura duplicada',
+                 'message': f"Ya existe la factura {data['punto_venta']}-{data['numero_comprobante']} del emisor {data['cuit_emisor']}",
+                 'data': data
+             }), 409
+
+        # Insertar en Neon
+        db.execute("""
+            INSERT INTO compras_facturas (
+                negocio_id, cuit_emisor, punto_venta, numero_comprobante, 
+                fecha_emision, monto_total, data_json
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            negocio_id, data['cuit_emisor'], data['punto_venta'], data['numero_comprobante'],
+            data['fecha_emision'], data['monto_total'], document.json
+        ))
+        
+        if hasattr(g, 'db_conn'):
+            g.db_conn.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Factura procesada y guardada correctamente.',
+            'data': data
+        }), 201
+
+    except Exception as e:
+        current_app.logger.error(f"[OCR] Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+def _process_document_ocr(file_content, mime_type):
+    project_id = os.environ.get("GCP_PROJECT_ID")
+    location = os.environ.get("GCP_LOCATION", "us")
+    processor_id = os.environ.get("GCP_PROCESSOR_ID")
+    
+    if not (project_id and processor_id):
+        raise ValueError("Configuración Document AI incompleta (GCP_PROJECT_ID, GCP_PROCESSOR_ID).")
+
+    client = documentai.DocumentProcessorServiceClient()
+    name = client.processor_path(project_id, location, processor_id)
+    
+    raw_document = documentai.RawDocument(content=file_content, mime_type=mime_type)
+    request = documentai.ProcessRequest(name=name, raw_document=raw_document)
+    
+    result = client.process_document(request=request)
+    return result.document
+
+
+def _parse_document_entities(document):
+    """
+    Mapea las entidades de Document AI a los campos requeridos.
+    Se asume el uso de un procesador de facturas genérico o especializado.
+    """
+    entities = {e.type_: e.mention_text for e in document.entities}
+    
+    # Mapeo manual basado en labels estándar de Google API
+    raw_number = entities.get('invoice_id', '0000-00000000')
+    pv = '0000'
+    num = raw_number
+    
+    if '-' in raw_number:
+        parts = raw_number.split('-')
+        pv = parts[0].zfill(4)
+        num = parts[1]
+
+    # Limpieza de montos y fechas
+    monto_total = 0.0
+    try:
+        # Algunos procesadores devuelven entity.normalized_value.total_value (float)
+        # Por ahora usamos el texto crudo y limpiamos caracteres no numéricos
+        monto_str = entities.get('total_amount', '0').replace('$', '').replace(',', '').strip()
+        monto_total = float(monto_str)
+    except: pass
+
+    fecha = str(date.today())
+    try:
+        # Google suele devolver YYYY-MM-DD en mention_text si está normalizado
+        fecha_raw = entities.get('invoice_date', fecha)
+        # Intentar limpieza básica si viene con texto
+        fecha = fecha_raw[:10] 
+    except: pass
+
+    return {
+        'cuit_emisor': entities.get('supplier_tax_id', '00-00000000-0').replace('-', ''),
+        'proveedor': entities.get('supplier_name', ''),
+        'punto_venta': pv,
+        'numero_comprobante': num,
+        'fecha_emision': fecha,
+        'monto_total': monto_total
+    }
+

@@ -2,6 +2,7 @@
 import { fetchData, sendData } from '../api.js'; // Asegúrate que sendData esté exportado y funcione
 import { appState } from '../main.js';
 import { mostrarNotificacion } from './notifications.js';
+import { BaboonAIScanner } from './ia_scanner.js';
 
 let stagedIncomeItems = []; 
 let productosCache = [];
@@ -73,7 +74,13 @@ function renderStagedIncomeItems() {
                 <input type="checkbox" class="form-check-input check-recibido" data-index="${index}" ${item.recibido ? 'checked' : ''}>
             </td>
             <td>
-                <div class="fw-bold">${item.nombre}</div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="fw-bold">${item.nombre}</div>
+                    ${item.no_vinculado ? 
+                        '<span class="badge rounded-pill bg-info-subtle text-info border border-info-subtle" style="font-size: 0.65rem;">NUEVO</span>' : 
+                        '<span class="text-success" title="Producto vinculado"><i class="fas fa-check-circle"></i></span>'
+                    }
+                </div>
                 <div class="text-muted small">IVA: ${item.iva_porcentaje}%</div>
             </td>
             <td class="text-end">
@@ -108,12 +115,17 @@ function renderStagedIncomeItems() {
 
 function actualizarTotalesGlobales() {
     let netoGravado = 0;
-    let totalsByIVA = { "21": 0, "10.5": 0 };
+    let totalsByIVA = { "27": 0, "21": 0, "10.5": 0, "2.5": 0 };
     let descuentosTotales = 0;
+
+    const facturaTipo = document.getElementById('ingreso-factura-tipo')?.value || '01';
 
     stagedIncomeItems.forEach(item => {
         if (!item.recibido) return;
         
+        // Si es bonificado, no suma al neto gravado
+        if (item.bonificado) return;
+
         const subtotalBruto = (item.precio_costo || 0) * item.cantidad;
         const netoItem = calcularNetoItem(item.cantidad, item.precio_costo, item.descuento_1, item.descuento_2);
         
@@ -121,39 +133,55 @@ function actualizarTotalesGlobales() {
         descuentosTotales += (subtotalBruto - netoItem);
         
         // Calcular IVA proporcional
-        const ivaKey = item.iva_porcentaje.toString();
-        const ivaMonto = netoItem * (item.iva_porcentaje / 100);
+        const ivaP = parseFloat(item.iva_porcentaje) || 0;
+        const ivaMonto = netoItem * (ivaP / 100);
         
-        if (ivaKey.includes("21")) totalsByIVA["21"] += ivaMonto;
-        if (ivaKey.includes("10.5")) totalsByIVA["10.5"] += ivaMonto;
+        // No sumar IVA si el comprobante es 99
+        if (facturaTipo !== '99') {
+            const key = ivaP.toString();
+            if (totalsByIVA.hasOwnProperty(key)) {
+                totalsByIVA[key] += ivaMonto;
+            }
+        }
     });
 
     // Actualizar UI
     document.getElementById('total-neto-gravado').innerText = formatCurrency(netoGravado);
     document.getElementById('total-descuentos').innerText = formatCurrency(descuentosTotales);
     
-    // Solo actualizar si el usuario no los está editando (o siempre si prefieres auto-calc)
-    // Dejamos que el usuario pueda corregir si hay redondeos en la factura física
-    const iva21Input = document.getElementById('tax-iva-21');
-    const iva105Input = document.getElementById('tax-iva-105');
-    
-    if (iva21Input && !iva21Input.matches(':focus')) iva21Input.value = totalsByIVA["21"].toFixed(2);
-    if (iva105Input && !iva105Input.matches(':focus')) iva105Input.value = totalsByIVA["10.5"].toFixed(2);
+    // Auto-completar campos de IVA si no tienen el foco
+    const ivaFields = {
+        "27": document.getElementById('tax-iva-27'),
+        "21": document.getElementById('tax-iva-21'),
+        "10.5": document.getElementById('tax-iva-105'),
+        "2.5": document.getElementById('tax-iva-25')
+    };
+
+    for (const [rate, input] of Object.entries(ivaFields)) {
+        if (input && !input.matches(':focus')) {
+            // Si el tipo es 99, forzar 0
+            input.value = (facturaTipo === '99') ? "0" : totalsByIVA[rate].toFixed(2);
+        }
+    }
 
     recalcularTotalFactura();
 }
 
 function recalcularTotalFactura() {
-    const neto = parseFloat(document.getElementById('total-neto-gravado').innerText.replace(/[^0-9,-]+/g,"").replace(",", ".")) || 0;
+    const netoText = document.getElementById('total-neto-gravado').innerText;
+    const neto = parseFloat(netoText.replace(/[^0-9,-]+/g,"").replace(",", ".")) || 0;
     
+    const iva27 = parseFloat(document.getElementById('tax-iva-27')?.value) || 0;
     const iva21 = parseFloat(document.getElementById('tax-iva-21')?.value) || 0;
     const iva105 = parseFloat(document.getElementById('tax-iva-105')?.value) || 0;
+    const iva25 = parseFloat(document.getElementById('tax-iva-25')?.value) || 0;
+    
     const iibb = parseFloat(document.getElementById('tax-iibb')?.value) || 0;
     const piva = parseFloat(document.getElementById('tax-percep-iva')?.value) || 0;
     const exento = parseFloat(document.getElementById('tax-exento')?.value) || 0;
     const noGravado = parseFloat(document.getElementById('tax-no-gravado')?.value) || 0;
 
-    const total = neto + iva21 + iva105 + iibb + piva + exento + noGravado;
+    const total = neto + iva27 + iva21 + iva105 + iva25 + iibb + piva + exento + noGravado;
     
     const display = document.getElementById('total-comprobante-display');
     if (display) display.innerText = formatCurrency(total);
@@ -207,11 +235,15 @@ export function inicializarLogicaIngresos() {
         const costoInput = document.getElementById('ingreso-item-costo');
         const dto1Input = document.getElementById('ingreso-item-dto1');
         const dto2Input = document.getElementById('ingreso-item-dto2');
+        const ivaInput = document.getElementById('ingreso-item-iva');
+        const bonificadoCheck = document.getElementById('ingreso-item-bonificado');
         
         const cantidad = parseFloat(cantidadInput.value);
         const precio_costo = parseFloat(costoInput.value) || 0;
         const dto1 = parseFloat(dto1Input.value) || 0;
         const dto2 = parseFloat(dto2Input.value) || 0;
+        const ivaP = parseFloat(ivaInput.value) || 0;
+        const isBonificado = bonificadoCheck && bonificadoCheck.checked;
 
         if (!productoId || !cantidad || cantidad <= 0) {
             return mostrarNotificacion('Seleccione un producto y cantidad válida.', 'warning');
@@ -220,9 +252,6 @@ export function inicializarLogicaIngresos() {
         const productoSel = productosCache.find(p => p.id == productoId);
         if (!productoSel) return;
 
-        // IVA Predeterminado (intentar obtener de productoSel o defecto 21)
-        const ivaP = productoSel.iva_porcentaje || 21.0;
-
         stagedIncomeItems.push({
             producto_id: productoId,
             nombre: productoSel.nombre,
@@ -230,7 +259,8 @@ export function inicializarLogicaIngresos() {
             precio_costo: precio_costo,
             descuento_1: dto1,
             descuento_2: dto2,
-            iva_porcentaje: ivaP,
+            iva_porcentaje: isBonificado ? 0 : ivaP,
+            bonificado: isBonificado,
             recibido: true
         });
         
@@ -413,9 +443,17 @@ export function inicializarLogicaIngresos() {
     }
 
     // Listeners para recalcular totales al editar tasas globales
-    document.querySelectorAll('.tax-input').forEach(input => {
+    document.querySelectorAll('.tax-input-compact').forEach(input => {
         input.addEventListener('input', recalcularTotalFactura);
     });
+
+    // Cambiar tipo de factura resetea impuestos si es 99
+    const selectTipoFactura = document.getElementById('ingreso-factura-tipo');
+    if (selectTipoFactura) {
+        selectTipoFactura.addEventListener('change', () => {
+            actualizarTotalesGlobales();
+        });
+    }
 
     // El botón Confirmar Carga (nuevo ID en HTML premium)
     const btnConfirmar = document.getElementById('btn-registrar-ingreso-final');
@@ -440,15 +478,17 @@ export function inicializarLogicaIngresos() {
         const caeVenc = document.getElementById('ingreso-cae-vencimiento').value;
 
         // Impuestos
+        const iva27 = parseFloat(document.getElementById('tax-iva-27')?.value) || 0;
         const iva21 = parseFloat(document.getElementById('tax-iva-21')?.value) || 0;
         const iva105 = parseFloat(document.getElementById('tax-iva-105')?.value) || 0;
+        const iva25 = parseFloat(document.getElementById('tax-iva-25')?.value) || 0;
         const iibb = parseFloat(document.getElementById('tax-iibb')?.value) || 0;
         const piva = parseFloat(document.getElementById('tax-percep-iva')?.value) || 0;
         const exento = parseFloat(document.getElementById('tax-exento')?.value) || 0;
         const noGravado = parseFloat(document.getElementById('tax-no-gravado')?.value) || 0;
         const neto = parseFloat(document.getElementById('total-neto-gravado').innerText.replace(/[^0-9,-]+/g,"").replace(",", ".")) || 0;
 
-        const totalComprobante = neto + iva21 + iva105 + iibb + piva + exento + noGravado;
+        const totalComprobante = neto + iva27 + iva21 + iva105 + iva25 + iibb + piva + exento + noGravado;
 
         if (!proveedorId || !facturaTipo || !facturaNumero || !fechaEmision || !puntoVenta) {
              return mostrarNotificacion('Complete los datos obligatorios del comprobante.', 'warning');
@@ -465,8 +505,10 @@ export function inicializarLogicaIngresos() {
             fecha_emision: fechaEmision,
             cae: cae || null,
             cae_vencimiento: caeVenc || null,
+            iva_27: iva27,
             iva_21: iva21,
             iva_105: iva105,
+            iva_25: iva25,
             iva_percepcion: piva,
             iibb_percepcion: iibb,
             neto_gravado: neto,
@@ -476,6 +518,7 @@ export function inicializarLogicaIngresos() {
             orden_compra_id: selectedOCId,
             detalles: finalItems.map(item => ({ 
                  producto_id: item.producto_id,
+                 nombre: item.nombre, // Enviamos el nombre por si el ID es nulo
                  cantidad: item.cantidad,
                  precio_costo: item.precio_costo,
                  descuento_1: item.descuento_1,
@@ -519,6 +562,113 @@ export function inicializarLogicaIngresos() {
         }
     });
 
+    // --- BOTÓN IA SCANNER (BABOON AI) ---
+    const btnIAScanner = document.getElementById('btn-ia-scanner');
+    if (btnIAScanner) {
+        btnIAScanner.addEventListener('click', () => {
+            BaboonAIScanner.openModal({
+                endpoint: '/api/ia/scan-factura',
+                loadingText: 'Escaneando con Document AI...',
+                extraData: { negocio_id: appState.negocioActivoId },
+                onComplete: (response) => {
+                    // El backend devuelve { success, data }
+                    poblarConResultadosIA(response.data || response);
+                }
+            });
+        });
+    }
+
+    async function poblarConResultadosIA(data) {
+        if (!data) return;
+
+        console.log("📥 [IA] Poblando con:", data);
+
+        // 1. Datos del Comprobante
+        const tipoSelect = document.getElementById('ingreso-factura-tipo');
+        if (tipoSelect) {
+            const rawTipo = data.tipo_comprobante || '';
+            const mapTipos = { 'A': '01', 'B': '06', 'C': '11', 'REMITO': '99', 'RECIBO': '99', 'FACTURA': '01' };
+            const val = mapTipos[rawTipo.toUpperCase()];
+            if (val) tipoSelect.value = val;
+        }
+
+        const fecha = data.fecha_emision || data.fecha;
+        if (fecha) document.getElementById('ingreso-fecha-emision').value = fecha;
+        
+        const pv = data.punto_venta;
+        const num = data.numero_comprobante || data.nro_comprobante;
+
+        if (pv) document.getElementById('ingreso-punto-venta').value = pv.padStart(4, '0');
+        
+        if (num) {
+            if (typeof num === 'string' && num.includes('-')) {
+                const parts = num.split('-');
+                document.getElementById('ingreso-punto-venta').value = parts[0].padStart(4, '0');
+                document.getElementById('ingreso-factura-numero').value = parts[1].padStart(8, '0');
+            } else {
+                document.getElementById('ingreso-factura-numero').value = String(num).padStart(8, '0');
+            }
+        }
+
+        // Match Proveedor (por CUIT si tenemos la info o por nombre)
+        if (data.cuit_emisor || data.proveedor) {
+            const selProv = document.getElementById('ingreso-proveedor-selector');
+            if (selProv) {
+                // Buscamos en el select. Por ahora por nombre si no tenemos el CUIT mapeado
+                const term = (data.proveedor || '').toLowerCase();
+                for (let opt of selProv.options) {
+                    if (opt.text.toLowerCase().includes(term) && term.length > 3) {
+                        selProv.value = opt.value;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 2. Impuestos
+        if (data.iva_27 !== undefined) document.getElementById('tax-iva-27').value = data.iva_27 || 0;
+        if (data.iva_21 !== undefined) document.getElementById('tax-iva-21').value = data.iva_21 || 0;
+        if (data.iva_105 !== undefined) document.getElementById('tax-iva-105').value = data.iva_105 || 0;
+        if (data.iva_25 !== undefined) document.getElementById('tax-iva-25').value = data.iva_25 || 0;
+        if (data.iibb_percepcion !== undefined) document.getElementById('tax-iibb').value = data.iibb_percepcion || 0;
+        if (data.iva_percepcion !== undefined) document.getElementById('tax-percep-iva').value = data.iva_percepcion || 0;
+        
+        // Si hay monto total pero no items, lo informamos (Document AI extrae cabecera)
+        if (data.monto_total && (!data.items || data.items.length === 0)) {
+            console.log("💰 [IA] Monto total detectado:", data.monto_total);
+            // Podríamos ponerlo en algún lado para referencia
+        }
+
+        // 3. Ítems
+        if (data.items && data.items.length > 0) {
+            data.items.forEach(it => {
+                const aiName = (it.producto || "").toLowerCase().trim();
+                const match = productosCache.find(p => {
+                    const dbName = p.nombre.toLowerCase().trim();
+                    return dbName.includes(aiName) || aiName.includes(dbName);
+                });
+                
+                stagedIncomeItems.push({
+                    producto_id: match ? match.id : null,
+                    nombre: match ? match.nombre : (it.producto || "Sin nombre"),
+                    cantidad: it.cantidad || 1,
+                    precio_costo: it.precio_unitario || 0,
+                    descuento_1: 0,
+                    descuento_2: 0,
+                    iva_porcentaje: it.bonificado ? 0 : (it.iva_p || 21),
+                    recibido: true,
+                    bonificado: it.bonificado || false,
+                    ia_detected: true,
+                    no_vinculado: !match
+                });
+            });
+            renderStagedIncomeItems();
+        }
+
+        actualizarTotalesGlobales();
+        mostrarNotificacion('Datos cargados desde el escaneo IA.', 'success');
+    }
+
     // --- EVENTOS DE LA TABLA (Delegación) ---
     tablaItemsBody.addEventListener('change', (e) => {
         const index = e.target.dataset.index;
@@ -560,6 +710,14 @@ export function inicializarLogicaIngresos() {
         });
     }
 
+    // --- BOTÓN VER HISTORIAL (Acceso Rápido) ---
+    const btnVerHistorial = document.getElementById('btn-ver-historial-ingresos');
+    if (btnVerHistorial) {
+        btnVerHistorial.addEventListener('click', () => {
+             if (window.loadContent) window.loadContent(null, 'historial_ingresos');
+        });
+    }
+
     // --- BOTÓN CANCELAR ---
     const btnCancelar = document.getElementById('btn-cancelar-ingreso');
     if (btnCancelar) {
@@ -590,6 +748,11 @@ function limpiarFormularioIngreso() {
         submitButton.disabled = false;
         submitButton.innerHTML = '<i class="fas fa-save me-2"></i>GUARDAR INGRESO';
     }
+
+    // 🧹 Limpieza de backdrops para evitar congelamiento
+    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
 }
 }
 

@@ -129,3 +129,22 @@ def migrate_db_command():
         from flask import g
         if hasattr(g, 'db_conn'): g.db_conn.commit()
         click.echo('Fallback migration attempt finished.')
+
+@click.command('init-ocr-db')
+@with_appcontext
+def init_ocr_db_command():
+    """Creates the OCR tables in the database."""
+    db = get_db()
+    click.echo('Initializing OCR database...')
+    migration_path = os.path.join(current_app.root_path, '..', 'migrations', 'ocr_migration.sql')
+    
+    try:
+        with open(migration_path, 'r', encoding='utf-8') as f:
+            sql_content = f.read()
+        db.execute(sql_content)
+        from flask import g
+        if hasattr(g, 'db_conn'):
+             g.db_conn.commit()
+             click.echo('OCR tables created successfully.')
+    except Exception as e:
+        click.echo(f'Error creating tables: {e}')

@@ -11,7 +11,8 @@ let motivosReboteCache = []; // ✨ Motivos de rebote para rechazos parciales
 let appConfigs = {}; // ✨ Cache de configuraciones del negocio
 const formatProductName = (p) => p.alias ? `${p.alias} (${p.sku || p.nombre})` : p.nombre;
 
-document.addEventListener('DOMContentLoaded', async () => {
+export async function init() {
+    console.log("🚀 Iniciando App de Vendedores...");
     const user = getCurrentUser();
     if (!user) {
         // ✨ Redirigir al login del SPA (/#login) pasando el returnUrl
@@ -58,10 +59,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadRoute(localDate);
     cargarConfigs(); // ✨ Cargar configuraciones del negocio
     cargarMotivosRebote();
+}
 
-    // Nota: La lógica de Cambio de Método de Pago ha sido removida para Vendedores
-    // ya que solo realizan la entrega (bajada) sin cobro.
-});
+// ✨ Auto-ejecutar si se carga de forma tradicional (Legacy)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    // Si ya cargó, lo ejecutamos directo (solo si no es un import de SPA que ya llamó a init)
+    if (!window.SPA_MODE) init(); 
+}
 
 async function cargarConfigs() {
     const user = getCurrentUser();

@@ -4,8 +4,10 @@
 // ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
 // ✨ ¡DEBE SER IDÉNTICA a la de tu main.js!
 // ✨ ========================================================================
-const APP_VERSION = "1.9.6";
+const APP_VERSION = "1.9.9";
 // HISTORIAL DE VERSIONES:
+// 1.9.9: Unified module init functions (init/inicializar).
+// 1.9.8: Mobile initializers and login_secure common route fix.
 // 1.9.6: High Contrast KDS and Bar/Dolce station fixes sync.
 // 1.6.7: High Contrast KDS and Bar/Dolce station fixes.
 // 1.6.6: Fix Resto pre-bill formatting and auto-start guide.

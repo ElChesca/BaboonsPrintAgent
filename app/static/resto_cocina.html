@@ -1,79 +1,101 @@
-    <link rel="stylesheet" href="static/css/kds.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
-    <div class="kds-app" id="kds-app" style="background: #0c1017 !important;">
+<!-- app/static/resto_cocina.html -->
+<link rel="stylesheet" href="static/css/kds.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<div class="kds-app" id="kds-app">
     <!-- KDS Top Bar -->
     <header class="kds-topbar">
-        <div class="kds-topbar-left">
-            <div class="kds-brand">
-                <div class="kds-brand-icon">
-                    <i class="fas fa-fire-alt"></i>
+        <!-- Row 1: Brand & Controls -->
+        <div class="kds-topbar-row">
+            <div class="kds-topbar-left">
+                <div class="kds-brand">
+                    <div class="kds-brand-icon">
+                        <i class="fas fa-fire-alt"></i>
+                    </div>
+                    <div class="kds-brand-text">
+                        <h1 id="kds-main-title">KDS COCINA</h1>
+                        <span id="kds-user-name" class="kds-user-badge">👨‍🍳 Usuario</span>
+                    </div>
                 </div>
-                <div class="kds-brand-text">
-                    <h1>KDS</h1>
-                    <span id="kds-user-name" class="kds-user-badge">👨‍🍳 Cocinero</span>
+
+                <div class="v-divider mx-2"></div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <h2 id="kds-station-name" class="mb-0 fw-800 d-none d-md-block" style="font-family: 'Outfit'; letter-spacing: -0.5px; color: #fff !important;">Monitor de Producción</h2>
                 </div>
+            </div>
+
+            <div class="kds-topbar-right">
+                <!-- Live Counters -->
+                <div class="kds-counters">
+                    <div class="kds-counter">
+                        <span class="kds-counter-value" id="stats-total">0</span>
+                        <span class="kds-counter-label">Total</span>
+                    </div>
+                    <div class="kds-counter-divider"></div>
+                    <div class="kds-counter kds-counter-cooking">
+                        <span class="kds-counter-value" id="stats-cooking">0</span>
+                        <span class="kds-counter-label">En fuego</span>
+                    </div>
+                </div>
+                <button class="kds-btn-icon" title="Actualizar" onclick="window.cargarPendientes()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="kds-btn-icon kds-btn-logout" title="Cerrar Sesión" onclick="window.logout()">
+                    <i class="fas fa-power-off"></i>
+                </button>
             </div>
         </div>
 
-            <div class="d-flex align-items-center gap-3">
-                <!-- Station Toggle -->
-                <div class="kds-station-toggle">
-                    <button class="kds-station-btn active" id="btn-station-cocina" onclick="window.cambiarEstacion('cocina')">
-                        <i class="fas fa-utensils"></i>
-                        <span>Cocina</span>
-                    </button>
-                    <button class="kds-station-btn" id="btn-station-bar" onclick="window.cambiarEstacion('bar')">
-                        <i class="fas fa-cocktail"></i>
-                        <span>Bar</span>
-                    </button>
-                    <button class="kds-station-btn" id="btn-station-dolce" onclick="window.cambiarEstacion('dolce')">
-                        <i class="fas fa-birthday-cake"></i>
-                        <span>Dolce</span>
-                    </button>
-                </div>
-
-                <!-- View Mode / Unify Toggle -->
+        <!-- Row 2: Dynamic Filters -->
+        <div class="kds-topbar-row">
+            <div class="kds-filters">
+                <span class="kds-filter-label"><i class="fas fa-sort"></i> ORDENAR:</span>
+                <button class="kds-filter-btn active" id="btn-sort-tiempo" onclick="window.cambiarOrden('tiempo')">
+                    <i class="fas fa-clock"></i> TIEMPO
+                </button>
+                <button class="kds-filter-btn" id="btn-sort-mesa" onclick="window.cambiarOrden('mesa')">
+                    <i class="fas fa-hashtag"></i> MESA
+                </button>
+                
+                <div class="v-divider mx-2"></div>
+                
+                <span class="kds-filter-label"><i class="fas fa-th"></i> VISTA:</span>
                 <div class="kds-view-controls">
-                    <button class="kds-view-btn active" id="btn-view-grid" onclick="window.cambiarVistaKDS('grid')" title="Vista Grilla">
-                        <i class="fas fa-th-large"></i>
+                    <button class="kds-view-btn" id="btn-view-grid" onclick="window.cambiarVistaKDS('grid')">
+                        <i class="fas fa-th-large"></i> Grilla
                     </button>
-                    <button class="kds-view-btn" id="btn-view-kanban" onclick="window.cambiarVistaKDS('kanban')" title="Vista Kanban">
-                        <i class="fas fa-columns"></i>
-                    </button>
-                    <div class="v-divider mx-1"></div>
-                    <button class="kds-view-btn" id="btn-unify-tables" onclick="window.toggleUnificarMesas()" title="Unificar por Mesa">
-                        <i class="fas fa-layer-group"></i>
-                        <span class="ms-1 d-none d-lg-inline">Unificar</span>
+                    <button class="kds-view-btn" id="btn-view-kanban" onclick="window.cambiarVistaKDS('kanban')">
+                        <i class="fas fa-columns"></i> Kanban
                     </button>
                 </div>
+
+                <div class="v-divider mx-2"></div>
+
+                <span class="kds-filter-label"><i class="fas fa-utensils"></i> TIEMPOS:</span>
+                <div class="d-flex gap-1">
+                    <button class="kds-filter-btn active" id="btn-tiempo-all" onclick="window.filtrarTiempo('all')">TODO</button>
+                    <button class="kds-filter-btn" id="btn-tiempo-1" onclick="window.filtrarTiempo(1)">T1</button>
+                    <button class="kds-filter-btn" id="btn-tiempo-2" onclick="window.filtrarTiempo(2)">T2</button>
+                    <button class="kds-filter-btn" id="btn-tiempo-3" onclick="window.filtrarTiempo(3)">T3</button>
+                </div>
+
+                <div class="v-divider mx-2"></div>
+
+                <button class="kds-filter-btn" id="btn-unify-tables" onclick="window.toggleUnificarMesas()">
+                    <i class="fas fa-layer-group"></i> Unificar Mesas
+                </button>
             </div>
 
-        <div class="kds-topbar-right">
-            <!-- Live Counters -->
-            <div class="kds-counters">
-                <div class="kds-counter">
-                    <span class="kds-counter-value" id="stats-total">0</span>
-                    <span class="kds-counter-label">Pendientes</span>
-                </div>
-                <div class="kds-counter-divider"></div>
-                <div class="kds-counter kds-counter-cooking">
-                    <span class="kds-counter-value" id="stats-cooking">0</span>
-                    <span class="kds-counter-label">En fuego</span>
-                </div>
+            <div class="kds-topbar-right">
+                <span class="kds-filter-label">BUSCAR MESA:</span>
+                <input type="number" class="kds-filter-input" placeholder="Ej: 5" oninput="window.filtrarMesa(this.value)">
             </div>
-            <button class="kds-btn-icon" title="Actualizar" onclick="window.cargarPendientes()">
-                <i class="fas fa-sync-alt"></i>
-            </button>
-            <button class="kds-btn-icon kds-btn-logout" title="Cerrar Sesión" onclick="window.logout()">
-                <i class="fas fa-power-off"></i>
-            </button>
         </div>
     </header>
 
-    <!-- KDS Main Grid -->
+    <!-- KDS Board -->
     <main class="kds-board" id="kds-orders-container">
-        <!-- Cards injected here -->
         <div class="kds-empty">
             <div class="kds-empty-icon">
                 <i class="fas fa-check-double"></i>
@@ -83,716 +105,3 @@
         </div>
     </main>
 </div>
-
-<style>
-    /* =========================================
-       KDS (Kitchen Display System) - Pro Theme
-       Mobile-first, Dark, High Contrast
-       ========================================= */
-
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap');
-
-    .kds-app {
-        --kds-bg: #0c1017;
-        --kds-surface: #161b22;
-        --kds-surface-2: #1c2333;
-        --kds-border: rgba(255,255,255,0.06);
-        --kds-text: #e6edf3;
-        --kds-text-dim: #7d8590;
-        --kds-accent: #58a6ff;
-        --kds-warning: #f0883e;
-        --kds-danger: #f85149;
-        --kds-success: #3fb950;
-        --kds-cooking: #d29922;
-        --kds-radius: 16px;
-
-        font-family: 'Inter', system-ui, sans-serif;
-        background: var(--kds-bg);
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        color: var(--kds-text);
-        -webkit-font-smoothing: antialiased;
-        overflow: hidden;
-    }
-
-    /* ---- TOP BAR ---- */
-    .kds-topbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 16px;
-        height: 64px;
-        background: var(--kds-surface);
-        border-bottom: 1px solid var(--kds-border);
-        flex-shrink: 0;
-        gap: 12px;
-        z-index: 10;
-    }
-
-    .kds-topbar-left,
-    .kds-topbar-right {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .kds-topbar-center {
-        display: flex;
-        align-items: center;
-    }
-
-    .kds-btn-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 10px;
-        border: 1px solid var(--kds-border);
-        background: transparent;
-        color: var(--kds-text-dim);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-size: 0.95rem;
-        flex-shrink: 0;
-    }
-
-    .kds-btn-icon:active {
-        transform: scale(0.92);
-    }
-
-    .kds-btn-icon:hover {
-        background: rgba(255,255,255,0.06);
-        color: var(--kds-text);
-    }
-
-    .kds-btn-logout {
-        color: var(--kds-danger);
-        border-color: rgba(248,81,73,0.2);
-    }
-    .kds-btn-logout:hover {
-        background: rgba(248,81,73,0.15);
-    }
-
-    /* KDS View Mode Switcher */
-    .kds-view-controls {
-        display: flex;
-        align-items: center;
-        background: rgba(0,0,0,0.3);
-        border-radius: 12px;
-        padding: 4px;
-        border: 1px solid var(--kds-border);
-    }
-    .kds-view-btn {
-        background: transparent;
-        border: none;
-        color: var(--kds-text-dim);
-        padding: 6px 12px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 0.9rem;
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .kds-view-btn i { font-size: 1rem; }
-    .kds-view-btn:hover { background: rgba(255,255,255,0.05); color: var(--kds-text); }
-    .kds-view-btn.active {
-        background: var(--kds-surface-2);
-        color: var(--kds-accent);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
-    .v-divider { width: 1px; height: 18px; background: var(--kds-border); }
-
-    /* Kanban Styles */
-    .kds-board.kanban-active {
-        display: flex !important;
-        flex-direction: column;
-        padding: 0;
-        overflow: hidden;
-    }
-
-    .kds-kanban-board {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr); /* Forzado a 2 columnas */
-        gap: 20px;
-        padding: 20px;
-        height: 100%;
-        flex: 1;
-        overflow-y: hidden;
-    }
-    .kds-kanban-column {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-        background: rgba(0,0,0,0.15);
-        border: 1px solid var(--kds-border);
-        border-radius: 24px;
-        padding: 20px;
-        overflow-y: auto;
-        min-height: 200px;
-    }
-    .kds-column-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 10px 15px 10px;
-        border-bottom: 2px solid var(--kds-border);
-        margin-bottom: 10px;
-    }
-    .kds-column-title {
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-size: 1rem;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    .kds-column-badge {
-        background: var(--kds-surface-2);
-        padding: 2px 10px;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 700;
-    }
-    .kds-column-todo .kds-column-title { color: var(--kds-text); }
-    .kds-column-doing .kds-column-title { color: var(--kds-cooking); }
-
-    /* Brand */
-    .kds-brand {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .kds-brand-icon {
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, #f0883e, #f85149);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 1rem;
-        animation: kds-fire 2s ease-in-out infinite;
-        flex-shrink: 0;
-    }
-
-    @keyframes kds-fire {
-        0%, 100% { box-shadow: 0 0 8px rgba(240,136,62,0.3); }
-        50% { box-shadow: 0 0 20px rgba(240,136,62,0.6); }
-    }
-
-    .kds-brand-text h1 {
-        font-size: 1.1rem;
-        font-weight: 900;
-        margin: 0;
-        letter-spacing: 2px;
-        line-height: 1;
-    }
-
-    .kds-brand-text span {
-        font-size: 0.65rem;
-        color: var(--kds-text-dim);
-        font-weight: 500;
-    }
-
-    .kds-user-badge {
-        font-size: 0.65rem !important;
-        font-weight: 700 !important;
-        color: var(--kds-cooking) !important;
-        background: rgba(210,153,34,0.12);
-        padding: 2px 10px;
-        border-radius: 20px;
-        display: inline-block;
-        margin-top: 2px;
-    }
-
-    /* Station Toggle */
-    .kds-station-toggle {
-        display: flex;
-        background: rgba(0,0,0,0.3);
-        border-radius: 12px;
-        padding: 3px;
-        border: 1px solid var(--kds-border);
-    }
-
-    .kds-station-btn {
-        padding: 7px 16px;
-        border: none;
-        border-radius: 10px;
-        background: transparent;
-        color: var(--kds-text-dim);
-        font-weight: 700;
-        font-size: 0.8rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        white-space: nowrap;
-    }
-
-    .kds-station-btn.active {
-        background: rgba(255,255,255,0.08);
-        color: white;
-    }
-
-    .kds-station-btn:active {
-        transform: scale(0.95);
-    }
-
-    /* Counters */
-    .kds-counters {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        background: rgba(0,0,0,0.25);
-        padding: 6px 14px;
-        border-radius: 12px;
-        border: 1px solid var(--kds-border);
-    }
-
-    .kds-counter {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
-
-    .kds-counter-value {
-        font-size: 1.4rem;
-        font-weight: 900;
-        font-family: 'JetBrains Mono', monospace;
-        line-height: 1;
-    }
-
-    .kds-counter-label {
-        font-size: 0.55rem;
-        color: var(--kds-text-dim);
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .kds-counter-cooking .kds-counter-value {
-        color: var(--kds-cooking);
-    }
-
-    .kds-counter-divider {
-        width: 1px;
-        height: 28px;
-        background: var(--kds-border);
-    }
-
-    /* ---- MAIN BOARD ---- */
-    .kds-board {
-        flex: 1;
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 16px;
-        padding: 16px;
-        overflow-y: auto;
-        align-content: start;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    /* Empty State */
-    .kds-empty {
-        grid-column: 1 / -1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 80px 20px;
-        text-align: center;
-    }
-
-    .kds-empty-icon {
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        background: rgba(63,185,80,0.1);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 20px;
-    }
-
-    .kds-empty-icon i {
-        font-size: 2rem;
-        color: var(--kds-success);
-        opacity: 0.5;
-    }
-
-    .kds-empty h2 {
-        font-size: 1.4rem;
-        font-weight: 800;
-        margin: 0 0 8px;
-    }
-
-    .kds-empty p {
-        color: var(--kds-text-dim);
-        margin: 0;
-        font-size: 0.9rem;
-    }
-
-    /* ---- KDS ORDER CARD ---- */
-    .kds-card {
-        background: var(--kds-surface);
-        border: 1px solid var(--kds-border);
-        border-radius: var(--kds-radius);
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        animation: kds-card-in 0.3s ease-out;
-        transition: border-color 0.3s;
-    }
-
-    @keyframes kds-card-in {
-        from { opacity: 0; transform: translateY(12px); }
-        to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Priority Border */
-    .kds-card.prio-low    { border-left: 5px solid var(--kds-text-dim); }
-    .kds-card.prio-medium { border-left: 5px solid var(--kds-cooking); }
-    .kds-card.prio-high   { border-left: 5px solid var(--kds-danger); }
-
-    /* Cooking Glow */
-    .kds-card.is-cooking {
-        border-color: rgba(210,153,34,0.3);
-        box-shadow: 0 0 30px rgba(210,153,34,0.08);
-    }
-
-    /* Card Header */
-    .kds-card-head {
-        padding: 14px 16px;
-        background: var(--kds-surface-2);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid var(--kds-border);
-    }
-
-    .kds-card-mesa {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .kds-mesa-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: rgba(0,0,0,0.4);
-        padding: 5px 12px;
-        border-radius: 8px;
-        font-weight: 900;
-        font-size: 1rem;
-        border: 1px solid var(--kds-border);
-        letter-spacing: 0.5px;
-    }
-
-    .kds-mesa-badge i {
-        color: var(--kds-accent);
-        font-size: 0.8rem;
-    }
-
-    .kds-mozo-tag {
-        font-size: 0.65rem;
-        color: var(--kds-text-dim);
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding-left: 2px;
-    }
-
-    .kds-card-meta {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 4px;
-    }
-
-    .kds-timer {
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: 800;
-        font-size: 1.2rem;
-        color: var(--kds-text-dim);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-
-    .kds-timer i {
-        font-size: 0.7rem;
-    }
-
-    .kds-timer.is-warn  { color: var(--kds-warning); }
-    .kds-timer.is-danger { color: var(--kds-danger); animation: kds-blink 1s infinite; }
-
-    @keyframes kds-blink {
-        50% { opacity: 0.4; }
-    }
-
-    .kds-pax-tag {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 1.1rem;
-        color: #ffffff !important;
-        font-weight: 800;
-        text-transform: uppercase;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-
-    /* Card Items */
-    .kds-card-items {
-        padding: 8px 0;
-        flex: 1;
-    }
-
-    .kds-item {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        padding: 10px 16px;
-        border-bottom: 1px solid rgba(255,255,255,0.03);
-        transition: background 0.2s;
-    }
-
-    .kds-item:last-child {
-        border-bottom: none;
-    }
-
-    .kds-item.is-cooking {
-        background: rgba(210,153,34,0.06);
-    }
-
-    .kds-item.is-done {
-        opacity: 0.35;
-    }
-
-    .kds-item-left {
-        display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        flex: 1;
-    }
-
-    .kds-item-qty {
-        min-width: 30px;
-        height: 30px;
-        border-radius: 8px;
-        background: var(--kds-cooking);
-        color: #000;
-        font-weight: 900;
-        font-size: 0.9rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        font-family: 'JetBrains Mono', monospace;
-    }
-
-    .kds-item-info {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-    }
-
-    .kds-item-name {
-        font-weight: 600;
-        font-size: 0.95rem;
-        color: var(--kds-text);
-        line-height: 1.2;
-    }
-
-    .kds-item-note {
-        font-size: 0.7rem;
-        color: var(--kds-warning);
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
-
-    .kds-item-status {
-        font-size: 0.8rem;
-        color: var(--kds-text-dim);
-        flex-shrink: 0;
-        padding-top: 4px;
-    }
-
-    .kds-item-status .fa-spin { color: var(--kds-cooking); }
-    .kds-item-status .fa-check { color: var(--kds-success); }
-
-    /* Card Actions */
-    .kds-card-actions {
-        padding: 12px;
-        background: rgba(0,0,0,0.2);
-        border-top: 1px solid var(--kds-border);
-    }
-
-    .kds-action-btn {
-        width: 100%;
-        padding: 14px;
-        border: none;
-        border-radius: 12px;
-        font-weight: 800;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        cursor: pointer;
-        transition: all 0.15s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-    }
-
-    .kds-action-btn:active {
-        transform: scale(0.97);
-    }
-
-    .kds-action-btn.btn-prepare {
-        background: linear-gradient(135deg, #d29922, #f0883e);
-        color: #000;
-        box-shadow: 0 4px 15px rgba(210,153,34,0.25);
-    }
-
-    .kds-action-btn.btn-dispatch {
-        background: linear-gradient(135deg, #238636, #3fb950);
-        color: white;
-        box-shadow: 0 4px 15px rgba(63,185,80,0.25);
-    }
-
-    /* ---- MOBILE RESPONSIVE ---- */
-    @media (max-width: 768px) {
-        .kds-topbar {
-            height: auto;
-            flex-wrap: wrap;
-            padding: 10px 12px;
-            gap: 8px;
-        }
-
-        .kds-topbar-left {
-            order: 1;
-            flex: 1;
-        }
-
-        .kds-topbar-center {
-            order: 3;
-            width: 100%;
-            justify-content: center;
-        }
-
-        .kds-topbar-right {
-            order: 2;
-            gap: 6px;
-        }
-
-        .kds-brand-text h1 {
-            font-size: 0.95rem;
-        }
-
-        .kds-counters {
-            padding: 4px 10px;
-            gap: 8px;
-        }
-
-        .kds-counter-value {
-            font-size: 1.1rem;
-        }
-
-        .kds-station-toggle {
-            width: 100%;
-        }
-
-        .kds-station-btn {
-            flex: 1;
-            justify-content: center;
-            padding: 10px 12px;
-            font-size: 0.85rem;
-        }
-
-        .kds-board {
-            grid-template-columns: 1fr;
-            gap: 12px;
-            padding: 12px;
-        }
-
-        .kds-card {
-            border-radius: 14px;
-        }
-
-        .kds-action-btn {
-            padding: 16px;
-            font-size: 0.95rem;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .kds-brand-text span {
-            display: none;
-        }
-
-        .kds-counter-label {
-            display: none;
-        }
-
-        .kds-mesa-badge {
-            font-size: 0.9rem;
-        }
-
-        .kds-timer {
-            font-size: 1rem;
-        }
-    }
-
-    /* Tablet Landscape (KDS on wall monitor) */
-    @media (min-width: 1024px) {
-        .kds-board {
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-            padding: 20px;
-        }
-    }
-
-    @media (min-width: 1400px) {
-        .kds-board {
-            grid-template-columns: repeat(4, 1fr);
-        }
-    }
-
-    /* Hide scrollbar but keep scrollable */
-    .kds-board::-webkit-scrollbar { width: 4px; }
-    .kds-board::-webkit-scrollbar-track { background: transparent; }
-    .kds-board::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-
-    /* Cooking glow animation */
-    .kds-card.is-cooking .kds-card-head {
-        position: relative;
-        overflow: hidden;
-    }
-
-    .kds-card.is-cooking .kds-card-head::after {
-        content: '';
-        position: absolute;
-        top: 0; left: -100%;
-        width: 50%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(210,153,34,0.08), transparent);
-        animation: kds-shimmer 2s infinite;
-    }
-
-    @keyframes kds-shimmer {
-        100% { left: 200%; }
-    }
-</style>

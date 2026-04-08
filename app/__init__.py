@@ -51,7 +51,8 @@ def create_app():
                         historial_inventario_routes, precios_especificos_routes, mobile_routes, \
                         payments_routes, gastos_routes, consorcio_routes, club_puntos_routes, \
                         pedidos_routes, logistica_routes, eventos_routes, \
-                        resto_routes, reservas_routes, bancos_routes, ctacte_routes, compras_routes
+                        resto_routes, reservas_routes, bancos_routes, ctacte_routes, compras_routes, \
+                        ia_routes
     from .crm_social import bp as crm_bp
     from .crm_social import leads_routes
     from .rentals import routes as rentals_routes
@@ -79,7 +80,8 @@ def create_app():
         (mercado_pago_routes.bp, '/api'), (agente_facturacion_routes.bp, '/api'),
         (eventos_routes.bp, ''), (tickets_routes.bp, '/api'),
         (resto_routes.bp, '/api'), (reservas_routes.bp, '/api'),
-        (bancos_routes.bp, '/api'), (ctacte_routes.bp, '/api'), (compras_routes.bp, '/api')
+        (bancos_routes.bp, '/api'), (ctacte_routes.bp, '/api'), (compras_routes.bp, '/api'),
+        (ia_routes.ia_bp, '/api')
     ]
     for bp, prefix in blueprints:
         app.register_blueprint(bp, url_prefix=prefix)
@@ -159,10 +161,11 @@ def create_app():
         app.logger.info("[Agente Facturación] 🚀 Scheduler iniciado — job diario 11:05 AM ARG")
 
     # --- CLI Commands ---
-    from .commands import init_crm_db_command, init_rentals_db_command, init_compras_db_command
+    from .commands import init_crm_db_command, init_rentals_db_command, init_compras_db_command, init_ocr_db_command
     app.cli.add_command(init_crm_db_command)
     app.cli.add_command(init_rentals_db_command)
     app.cli.add_command(init_compras_db_command)
+    app.cli.add_command(init_ocr_db_command)
 
     # =================================================================
     # ✨ NUEVA RUTA APP CLUB (Cliente) - OPCIÓN B (Static fuera de App)

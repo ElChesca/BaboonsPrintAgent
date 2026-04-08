@@ -3,8 +3,6 @@ from flask import Blueprint, request, jsonify, g, make_response, current_app
 from app.database import get_db
 from app.auth_decorator import token_required
 import datetime
-from fpdf import FPDF
-import io
 from decimal import Decimal
 
 bp = Blueprint('compras', __name__)
@@ -64,6 +62,8 @@ def crear_orden_compra(current_user, negocio_id):
 def listar_ordenes_compra(current_user, negocio_id):
     db = get_db()
     estado = request.args.get('estado')
+    proveedor_id = request.args.get('proveedor_id')
+
     query = """
         SELECT oc.*, p.nombre as proveedor_nombre, u.nombre as usuario_nombre
         FROM ordenes_compra oc
@@ -72,9 +72,14 @@ def listar_ordenes_compra(current_user, negocio_id):
         WHERE oc.negocio_id = %s
     """
     params = [negocio_id]
+
     if estado:
         query += " AND oc.estado = %s"
         params.append(estado)
+    
+    if proveedor_id:
+        query += " AND oc.proveedor_id = %s"
+        params.append(int(proveedor_id))
     
     query += " ORDER BY oc.fecha DESC"
     try:
@@ -103,7 +108,7 @@ def listar_ordenes_compra(current_user, negocio_id):
 
 @bp.route('/negocios/<int:negocio_id>/compras/orden/<int:orden_id>', methods=['GET'])
 @token_required
-def detalle_orden_compra(current_user, orden_id):
+def detalle_orden_compra(current_user, negocio_id, orden_id):
     db = get_db()
     db.execute("""
         SELECT oc.*, p.nombre as proveedor_nombre, p.email as proveedor_email, p.cuit as proveedor_cuit
@@ -137,149 +142,19 @@ def detalle_orden_compra(current_user, orden_id):
         if hasattr(res['ingreso_vinculado']['fecha'], 'isoformat'):
              res['ingreso_vinculado']['fecha'] = res['ingreso_vinculado']['fecha'].isoformat()
     
-    # Conversión de tipos para JSON
+    # Conversión de tipos para JSON (Robust)
     for k, v in res.items():
         if isinstance(v, Decimal): res[k] = float(v)
-        if isinstance(v, datetime.datetime): res[k] = v.isoformat()
+        elif hasattr(v, 'isoformat'): res[k] = v.isoformat()
     
     for d in res['detalles']:
         for k, v in d.items():
             if isinstance(v, Decimal): d[k] = float(v)
+            elif hasattr(v, 'isoformat'): d[k] = v.isoformat()
             
     return jsonify(res)
 
-# --- Generación de PDF ---
 
-class PDF_OC(FPDF):
-    def footer(self):
-        self.set_y(-15)
-        self.set_font('Arial', 'I', 8)
-        self.cell(0, 10, f'Página {self.page_no()}', 0, 0, 'C')
-
-@bp.route('/negocios/<int:negocio_id>/compras/orden/<int:orden_id>/pdf', methods=['GET'])
-@token_required
-def generar_pdf_oc(current_user, negocio_id, orden_id):
-    db = get_db()
-    # 1. Obtener datos de la OC
-    db.execute("""
-        SELECT oc.*, p.nombre as prov_nombre, p.direccion as prov_direccion, p.telefono as prov_tel, p.cuit as prov_cuit, p.email as prov_email
-        FROM ordenes_compra oc
-        JOIN proveedores p ON oc.proveedor_id = p.id
-        WHERE oc.id = %s
-    """, (orden_id,))
-    oc = db.fetchone()
-    
-    # 2. Obtener datos del Negocio
-    db.execute("SELECT * FROM negocios WHERE id = %s", (negocio_id,))
-    negocio = db.fetchone()
-    
-    # 3. Obtener detalles
-    db.execute("""
-        SELECT ocd.*, p.nombre as prod_nombre, p.sku, p.unidad_medida
-        FROM ordenes_compra_detalle ocd
-        JOIN productos p ON ocd.producto_id = p.id
-        WHERE ocd.orden_id = %s
-    """, (orden_id,))
-    detalles = db.fetchall()
-
-    if not oc or not negocio:
-        return "Orden no encontrada", 404
-
-    # --- Generar PDF con FPDF ---
-    pdf = PDF_OC()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page()
-    
-    # --- ENCABEZADO PROFESIONAL ---
-    pdf.set_fill_color(245, 245, 245)
-    pdf.rect(10, 10, 190, 35, 'F')
-    
-    pdf.set_xy(15, 15)
-    pdf.set_font('Arial', 'B', 18)
-    pdf.set_text_color(44, 62, 80)
-    pdf.cell(100, 10, negocio['nombre'].upper(), 0, 0, 'L')
-    
-    pdf.set_xy(115, 15)
-    pdf.set_font('Arial', 'B', 14)
-    pdf.set_text_color(127, 140, 141)
-    pdf.cell(80, 10, 'ORDEN DE COMPRA', 0, 1, 'R')
-    
-    pdf.set_xy(15, 25)
-    pdf.set_font('Arial', '', 9)
-    pdf.set_text_color(50, 50, 50)
-    pdf.cell(100, 5, f"CUIT: {negocio.get('cuit', '-')}", 0, 1)
-    pdf.set_x(15)
-    pdf.cell(100, 5, f"Dir: {negocio.get('direccion', '-')}", 0, 1)
-    
-    pdf.set_xy(115, 25)
-    pdf.set_font('Arial', 'B', 10)
-    pdf.set_text_color(44, 62, 80)
-    pdf.cell(80, 5, f"Número: {oc['numero_oc']}", 0, 1, 'R')
-    pdf.set_x(115)
-    pdf.cell(80, 5, f"Fecha: {oc['fecha'].strftime('%d/%m/%Y %H:%M')}", 0, 1, 'R')
-    
-    pdf.ln(12)
-    
-    # --- SECCIÓN PROVEEDOR ---
-    pdf.set_font('Arial', 'B', 11)
-    pdf.set_fill_color(52, 73, 94)
-    pdf.set_text_color(255, 255, 255)
-    pdf.cell(0, 8, '  DETALLES DEL PROVEEDOR', 0, 1, 'L', fill=True)
-    
-    pdf.ln(2)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font('Arial', 'B', 10)
-    pdf.cell(100, 6, f"Razón Social: {oc['prov_nombre']}", 0, 0)
-    pdf.set_font('Arial', '', 10)
-    pdf.cell(90, 6, f"CUIT: {oc['prov_cuit'] or '-'}", 0, 1)
-    
-    pdf.cell(100, 6, f"Teléfono: {oc['prov_tel'] or '-'}", 0, 0)
-    pdf.cell(90, 6, f"Email: {oc['prov_email'] or '-'}", 0, 1)
-    pdf.cell(0, 6, f"Dirección: {oc['prov_direccion'] or '-'}", 0, 1)
-    
-    pdf.ln(5)
-    
-    # --- TABLA DE ITEMS ---
-    pdf.set_font('Arial', 'B', 10)
-    pdf.set_fill_color(230, 233, 237)
-    pdf.set_text_color(44, 62, 80)
-    
-    pdf.cell(20, 8, 'Cant.', 1, 0, 'C', fill=True)
-    pdf.cell(100, 8, ' Producto / Descripción', 1, 0, 'L', fill=True)
-    pdf.cell(35, 8, 'Precio Unit. (Est.)', 1, 0, 'R', fill=True)
-    pdf.cell(35, 8, 'Subtotal', 1, 1, 'R', fill=True)
-    
-    pdf.set_font('Arial', '', 10)
-    pdf.set_text_color(0, 0, 0)
-    
-    for d in detalles:
-        pdf.cell(20, 7, str(round(d['cantidad'], 2)), 1, 0, 'C')
-        pdf.cell(100, 7, f" {d['prod_nombre'][:50]}", 1, 0, 'L')
-        pdf.cell(35, 7, f"$ {float(d['precio_costo_actual']):,.2f} ", 1, 0, 'R')
-        pdf.cell(35, 7, f"$ {float(d['subtotal']):,.2f} ", 1, 1, 'R')
-        
-    pdf.ln(2)
-    pdf.set_font('Arial', 'B', 12)
-    pdf.set_text_color(44, 62, 80)
-    pdf.cell(120, 10, '', 0, 0)
-    pdf.cell(35, 10, 'TOTAL: ', 0, 0, 'R')
-    pdf.cell(35, 10, f"$ {float(oc['total_estimado']):,.2f} ", 1, 1, 'R')
-    
-    if oc['observaciones']:
-        pdf.ln(5)
-        pdf.set_font('Arial', 'B', 10)
-        pdf.cell(0, 5, 'Observaciones:', 0, 1)
-        pdf.set_font('Arial', '', 9)
-        pdf.set_text_color(80, 80, 80)
-        pdf.multi_cell(0, 5, oc['observaciones'], 1, 'L')
-
-    # Retornar el PDF
-    output = io.BytesIO()
-    pdf.output(output)
-    response = make_response(output.getvalue())
-    response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'inline; filename={oc["numero_oc"]}.pdf'
-    return response
 
 @bp.route('/negocios/<int:negocio_id>/compras/orden/<int:orden_id>/data-para-ingreso', methods=['GET'])
 @token_required
@@ -307,17 +182,44 @@ def get_oc_data_for_income(current_user, negocio_id, orden_id):
         'proveedor_id': oc['proveedor_id'],
         'proveedor_nombre': oc['proveedor_nombre'],
         'referencia': f"Importado de OC: {oc['numero_oc']}",
-        'detalles': []
+        'detalles': [dict(d) for d in detalles]
     }
-    for d in detalles:
-        res['detalles'].append({
-            'producto_id': d['producto_id'],
-            'producto_nombre': d['producto_nombre'],
-            'sku': d['sku'],
-            'cantidad': float(d['cantidad']),
-            'precio_costo': float(d['precio_costo_actual'])
-        })
+    # Conversión (Robust)
+    for k, v in res.items():
+        if isinstance(v, Decimal): res[k] = float(v)
+        elif hasattr(v, 'isoformat'): res[k] = v.isoformat()
+    
+    for d in res['detalles']:
+        for k, v in d.items():
+            if isinstance(v, Decimal): d[k] = float(v)
+            elif hasattr(v, 'isoformat'): d[k] = v.isoformat()
+
     return jsonify(res)
+
+@bp.route('/negocios/<int:negocio_id>/compras/orden/<int:orden_id>', methods=['DELETE'])
+@token_required
+def eliminar_orden_compra(current_user, negocio_id, orden_id):
+    db = get_db()
+    try:
+        # 1. Verificar existencia y pertenencia
+        db.execute("SELECT id FROM ordenes_compra WHERE id = %s AND negocio_id = %s", (orden_id, negocio_id))
+        if not db.fetchone():
+            return jsonify({'error': 'Orden de compra no encontrada'}), 404
+
+        # 2. Verificar relacion con ingresos (IMPORTANTE)
+        db.execute("SELECT id FROM ingresos_mercaderia WHERE orden_compra_id = %s LIMIT 1", (orden_id,))
+        if db.fetchone():
+            return jsonify({'error': 'No se puede eliminar la OC porque tiene ingresos de mercadería asociados.'}), 400
+
+        # 3. Eliminar detalles y cabecera
+        db.execute("DELETE FROM ordenes_compra_detalle WHERE orden_id = %s", (orden_id,))
+        db.execute("DELETE FROM ordenes_compra WHERE id = %s", (orden_id,))
+        
+        g.db_conn.commit()
+        return jsonify({'message': 'Orden de compra eliminada correctamente.'}), 200
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @bp.route('/negocios/<int:negocio_id>/compras/orden/<int:orden_id>/cancelar', methods=['PUT'])
 @token_required
@@ -327,6 +229,57 @@ def cancelar_orden_compra(current_user, orden_id):
         db.execute("UPDATE ordenes_compra SET estado = 'cancelada' WHERE id = %s", (orden_id,))
         g.db_conn.commit()
         return jsonify({'message': 'Orden cancelada'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/compras/config', methods=['GET'])
+@token_required
+def get_compras_config(current_user, negocio_id):
+    db = get_db()
+    db.execute("SELECT * FROM compras_configuracion WHERE negocio_id = %s", (negocio_id,))
+    config = db.fetchone()
+    if not config:
+        return jsonify({})
+    
+    res = dict(config)
+    if res.get('updated_at'):
+        res['updated_at'] = res['updated_at'].isoformat()
+    return jsonify(res)
+
+@bp.route('/negocios/<int:negocio_id>/compras/config', methods=['POST'])
+@token_required
+def set_compras_config(current_user, negocio_id):
+    db = get_db()
+    data = request.json
+    
+    # Intentar buscar si ya existe
+    db.execute("SELECT id FROM compras_configuracion WHERE negocio_id = %s", (negocio_id,))
+    existing = db.fetchone()
+    
+    try:
+        if existing:
+            db.execute("""
+                UPDATE compras_configuracion
+                SET razon_social = %s, cuit = %s, condicion_iva = %s, domicilio = %s, 
+                    telefono = %s, email = %s, horarios_entrega = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE negocio_id = %s
+            """, (
+                data.get('razon_social'), data.get('cuit'), data.get('condicion_iva'),
+                data.get('domicilio'), data.get('telefono'), data.get('email'),
+                data.get('horarios_entrega'), negocio_id
+            ))
+        else:
+            db.execute("""
+                INSERT INTO compras_configuracion (negocio_id, razon_social, cuit, condicion_iva, domicilio, telefono, email, horarios_entrega)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                negocio_id, data.get('razon_social'), data.get('cuit'), data.get('condicion_iva'),
+                data.get('domicilio'), data.get('telefono'), data.get('email'), data.get('horarios_entrega')
+            ))
+        
+        g.db_conn.commit()
+        return jsonify({'message': 'Configuración guardada correctamente'})
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500

@@ -10,7 +10,7 @@ except ImportError:
 bp = Blueprint('admin_apps', __name__)
 
 # Flag global para evitar sembrado redundante en cada request (Optimización Fly.io)
-_modules_seeded = False  # resetear para forzar re-seed con nuevos módulos (gestion_destinos_kds)
+_modules_seeded = False  # resetear para forzar re-seed con nuevos módulos (resto_cocina standardized)
 
 import time
 
@@ -25,6 +25,10 @@ def _ensure_modules_seeded(db):
     print("⏳ [Seeding] Iniciando sincronización de catálogo de módulos (Optimizado)...")
     
     try:
+        # ✨ MIGRACIÓN DE SALDOS DE INGRESOS (Safety Net - FORZADA)
+        # Se ejecuta fuera del chequeo de módulos para asegurar integridad en cada inicio.
+        db.execute("ALTER TABLE ingresos_mercaderia ADD COLUMN IF NOT EXISTS monto_pagado DECIMAL DEFAULT 0")
+
         erp_catalogue = [
             # Administración
             ('tablero_control', 'Tablero de Control', 'Administración', ['retail', 'distribuidora', 'resto']),
@@ -44,9 +48,9 @@ def _ensure_modules_seeded(db):
             ('historial_presupuestos', 'Historial de Presupuestos', 'Ventas', ['retail', 'distribuidora', 'resto']),
             
             # Compras & Abastecimiento
-            ('ingreso_mercaderia', 'Ingreso de Mercadería', 'Compras', ['retail', 'distribuidora', 'resto']),
             ('proveedores', 'Gestión de Proveedores', 'Compras', ['retail', 'distribuidora', 'resto']),
             ('orden_compra', 'Órdenes de Compra', 'Compras', ['retail', 'distribuidora', 'resto']),
+            ('ingresos', 'Ingreso de Mercadería', 'Compras', ['retail', 'distribuidora', 'resto']),
             ('cuentas_corrientes_proveedores', 'Cta. Cte. Proveedores', 'Compras', ['retail', 'distribuidora', 'resto']),
             ('historial_ingresos', 'Historial de Ingresos', 'Compras', ['retail', 'distribuidora', 'resto']),
             ('historial_pagos_proveedores', 'Historial Pagos Prov.', 'Compras', ['retail', 'distribuidora', 'resto']),
@@ -78,7 +82,9 @@ def _ensure_modules_seeded(db):
             ('salon_digital', 'Salón y Mesas', 'Gestión Restó', ['resto']),
             ('resto_mozo', 'POS de Mozos (Comandas)', 'Gestión Restó', ['resto']),
             ('resto_menu', 'Gestión de Carta', 'Gestión Restó', ['resto']),
-            ('comandas_cocina', 'Monitor de Cocina', 'Gestión Restó', ['resto']),
+            ('resto_cocina', 'Monitor de Cocina (KDS)', 'Gestión Restó', ['resto']),
+            ('resto_bar', 'Monitor de Bar (KDS)', 'Gestión Restó', ['resto']),
+            ('resto_dolce', 'Monitor de Postres (KDS)', 'Gestión Restó', ['resto']),
             ('reservas', 'Gestión de Reservas', 'Gestión Restó', ['resto']),
             ('mozos', 'Gestión de Mozos', 'Gestión Restó', ['resto']),
             ('resto_roles', 'Roles y Estaciones Restó', 'Gestión Restó', ['resto']),
@@ -87,11 +93,17 @@ def _ensure_modules_seeded(db):
             ('resto_impresoras', 'Adm. de Impresoras', 'Gestión Restó', ['resto']),
             ('gestion_destinos_kds', 'Gestión de Destinos KDS', 'Gestión Restó', ['resto']),
             
-            # Gestión de Eventos
-            ('eventos', 'Gestión de Eventos', 'Gestión Especial', ['retail', 'distribuidora', 'resto']),
             # CRM & Marketing
             ('crm_social', 'CRM & Marketing Digital', 'Ventas', ['resto']),
-            ('crm_contactos', 'CRM Contactos / Leads', 'Ventas', ['resto', 'distribuidora', 'retail'])
+            ('crm_contactos', 'CRM Contactos / Leads', 'Ventas', ['resto', 'distribuidora', 'retail']),
+            
+            # DASHBOARDS / HOMES
+            ('home_retail', 'Home Retail', 'Dashboards', ['retail']),
+            ('home_distribuidora', 'Home Distribuidora', 'Dashboards', ['distribuidora']),
+            ('home_resto', 'Home Restó', 'Dashboards', ['resto']),
+            ('negocio_roles', 'Roles y Permisos', 'Reglas', ['retail', 'distribuidora', 'resto', 'consorcio']),
+            ('seller', 'App Vendedores Mobile', 'Operaciones', ['distribuidora', 'retail']),
+            ('home_chofer', 'App Repartidores Mobile', 'Operaciones', ['distribuidora'])
         ]
         valid_codes = [item[0] for item in erp_catalogue]
         mod_values = [(item[0], item[1], item[2]) for item in erp_catalogue]
@@ -124,14 +136,21 @@ def _ensure_modules_seeded(db):
         for bt, mc in type_perms:
             db.execute("INSERT INTO type_permissions (business_type, module_code) VALUES (%s, %s) ON CONFLICT DO NOTHING", (bt, mc))
 
-        # 3. Inserción masiva de configuración por negocio (Activar resto_mozo para todos de una vez)
+        # 3. Migración de nombres antiguos en permisos de roles (Safety Net)
+        old_codes = ['ingreso_mercaderia', 'ingresos_mercaderia', 'mercaderia_ingreso']
+        db.execute("""
+            UPDATE negocio_rol_permisos 
+            SET module_code = 'ingresos' 
+            WHERE module_code IN %s
+        """, (tuple(old_codes),))
+
+        # 4. Inserción masiva de configuración por negocio (Activar todos los módulos válidos para cada tipo)
         db.execute("""
             INSERT INTO negocio_modulos_config (negocio_id, module_code, is_active)
             SELECT n.id, tp.module_code, TRUE
             FROM negocios n
             JOIN type_permissions tp ON n.tipo_app = tp.business_type
-            WHERE tp.module_code = 'resto_mozo'
-            ON CONFLICT (negocio_id, module_code) DO UPDATE SET is_active = TRUE
+            ON CONFLICT (negocio_id, module_code) DO NOTHING
         """)
         
     except Exception as e:
@@ -223,17 +242,45 @@ def get_negocio_rol_permissions(current_user, negocio_id, rol):
         rows = db.fetchall()
         permissions = [r['module_code'] for r in rows]
         
-        # ✨ LÓGICA DE ROLES ESTÁNDAR (Safety Net)
-        # Si el rol es barman/cocinero/dolce y la lista de permisos está vacía, entregamos lo mínimo necesario
-        if not permissions:
-            rol_norm = rol.lower().strip()
-            if 'bar' in rol_norm: permissions = ['resto_bar', 'home_resto', 'home_retail']
-            elif 'cocina' in rol_norm or 'cocinero' in rol_norm: permissions = ['resto_cocina', 'home_resto', 'home_retail']
-            elif 'dolce' in rol_norm or 'pastel' in rol_norm: permissions = ['resto_dolce', 'home_resto', 'home_retail']
-            elif 'mozo' in rol_norm: permissions = ['salon_digital', 'home_resto', 'home_retail']
-            elif 'adicionista' in rol_norm: permissions = ['pos', 'home_resto', 'home_retail']
+        # 🚀 LÓGICA DE ROLES ESTÁNDAR Y REFUERZO (Safety Net)
+        rol_norm = rol.lower().strip()
+        
+        # Obtener tipo de negocio para saber qué inyectar
+        db.execute("SELECT tipo_app FROM negocios WHERE id = %s", (negocio_id,))
+        negocio = db.fetchone()
+        b_type = negocio['tipo_app'] if negocio else 'retail'
 
-        return jsonify(permissions)
+        # Solo inyectamos mínimos SI LA LISTA ESTÁ TOTALMENTE VACÍA (0 permisos)
+        if not permissions:
+            if 'bar' in rol_norm: permissions.extend(['resto_bar', 'home_resto', 'home_retail'])
+            elif 'cocina' in rol_norm or 'cocinero' in rol_norm: permissions.extend(['resto_cocina', 'home_resto', 'home_retail'])
+            elif 'dolce' in rol_norm or 'pastel' in rol_norm: permissions.extend(['resto_dolce', 'home_resto', 'home_retail'])
+            elif 'mozo' in rol_norm: permissions.extend(['salon_digital', 'home_resto', 'home_retail', 'resto_mozo'])
+            elif 'adicionista' in rol_norm: permissions.extend(['home_resto', 'home_retail'])
+
+        # ✨ REFUERZO Y FALLBACK PARA DISTRIBUIDORAS
+        if b_type == 'distribuidora':
+            # Roles que consideramos 'de gestión'
+            if rol_norm in ['admin', 'administrativo', 'vendedor', 'gerente', 'repartidor', 'driver']:
+                # Si la lista está vacía, inyectamos el pack de supervivencia
+                if not permissions:
+                    # Permisos base comunes
+                    base = ['home_distribuidora', 'negocio_roles', 'home_retail']
+                    
+                    if rol_norm == 'vendedor':
+                        permissions = base + ['presupuestos', 'seller', 'pedidos', 'clientes_gestion']
+                    elif rol_norm in ['driver', 'repartidor']:
+                        permissions = base + ['hoja_ruta', 'home_chofer', 'clientes_gestion']
+                    else:
+                        permissions = base + ['pedidos', 'hoja_ruta', 'clientes_gestion', 'productos', 'caja_control', 'ventas_nueva']
+                
+                # Siempre aseguramos que tengan acceso a la gestión de roles si son admin/gerente/administrativo
+                # para evitar que se bloqueen a sí mismos accidentalmente.
+                if rol_norm in ['admin', 'gerente', 'administrativo']:
+                    if 'negocio_roles' not in permissions:
+                        permissions.append('negocio_roles')
+
+        return jsonify(list(set(permissions)))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -448,7 +495,8 @@ def get_init_context(current_user):
             'user': {
                 'id': current_user['id'],
                 'nombre': current_user['nombre'],
-                'rol': current_user['rol']
+                'rol': current_user['rol'],
+                'especialidad': current_user.get('especialidad')
             },
             'negocios': negocios,
             'permissions_map': permissions,

@@ -54,7 +54,11 @@ Al confirmar la bajada/entrega de un pedido (o conjunto de ellos) en el Modo Rep
 6.  **Cta. Cte.**: Si el método es 'Cuenta Corriente' o 'Mixto' (con remanente), insertar en `clientes_cuenta_corriente` usando la columna `debe`.
 
 ## 🛠️ DESARROLLO FRONTEND (`logistica.js` y `hoja_ruta.js`)
-- **Filtros de Paradas (`logistica.js`)**: Los pedidos anulados y rechazados DEBEN excluirse explícitamente de la lista de `validOrders` en la función `abrirModoRepartidor` para evitar sumatorias de cuentas erróneas en pantalla.
+- **Persistencia de HR_ID**: IMPORTANTE: Un pedido `anulado` conserva su `hoja_ruta_id` para historial. Por lo tanto, filtrar la API por `hoja_ruta_id` NO es suficiente; se debe filtrar por `estado` siempre.
+- **Filtros de Paradas (`logistica.js`)**: En la función `abrirModoRepartidor`, es OBLIGATORIO filtrar el array de pedidos ANTES de agrupar por paradas.
+    - ✅ **Correcto**: `const validos = pedidos.filter(p => p.estado !== 'anulado' && p.estado !== 'rechazado')`.
+    - ❌ **Incorrecto**: Usar el array crudo de la API.
+- **Sumatoria Dinámica**: El monto mostrado en la tarjeta de parada (`totalMonto`) debe ser el resultado exclusivo de los pedidos válidos. Si un cliente tiene 1 pedido de $1000 (Pendiente) y 1 de $1000 (Anulado), la tarjeta DEBE mostrar $1000, no $2000.
 - **Cobros Consolidados**: La función `abrirModalEntregaMulti` maneja la consolidación de varios pedidos del mismo cliente en una sola parada sumando los pendientes de entregar válidos.
 - **Liquidaciones (`hoja_ruta.js`)**: Los apartados de Resumen de Cobros extraen información haciendo JOIN a la tabla `ventas` desde `hoja_ruta_id`. Cualquier desvinculación previa provoca un apagón visual del componente dinámico.
 
