@@ -4,8 +4,9 @@
 // ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
 // ✨ ¡DEBE SER IDÉNTICA a la de tu main.js!
 // ✨ ========================================================================
-const APP_VERSION = "1.9.10";
+const APP_VERSION = "1.9.11";
 // HISTORIAL DE VERSIONES:
+// 1.9.11: Fixed API Endpoint URL for Cloud Run.
 // 1.9.10: Added scanner and income modules to precache list.
 // 1.9.9: Unified module init functions (init/inicializar).
 // 1.9.8: Mobile initializers and login_secure common route fix.

@@ -122,3 +122,24 @@ Antes de cada despliegue o finalización:
 2. Restaurar con `git checkout <ultimo_commit_limpio> -- <archivo>`
 3. Re-aplicar SOLO los cambios funcionales necesarios usando `python -c` con `open(encoding='utf-8')`
 4. Verificar el archivo resultante antes de commitear
+
+## 10. Arquitectura Baboon AI (Document AI)
+> [!IMPORTANT]
+> El sistema de escaneo funciona bajo un modelo de **Arquitectura Híbrida (Cuerpo/Cerebro)**. Los Agentes deben entender esta separación para evitar despliegues incompletos.
+
+### 10.1. El Cuerpo (Fly.io)
+- **Función**: Aloja la interfaz web, la lógica de negocio diaria y la PWA.
+- **Despliegue**: Se actualiza automáticamente con `git push` a `main`.
+- **Archivos Críticos**: `ia_scanner.js`, `ingresos.js`, `service-worker.js`.
+- **Regla de Oro**: Tras cualquier cambio en estos archivos, es OBLIGATORIO subir la `APP_VERSION` en `main.js` y `service-worker.js` para forzar la limpieza de caché del navegador.
+
+### 10.2. El Cerebro (Google Cloud Run)
+- **Función**: Ejecuta las tareas pesadas de IA (Google Document AI) que requieren credenciales seguras de GCP.
+- **Servicio**: `baboons-api`.
+- **Despliegue**: Requiere ejecución manual de `gcloud run deploy baboons-api --source . --region us-central1 --quiet`. Solo es necesario si se modifica el backend.
+- **Archivos Críticos**: `app/routes/agente_facturacion_routes.py`.
+
+### 10.3. Integridad de Datos (Neon DB)
+- Ambas plataformas (Fly y Google) se conectan a la misma base de datos en **Neon**.
+- El Agente debe asegurar que las tablas como `compras_facturas` existan antes de habilitar funciones de escaneo IA.
+- En Google Cloud, la variable de entorno `DATABASE_URL` es la fuente única de verdad para la conexión.

@@ -15,6 +15,7 @@ theme:
 nav:
   - Inicio: index.md
   - ⚙️ Proyecto: configuraciones/
+  - 🧠 IA & Técnico: tecnico/arquitectura_ia.md
   - 📊 Informes: informes/
   - 🧪 Pruebas: pruebas/
   - 🚀 Roadmap: roadmap/

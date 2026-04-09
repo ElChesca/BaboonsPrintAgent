@@ -569,7 +569,7 @@ export function inicializarLogicaIngresos() {
     if (btnIAScanner) {
         btnIAScanner.addEventListener('click', () => {
             BaboonAIScanner.openModal({
-                endpoint: '/api/ia/scan-factura',
+                endpoint: 'https://baboons-api-417409227761.us-central1.run.app/api/scan-factura',
                 loadingText: 'Escaneando con Document AI...',
                 extraData: { negocio_id: appState.negocioActivoId },
                 onComplete: (response) => {
