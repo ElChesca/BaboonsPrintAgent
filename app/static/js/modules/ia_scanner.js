@@ -120,15 +120,18 @@ export const BaboonAIScanner = {
 
         fileInput.onchange = async (e) => {
             if (this.isProcessing) return; 
+            this.isProcessing = true; // Bloqueo inmediato
             
-            if (e.target.files && e.target.files[0]) {
+            const file = e.target.files ? e.target.files[0] : null;
+            fileInput.value = ''; // Limpiar el input inmediatamente para evitar loops
+
+            if (file) {
                 try {
-                    this.isProcessing = true;
                     container.classList.add('hidden');
                     loader.classList.remove('hidden');
 
-                    console.log(`🚀 Iniciando extracción en ${endpoint}...`);
-                    const response = await this.extractData(e.target.files[0], 3, 20000, this.currentAbortController.signal, endpoint, extraData);
+                    console.log(`🚀 [Scanner] Iniciando extracción en ${endpoint}...`);
+                    const response = await this.extractData(file, 3, 20000, this.currentAbortController.signal, endpoint, extraData);
                     
                     if (this.currentAbortController.signal.aborted) return;
                     
@@ -141,9 +144,10 @@ export const BaboonAIScanner = {
                     container.classList.remove('hidden');
                     loader.classList.add('hidden');
                 } finally {
-                    fileInput.value = ''; // Reset
                     this.isProcessing = false;
                 }
+            } else {
+                this.isProcessing = false;
             }
         };
     },

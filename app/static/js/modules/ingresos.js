@@ -6,7 +6,9 @@ import { BaboonAIScanner } from './ia_scanner.js';
 
 let stagedIncomeItems = []; 
 let productosCache = [];
-let selectedOCId = null; // Para vincular con OC al registrar
+let selectedOCId = null; 
+let formFinalize = null;
+let formAddItem = null;
 
 // Helper para formatear moneda
 const formatCurrency = (value) => {
@@ -215,9 +217,9 @@ function mostrarAlertasDePrecios(alertas) {
 
 export function inicializarLogicaIngresos() {
     stagedIncomeItems = []; // Resetear al inicializar
-    const formAddItem = document.getElementById('form-add-item-ingreso');
-    const formFinalize = document.getElementById('form-finalize-ingreso');
-    const tablaItemsBody = document.querySelector('#staged-items-ingreso tbody'); // Mover selector aquí
+    formAddItem = document.getElementById('form-add-item-ingreso');
+    formFinalize = document.getElementById('form-finalize-ingreso');
+    const tablaItemsBody = document.querySelector('#staged-items-ingreso tbody');
 
     if (!formAddItem || !formFinalize || !tablaItemsBody) {
         console.error("Faltan elementos HTML esenciales para el módulo de Ingresos.");
@@ -734,12 +736,33 @@ export function inicializarLogicaIngresos() {
     }
 
 function limpiarFormularioIngreso() {
+    console.log("🧹 [Ingresos] Limpiando formulario completo...");
     stagedIncomeItems = [];
     selectedOCId = null;
+    
+    // 1. Resetear Listas y Totales
     renderStagedIncomeItems();
+    actualizarTotalesGlobales();
+    
+    // 2. Resetear Formularios (Cabecera y Carga)
     if (formFinalize) formFinalize.reset();
     if (formAddItem) formAddItem.reset();
+
+    // 3. Resetear Select2 (si existiera) o selectores manuales
+    const selProv = document.getElementById('ingreso-proveedor-selector');
+    if (selProv) selProv.value = "";
     
+    // 4. Resetear Campos de Impuestos (están fuera de los forms)
+    const taxFields = [
+        'tax-iva-27', 'tax-iva-21', 'tax-iva-105', 'tax-iva-25',
+        'tax-iibb', 'tax-percep-iva', 'tax-exento', 'tax-no-gravado'
+    ];
+    taxFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = 0;
+    });
+
+    // 5. Ocultar alertas
     const alertasContainer = document.getElementById('alertas-precios-container');
     if (alertasContainer) alertasContainer.classList.add('hidden');
 
@@ -749,7 +772,7 @@ function limpiarFormularioIngreso() {
         submitButton.innerHTML = '<i class="fas fa-save me-2"></i>GUARDAR INGRESO';
     }
 
-    // 🧹 Limpieza de backdrops para evitar congelamiento
+    // 6. Limpieza de backdrops para evitar congelamiento
     document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
     document.body.classList.remove('modal-open');
     document.body.style.overflow = '';
