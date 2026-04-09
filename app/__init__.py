@@ -1,7 +1,7 @@
 import os
 import time
 from flask import Flask, render_template, send_from_directory, abort, request, render_template_string 
-
+from flask_cors import CORS
 # ✨ Forzar Zona Horaria de Argentina al inicio
 os.environ['TZ'] = 'America/Argentina/Buenos_Aires'
 if hasattr(time, 'tzset'):
@@ -27,6 +27,7 @@ def create_app():
     # Nota: Si tu carpeta static está fuera, Flask a veces necesita saberlo, 
     # pero para servir archivos manualmente como haremos abajo, esto funcionará igual.
     app = Flask(__name__, template_folder='templates', static_folder='static')
+    CORS(app) # Habilitar CORS para peticiones entre Fly.io y Cloud Run
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'una_clave_muy_secreta')
     bcrypt.init_app(app)
     app.teardown_appcontext(close_db)
