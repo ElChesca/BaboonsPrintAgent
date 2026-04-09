@@ -19,5 +19,5 @@ COPY . .
 # Expone el puerto
 EXPOSE 8080
 
-# Comando para ejecutar la app
-CMD ["python", "run.py"]
+# Comando para ejecutar la app profesionalmente con Gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "8", "--timeout", "120", "run:app"]
