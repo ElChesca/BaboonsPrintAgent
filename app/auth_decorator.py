@@ -6,6 +6,10 @@ import os
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
+        # 0. Ignorar validación para peticiones OPTIONS (CORS preflight)
+        if request.method == 'OPTIONS':
+            return '', 200
+
         token = None
         
         # 1. Intenta obtener el token del encabezado Authorization
@@ -27,7 +31,7 @@ def token_required(f):
         try:
             secret_key = current_app.config.get('SECRET_KEY')
             if not secret_key:
-                 return jsonify({'message': 'Error de configuración del servidor (SK)'}), 500
+                return jsonify({'message': 'Error de configuración del servidor (SK)'}), 500
                  
             # Decodifica usando la clave secreta
             data = jwt.decode(token, secret_key, algorithms=["HS256"])
@@ -44,9 +48,9 @@ def token_required(f):
         except jwt.InvalidTokenError:
             return jsonify({'message': 'Token inválido'}), 401
         except Exception as e:
-             import sys
-             print(f"Error inesperado validando token: {e}", file=sys.stderr)
-             return jsonify({'message': 'Error al procesar el token'}), 500
+            import sys
+            print(f"Error inesperado validando token: {e}", file=sys.stderr)
+            return jsonify({'message': 'Error al procesar el token'}), 500
 
         # Importante: pasamos los datos del usuario a la función original
         return f(dict(current_user), *args, **kwargs)

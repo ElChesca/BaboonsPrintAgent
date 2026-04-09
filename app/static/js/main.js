@@ -2,7 +2,7 @@
 // ✅ ARCHIVO COMPLETO (Versión 1.7.1 - DYNAMIC MODULES FIX) ✅
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-export const APP_VERSION = "1.9.11";
+export const APP_VERSION = "1.9.12";
 // HISTORIAL DE VERSIONES:
 // 1.9.6: High Contrast KDS and Bar/Dolce station fixes sync.
 // 1.7.1: Final Fix regarding cross-module cache mismatches: Dynamic imports between modules + modal visibility.
