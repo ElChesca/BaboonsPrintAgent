@@ -99,13 +99,19 @@ def _migrate_reservas():
             new_token = uuid.uuid4().hex[:12]
             db.execute("UPDATE negocios SET reserva_token = %s WHERE id = %s", (new_token, row['id']))
 
-        # 7. MIGRACION CRM: Enriquecer crm_leads para recibir datos de reservas
-        db.execute("ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS cliente_erp_id INT REFERENCES clientes(id) ON DELETE SET NULL")
-        db.execute("ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS reserva_cliente_id INT REFERENCES reservas_clientes(id) ON DELETE SET NULL")
-        db.execute("ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS fecha_nacimiento DATE")
-        db.execute("ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS ultima_actividad TIMESTAMPTZ")
-        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_crm_leads_email_negocio ON crm_leads(email, negocio_id) WHERE email IS NOT NULL")
-
+        # 8. Tabla de bitácora (Log de ediciones)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS mesas_reservas_bitacora (
+                id SERIAL PRIMARY KEY,
+                reserva_id INT NOT NULL REFERENCES mesas_reservas(id) ON DELETE CASCADE,
+                usuario_id INT REFERENCES usuarios(id) ON DELETE SET NULL,
+                fecha TIMESTAMPTZ DEFAULT NOW(),
+                accion VARCHAR(255) NOT NULL,
+                datos_previos JSONB,
+                datos_nuevos JSONB
+            )
+        """)
+        
         g.db_conn.commit()
     except Exception as e:
         g.db_conn.rollback()
@@ -413,6 +419,8 @@ def portal_crear_reserva_v2():
               data.get('fecha_nacimiento'), data.get('sector_preferido')))
         
         rid = db.fetchone()['id']
+        # Bitácora
+        db.execute("INSERT INTO mesas_reservas_bitacora (reserva_id, accion) VALUES (%s, 'Reserva creada via Portal')", (rid,))
 
         # ✨ [CRM Fase 1] Sincronizar al CRM automáticamente
         _upsert_crm_lead(
@@ -482,6 +490,8 @@ def admin_crear_reserva(current_user, negocio_id):
               data.get('mesa_id'), data.get('notas'), token, data.get('origen', 'manual'),
               data.get('fecha_nacimiento'), data.get('sector_preferido')))
         rid = db.fetchone()['id']
+        # Bitácora
+        db.execute("INSERT INTO mesas_reservas_bitacora (reserva_id, usuario_id, accion) VALUES (%s, %s, 'Reserva creada manual')", (rid, current_user['id']))
 
         # ✨ [CRM Fase 1] Sincronizar al CRM automáticamente
         _upsert_crm_lead(
@@ -510,7 +520,7 @@ def admin_update_reserva(current_user, negocio_id, reserva_id):
     try:
         fields = []
         values = []
-        valid_fields = ['estado', 'mesa_id', 'notas', 'hora_reserva', 'num_comensales', 
+        valid_fields = ['estado', 'mesa_id', 'notas', 'hora_reserva', 'fecha_reserva', 'num_comensales', 
                         'fecha_nacimiento', 'sector_preferido', 'telefono', 'nombre_cliente']
         for f in valid_fields:
             if f in data:
@@ -519,9 +529,19 @@ def admin_update_reserva(current_user, negocio_id, reserva_id):
         
         if not fields: return jsonify({'error': 'Nada que actualizar'}), 400
         
+        # Obtener datos viejos para la bitácora
+        db.execute("SELECT * FROM mesas_reservas WHERE id = %s", (reserva_id,))
+        old_data = _serialize_reserva(db.fetchone())
+        
         values.extend([negocio_id, reserva_id])
         db.execute(f"UPDATE mesas_reservas SET {', '.join(fields)} WHERE negocio_id = %s AND id = %s", values)
-        g.db_conn.commit()
+        
+        # Log bitácora (fase simple: solo logueamos que hubo cambio)
+        db.execute("""
+            INSERT INTO mesas_reservas_bitacora (reserva_id, usuario_id, accion, datos_previos, datos_nuevos) 
+            VALUES (%s, %s, %s, %s, %s)
+        """, (reserva_id, current_user['id'], 'Reserva editada', 
+              None, None)) # Para ahorrar espacio, miremos solo la acción por ahora
         return jsonify({'message': 'Reserva actualizada'})
     except Exception as e:
         g.db_conn.rollback()
@@ -533,15 +553,32 @@ def admin_update_reserva(current_user, negocio_id, reserva_id):
 def admin_cancelar_reserva(current_user, negocio_id, reserva_id):
     db = get_db()
     try:
-        db.execute("UPDATE mesas_reservas SET estado = 'cancelada' WHERE negocio_id = %s AND id = %s", (negocio_id, reserva_id))
+        db.execute("DELETE FROM mesas_reservas WHERE negocio_id = %s AND id = %s", (negocio_id, reserva_id))
         g.db_conn.commit()
-        return jsonify({'message': 'Cancelada'})
+        return jsonify({'message': 'Reserva eliminada definitivamente'})
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/negocios/<int:negocio_id>/reservas/pendientes-count', methods=['GET'])
+@bp.route('/negocios/<int:negocio_id>/reservas/<int:reserva_id>/bitacora', methods=['GET'])
+@token_required
+def get_bitacora_reserva(current_user, negocio_id, reserva_id):
+    db = get_db()
+    db.execute("""
+        SELECT b.*, u.nombre as usuario_nombre
+        FROM mesas_reservas_bitacora b
+        LEFT JOIN usuarios u ON b.usuario_id = u.id
+        WHERE b.reserva_id = %s
+        ORDER BY b.fecha DESC
+    """, (reserva_id,))
+    
+    logs = []
+    for r in db.fetchall():
+        d = dict(r)
+        d['fecha'] = d['fecha'].isoformat()
+        logs.append(d)
+    return jsonify(logs)
 @token_required
 def admin_pendientes_count(current_user, negocio_id):
     db = get_db()

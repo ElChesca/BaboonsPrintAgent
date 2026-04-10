@@ -174,7 +174,7 @@ async function cargarOrdenes() {
 
 // ... existing code ...
 
-async function eliminarOC(id, numero) {
+window.eliminarOC = async (id, numero) => {
     if (!confirm(`¿Estás seguro que deseas ELIMINAR la ${numero}?`)) return;
     if (!confirm(`¡ÚLTIMO AVISO! Se borrará definitivamente.\nEsta acción solo es posible si NO tiene ingresos de mercadería relacionados.\n¿Confirmar eliminación definitiva?`)) return;
 

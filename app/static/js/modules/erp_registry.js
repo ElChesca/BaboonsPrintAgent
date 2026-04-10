@@ -41,14 +41,14 @@ export const ERP_REGISTRY = {
 
     'resto_bar': {
         label: 'KDS Bar',
-        icon: 'static/img/icons/cocktail.png',
+        icon: 'static/img/icons/camarero.png',
         path: 'static/resto_bar.html',
         category: 'operaciones',
         color: 'rgba(99, 102, 241, 0.12)'
     },
     'resto_dolce': {
         label: 'KDS Dolce',
-        icon: 'static/img/icons/pastelero.png',
+        icon: 'static/img/icons/cocina.png',
         path: 'static/resto_dolce.html',
         category: 'operaciones',
         color: 'rgba(255, 159, 67, 0.1)'
@@ -185,8 +185,7 @@ export const ERP_REGISTRY = {
     'cuentas_corrientes_proveedores': {
         label: 'Cta. Cte. Proveedores',
         icon: 'static/img/icons/ctacte.png',
-        path: 'static/cobro_ctacte.html',
-        category: 'administrativo'
+        path: 'static/cobro_ctacte.html'
     },
 
     // --- 🏗️ INVENTARIO ---
@@ -225,8 +224,7 @@ export const ERP_REGISTRY = {
     'cuentas_corrientes_clientes': {
         label: 'Cta. Cte. Clientes',
         icon: 'static/img/icons/ctacte.png',
-        path: 'static/cobro_ctacte.html',
-        category: 'administrativo'
+        path: 'static/cobro_ctacte.html'
     },
     'clientes_gestion': {
         label: 'Gestión de Clientes',
@@ -284,6 +282,13 @@ export const ERP_REGISTRY = {
         icon: 'static/img/icons/ingresos.png',
         path: 'static/historial_ingresos.html',
         category: 'reportes'
+    },
+    'agente_facturacion': {
+        label: 'Agente de Facturación (ARCA)',
+        icon: 'static/img/icons/ventas.png',
+        path: 'static/agente_facturacion.html',
+        category: 'administrativo',
+        color: 'rgba(79, 70, 229, 0.12)'
     },
 
     // --- ⚙️ CONFIGURACIÓN Y REGLAS ---

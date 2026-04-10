@@ -1595,7 +1595,7 @@ def update_comanda_pax(current_user, id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/comandas/<int:id>/movermesa', methods=['PUT'])
+@bp.route('/comandas/<int:id>/mover-mesa', methods=['PUT'])
 @token_required
 def mover_mesa(current_user, id):
     data = request.get_json()
@@ -1726,7 +1726,7 @@ def cerrar_comanda(current_user, id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/negocios/<int:negocio_id>/comandas/pendientescobro', methods=['GET'])
+@bp.route('/negocios/<int:negocio_id>/comandas/pendientes-cobro', methods=['GET'])
 @token_required
 def get_comandas_pendientes_cobro(current_user, negocio_id):
     db = get_db()
@@ -1751,7 +1751,7 @@ def get_comandas_pendientes_cobro(current_user, negocio_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/comandas/<int:id>/solicitarcuenta', methods=['POST'])
+@bp.route('/comandas/<int:id>/solicitar-cuenta', methods=['POST'])
 @token_required
 def solicitar_cuenta_comanda(current_user, id):
     db = get_db()
@@ -1869,7 +1869,7 @@ def solicitar_cuenta_comanda(current_user, id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/comandas/<int:id>/finalizarcobro', methods=['POST'])
+@bp.route('/comandas/<int:id>/finalizar-cobro', methods=['POST'])
 @token_required
 def finalizar_cobro_comanda(current_user, id):
     db = get_db()
@@ -1925,9 +1925,9 @@ def finalizar_cobro_comanda(current_user, id):
         cliente_id = cliente_ref['id'] if (cliente_ref and 'id' in dict(cliente_ref)) else None
 
         # 5. Calcular Próximo Número Interno para el Negocio
-        db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
+        db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 as proximo FROM ventas WHERE negocio_id = %s", (negocio_id,))
         nro_row = db.fetchone()
-        proximo_nro = nro_row[0] if nro_row else 1
+        proximo_nro = (nro_row['proximo'] if nro_row else 1) or 1
 
         # 6. Crear Venta Central (Categoría: Ventas Restó)
         # BUGFIX: Asegurar que mozo_id no sea None si es NOT NULL en DB
@@ -1994,7 +1994,7 @@ def finalizar_cobro_comanda(current_user, id):
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/comandas/<int:id>/pagoparcial', methods=['POST'])
+@bp.route('/comandas/<int:id>/pago-parcial', methods=['POST'])
 @token_required
 def pago_parcial_comanda(current_user, id):
     data = request.get_json()
@@ -2060,8 +2060,8 @@ def pago_parcial_comanda(current_user, id):
             if cant_cobrar == float(d['cantidad']):
                 db.execute("UPDATE comandas_detalle SET estado = 'cobrado' WHERE id = %s", (d['id'],))
             else:
-                # Dividir el ítem
-                db.execute("UPDATE comandas_detalle SET cantidad = cantidad  %s, subtotal = subtotal  %s WHERE id = %s", 
+                # Dividir el ítem (Restar cantidad cobrada de la original)
+                db.execute("UPDATE comandas_detalle SET cantidad = cantidad - %s, subtotal = subtotal - %s WHERE id = %s", 
                            (cant_cobrar, subt, d['id']))
                 db.execute("""INSERT INTO comandas_detalle (comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, estado, notas)
                               VALUES (%s, %s, %s, %s, %s, 'cobrado', %s)""", 
@@ -2076,8 +2076,9 @@ def pago_parcial_comanda(current_user, id):
         cliente_id = cliente_ref['id'] if cliente_ref else None
 
         # Calcular Próximo Número Interno
-        db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 FROM ventas WHERE negocio_id = %s", (negocio_id,))
-        proximo_nro_parcial = db.fetchone()[0]
+        db.execute("SELECT COALESCE(MAX(numero_interno), 0) + 1 as proximo FROM ventas WHERE negocio_id = %s", (negocio_id,))
+        nro_row_p = db.fetchone()
+        proximo_nro_parcial = (nro_row_p['proximo'] if nro_row_p else 1) or 1
 
         db.execute(
             """INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, vendedor_id, numero_interno) 
@@ -2439,4 +2440,56 @@ def delete_combo_component(current_user, negocio_id, comp_id):
         return jsonify({'success': True})
     except Exception as e:
         g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+#  REPORTE DE CIERRE DE CAJA RESTÓ 
+
+@bp.route('/negocios/<int:negocio_id>/caja/reporte-cierre-resto', methods=['GET'])
+@token_required
+def get_reporte_cierre_resto(current_user, negocio_id):
+    db = get_db()
+    try:
+        # 1. Comandas Abiertas (Mesas Abiertas)
+        db.execute("""
+            SELECT c.id, m.numero as mesa_numero, c.num_comensales, c.total, v.nombre as mozo_nombre, c.fecha_apertura
+            FROM comandas c
+            JOIN mesas m ON c.mesa_id = m.id
+            JOIN vendedores v ON c.mozo_id = v.id
+            WHERE c.negocio_id = %s AND c.estado = 'abierta'
+            ORDER BY m.numero
+        """, (negocio_id,))
+        comandas_abiertas = [dict(row) for row in db.fetchall()]
+
+        # 2. Movimientos por Estación (KDS) - Pendientes/En preparación
+        db.execute("""
+            SELECT COALESCE(cat.estacion, 'cocina') as estacion, COUNT(*) as cantidad
+            FROM comandas_detalle cd
+            JOIN comandas c ON cd.comanda_id = c.id
+            JOIN menu_items mi ON cd.menu_item_id = mi.id
+            JOIN menu_categorias cat ON mi.categoria_id = cat.id
+            WHERE c.negocio_id = %s AND c.estado = 'abierta' AND cd.estado IN ('pendiente', 'cocinando')
+            GROUP BY COALESCE(cat.estacion, 'cocina')
+        """, (negocio_id, ))
+        kds_movimientos = {row['estacion']: row['cantidad'] for row in db.fetchall()}
+
+        # 3. Resumen de Ventas del Turno (Caja Actual)
+        db.execute("SELECT id FROM caja_sesiones WHERE negocio_id = %s AND fecha_cierre IS NULL", (negocio_id,))
+        sesion = db.fetchone()
+        ventas_turno = []
+        if sesion:
+            db.execute("""
+                SELECT v.id, v.total, v.metodo_pago, v.fecha, v.numero_interno, vend.nombre as mozo_nombre
+                FROM ventas v
+                LEFT JOIN vendedores vend ON v.vendedor_id = vend.id
+                WHERE v.caja_sesion_id = %s
+                ORDER BY v.fecha DESC
+            """, (sesion['id'],))
+            ventas_turno = [dict(row) for row in db.fetchall()]
+
+        return jsonify({
+            'comandas_abiertas': comandas_abiertas,
+            'kds_movimientos': kds_movimientos,
+            'ventas_turno': ventas_turno
+        })
+    except Exception as e:
         return jsonify({'error': str(e)}), 500

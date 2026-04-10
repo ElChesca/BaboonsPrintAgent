@@ -45,23 +45,36 @@ const getEstadoBadgeClass = (estado) => {
 
 // --- Funciones de Renderizado ---
 
+// --- Estado local para paginación ---
+let offset = 0;
+const LIMIT = 50;
+
 /** Renderiza la tabla del historial de ingresos */
-function renderizarHistorial(ingresos) {
+function renderizarHistorial(ingresos, append = false) {
     if (!tablaBody) return;
-    tablaBody.innerHTML = ''; 
+    
+    if (!append) {
+        tablaBody.innerHTML = ''; 
+        offset = 0; // Reset offset on new load
+    }
 
     if (!ingresos || ingresos.length === 0) {
-        tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No hay ingresos para mostrar con los filtros seleccionados.</td></tr>';
+        if (!append) {
+            tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No hay ingresos para mostrar.</td></tr>';
+        }
+        removeCargarMasBtn();
         return;
     }
 
     ingresos.forEach(ingreso => {
         const row = document.createElement('tr');
         const estadoPago = ingreso.estado_pago || 'pendiente';
+        const factura = `${ingreso.factura_tipo || 'FC'} ${String(ingreso.factura_prefijo || 0).padStart(4, '0')}-${String(ingreso.factura_numero || 0).padStart(8, '0')}`;
+        
         row.innerHTML = `
             <td class="ps-4">${formatDate(ingreso.fecha)}</td>
             <td class="fw-bold text-slate-700">${ingreso.proveedor_nombre || 'N/A'}</td>
-            <td>${formatFacturaNro(ingreso.factura_tipo, ingreso.factura_prefijo, ingreso.factura_numero)}</td>
+            <td>${factura}</td>
             <td><small class="text-muted">${ingreso.referencia || '-'}</small></td>
             <td class="text-end fw-bold text-slate-800">${formatCurrency(ingreso.total_factura)}</td>
             <td class="text-end text-success">${formatCurrency(ingreso.monto_pagado || 0)}</td>
@@ -75,16 +88,55 @@ function renderizarHistorial(ingresos) {
                     <button class="btn btn-white btn-sm px-3 border border-start-0" onclick="window.descargarPDFIngreso(${ingreso.id})" title="Imprimir PDF">
                         <i class="fas fa-print text-muted"></i>
                     </button>
+                    ${(ingreso.monto_pagado > 0 || estadoPago === 'pagada') ? '' : `
+                    <button class="btn btn-white btn-sm px-3 border border-start-0" onclick="window.eliminarIngreso(${ingreso.id}, '${factura}')" title="Eliminar definitivamente">
+                        <i class="fas fa-trash-alt text-danger"></i>
+                    </button>
+                    `}
                 </div>
             </td>
         `;
         tablaBody.appendChild(row);
     });
 
-    // Delegación de eventos para los botones "Ver"
+    // Delegación de eventos para los botones "Ver" (pueden ser muchos, mejor delegar o re-asignar)
     tablaBody.querySelectorAll('.btn-ver-detalles').forEach(btn => {
         btn.onclick = () => mostrarDetailModal(btn.dataset.id);
     });
+
+    // Gestionar botón "Cargar más"
+    if (ingresos.length === LIMIT) {
+        addCargarMasBtn();
+    } else {
+        removeCargarMasBtn();
+    }
+}
+
+function addCargarMasBtn() {
+    removeCargarMasBtn();
+    const tfoot = document.querySelector('#tabla-historial-ingresos tfoot') || document.createElement('tfoot');
+    if (!document.querySelector('#tabla-historial-ingresos tfoot')) {
+        document.getElementById('tabla-historial-ingresos').appendChild(tfoot);
+    }
+    tfoot.innerHTML = `
+        <tr>
+            <td colspan="9" class="text-center py-3 bg-light">
+                <button class="btn btn-outline-primary btn-sm px-4 shadow-sm" id="btn-cargar-mas-ingresos">
+                    <i class="fas fa-plus me-2"></i>Cargar más ingresos
+                </button>
+            </td>
+        </tr>
+    `;
+    const btn = document.getElementById('btn-cargar-mas-ingresos');
+    if (btn) btn.onclick = () => {
+        offset += LIMIT;
+        cargarHistorial(true);
+    };
+}
+
+function removeCargarMasBtn() {
+    const tfoot = document.querySelector('#tabla-historial-ingresos tfoot');
+    if (tfoot) tfoot.innerHTML = '';
 }
 
 /** Carga y muestra los detalles de un ingreso en el modal */
@@ -94,7 +146,6 @@ export async function mostrarDetailModal(ingresoId) {
     contenidoModal.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted small">Consultando detalles fiscales...</p></div>';
     modalDetalles.style.display = 'flex';
 
-    // Asignar evento al botón de impresión del modal
     const btnImp = document.getElementById('btn-imprimir-ingreso-modal');
     if (btnImp) {
         btnImp.onclick = () => window.descargarPDFIngreso(ingresoId);
@@ -150,6 +201,7 @@ export async function mostrarDetailModal(ingresoId) {
         });
 
         const totalPercepciones = (Number(maestro.iva_percepcion) || 0) + (Number(maestro.iibb_percepcion) || 0);
+        const impInternos = Number(maestro.impuestos_internos) || 0;
 
         tablaHtml += `
                     </tbody>
@@ -171,6 +223,10 @@ export async function mostrarDetailModal(ingresoId) {
                         <div class="bg-light rounded p-2 px-3 border shadow-xs">
                             <label class="d-block micro-label text-muted">PERCEPCIONES</label>
                             <span class="fw-bold text-orange-600">$ ${totalPercepciones.toLocaleString('es-AR', {minimumFractionDigits: 2})}</span>
+                        </div>
+                        <div class="bg-light rounded p-2 px-3 border shadow-xs" style="background-color: #f0fdf4 !important;">
+                            <label class="d-block micro-label text-muted">IMP. INTERNOS</label>
+                            <span class="fw-bold text-success">$ ${impInternos.toLocaleString('es-AR', {minimumFractionDigits: 2})}</span>
                         </div>
                     </div>
                 </div>
@@ -196,40 +252,60 @@ export const mostrarDetalle = mostrarDetailModal;
 
 // --- Lógica Principal ---
 
-async function cargarHistorial() {
+async function cargarHistorial(append = false) {
     if (!tablaBody || !filtroProveedorSelect) return;
     
-    // ✨ PROTECCIÓN: Si el ID es null o no está listo, esperamos un poco
     if (!appState.negocioActivoId || appState.negocioActivoId === 'null') {
          console.warn("[Historial] Esperando negocioActivoId válido...");
-         tablaBody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Sincronizando negocio...</td></tr>';
-         setTimeout(cargarHistorial, 1000);
+         setTimeout(() => cargarHistorial(append), 1000);
          return;
     }
 
-    filtroProveedorSelect.disabled = false;
-    tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Cargando historial...</td></tr>';
+    if (!append) {
+        tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Cargando historial...</td></tr>';
+        offset = 0;
+    }
 
-    let url = `/api/negocios/${appState.negocioActivoId}/ingresos`;
+    let url = `/api/negocios/${appState.negocioActivoId}/ingresos?limit=${LIMIT}&offset=${offset}`;
     const proveedorIdSeleccionado = filtroProveedorSelect.value;
     if (proveedorIdSeleccionado && proveedorIdSeleccionado !== 'null') {
-        url += `?proveedor_id=${proveedorIdSeleccionado}`;
+        url += `&proveedor_id=${proveedorIdSeleccionado}`;
     }
 
     try {
         const ingresos = await fetchData(url);
         if (Array.isArray(ingresos)) {
-            renderizarHistorial(ingresos);
+            renderizarHistorial(ingresos, append);
         } else {
-            console.error("Respuesta inesperada de la API:", ingresos);
-            throw new Error("La respuesta no es una lista válida.");
+            throw new Error("Respuesta inválida");
         }
     } catch (error) {
         console.error("Error cargando historial:", error);
-        mostrarNotificacion('Error al cargar el historial de ingresos.', 'error');
-        tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: red;">Error al cargar historial. Reintente en un momento.</td></tr>';
+        mostrarNotificacion('Error al cargar historial.', 'error');
+        if (!append) tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: red;">Error al cargar.</td></tr>';
     }
 }
+
+/** ELIMINAR INGRESO */
+window.eliminarIngreso = async function(ingresoId, facturaNro) {
+    if (!confirm(`¿Estás SEGURO que deseas ELIMINAR el ingreso ${facturaNro}?\n\nEsta acción:\n1. Restará el stock ingresado.\n2. Restará el monto pendiente del saldo del proveedor.\n3. Es IRREVERSIBLE.`)) return;
+    
+    // Segunda confirmación para seguridad extra
+    if (!confirm(`¡ADVERTENCIA FINAL! Confirmá para borrar definitivamente.`)) return;
+
+    try {
+        mostrarNotificacion('Eliminando ingreso...', 'info');
+        const res = await fetchData(`/api/negocios/${appState.negocioActivoId}/ingresos/${ingresoId}`, {
+            method: 'DELETE'
+        });
+        mostrarNotificacion(res.message || 'Ingreso eliminado correctamente.', 'success');
+        cargarHistorial(false); // Recargar desde cero
+    } catch (error) {
+        console.error("Error eliminando ingreso:", error);
+        mostrarNotificacion(error.error || error.message || 'Error al eliminar ingreso.', 'error');
+    }
+};
+
 
 async function poblarFiltroProveedores() {
     if (!filtroProveedorSelect) return Promise.reject("Elemento select no encontrado");
@@ -363,10 +439,11 @@ window.descargarPDFIngreso = async function(ingresoId) {
         doc.text(`IVA 21%: $ ${(Number(maestro?.iva_21) || 0).toFixed(2)}`, 140, finalY + 6);
         doc.text(`IVA 10.5%: $ ${(Number(maestro?.iva_105) || 0).toFixed(2)}`, 140, finalY + 11);
         doc.text(`Percepciones: $ ${((Number(maestro?.iva_percepcion)||0) + (Number(maestro?.iibb_percepcion)||0)).toFixed(2)}`, 140, finalY + 16);
+        doc.text(`Imp. Internos: $ ${(Number(maestro?.impuestos_internos) || 0).toFixed(2)}`, 140, finalY + 21);
         
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
-        doc.text(`TOTAL: $ ${(Number(maestro?.total_factura) || 0).toFixed(2)}`, 140, finalY + 25);
+        doc.text(`TOTAL: $ ${(Number(maestro?.total_factura) || 0).toFixed(2)}`, 140, finalY + 30);
 
         doc.save(`Ingreso_${ingresoId}.pdf`);
         mostrarNotificacion('PDF guardado', 'success');

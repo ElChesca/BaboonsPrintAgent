@@ -66,19 +66,34 @@ def get_estado_caja(current_user, negocio_id):
         db.execute("SELECT COALESCE(SUM(monto), 0) as total FROM caja_ajustes WHERE caja_sesion_id = %s AND tipo = 'Egreso'", (sesion_id,))
         total_egresos_ajuste = float(db.fetchone()['total'])
 
-        # 5. Calcular Efectivo Actual Esperado
+        # 5. Calcular Efectivo Actual Esperado (Agregando lógica flexible para métodos de pago)
         monto_inicial = float(sesion_abierta['monto_inicial'])
-        ventas_efectivo = desglose_pagos.get('Efectivo', 0.0)
+        
+        ventas_efectivo = 0.0
+        ventas_mp = 0.0
+        ventas_tarjeta = 0.0
+        ventas_transferencia = 0.0
+
+        for metodo, total in desglose_pagos.items():
+            m_lower = metodo.lower()
+            if 'efectivo' in m_lower:
+                ventas_efectivo += total
+            elif 'mercado' in m_lower or 'mp' in m_lower:
+                ventas_mp += total
+            elif 'tarjeta' in m_lower:
+                ventas_tarjeta += total
+            elif 'transferencia' in m_lower or 'transf' in m_lower:
+                ventas_transferencia += total
         
         monto_efectivo_actual = (monto_inicial + ventas_efectivo + total_ingresos_ajuste) - (total_egresos_ajuste + total_gastos_efectivo + total_pagos_prov_efectivo)
 
         totales = {
             'efectivo': monto_efectivo_actual,
-            'mp': desglose_pagos.get('Mercado Pago', 0.0), # Asumo que se llama 'Mercado Pago'
-            'tarjeta': desglose_pagos.get('Tarjeta', 0.0),
-            'transferencia': desglose_pagos.get('Transferencia', 0.0),
+            'mp': ventas_mp,
+            'tarjeta': ventas_tarjeta,
+            'transferencia': ventas_transferencia,
             'total_gastos': total_gastos_efectivo,
-            'total_pagos_proveedores': total_pagos_prov_efectivo, # ✨ Se envía el nuevo dato
+            'total_pagos_proveedores': total_pagos_prov_efectivo,
             'total_ingresos_ajuste': total_ingresos_ajuste,
             'total_egresos_ajuste': total_egresos_ajuste
         }
@@ -169,12 +184,15 @@ def cerrar_caja(current_user, negocio_id):
         total_pagos_prov_efectivo = db.fetchone()['total']
 
 
-        # --- REALIZAMOS LOS CÁLCULOS ---
+        # --- REALIZAMOS LOS CÁLCULOS (Lógica flexible para métodos de pago) ---
         monto_inicial = float(sesion_abierta['monto_inicial'])
-        total_efectivo_ventas = desglose_pagos.get('Efectivo', 0.0)
+        
+        total_efectivo_ventas = 0.0
+        for metodo, total in desglose_pagos.items():
+            if 'efectivo' in metodo.lower():
+                total_efectivo_ventas += total
         
         total_ingresos_efectivo = monto_inicial + total_efectivo_ventas + float(total_ingresos_ajuste)
-        # ✨ Se restan ambos egresos
         total_egresos_efectivo = float(total_egresos_ajuste) + float(total_gastos_efectivo) + float(total_pagos_prov_efectivo)
         
         monto_final_esperado = total_ingresos_efectivo - total_egresos_efectivo

@@ -1,69 +1,333 @@
+<!-- Agente de Facturación - Premium Dashboard v2 -->
 <div class="card">
-    <!-- ── ENCABEZADO ── -->
-    <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
-        <div>
-            <h2 style="margin:0; display:flex; align-items:center; gap:10px;">
-                🤖 Agente de Facturación
-                <span id="agente-badge-modo" class="badge-modo">Cargando...</span>
-            </h2>
-            <p style="margin:4px 0 0; color:var(--text-muted); font-size:0.85rem;">
-                Facturación automática ARCA — Re Pancho (Factura C)
-            </p>
-        </div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <input type="date" id="agente-fecha-filtro" class="form-control" style="max-width:170px;">
-            <button id="btn-agente-reporte" class="btn-secondary">
-                🔄 Actualizar Reporte
-            </button>
-            <button id="btn-agente-ejecutar" class="btn-primary" title="Solo superadmin">
-                ▶ Ejecutar Hoy (Manual)
-            </button>
-        </div>
+    <!-- ── TABS NAVEGACIÓN ── -->
+    <div class="tabs-agente" style="display:flex; border-bottom:1px solid var(--glass-border); background:rgba(255,255,255,0.4);">
+        <button class="tab-btn active" data-tab="reporte">📊 Reporte y Control</button>
+        <button class="tab-btn" data-tab="config">⚙️ Configuración del Agente</button>
     </div>
 
-    <!-- ── RESUMEN KPIs ── -->
-    <div id="agente-kpis" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; padding:20px 20px 0;">
-        <div class="kpi-card kpi-green">
-            <div class="kpi-valor" id="kpi-ok">—</div>
-            <div class="kpi-label">✅ Emitidas OK</div>
+    <!-- ── TAB: REPORTE ── -->
+    <div id="tab-agente-reporte" class="tab-content active">
+        <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; border-bottom:none;">
+            <div>
+                <h2 style="margin:0; display:flex; align-items:center; gap:10px;">
+                    🤖 Panel de Control
+                    <span id="agente-badge-modo" class="badge-modo">Cargando...</span>
+                </h2>
+                <p style="margin:4px 0 0; color:var(--text-muted); font-size:0.85rem;">Monitoreo de facturación automática ARCA</p>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <input type="date" id="agente-fecha-filtro" class="form-control" style="max-width:170px;">
+                <button id="btn-agente-reporte" class="btn-secondary">🔄 Actualizar</button>
+                <button id="btn-agente-ejecutar" class="btn-primary">▶ Ejecutar Manual</button>
+            </div>
         </div>
-        <div class="kpi-card kpi-red">
-            <div class="kpi-valor" id="kpi-error">—</div>
-            <div class="kpi-label">❌ Con Error</div>
-        </div>
-        <div class="kpi-card kpi-blue">
-            <div class="kpi-valor" id="kpi-monto">—</div>
-            <div class="kpi-label">💰 Total Facturado</div>
-        </div>
-        <div class="kpi-card kpi-purple">
-            <div class="kpi-valor" id="kpi-fecha">—</div>
-            <div class="kpi-label">📅 Fecha</div>
-        </div>
-    </div>
 
-    <!-- ── TABLA DE FACTURAS ── -->
-    <div class="tabla-contenedor" style="padding:20px;">
-        <table class="tabla-bonita">
-            <thead>
-                <tr>
-                    <th>Hora</th>
-                    <th>Nro. Factura</th>
-                    <th>CAE</th>
-                    <th>Vto. CAE</th>
-                    <th>Ítems</th>
+        <!-- KPIs -->
+        <div id="agente-kpis" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; padding:0 20px 20px;">
+            <div class="kpi-card kpi-green">
+                <div class="kpi-valor" id="kpi-ok">—</div>
+                <div class="kpi-label">✅ Emitidas OK</div>
+            </div>
+            <div class="kpi-card kpi-red">
+                <div class="kpi-valor" id="kpi-error">—</div>
+                <div class="kpi-label">❌ Con Error</div>
+            </div>
+            <div class="kpi-card kpi-blue">
+                <div class="kpi-valor" id="kpi-monto">—</div>
+                <div class="kpi-label">💰 Total Hoy</div>
+            </div>
+            <div class="kpi-card kpi-purple">
+                <div class="kpi-valor" id="kpi-fecha">—</div>
+                <div class="kpi-label">📅 Fecha</div>
+            </div>
+        </div>
+
+        <!-- TABLA -->
+        <div class="tabla-contenedor" style="padding:0 20px 20px;">
+            <table class="tabla-bonita">
+                <thead>
+                    <tr>
+                        <th>Hora</th>
+                        <th>Nro. Factura</th>
+                        <th>CAE / Error</th>
+                        <th>Vto. CAE</th>
+                        <th>Ítems</th>
                     <th style="text-align:right;">Total</th>
                     <th>Estado</th>
+                    <th style="text-align:center;">📦 Acción</th>
                 </tr>
             </thead>
             <tbody id="agente-tabla-body">
-                <tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Seleccioná una fecha y presioná Actualizar</td></tr>
+                <tr><td colspan="8" style="text-align:center;">Cargando reporte...</td></tr>
             </tbody>
         </table>
     </div>
 
-    <!-- ── VISTA PREVIA CALENDARIO ── -->
-    <div style="padding:0 20px 20px;">
-        <h4 style="margin-bottom:12px;">📆 Distribución del Mes</h4>
-        <div id="agente-calendario" style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px; font-size:0.78rem;"></div>
+    <!-- ── MODAL VISUALIZADOR DE FACTURA ── -->
+    <div id="modal-factura-viewer" class="modal-overlay" style="display:none; justify-content:center; align-items:center; z-index:9999;">
+        <div class="factura-digital" style="background:white; width:90%; max-width:500px; padding:40px; border-radius:4px; box-shadow:0 0 50px rgba(0,0,0,0.4); position:relative; font-family:'Courier New', Courier, monospace; color:#333;">
+            <button onclick="document.getElementById('modal-factura-viewer').style.display='none'" 
+                    style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:1.5rem; cursor:pointer; color:#999;">&times;</button>
+            
+            <div style="text-align:center; border-bottom:2px solid #333; padding-bottom:15px; margin-bottom:20px;">
+                <h2 style="margin:0; text-transform:uppercase;">RE PANCHO</h2>
+                <p style="margin:5px 0; font-size:0.9rem;">De: Baboons ERP Systems</p>
+                <p style="font-size:0.8rem;">CUIT: <span id="view-cuit">23-25565305-9</span> | IIBB: EXENTO</p>
+                <div style="border:1px solid #333; display:inline-block; padding:5px 15px; margin-top:10px; font-weight:800; font-size:1.4rem;">C</div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:20px;">
+                <div>
+                    <strong>P.V.:</strong> <span id="view-pv">00001</span><br>
+                    <strong>NRO:</strong> <span id="view-nro">00000000</span>
+                </div>
+                <div style="text-align:right;">
+                    <strong>FECHA:</strong> <span id="view-fecha">—</span>
+                </div>
+            </div>
+
+            <table style="width:100%; font-size:0.85rem; border-collapse:collapse; margin-bottom:30px;">
+                <thead style="border-bottom:1px solid #333;">
+                    <tr>
+                        <th style="text-align:left;">DESCRIPCION</th>
+                        <th style="text-align:right;">CANT</th>
+                        <th style="text-align:right;">SUBT</th>
+                    </tr>
+                </thead>
+                <tbody id="view-items-body"></tbody>
+            </table>
+
+            <div style="border-top:2px solid #333; padding-top:10px; text-align:right;">
+                <h3 style="margin:0;">TOTAL: <span id="view-total">$ 0,00</span></h3>
+            </div>
+
+            <div style="margin-top:40px; font-size:0.75rem; border-top:1px dashed #999; padding-top:15px;">
+                <div style="display:flex; align-items:center; gap:15px;">
+                    <!-- Simulamos el QR con una imagen de placeholder profesional -->
+                    <div style="width:80px; height:80px; background:white; border:1px solid #333; padding:5px; display:flex; align-items:center; justify-content:center;">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=https://www.afip.gob.ar" alt="QR" style="width:70px; height:70px; filter: grayscale(1);">
+                    </div>
+                    <div>
+                        <strong>CAE:</strong> <span id="view-cae">—</span><br>
+                        <strong>Vto. CAE:</strong> <span id="view-vto">—</span>
+                    </div>
+                </div>
+                <p style="margin-top:25px; text-align:center; font-style:italic; opacity:0.6; font-size:0.65rem;">
+                    Esta es una representación del comprobante. No válida como factura oficial fuera de ARCA.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── MINI CALENDARIO DE DISTRIBUCIÓN ── -->
+        <div style="margin:20px; padding:15px; background:rgba(var(--primary-rgb), 0.05); border-radius:12px; border:1px solid rgba(var(--primary-rgb), 0.1);">
+            <h4 style="margin:0 0 10px; font-size:0.8rem; display:flex; align-items:center; gap:8px; color:var(--primary-color);">
+                📊 Mapa de Calor de Distribución (Intensidad = Cantidad)
+            </h4>
+            <div id="agente-calendario" style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; font-size:0.65rem;"></div>
+            <p style="font-size:0.65rem; color:var(--text-muted); margin-top:8px;">
+                * Refleja la carga de facturación proyectada para optimizar el perfil fiscal.
+            </p>
+        </div>
+    </div>
+
+    <!-- ── TAB: CONFIGURACIÓN ── -->
+    <div id="tab-agente-config" class="tab-content" style="display:none; padding:30px;">
+        <div style="max-width:700px; margin:0 auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
+                <h3 style="margin:0; display:flex; align-items:center; gap:10px;">
+                    ⚙️ Configuración Sugerida del Agente
+                </h3>
+                <a href="/static/agente_landing.html" target="_blank" class="btn-secondary" style="text-decoration:none; font-size:0.8rem; display:flex; align-items:center; gap:8px; background:#0097ce; color:white; border:none;">
+                    🚀 Ver Presentación Comercial
+                </a>
+            </div>
+            
+            <form id="agente-config-form" class="premium-form">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:25px;">
+                    <!-- Columna Izquierda -->
+                    <div>
+                        <div class="form-group">
+                            <label>Meta de Facturas (Mensual):</label>
+                            <input type="number" id="cfg-meta" name="meta_mensual" class="form-control" placeholder="Ej: 200">
+                            <small>Cantidad total de facturas C a emitir en el mes.</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Modo de Operación:</label>
+                            <select id="cfg-modo" name="modo_ejecucion" class="form-control">
+                                <option value="simulacion">🧪 Simulación (Test)</option>
+                                <option value="real">✅ Real (Emisión ARCA)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Variabilidad Diaria (%):</label>
+                            <input type="range" id="cfg-variabilidad" name="variabilidad_porcentaje" min="0" max="50" style="width:100%;">
+                            <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+                                <span>0% (Fijo)</span>
+                                <span id="cfg-var-value">15%</span>
+                                <span>50% (Max)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Columna Derecha -->
+                    <div>
+                        <div class="form-group">
+                            <label>CUIT del Negocio:</label>
+                            <input type="text" id="cfg-cuit" name="cuit_negocio" class="form-control" placeholder="23XXXXXXXX9">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Punto de Venta:</label>
+                            <input type="number" id="cfg-pv" name="punto_venta" class="form-control" placeholder="Ej: 1">
+                        </div>
+
+                        <div class="form-group" style="background:rgba(var(--primary-rgb), 0.05); padding:15px; border-radius:12px; border:1px dashed var(--primary-color);">
+                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:var(--primary-color);">
+                                <input type="checkbox" id="cfg-autopilot" name="auto_pilot" style="width:18px; height:18px;">
+                                <strong>Activar Auto-Pilot (Automático)</strong>
+                            </label>
+                            <p style="font-size:0.75rem; margin-top:8px; line-height:1.2;">
+                                El agente se ejecutará solo cada madrugada si esta opción está activa.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top:40px; border-top:1px solid var(--glass-border); padding-top:20px; display:flex; justify-content:flex-end;">
+                    <button type="submit" class="btn-primary" style="padding:12px 30px;">
+                        💾 Guardar Configuración
+                    </button>
+                </div>
+            </form>
+
+            <!-- ── SECCIÓN DE AYUDA INTEGRADA ── -->
+            <div style="margin-top:40px; padding:25px; background:rgba(var(--primary-rgb), 0.05); border-radius:15px; border:1px solid rgba(var(--primary-rgb), 0.1);">
+                <h4 style="color:var(--primary-color); margin-top:0; display:flex; align-items:center; gap:10px;">
+                    📂 Guía Rápida del Agente
+                </h4>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:30px; font-size:0.85rem; line-height:1.4; color:var(--text-muted);">
+                    <div>
+                        <strong>🚀 ¿Cómo funciona?</strong><br>
+                        Distribuye tu meta mensual priorizando fines de semana. Usa "Timestamps" aleatorios (horas/segundos) para simular actividad humana real durante almuerzos y cenas.
+                        <br><br>
+                        <strong>⚖️ Variabilidad</strong><br>
+                        Añade un factor de azar. Si toca facturar 10 con 20% de variabilidad, emitirá entre 8 y 12 para romper patrones lineales.
+                    </div>
+                    <div>
+                        <strong>🧪 Modos</strong><br>
+                        - <strong>Simulación:</strong> Pruebas sin valor legal.<br>
+                        - <strong>Real:</strong> Emisión oficial con CAE.
+                        <br><br>
+                        <div style="padding:10px; background:white; border-radius:8px; border-left:3px solid #f59e0b; color:#92400e; font-size:0.8rem;">
+                            <strong>Aviso:</strong> El Auto-Pilot ejecutará el agente cada madrugada automáticamente si está activo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<style>
+    .tabs-agente .tab-btn {
+        padding: 15px 25px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--text-muted);
+        transition: all 0.3s;
+        border-bottom: 2px solid transparent;
+    }
+    .tabs-agente .tab-btn.active {
+        color: var(--primary-color);
+        border-bottom: 2px solid var(--primary-color);
+        background: white;
+    }
+    .kpi-card {
+        padding: 15px;
+        border-radius: 12px;
+        background: white;
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--shadow-sm);
+    }
+    .kpi-valor { font-size: 1.5rem; font-weight: 800; }
+    .kpi-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .kpi-green { border-left: 4px solid #10b981; }
+    .kpi-red   { border-left: 4px solid #ef4444; }
+    .kpi-blue  { border-left: 4px solid #3b82f6; }
+    .kpi-purple{ border-left: 4px solid #8b5cf6; }
+
+    .badge-modo {
+        font-size: 0.7rem;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: #f1f5f9;
+        font-weight: 700;
+    }
+    .badge-sim { background: #fee2e2; color: #b91c1c; }
+    .badge-real { background: #dcfce7; color: #15803d; }
+
+    .cal-dia {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px 4px;
+        border-radius: 8px;
+        color: #1e293b;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    .cal-num { font-weight: 800; font-size: 0.9rem; }
+    .cal-dow { font-size: 0.65rem; opacity: 0.7; text-transform: uppercase; }
+    .cal-count { font-weight: 700; font-size: 0.7rem; margin-top: 4px; }
+    .cal-hoy { border: 2px solid var(--primary-color); box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.2); }
+
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #475569; font-size: 0.9rem; }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0,0,0,0.5);
+        backdrop-filter: blur(4px);
+        z-index: 10000;
+        display: none;
+        justify-content: center;
+        align-items: center;
+    }
+    .factura-digital {
+        animation: scaleIn 0.3s ease-out;
+    }
+    @keyframes scaleIn {
+        from { transform: scale(0.9); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+
+    .btn-help-circle {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 2px solid var(--primary-color);
+        background: transparent;
+        color: var(--primary-color);
+        font-weight: 800;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+    .btn-help-circle:hover {
+        background: var(--primary-color);
+        color: white;
+    }
+</style>

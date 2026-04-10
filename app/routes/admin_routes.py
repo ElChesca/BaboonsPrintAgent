@@ -96,6 +96,7 @@ def _ensure_modules_seeded(db):
             # CRM & Marketing
             ('crm_social', 'CRM & Marketing Digital', 'Ventas', ['resto']),
             ('crm_contactos', 'CRM Contactos / Leads', 'Ventas', ['resto', 'distribuidora', 'retail']),
+            ('agente_facturacion', 'Agente de Facturación (ARCA)', 'Administración', ['retail', 'distribuidora', 'resto']),
             
             # DASHBOARDS / HOMES
             ('home_retail', 'Home Retail', 'Dashboards', ['retail']),

@@ -13,7 +13,7 @@ let modalesSuscripcionInicializados = false;
 export async function inicializarAdminApps() {
     if (appState.userRol !== 'superadmin') {
         mostrarNotificacion('Acceso denegado: Se requiere rol Superadmin', 'error');
-        window.location.hash = '#home';
+        window.location.hash = '#'; // Esto disparará la lógica de home dinámico en main.js
         return;
     }
 

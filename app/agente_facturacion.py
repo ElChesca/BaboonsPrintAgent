@@ -202,6 +202,24 @@ def get_direct_db_conn():
     conn.cursor().execute("SET TIME ZONE 'America/Argentina/Buenos_Aires';")
     return conn
 
+def obtener_config(conn, negocio_id=8):
+    """Lee la configuración desde la DB."""
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute("SELECT * FROM agente_facturacion_config WHERE negocio_id = %s", (negocio_id,))
+        config = cur.fetchone()
+    
+    if not config:
+        return {
+            "meta_mensual": 200,
+            "modo_ejecucion": "simulacion",
+            "auto_pilot": False,
+            "variabilidad_porcentaje": 15,
+            "cuit_negocio": 23255653059,
+            "punto_venta": 1,
+            "tipo_factura": 11
+        }
+    return config
+
 
 def asegurar_tabla_log(conn):
     """Crea la tabla de log si no existe."""
@@ -272,23 +290,34 @@ def emitir_factura_c(afip_instance, timestamp: datetime, items: list,
 # FUNCIÓN PRINCIPAL: procesar el día actual
 # ─────────────────────────────────────────────────────────────────────────────
 def ejecutar_dia(
-    negocio_id: int = NEGOCIO_ID,
-    total_mensual: int = TOTAL_FACTURAS,
-    modo: str = MODO_EJECUCION,
+    negocio_id: int = None,
+    total_mensual: int = None,
+    modo: str = None,
     fecha_objetivo: date = None,
-    punto_venta: int = PUNTO_DE_VENTA,
-    tipo_factura: int = TIPO_FACTURA,
-    cuit: int = CUIT_NEGOCIO,
+    punto_venta: int = None,
+    tipo_factura: int = None,
+    cuit: int = None,
 ) -> dict:
     """
     Ejecuta la facturación correspondiente AL DÍA indicado (default: hoy).
     Retorna un resumen con éxitos, errores y facturas.
     """
-    hoy = fecha_objetivo or date.today()
-    anio, mes = hoy.year, hoy.month
-
     conn = get_direct_db_conn()
     asegurar_tabla_log(conn)
+    
+    # Cargar configuración (usar params o DB)
+    config = obtener_config(conn, negocio_id or 8)
+    
+    negocio_id = negocio_id or config['negocio_id']
+    total_mensual = total_mensual or config['meta_mensual']
+    modo = modo or config['modo_ejecucion']
+    punto_venta = punto_venta or config['punto_venta']
+    tipo_factura = tipo_factura or config['tipo_factura']
+    cuit = cuit or config['cuit_negocio']
+    variabilidad = config['variabilidad_porcentaje']
+    
+    hoy = fecha_objetivo or date.today()
+    anio, mes = hoy.year, hoy.month
 
     # Leer productos del negocio
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -300,7 +329,14 @@ def ejecutar_dia(
 
     # Calcular cuántas facturas corresponden hoy
     distribucion = calcular_distribucion_mensual(anio, mes, total_mensual)
-    cantidad_hoy = distribucion.get(hoy, 0)
+    cantidad_base = distribucion.get(hoy, 0)
+    
+    # Aplicar Variabilidad Aleatoria (± variabilidad%)
+    if cantidad_base > 0:
+        factor = 1 + (random.uniform(-variabilidad, variabilidad) / 100)
+        cantidad_hoy = max(1, round(cantidad_base * factor))
+    else:
+        cantidad_hoy = 0
 
     if cantidad_hoy == 0:
         conn.close()

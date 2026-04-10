@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify, g
 from app.database import get_db
 from app.auth_decorator import token_required
 import datetime
-import traceback # Para logs de error más detallados
+import traceback 
 
 bp = Blueprint('income', __name__)
 
@@ -12,7 +12,7 @@ bp = Blueprint('income', __name__)
 @token_required
 def registrar_ingreso(current_user, negocio_id):
     data = request.get_json()
-    detalles = data.get('detalles') # [{producto_id, cantidad, precio_costo, descuento_1, descuento_2, iva_porcentaje}]
+    detalles = data.get('detalles') 
     proveedor_id = data.get('proveedor_id')
     referencia = data.get('referencia')
     orden_compra_id = data.get('orden_compra_id')
@@ -34,7 +34,6 @@ def registrar_ingreso(current_user, negocio_id):
     alertas_precios = []
 
     try:
-        # --- Campos ARCA e Impuestos ---
         cae = data.get('cae')
         cae_vencimiento = data.get('cae_vencimiento')
         fecha_emision = data.get('fecha_emision')
@@ -52,33 +51,30 @@ def registrar_ingreso(current_user, negocio_id):
         neto_gravado = float(data.get('neto_gravado') or 0)
         exento = float(data.get('exento') or 0)
         no_gravado = float(data.get('no_gravado') or 0)
+        impuestos_internos = float(data.get('impuestos_internos') or 0)
         total_comprobante = float(data.get('total_factura') or 0)
 
-        # 1. Crear el registro maestro del ingreso
         db.execute(
             """
             INSERT INTO ingresos_mercaderia 
                 (negocio_id, proveedor_id, referencia, fecha, usuario_id, 
                  factura_tipo, factura_prefijo, factura_numero, total_factura, orden_compra_id,
                  punto_venta, cae, cae_vencimiento, fecha_emision,
-                 iva_27, iva_21, iva_105, iva_25, iva_percepcion, iibb_percepcion, neto_gravado, exento, no_gravado) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                 iva_27, iva_21, iva_105, iva_25, iva_percepcion, iibb_percepcion, impuestos_internos, neto_gravado, exento, no_gravado) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """,
             (negocio_id, proveedor_id, referencia, datetime.datetime.now(datetime.timezone.utc), current_user['id'],
              factura_tipo, factura_prefijo, factura_numero, total_comprobante, orden_compra_id,
              punto_venta, cae, cae_vencimiento, fecha_emision,
-             iva_27, iva_21, iva_105, iva_25, iva_percepcion, iibb_percepcion, neto_gravado, exento, no_gravado) 
+             iva_27, iva_21, iva_105, iva_25, iva_percepcion, iibb_percepcion, impuestos_internos, neto_gravado, exento, no_gravado) 
         )
         ingreso_id = db.fetchone()['id']
         
-        # 2. Procesar cada detalle
         for item in detalles:
             producto_id = item.get('producto_id')
-            nombre_ia = item.get('nombre') # Nombre que viene del scanner si producto_id es null
+            nombre_ia = item.get('nombre') 
             
-            # --- CREACIÓN AL VUELO ---
             if not producto_id:
-                # Buscar o crear categoría por defecto para items de IA
                 db.execute("SELECT id FROM productos_categoria WHERE negocio_id = %s AND nombre = 'IA Scanner' LIMIT 1", (negocio_id,))
                 cat_row = db.fetchone()
                 if cat_row:
@@ -87,7 +83,6 @@ def registrar_ingreso(current_user, negocio_id):
                     db.execute("INSERT INTO productos_categoria (negocio_id, nombre) VALUES (%s, 'IA Scanner') RETURNING id", (negocio_id,))
                     categoria_id = db.fetchone()['id']
                 
-                # Crear el producto
                 db.execute(
                     """
                     INSERT INTO productos (negocio_id, categoria_id, nombre, precio_costo, stock, iva_porcentaje)
@@ -106,7 +101,7 @@ def registrar_ingreso(current_user, negocio_id):
             if cantidad <= 0:
                  continue 
 
-            precio_costo_unitario = precio_costo_nuevo # Bruto
+            precio_costo_unitario = precio_costo_nuevo 
             dto1 = float(item.get('descuento_1') or 0)
             dto2 = float(item.get('descuento_2') or 0)
             iva_p = float(item.get('iva_porcentaje') or 21.0)
@@ -120,14 +115,11 @@ def registrar_ingreso(current_user, negocio_id):
                 (ingreso_id, producto_id, cantidad, precio_costo_unitario, dto1, dto2, iva_p)
             )
             
-            # Cálculo para stock (actualizamos precio_costo neto sin IVA)
-            # Neto = Bruto * (1 - dto1/100) * (1 - dto2/100)
             costo_neto = precio_costo_unitario * (1 - (dto1/100)) * (1 - (dto2/100)) if precio_costo_unitario else 0
             
             if not total_comprobante: 
                 total_factura_calculado += cantidad * (precio_costo_unitario or 0)
 
-            # --- Lógica de Actualización de Stock y Costos ---
             db.execute('SELECT nombre, precio_costo FROM productos WHERE id = %s', (producto_id,))
             producto_actual = db.fetchone()
             precio_costo_anterior = producto_actual['precio_costo'] if producto_actual else None
@@ -152,7 +144,6 @@ def registrar_ingreso(current_user, negocio_id):
                             'variacion': round(variacion_pct, 2)
                         })
 
-        # 3. Finalizar
         total_final = total_comprobante if total_comprobante > 0 else total_factura_calculado
         db.execute('UPDATE ingresos_mercaderia SET total_factura = %s WHERE id = %s', (total_final, ingreso_id))
 
@@ -175,22 +166,16 @@ def registrar_ingreso(current_user, negocio_id):
         return jsonify({'error': str(e)}), 500
 
 
-
 @bp.route('/negocios/<int:negocio_id>/proveedores/<int:proveedor_id>/comprobante', methods=['POST'])
 @token_required
 def registrar_comprobante(current_user, negocio_id, proveedor_id):
-    """
-    Registra un comprobante (factura, remito, etc.) que NO modifica stock.
-    Solo afecta la cuenta corriente del proveedor.
-    """
     data = request.get_json()
-    
     factura_tipo = data.get('factura_tipo')
     factura_prefijo = data.get('factura_prefijo')
     factura_numero = data.get('factura_numero')
     total_factura = data.get('total')
     referencia = data.get('referencia')
-    fecha_str = data.get('fecha') # Opcional, si no viene usamos ahora
+    fecha_str = data.get('fecha') 
 
     if not all([factura_tipo, factura_prefijo, factura_numero, total_factura]):
         return jsonify({'error': 'Faltan datos obligatorios (tipo, prefijo, número, total)'}), 400
@@ -204,14 +189,12 @@ def registrar_comprobante(current_user, negocio_id, proveedor_id):
     try:
         if fecha_str:
             try:
-                # Intentamos parsear la fecha si viene del frontend (YYYY-MM-DD)
                 fecha = datetime.datetime.strptime(fecha_str, '%Y-%m-%d')
             except ValueError:
                 fecha = datetime.datetime.now(datetime.timezone.utc)
         else:
             fecha = datetime.datetime.now(datetime.timezone.utc)
 
-        # 1. Crear el registro en ingresos_mercaderia con afecta_stock = False
         db.execute(
             """
             INSERT INTO ingresos_mercaderia 
@@ -224,7 +207,6 @@ def registrar_comprobante(current_user, negocio_id, proveedor_id):
         )
         ingreso_id = db.fetchone()['id']
 
-        # 2. Actualizar el saldo del proveedor
         db.execute(
             'UPDATE proveedores SET saldo_cta_cte = saldo_cta_cte + %s WHERE id = %s',
             (total_factura, proveedor_id)
@@ -246,17 +228,26 @@ def registrar_comprobante(current_user, negocio_id, proveedor_id):
 @bp.route('/negocios/<int:negocio_id>/ingresos', methods=['GET'])
 @token_required
 def get_historial_ingresos(current_user, negocio_id):
-    """Devuelve la lista maestra de ingresos con soporte para saldos básicos."""
     db = get_db()
     proveedor_id = request.args.get('proveedor_id')
+    limit = request.args.get('limit', default=50, type=int)
+    offset = request.args.get('offset', default=0, type=int)
     
     try:
         query = """
             SELECT 
                 i.id, i.fecha, i.referencia, i.total_factura, p.nombre as proveedor_nombre,
                 i.factura_tipo, i.factura_prefijo, i.factura_numero, i.estado_pago,
-                COALESCE(i.monto_pagado, 0) as monto_pagado,
-                (COALESCE(i.total_factura, 0) - COALESCE(i.monto_pagado, 0)) as saldo_pendiente
+                COALESCE((
+                    SELECT SUM(monto_aplicado) 
+                    FROM pagos_proveedores_ingresos 
+                    WHERE ingreso_mercaderia_id = i.id
+                ), 0) as monto_pagado,
+                (COALESCE(i.total_factura, 0) - COALESCE((
+                    SELECT SUM(monto_aplicado) 
+                    FROM pagos_proveedores_ingresos 
+                    WHERE ingreso_mercaderia_id = i.id
+                ), 0)) as saldo_pendiente
             FROM 
                 ingresos_mercaderia i
             LEFT JOIN 
@@ -270,7 +261,8 @@ def get_historial_ingresos(current_user, negocio_id):
             query += " AND i.proveedor_id = %s "
             params.append(int(proveedor_id))
             
-        query += " ORDER BY i.fecha DESC "
+        query += " ORDER BY i.fecha DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
         
         db.execute(query, tuple(params))
         ingresos = db.fetchall()
@@ -278,7 +270,6 @@ def get_historial_ingresos(current_user, negocio_id):
         result = []
         for row in ingresos:
             d = dict(row)
-            # ✨ Formateo correcto en Python (usando f-strings con padding)
             prefijo = str(d.get('factura_prefijo') or 0).zfill(4)
             numero = str(d.get('factura_numero') or 0).zfill(8)
             d['factura_completa'] = f"{d.get('factura_tipo','FC')} {prefijo}-{numero}"
@@ -293,14 +284,12 @@ def get_historial_ingresos(current_user, negocio_id):
 @bp.route('/ingresos/<int:ingreso_id>/detalles', methods=['GET'])
 @token_required
 def get_detalles_ingreso(current_user, ingreso_id):
-    """Devuelve los productos y los totales fiscales de un ingreso específico."""
     db = get_db()
     try:
-        # 1. Obtener datos maestro (cabecera fiscal completa)
         db.execute(
             """
             SELECT i.total_factura, i.iva_21, i.iva_105, i.iva_percepcion, i.iibb_percepcion, 
-                   i.neto_gravado, i.exento, i.no_gravado, i.factura_tipo, i.factura_prefijo, 
+                   i.impuestos_internos, i.neto_gravado, i.exento, i.no_gravado, i.factura_tipo, i.factura_prefijo, 
                    i.factura_numero, i.cae, i.fecha_emision, p.nombre as proveedor_nombre
             FROM ingresos_mercaderia i
             LEFT JOIN proveedores p ON i.proveedor_id = p.id
@@ -309,7 +298,6 @@ def get_detalles_ingreso(current_user, ingreso_id):
         )
         maestro = db.fetchone()
 
-        # 2. Obtener detalles de productos
         db.execute(
             """
             SELECT d.cantidad, d.precio_costo_unitario, d.iva_porcentaje, d.descuento_1, d.descuento_2, p.nombre, p.sku 
@@ -330,40 +318,34 @@ def get_detalles_ingreso(current_user, ingreso_id):
         traceback.print_exc()
         return jsonify({'error': 'Ocurrió un error al obtener los detalles del ingreso.'}), 500
 
-# --- ✨ NUEVA RUTA (Ejemplo): Marcar una factura como pagada ---
-# Esto pertenecería al futuro módulo de Pagos, pero lo pongo acá como idea
+
 @bp.route('/ingresos/<int:ingreso_id>/marcar_pagada', methods=['PUT'])
 @token_required
 def marcar_ingreso_pagado(current_user, ingreso_id):
-     # Validar permisos (admin/superadmin)
      if current_user['rol'] not in ('admin', 'superadmin'):
          return jsonify({'message': 'Acción no permitida'}), 403
 
      db = get_db()
      try:
-         # Obtenemos el total y proveedor para ajustar saldo
          db.execute("SELECT proveedor_id, total_factura, estado_pago FROM ingresos_mercaderia WHERE id = %s", (ingreso_id,))
          ingreso = db.fetchone()
 
          if not ingreso:
              return jsonify({'error': 'Ingreso no encontrado'}), 404
          if ingreso['estado_pago'] == 'pagada':
-             return jsonify({'message': 'El ingreso ya estaba marcado como pagado.'}), 200 # O 409 si preferís error
+             return jsonify({'message': 'El ingreso ya estaba marcado como pagado.'}), 200
 
          proveedor_id = ingreso['proveedor_id']
-         total_a_restar = ingreso['total_factura'] or 0 # Si es null, asumimos 0
-
-         # Iniciamos transacción
-         # g.db_conn.begin() # Si es necesario
+         total_a_pagar = float(ingreso['total_factura'] or 0)
 
          # 1. Cambiar estado
          db.execute("UPDATE ingresos_mercaderia SET estado_pago = 'pagada' WHERE id = %s", (ingreso_id,))
          
          # 2. Restar del saldo del proveedor
-         db.execute("UPDATE proveedores SET saldo_cta_cte = saldo_cta_cte - %s WHERE id = %s", (total_a_restar, proveedor_id))
+         db.execute("UPDATE proveedores SET saldo_cta_cte = saldo_cta_cte - %s WHERE id = %s", (total_a_pagar, proveedor_id))
 
          g.db_conn.commit()
-         return jsonify({'message': 'Ingreso marcado como pagado y saldo de proveedor actualizado.'}), 200
+         return jsonify({'message': 'Ingreso marcado como pagado correctamente.'}), 200
 
      except Exception as e:
          g.db_conn.rollback()
@@ -371,3 +353,45 @@ def marcar_ingreso_pagado(current_user, ingreso_id):
          traceback.print_exc()
          return jsonify({'error': 'Ocurrió un error al marcar el ingreso como pagado.'}), 500
 
+
+@bp.route('/negocios/<int:negocio_id>/ingresos/<int:ingreso_id>', methods=['DELETE'])
+@token_required
+def eliminar_ingreso(current_user, negocio_id, ingreso_id):
+    if current_user['rol'] not in ('admin', 'superadmin'):
+        return jsonify({'error': 'No tiene permisos para realizar esta acción'}), 403
+
+    db = get_db()
+    try:
+        db.execute("SELECT proveedor_id, total_factura, afecta_stock, estado_pago FROM ingresos_mercaderia WHERE id = %s AND negocio_id = %s", (ingreso_id, negocio_id))
+        ingreso = db.fetchone()
+        
+        if not ingreso:
+            return jsonify({'error': 'Ingreso no encontrado'}), 404
+
+        # --- 🛡️ CANDADO DE SEGURIDAD: No borrar si ya tiene pagos ---
+        db.execute("SELECT COUNT(*) as pagos_count FROM pagos_proveedores_ingresos WHERE ingreso_mercaderia_id = %s", (ingreso_id,))
+        pagos_vinculados = db.fetchone()['pagos_count']
+        
+        if pagos_vinculados > 0 or ingreso['estado_pago'] == 'pagada':
+            return jsonify({'error': 'No se puede eliminar un ingreso que ya tiene pagos registrados (totales o parciales).'}), 400
+
+        if ingreso['afecta_stock']:
+            db.execute("SELECT producto_id, cantidad FROM ingresos_mercaderia_detalle WHERE ingreso_id = %s", (ingreso_id,))
+            detalles = db.fetchall()
+            for d in detalles:
+                db.execute("UPDATE productos SET stock = stock - %s WHERE id = %s", (d['cantidad'], d['producto_id']))
+
+        total_a_revertir = float(ingreso['total_factura'] or 0)
+        db.execute("UPDATE proveedores SET saldo_cta_cte = saldo_cta_cte - %s WHERE id = %s", (total_a_revertir, ingreso['proveedor_id']))
+
+        db.execute("DELETE FROM ingresos_mercaderia_detalle WHERE ingreso_id = %s", (ingreso_id,))
+        db.execute("DELETE FROM ingresos_mercaderia WHERE id = %s", (ingreso_id,))
+
+        g.db_conn.commit()
+        return jsonify({'message': 'Ingreso eliminado correctamente y saldos revertidos.'})
+
+    except Exception as e:
+        g.db_conn.rollback()
+        print(f"Error en eliminar_ingreso: {e}")
+        traceback.print_exc()
+        return jsonify({'error': f'Error al eliminar: {str(e)}'}), 500

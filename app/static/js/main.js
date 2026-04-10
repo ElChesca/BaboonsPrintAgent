@@ -2,7 +2,7 @@
 // ✅ ARCHIVO COMPLETO (Versión 1.7.1 - DYNAMIC MODULES FIX) ✅
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-export const APP_VERSION = "1.9.12";
+export const APP_VERSION = "1.9.14";
 // HISTORIAL DE VERSIONES:
 // 1.9.6: High Contrast KDS and Bar/Dolce station fixes sync.
 // 1.7.1: Final Fix regarding cross-module cache mismatches: Dynamic imports between modules + modal visibility.
@@ -202,13 +202,14 @@ function aplicarBloqueoPorMora(mensajeLocal) {
 
 // Mapa de excepciones para rutas que no est├ín en la ra├¡z de static/
 const PATH_MAP = {
-    'login': 'static/login_secure.html', // ✅ Redirigir login estándar a la versión segura
+    'login': 'static/login_secure.html',
     'rentals_dashboard': 'static/rentals/rentals_dashboard.html',
     'rentals_units': 'static/rentals/rentals_units.html',
     'rentals_contracts': 'static/rentals/rentals_contracts.html',
     'crm_social': 'static/crm_social/crm_social.html',
     'crm_contactos': 'static/crm_social/crm_contactos.html',
-    'admin_apps': 'static/admin_apps.html' // ✅ Nueva ruta admin
+    'admin_apps': 'static/admin_apps.html',
+    'home': 'DYNAMIC_HOME' // 🚀 Alias especial manejado en loadContent
 };
 
 // --- NUEVA FUNCI├ôN UI ---
@@ -233,7 +234,7 @@ function loadPageCSS(pageName) {
 
         // Caso especial para rentals si tuvieran CSS espec├¡fico en su carpeta (opcional)
         // Caso especial: Evitar cargar CSS específicos si no existen
-        if (pageName.startsWith('rentals_') || pageName === 'crm_social' || pageName === 'crm_contactos' || pageName === 'resto_roles' || pageName === 'resto_bar' || pageName === 'resto_dolce') {
+        if (pageName.startsWith('rentals_') || pageName === 'crm_social' || pageName === 'crm_contactos' || pageName === 'resto_roles' || pageName === 'resto_bar' || pageName === 'resto_dolce' || pageName === 'home_retail') {
             return;
         }
 
@@ -1233,7 +1234,7 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     const tipoAppActual = appState.negocioActivoTipo;
 
     // 🚀 RUTAS COMUNES (Acceso para todos)
-    const rutasComunes = ['home', 'login_secure', 'home_consorcio', 'home_rentals', 'home_retail', 'home_resto', 'home_distribuidora', 'error_acceso'];
+    const rutasComunes = ['login_secure', 'home_consorcio', 'home_rentals', 'home_retail', 'home_resto', 'home_distribuidora', 'error_acceso'];
 
     if (tipoAppActual && pageName !== 'login' && pageName !== 'admin_apps' && pageName !== 'agente_facturacion' && appState.userRol !== 'superadmin' && !rutasComunes.includes(pageName)) {
         const rutasPermitidas = appState.permissions[tipoAppActual] || [];
@@ -1328,6 +1329,16 @@ export function loadContent(event, page, clickedLink, fromHistory = false) {
     if (header) header.style.display = isLoginPage ? 'none' : 'flex';
 
     let pageToFetch = `${pagePath}?v=${APP_VERSION}`;
+    
+    // 🚀 NORMALIZACIÓN DE HOME (Legacy Fix)
+    if (pageName === 'home') {
+        const defaultHome = (appState.negocioActivoTipo === 'resto' ? 'home_resto' : 
+                            appState.negocioActivoTipo === 'distribuidora' ? 'home_distribuidora' : 
+                            appState.negocioActivoTipo === 'consorcio' ? 'home_consorcio' : 'home_retail');
+        window.location.hash = `#${defaultHome}`;
+        return Promise.resolve();
+    }
+
     if (pageName === 'crm_social') {
         pageToFetch = `static/crm_social/crm_social.html?v=${APP_VERSION}`;
     } else if (pageName.startsWith('rentals_')) {

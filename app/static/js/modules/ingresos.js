@@ -182,8 +182,9 @@ function recalcularTotalFactura() {
     const piva = parseFloat(document.getElementById('tax-percep-iva')?.value) || 0;
     const exento = parseFloat(document.getElementById('tax-exento')?.value) || 0;
     const noGravado = parseFloat(document.getElementById('tax-no-gravado')?.value) || 0;
+    const internos = parseFloat(document.getElementById('tax-internos')?.value) || 0;
 
-    const total = neto + iva27 + iva21 + iva105 + iva25 + iibb + piva + exento + noGravado;
+    const total = neto + iva27 + iva21 + iva105 + iva25 + iibb + piva + exento + noGravado + internos;
     
     const display = document.getElementById('total-comprobante-display');
     if (display) display.innerText = formatCurrency(total);
@@ -488,9 +489,10 @@ export function inicializarLogicaIngresos() {
         const piva = parseFloat(document.getElementById('tax-percep-iva')?.value) || 0;
         const exento = parseFloat(document.getElementById('tax-exento')?.value) || 0;
         const noGravado = parseFloat(document.getElementById('tax-no-gravado')?.value) || 0;
+        const internos = parseFloat(document.getElementById('tax-internos')?.value) || 0;
         const neto = parseFloat(document.getElementById('total-neto-gravado').innerText.replace(/[^0-9,-]+/g,"").replace(",", ".")) || 0;
 
-        const totalComprobante = neto + iva27 + iva21 + iva105 + iva25 + iibb + piva + exento + noGravado;
+        const totalComprobante = neto + iva27 + iva21 + iva105 + iva25 + iibb + piva + exento + noGravado + internos;
 
         if (!proveedorId || !facturaTipo || !facturaNumero || !fechaEmision || !puntoVenta) {
              return mostrarNotificacion('Complete los datos obligatorios del comprobante.', 'warning');
@@ -513,6 +515,7 @@ export function inicializarLogicaIngresos() {
             iva_25: iva25,
             iva_percepcion: piva,
             iibb_percepcion: iibb,
+            impuestos_internos: internos,
             neto_gravado: neto,
             exento: exento,
             no_gravado: noGravado,
@@ -634,6 +637,7 @@ export function inicializarLogicaIngresos() {
         if (data.iva_25 !== undefined) document.getElementById('tax-iva-25').value = data.iva_25 || 0;
         if (data.iibb_percepcion !== undefined) document.getElementById('tax-iibb').value = data.iibb_percepcion || 0;
         if (data.iva_percepcion !== undefined) document.getElementById('tax-percep-iva').value = data.iva_percepcion || 0;
+        if (data.impuestos_internos !== undefined) document.getElementById('tax-internos').value = data.impuestos_internos || 0;
         
         // Si hay monto total pero no items, lo informamos (Document AI extrae cabecera)
         if (data.monto_total && (!data.items || data.items.length === 0)) {
@@ -755,7 +759,7 @@ function limpiarFormularioIngreso() {
     // 4. Resetear Campos de Impuestos (están fuera de los forms)
     const taxFields = [
         'tax-iva-27', 'tax-iva-21', 'tax-iva-105', 'tax-iva-25',
-        'tax-iibb', 'tax-percep-iva', 'tax-exento', 'tax-no-gravado'
+        'tax-iibb', 'tax-percep-iva', 'tax-exento', 'tax-no-gravado', 'tax-internos'
     ];
     taxFields.forEach(id => {
         const el = document.getElementById(id);

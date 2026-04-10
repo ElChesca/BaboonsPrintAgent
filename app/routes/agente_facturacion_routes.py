@@ -67,7 +67,8 @@ def reporte_dia(current_user):
 @bp.route('/agente/facturacion/ejecutar-hoy', methods=['POST'])
 @token_required
 def ejecutar_hoy(current_user):
-    if current_user.get('rol') != 'superadmin':
+    # Permitir a superadmin y admin
+    if current_user.get('rol') not in ['superadmin', 'admin']:
         return jsonify({'error': 'No autorizado.'}), 403
 
     ejecutar_dia, _, _, NEGOCIO_ID, TOTAL_FACTURAS, MODO_EJECUCION, \
@@ -131,6 +132,115 @@ def distribucion_mes(current_user):
         "anio": anio, "mes": mes, "total": total,
         "distribucion": resultado
     }), 200
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# CONFIGURACIÓN DEL AGENTE
+# ────────────────────────────────────────────────────────────────────────────
+@bp.route('/agente/facturacion/config', methods=['GET'])
+@token_required
+def get_config(current_user):
+    try:
+        negocio_id = request.args.get('negocio_id', 8)
+        db = get_db()
+        
+        # ASEGURAR TABLA (Por si falló el script inicial en PROD)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS agente_facturacion_config (
+                id SERIAL PRIMARY KEY,
+                negocio_id INTEGER UNIQUE NOT NULL,
+                meta_mensual INTEGER DEFAULT 200,
+                modo_ejecucion VARCHAR(20) DEFAULT 'simulacion',
+                auto_pilot BOOLEAN DEFAULT FALSE,
+                variabilidad_porcentaje INTEGER DEFAULT 15,
+                cuit_negocio BIGINT,
+                punto_venta INTEGER DEFAULT 1,
+                tipo_factura INTEGER DEFAULT 11,
+                updated_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+        if hasattr(g, 'db_conn'): g.db_conn.commit()
+
+        db.execute("""
+            SELECT meta_mensual, modo_ejecucion, auto_pilot, variabilidad_porcentaje, 
+                   cuit_negocio, punto_venta, tipo_factura 
+            FROM agente_facturacion_config 
+            WHERE negocio_id = %s
+        """, (negocio_id,))
+        
+        row = db.fetchone()
+        
+        if not row:
+            return jsonify({
+                'meta_mensual': 200, 
+                'modo_ejecucion': 'simulacion',
+                'auto_pilot': False,
+                'variabilidad_porcentaje': 15,
+                'cuit_negocio': 23255653059,
+                'punto_venta': 1,
+                'tipo_factura': 11
+            }), 200
+        
+        # Intentamos convertir a dict de forma segura
+        try:
+            res = dict(row)
+        except:
+            # Si falla dict() (por ser tupla), mapeamos a mano
+            res = {
+                'meta_mensual': row[0],
+                'modo_ejecucion': row[1],
+                'auto_pilot': row[2],
+                'variabilidad_porcentaje': row[3],
+                'cuit_negocio': row[4],
+                'punto_venta': row[5],
+                'tipo_factura': row[6]
+            }
+        
+        return jsonify(res), 200
+        
+    except Exception as e:
+        import traceback
+        error_info = traceback.format_exc()
+        print(f"DEBUG ERROR AGENTE: {error_info}")
+        return jsonify({
+            'error_debug': str(e),
+            'meta_mensual': 200,
+            'modo_ejecucion': 'simulacion_fallback'
+        }), 200
+
+@bp.route('/agente/facturacion/config', methods=['POST'])
+@token_required
+def save_config(current_user):
+    if current_user.get('rol') not in ['superadmin', 'admin']:
+        return jsonify({'error': 'No autorizado.'}), 403
+
+    data = request.get_json()
+    negocio_id = data.get('negocio_id', 8)
+    
+    db = get_db()
+    db.execute("""
+        INSERT INTO agente_facturacion_config 
+        (negocio_id, meta_mensual, modo_ejecucion, auto_pilot, variabilidad_porcentaje, cuit_negocio, punto_venta, tipo_factura, updated_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+        ON CONFLICT (negocio_id) DO UPDATE SET
+            meta_mensual = EXCLUDED.meta_mensual,
+            modo_ejecucion = EXCLUDED.modo_ejecucion,
+            auto_pilot = EXCLUDED.auto_pilot,
+            variabilidad_porcentaje = EXCLUDED.variabilidad_porcentaje,
+            cuit_negocio = EXCLUDED.cuit_negocio,
+            punto_venta = EXCLUDED.punto_venta,
+            tipo_factura = EXCLUDED.tipo_factura,
+            updated_at = NOW()
+    """, (
+        negocio_id, data.get('meta_mensual', 200), data.get('modo_ejecucion', 'simulacion'), 
+        data.get('auto_pilot', False), data.get('variabilidad_porcentaje', 15),
+        data.get('cuit_negocio'), data.get('punto_venta', 1), data.get('tipo_factura', 11)
+    ))
+    
+    if hasattr(g, 'db_conn'):
+        g.db_conn.commit()
+        
+    return jsonify({'success': True, 'message': 'Configuración guardada.'}), 200
 
 
 # ────────────────────────────────────────────────────────────────────────────

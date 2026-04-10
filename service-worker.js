@@ -4,8 +4,10 @@
 // ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
 // ✨ ¡DEBE SER IDÉNTICA a la de tu main.js!
 // ✨ ========================================================================
-const APP_VERSION = "1.9.12";
+const APP_VERSION = "1.9.14";
 // HISTORIAL DE VERSIONES:
+// 1.9.14: Cleaned up duplicate Current Accounts cards in dashboard.
+// 1.9.13: Updated version.
 // 1.9.12: Switched back to Gemini on Cloud Run.
 // 1.9.11: Fixed API Endpoint URL for Cloud Run.
 // 1.9.10: Added scanner and income modules to precache list.

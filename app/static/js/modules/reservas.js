@@ -38,6 +38,8 @@ export function inicializarReservas() {
     window.cambiarEstadoReserva = cambiarEstadoReserva;
     window.confirmarCancelar = confirmarCancelar;
     window.abrirModalNuevaReserva = abrirModalNuevaReserva;
+    window.editarReserva = editarReserva;
+    window.eliminarReserva = eliminarReserva;
     window.cerrarModal = cerrarModal;
     window.guardarReservaManual = guardarReservaManual;
     window.compartirPortal = compartirPortal;
@@ -212,16 +214,81 @@ function verDetalleReserva(id) {
         </div>` : ''}`;
 
     actions.innerHTML = `
-      <button class="btn-res-secondary" onclick="window.cerrarModal()">Cerrar</button>
-      <button class="btn-res-secondary" style="background:#f1f5f9; border-color:#cbd5e1;" onclick="window.generarTarjetaDigital(${r.id})">
-        <i class="fas fa-id-card"></i> Tarjeta Digital
-      </button>
-      ${r.estado === 'pendiente' ? `<button class="btn-res-primary" style="background:#10b981;" onclick="window.cambiarEstadoReserva(${r.id},'confirmada')">Confirmar</button>` : ''}
-      ${r.estado !== 'cancelada' ? `<button class="btn-res-primary" onclick="window.asignarMesaReserva(${r.id})">Guardar Mesa</button>` : ''}
-      ${r.estado === 'confirmada' ? `<button class="btn-res-primary" style="background:#0ea5e9;" onclick="window.cambiarEstadoReserva(${r.id},'completada')">Marcar Completada</button>` : ''}
-      ${r.estado !== 'cancelada' ? `<button class="btn-res-secondary" style="color:#ef4444;" onclick="window.confirmarCancelar(${r.id})">Cancelar</button>` : ''}`;
+      <div class="res-modal-actions-grid">
+        <div class="res-actions-main">
+            <button class="btn-res-secondary btn-danger-soft" onclick="window.eliminarReserva(${r.id})" title="Eliminar de la base de datos">
+                <i class="fas fa-trash-alt"></i> Eliminar
+            </button>
+            <div style="flex:1"></div>
+            <button class="btn-res-secondary" onclick="window.cerrarModal()">Cerrar</button>
+            <button class="btn-res-primary btn-edit-res" onclick="window.editarReserva(${r.id})">
+                <i class="fas fa-edit"></i> Editar Todo
+            </button>
+        </div>
+        
+        <div class="res-actions-status">
+            <button class="btn-res-status btn-status-card" onclick="window.generarTarjetaDigital(${r.id})" title="Generar imagen para enviar">
+                <i class="fas fa-id-card"></i> Tarjeta
+            </button>
+            
+            ${r.estado === 'pendiente' ? `
+                <button class="btn-res-status btn-status-confirm" onclick="window.cambiarEstadoReserva(${r.id},'confirmada')">
+                    <i class="fas fa-check"></i> Confirmar
+                </button>` : ''}
+            
+            ${r.estado !== 'cancelada' ? `
+                <button class="btn-res-status btn-status-table" onclick="window.asignarMesaReserva(${r.id})">
+                    <i class="fas fa-chair"></i> Guardar Mesa
+                </button>` : ''}
+            
+            ${r.estado === 'confirmada' ? `
+                <button class="btn-res-status btn-status-complete" onclick="window.cambiarEstadoReserva(${r.id},'completada')">
+                    <i class="fas fa-flag-checkered"></i> Completar
+                </button>` : ''}
+            
+            ${r.estado !== 'cancelada' ? `
+                <button class="btn-res-status btn-status-cancel" onclick="window.confirmarCancelar(${r.id})">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>` : ''}
+        </div>
+      </div>`;
 
     document.getElementById('modal-detalle-reserva').style.display = 'flex';
+    
+    // Cargar bitácora
+    cargarBitacora(r.id);
+}
+
+async function cargarBitacora(id) {
+    const list = document.getElementById('bitacora-lista');
+    if (!list) return;
+    list.innerHTML = '<p style="font-size:0.8rem; color:#94a3b8;">Cargando historial...</p>';
+    
+    try {
+        const logs = await fetchData(`/api/negocios/${appState.negocioActivoId}/reservas/${id}/bitacora`);
+        if (!logs || logs.length === 0) {
+            list.innerHTML = '<p style="font-size:0.8rem; color:#94a3b8; font-style:italic;">No hay cambios registrados.</p>';
+            return;
+        }
+        
+        list.innerHTML = logs.map(log => {
+            const dateStr = new Date(log.fecha).toLocaleString('es-AR', { 
+                day: '2-digit', month: '2-digit', year: '2-digit', 
+                hour: '2-digit', minute: '2-digit' 
+            });
+            return `
+                <div class="bit-item">
+                    <div class="bit-meta">
+                        <span class="bit-user">${log.usuario_nombre || 'Sistema'}</span>
+                        <span>${dateStr}hs</span>
+                    </div>
+                    <div class="bit-action">${log.accion}</div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        list.innerHTML = '<p style="color:#ef4444; font-size:0.8rem;">No se pudo cargar la bitácora.</p>';
+    }
 }
 
 function getWhatsAppLink(r) {
@@ -263,8 +330,35 @@ function confirmarCancelar(id) {
     if (confirm('¿Cancelar esta reserva?')) cambiarEstadoReserva(id, 'cancelada');
 }
 
+async function eliminarReserva(id) {
+    if (!confirm('🚨 ¡ATENCIÓN!\n¿Estás seguro que deseas eliminar esta reserva definitivamente?\n\nEsta acción quitará el registro de la base de datos y es irreversible.')) return;
+    try {
+        await fetchData(`/api/negocios/${appState.negocioActivoId}/reservas/${id}`, { method: 'DELETE' });
+        mostrarNotificacion('Reserva eliminada definitivamente', 'success');
+        cerrarModal();
+        cargarReservas();
+    } catch (e) {
+        mostrarNotificacion('Error al eliminar', 'error');
+    }
+}
+
+let editingReservaId = null;
+
 function abrirModalNuevaReserva() {
+    editingReservaId = null;
+    const title = document.querySelector('#modal-nueva-reserva .res-modal-header h2');
+    if (title) title.innerHTML = '<i class="fas fa-calendar-plus"></i> Nueva Reserva Manual';
+    
+    document.getElementById('nr-nombre').value = '';
+    document.getElementById('nr-telefono').value = '';
+    document.getElementById('nr-email').value = '';
+    document.getElementById('nr-cumpleanios').value = '';
     document.getElementById('nr-fecha').value = fechaActual;
+    document.getElementById('nr-comensales').value = 2;
+    document.getElementById('nr-notas').value = '';
+    document.getElementById('nr-origen').value = 'manual';
+    document.getElementById('nr-estado').value = 'confirmada';
+    
     document.getElementById('wa-link-container').style.display = 'none';
     
     const secSelect = document.getElementById('nr-sector');
@@ -274,6 +368,42 @@ function abrirModalNuevaReserva() {
     
     document.getElementById('modal-nueva-reserva').style.display = 'flex';
     cargarHorasDisponibles();
+}
+
+async function editarReserva(id) {
+    const r = reservasCache.find(x => x.id === id);
+    if (!r) return;
+    
+    // Cerramos el modal de detalles primero para que no quede debajo
+    cerrarModal();
+    
+    editingReservaId = r.id;
+    const title = document.querySelector('#modal-nueva-reserva .res-modal-header h2');
+    if (title) title.innerHTML = '<i class="fas fa-edit"></i> Editar Reserva';
+
+    document.getElementById('nr-nombre').value = r.nombre_cliente || '';
+    document.getElementById('nr-telefono').value = r.telefono || '';
+    document.getElementById('nr-email').value = r.email || '';
+    document.getElementById('nr-cumpleanios').value = r.fecha_nacimiento || '';
+    document.getElementById('nr-fecha').value = r.fecha_reserva;
+    document.getElementById('nr-comensales').value = r.num_comensales;
+    document.getElementById('nr-notas').value = r.notas || '';
+    document.getElementById('nr-origen').value = r.origen || 'manual';
+    document.getElementById('nr-estado').value = r.estado;
+    document.getElementById('nr-mesa').value = r.mesa_id || '';
+    
+    document.getElementById('wa-link-container').style.display = 'none';
+    
+    const secSelect = document.getElementById('nr-sector');
+    if (secSelect) {
+        secSelect.innerHTML = sectoresCache.map(s => `<option value="${s.nombre}" ${r.sector_preferido === s.nombre ? 'selected' : ''}>${s.nombre}</option>`).join('');
+    }
+    
+    document.getElementById('modal-nueva-reserva').style.display = 'flex';
+    
+    // Cargar horas y pre-setear la de la reserva
+    await cargarHorasDisponibles();
+    document.getElementById('nr-hora').value = r.hora_reserva;
 }
 
 function cerrarModal() {
@@ -321,13 +451,22 @@ async function guardarReservaManual() {
         num_comensales: parseInt(document.getElementById('nr-comensales').value) || 2,
         mesa_id: document.getElementById('nr-mesa').value || null,
         notas: document.getElementById('nr-notas').value,
-        origen: document.getElementById('nr-origen').value
+        origen: document.getElementById('nr-origen').value,
+        estado: document.getElementById('nr-estado').value || 'confirmada'
     };
 
     try {
-        const res = await sendData(`/api/negocios/${appState.negocioActivoId}/reservas`, payload);
-        mostrarNotificacion('¡Reserva creada!', 'success');
-        if (telefono) {
+        let res;
+        if (editingReservaId) {
+            res = await sendData(`/api/negocios/${appState.negocioActivoId}/reservas/${editingReservaId}`, payload, 'PATCH');
+            mostrarNotificacion('¡Reserva actualizada!', 'success');
+            cerrarModal();
+        } else {
+            res = await sendData(`/api/negocios/${appState.negocioActivoId}/reservas`, payload);
+            mostrarNotificacion('¡Reserva creada!', 'success');
+        }
+        
+        if (telefono && !editingReservaId) {
             const link = getWhatsAppLink({ ...payload, id: res.id });
             const btn = document.getElementById('wa-link');
             if (btn) btn.href = link;

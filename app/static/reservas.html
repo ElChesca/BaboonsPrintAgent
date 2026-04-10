@@ -136,6 +136,17 @@
           </select>
         </div>
       </div>
+      <div class="res-form-row" id="edit-state-row">
+        <div class="res-form-group">
+            <label>Estado de la Reserva</label>
+            <select id="nr-estado" class="res-input">
+                <option value="pendiente">🕒 Pendiente</option>
+                <option value="confirmada">✅ Confirmada</option>
+                <option value="completada">🏁 Completada</option>
+                <option value="cancelada">❌ Cancelada</option>
+            </select>
+        </div>
+      </div>
       <div class="res-form-group">
         <label>Notas / Pedidos Especiales</label>
         <textarea id="nr-notas" class="res-input" rows="2" placeholder="Ej: Cumpleaños, lugar preferido, alergias..."></textarea>
@@ -165,8 +176,17 @@
       <h2><i class="fas fa-calendar-day"></i> Detalle de Reserva</h2>
       <button class="res-modal-close" onclick="cerrarModal()"><i class="fas fa-times"></i></button>
     </div>
-    <div class="res-modal-body" id="detalle-reserva-content">
-      <!-- Cargado dinámicamente -->
+    <div class="res-modal-body">
+      <div id="detalle-reserva-content">
+        <!-- Cargado dinámicamente -->
+      </div>
+      
+      <div class="res-bitacora-section" id="res-bitacora-container">
+          <h3 class="res-bitacora-title"><i class="fas fa-history"></i> Bitácora de Ediciones</h3>
+          <div id="bitacora-lista" class="res-bitacora-list">
+              <!-- Cargado dinámicamente -->
+          </div>
+      </div>
     </div>
     <div class="res-modal-footer" id="detalle-reserva-actions">
       <!-- Acciones dinámicas -->
@@ -499,6 +519,105 @@
     font-family: monospace;
     font-weight: 600;
 }
+.res-modal-actions-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+.res-actions-main {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    align-items: center;
+}
+.res-actions-status {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    flex-wrap: wrap;
+    padding-top: 16px;
+    border-top: 1px solid #f1f5f9;
+}
+.btn-danger-soft {
+    border-color: #fee2e2 !important;
+    color: #ef4444 !important;
+    background: #fff !important;
+}
+.btn-danger-soft:hover {
+    background: #fef2f2 !important;
+    border-color: #fecaca !important;
+}
+.btn-edit-res {
+    background: #4f46e5 !important;
+}
+.btn-res-status {
+    flex: 1;
+    min-width: 100px;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+.btn-res-status i { font-size: 1.1rem; }
+.btn-res-status:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+.btn-status-confirm { color: #10b981; border-color: #bbf7d0; }
+.btn-status-confirm:hover { background: #f0fdf4; }
+.btn-status-table { color: #6366f1; border-color: #c7d2fe; }
+.btn-status-table:hover { background: #eef2ff; }
+.btn-status-complete { color: #0ea5e9; border-color: #bae6fd; }
+.btn-status-complete:hover { background: #f0f9ff; }
+.btn-status-cancel { color: #ef4444; border-color: #fecaca; }
+.btn-status-cancel:hover { background: #fef2f2; }
+.btn-status-card { color: #64748b; border-color: #e2e8f0; background: #f8fafc; }
+.res-bitacora-section {
+    margin-top: 25px;
+    padding-top: 15px;
+    border-top: 1px dashed #cbd5e1;
+}
+.res-bitacora-title {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.res-bitacora-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+.bit-item {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    font-size: 0.85rem;
+}
+.bit-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 4px;
+}
+.bit-user { font-weight: 700; color: #6366f1; }
+.bit-action { color: #334155; font-weight: 500; }
 </style>
 
 <!-- MODAL: VISTA PREVIA TARJETA DIGITAL -->
