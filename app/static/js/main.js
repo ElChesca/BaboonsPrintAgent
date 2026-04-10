@@ -2,7 +2,8 @@
 // ✅ ARCHIVO COMPLETO (Versión 1.7.1 - DYNAMIC MODULES FIX) ✅
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-export const APP_VERSION = "1.9.14";
+export const APP_VERSION = "1.9.17";
+// 1.9.15: Corregido error de sintaxis en estadísticas de Restó.
 // HISTORIAL DE VERSIONES:
 // 1.9.6: High Contrast KDS and Bar/Dolce station fixes sync.
 // 1.7.1: Final Fix regarding cross-module cache mismatches: Dynamic imports between modules + modal visibility.
@@ -555,8 +556,8 @@ export async function fetchAppPermissions() {
         // Fallback de emergencia
         appState.permissions = {
             'retail': ['home_retail', 'ventas_nueva', 'tablero_control', 'cobro_ctacte', 'ingresos'],
-            'distribuidora': ['home_distribuidora', 'vendedores', 'hoja_ruta', 'pedidos', 'mapa_clientes', 'logistica', 'ventas_nueva', 'clientes_gestion', 'presupuestos', 'caja_control', 'productos', 'proveedores', 'gastos', 'ingresos', 'unidades_medida', 'historial_inventario', 'historial_presupuestos', 'historial_ajustes', 'historial_pagos_proveedores', 'historial_ingresos', 'cobro_ctacte'],
-            'resto': ['home_resto', 'resto_mozo', 'salon_digital', 'resto_menu', 'resto_cocina', 'resto_bar', 'resto_dolce', 'reservas', 'mozos', 'resto_roles', 'gestion_mesas', 'resto_stats', 'resto_impresoras', 'gastos', 'ingresos', 'tablero_control', 'productos']
+            'distribuidora': ['home_distribuidora', 'vendedores', 'hoja_ruta', 'pedidos', 'mapa_clientes', 'logistica', 'ventas_nueva', 'clientes_gestion', 'presupuestos', 'caja_control', 'productos', 'proveedores', 'gastos', 'ingresos', 'unidades_medida', 'historial_inventario', 'historial_presupuestos', 'historial_ajustes', 'historial_pagos_proveedores', 'historial_ingresos', 'ventas_historial', 'cobro_ctacte'],
+            'resto': ['home_resto', 'resto_mozo', 'salon_digital', 'resto_menu', 'resto_cocina', 'resto_bar', 'resto_dolce', 'reservas', 'mozos', 'resto_roles', 'gestion_mesas', 'resto_stats', 'resto_impresoras', 'gastos', 'ingresos', 'tablero_control', 'productos', 'ventas_historial']
         };
     }
 
@@ -1007,6 +1008,14 @@ async function inicializarModulo(page) {
             case 'crm_contactos':
                 const { inicializarCRMContactos } = await import(`./modules/crm_contactos.js${v}`);
                 inicializarCRMContactos();
+                break;
+            case 'crm_meta':
+                const { initCrmMeta, seleccionarContacto: crmSeleccionar, enviarMensaje: crmEnviar, abrirModalConfig: crmAbrirConfig, cerrarModalConfig: crmCerrarConfig } = await import(`./modules/crm_meta.js${v}`);
+                window.seleccionarContacto = crmSeleccionar;
+                window.enviarMensaje       = crmEnviar;
+                window.abrirModalConfig    = crmAbrirConfig;
+                window.cerrarModalConfig   = crmCerrarConfig;
+                initCrmMeta();
                 break;
             case 'home_retail':
             case 'home_resto':

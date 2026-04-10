@@ -1,0 +1,9 @@
+/*
+ * crm_meta.css
+ * Estilos del módulo CRM Meta (WhatsApp / Instagram / Facebook)
+ * ERP Multinegocio Baboons
+ *
+ * NOTA: El grueso de los estilos del módulo está en línea dentro de crm_meta.html
+ * para evitar un FOUC (Flash of Unstyled Content) al cargar el módulo.
+ * Este archivo existe para satisfacer el cargador automático de CSS de main.js (loadPageCSS).
+ */
