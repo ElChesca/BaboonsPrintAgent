@@ -89,7 +89,7 @@ async function cargarContactos() {
 
     try {
         const res  = await fetch(`/api/negocios/${negocioId}/crm/contactos${params}`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('jwt_token')}` }
         });
         if (!res.ok) throw new Error(await res.text());
         CrmMeta.contactos = await res.json();
@@ -188,7 +188,7 @@ async function cargarChat(leadId) {
     const negocioId = appState.negocioActivoId;
     try {
         const res = await fetch(`/api/negocios/${negocioId}/crm/chat/${leadId}`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('jwt_token')}` }
         });
         if (!res.ok) throw new Error(await res.text());
         CrmMeta.mensajes = await res.json();
@@ -257,7 +257,7 @@ export async function enviarMensaje() {
             method:  'POST',
             headers: {
                 'Content-Type':  'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
             },
             body: JSON.stringify({
                 lead_id: CrmMeta.leadSeleccionado,
@@ -305,7 +305,7 @@ async function verificarConfigMeta() {
     const negocioId = appState.negocioActivoId;
     try {
         const res = await fetch(`/api/negocios/${negocioId}/crm/meta-config`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('jwt_token')}` }
         });
         const config = await res.json();
         const badge  = document.getElementById('crm-badge-config');
@@ -364,7 +364,7 @@ async function guardarConfigMeta(e) {
             method:  'POST',
             headers: {
                 'Content-Type':  'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
             },
             body: JSON.stringify(payload)
         });
