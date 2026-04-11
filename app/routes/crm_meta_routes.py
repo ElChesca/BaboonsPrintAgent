@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint('crm_meta', __name__)
 
-META_API_VERSION = 'v19.0'
+META_API_VERSION = 'v25.0'
 META_GRAPH_URL   = f'https://graph.facebook.com/{META_API_VERSION}'
 
 
@@ -88,9 +88,11 @@ def _upsert_lead(db, negocio_id, wa_id, nombre, telefono, plataforma='whatsapp')
     return row['id'] if row else None
 
 
-def _enviar_mensaje_meta(access_token, phone_number_id, to_number, texto):
+def _enviar_mensaje_meta(access_token, phone_number_id, to_number, texto, template_name=None, template_lang='es'):
     """
-    Envía un mensaje de texto a WhatsApp vía Meta Graph API.
+    Envía un mensaje a WhatsApp vía Meta Graph API v25.0.
+    - Si template_name es None → texto libre (solo válido dentro de ventana de 24hs).
+    - Si template_name es str  → mensaje de template (puede iniciar conversaciones).
     Retorna (ok: bool, detalle: dict).
     """
     url = f'{META_GRAPH_URL}/{phone_number_id}/messages'
@@ -98,16 +100,32 @@ def _enviar_mensaje_meta(access_token, phone_number_id, to_number, texto):
         'Authorization': f'Bearer {access_token}',
         'Content-Type':  'application/json',
     }
-    payload = {
-        'messaging_product': 'whatsapp',
-        'recipient_type':    'individual',
-        'to':                to_number,
-        'type':              'text',
-        'text':              {'body': texto},
-    }
+
+    if template_name:
+        payload = {
+            'messaging_product': 'whatsapp',
+            'to':                to_number,
+            'type':              'template',
+            'template': {
+                'name':     template_name,
+                'language': {'code': template_lang},
+            },
+        }
+    else:
+        payload = {
+            'messaging_product': 'whatsapp',
+            'recipient_type':    'individual',
+            'to':                to_number,
+            'type':              'text',
+            'text':              {'preview_url': False, 'body': texto},
+        }
+
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=10)
-        return resp.ok, resp.json()
+        resp = requests.post(url, headers=headers, json=payload, timeout=15)
+        data = resp.json()
+        if not resp.ok:
+            logger.warning('[CRM Meta] Meta API %s: %s', resp.status_code, data)
+        return resp.ok, data
     except requests.RequestException as exc:
         logger.error('[CRM Meta] Error llamando a Meta Graph API:\n%s', traceback.format_exc())
         return False, {'error': str(exc)}
@@ -375,14 +393,15 @@ def enviar_mensaje_crm(current_user, negocio_id):
     Body JSON esperado: { lead_id: int, mensaje: str }
     También acepta contacto_id como alias de lead_id (retrocompatibilidad).
     """
-    data    = request.get_json(silent=True) or {}
-    lead_id = data.get('lead_id') or data.get('contacto_id')
-    mensaje = (data.get('mensaje') or '').strip()
+    data     = request.get_json(silent=True) or {}
+    lead_id  = data.get('lead_id') or data.get('contacto_id')
+    mensaje  = (data.get('mensaje') or '').strip()
+    template = data.get('template') # Opcional: nombre del template (ej: 'hello_world')
 
-    if not lead_id or not mensaje:
-        return jsonify({'error': 'lead_id y mensaje son requeridos'}), 400
+    if not lead_id or (not mensaje and not template):
+        return jsonify({'error': 'lead_id y (mensaje o template) son requeridos'}), 400
 
-    # ── FASE 1: Consultas a la DB (aisladas con su propio try/except) ────────
+    # ── FASE 1: Consultas a la DB ───────────────────────────────────────────
     lead   = None
     config = None
     try:
@@ -402,84 +421,66 @@ def enviar_mensaje_crm(current_user, negocio_id):
         )
         config = db.fetchone()
         if not config:
-            return jsonify({'error': 'El negocio no tiene configuración Meta activa. Configurá las credenciales primero.'}), 400
+            return jsonify({'error': 'El negocio no tiene configuración Meta activa.'}), 400
 
     except Exception as exc:
         logger.error('[CRM Meta] enviar_mensaje_crm (DB read):\n%s', traceback.format_exc())
-        # rollback defensivo: solo si la conexión fue inicializada
         if hasattr(g, 'db_conn') and g.db_conn:
-            try:
-                g.db_conn.rollback()
-            except Exception:
-                pass
-        return jsonify({'error': 'Error al consultar la base de datos: ' + str(exc)}), 500
+            try: g.db_conn.rollback()
+            except: pass
+        return jsonify({'error': 'Error de base de datos: ' + str(exc)}), 500
 
     to_number = (lead.get('wa_id') or lead.get('telefono') or '').strip()
     if not to_number:
-        return jsonify({'error': 'El lead no tiene número de teléfono o wa_id válido'}), 400
+        return jsonify({'error': 'El lead no tiene número válido'}), 400
 
-    # ── FASE 2: Llamada HTTP a Meta (fuera del try de DB) ───────────────────
+    # ── FASE 2: Llamada HTTP a Meta ────────────────────────────────────────
+    # Si viene template, lo usamos. Si no, texto libre.
     ok, detalle = _enviar_mensaje_meta(
         config['access_token'],
         config['phone_number_id'],
         to_number,
-        mensaje
+        mensaje,
+        template_name=template,
+        template_lang=data.get('language', 'en_US' if template == 'hello_world' else 'es')
     )
 
     if not ok:
-        # Meta rechazó el mensaje (ej: número no autorizado, token inválido, etc.)
-        # Retornamos 400 (error del cliente/configuración) no 502 (que confunde a Fly)
-        error_msg = 'Error al enviar mensaje via Meta API'
+        error_msg = 'Error al enviar via Meta API'
         try:
-            # Intentar extraer el mensaje de error de Meta
             meta_error = detalle.get('error', {})
             if meta_error:
                 error_msg = meta_error.get('message', error_msg)
-                error_code = meta_error.get('code', '')
-                if error_code == 131030:
-                    error_msg = 'Número no autorizado. Agrega el número a la lista de destinatarios en Meta Developers.'
-        except Exception:
-            pass
-        logger.warning('[CRM Meta] Meta API rechazó el mensaje: %s', detalle)
+        except: pass
+        logger.warning('[CRM Meta] Meta rechazó el mensaje: %s', detalle)
         return jsonify({'error': error_msg, 'meta_error': str(detalle)}), 400
 
-    # ── FASE 3: Guardar en DB el mensaje enviado exitosamente ────────────────
+    # ── FASE 3: Guardar en DB el mensaje ───────────────────────────────────
     try:
         db = get_db()
         meta_msg_id = None
         try:
             messages_list = detalle.get('messages', [])
-            if messages_list:
-                meta_msg_id = messages_list[0].get('id')
-        except Exception:
-            pass
+            if messages_list: meta_msg_id = messages_list[0].get('id')
+        except: pass
+
+        # Si fue template, guardamos el nombre del template como mensaje
+        msg_to_save = f"[Template: {template}]" if template else mensaje
 
         db.execute("""
-            INSERT INTO crm_mensajes
-                (lead_id, mensaje, tipo_emisor, meta_msg_id)
-            VALUES
-                (%s, NULLIF(TRIM(%s), ''), 'agente', NULLIF(TRIM(%s), ''))
-        """, (lead_id, mensaje, meta_msg_id or ''))
+            INSERT INTO crm_mensajes (lead_id, mensaje, tipo_emisor, meta_msg_id)
+            VALUES (%s, %s, 'agente', %s)
+        """, (lead_id, msg_to_save, meta_msg_id))
 
-        db.execute("""
-            UPDATE crm_leads
-            SET    ultima_actividad = CURRENT_TIMESTAMP,
-                   actualizado_en   = CURRENT_TIMESTAMP
-            WHERE  id = %s
-        """, (lead_id,))
-
+        db.execute("UPDATE crm_leads SET ultima_actividad = NOW(), actualizado_en = NOW() WHERE id = %s", (lead_id,))
         g.db_conn.commit()
     except Exception as exc:
-        logger.error('[CRM Meta] enviar_mensaje_crm (DB write):\n%s', traceback.format_exc())
+        logger.error('[CRM Meta] enviar_mensaje_crm (DB write error):\n%s', traceback.format_exc())
         if hasattr(g, 'db_conn') and g.db_conn:
-            try:
-                g.db_conn.rollback()
-            except Exception:
-                pass
-        # El mensaje ya fue enviado a Meta — solo advertimos, no fallamos
-        logger.warning('[CRM Meta] Mensaje enviado a Meta pero NO guardado en DB: %s', exc)
+            try: g.db_conn.rollback()
+            except: pass
 
-    return jsonify({'success': True, 'meta_message_id': meta_msg_id if 'meta_msg_id' in dir() else None})
+    return jsonify({'success': True, 'meta_message_id': meta_msg_id if 'meta_msg_id' in locals() else None})
 
 
 @bp.route('/negocios/<int:negocio_id>/crm/meta-config', methods=['GET'])
