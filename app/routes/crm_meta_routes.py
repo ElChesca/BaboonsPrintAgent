@@ -375,16 +375,18 @@ def enviar_mensaje_crm(current_user, negocio_id):
     Body JSON esperado: { lead_id: int, mensaje: str }
     También acepta contacto_id como alias de lead_id (retrocompatibilidad).
     """
-    data    = request.get_json() or {}
+    data    = request.get_json(silent=True) or {}
     lead_id = data.get('lead_id') or data.get('contacto_id')
     mensaje = (data.get('mensaje') or '').strip()
 
     if not lead_id or not mensaje:
         return jsonify({'error': 'lead_id y mensaje son requeridos'}), 400
 
-    db = get_db()
+    # ── FASE 1: Consultas a la DB (aisladas con su propio try/except) ────────
+    lead   = None
+    config = None
     try:
-        # Verificar lead
+        db = get_db()
         db.execute("""
             SELECT l.id, l.telefono, l.wa_id, l.plataforma_origen
             FROM   crm_leads l
@@ -394,33 +396,64 @@ def enviar_mensaje_crm(current_user, negocio_id):
         if not lead:
             return jsonify({'error': 'Lead no encontrado en este negocio'}), 404
 
-        # Obtener configuración Meta del negocio
         db.execute(
             "SELECT phone_number_id, access_token FROM meta_configuraciones WHERE negocio_id = %s AND activo = TRUE",
             (negocio_id,)
         )
         config = db.fetchone()
         if not config:
-            return jsonify({'error': 'El negocio no tiene configuración Meta activa'}), 400
+            return jsonify({'error': 'El negocio no tiene configuración Meta activa. Configurá las credenciales primero.'}), 400
 
-        to_number = lead['wa_id'] or lead['telefono']
-        if not to_number:
-            return jsonify({'error': 'El lead no tiene número de teléfono válido'}), 400
+    except Exception as exc:
+        logger.error('[CRM Meta] enviar_mensaje_crm (DB read):\n%s', traceback.format_exc())
+        # rollback defensivo: solo si la conexión fue inicializada
+        if hasattr(g, 'db_conn') and g.db_conn:
+            try:
+                g.db_conn.rollback()
+            except Exception:
+                pass
+        return jsonify({'error': 'Error al consultar la base de datos: ' + str(exc)}), 500
 
-        # Enviar vía Meta Graph API
-        ok, detalle = _enviar_mensaje_meta(
-            config['access_token'],
-            config['phone_number_id'],
-            to_number,
-            mensaje
-        )
+    to_number = (lead.get('wa_id') or lead.get('telefono') or '').strip()
+    if not to_number:
+        return jsonify({'error': 'El lead no tiene número de teléfono o wa_id válido'}), 400
 
-        if not ok:
-            logger.error('[CRM Meta] Fallo al enviar mensaje a Meta: %s', detalle)
-            return jsonify({'error': 'Error al enviar mensaje a Meta', 'detalle': detalle}), 502
+    # ── FASE 2: Llamada HTTP a Meta (fuera del try de DB) ───────────────────
+    ok, detalle = _enviar_mensaje_meta(
+        config['access_token'],
+        config['phone_number_id'],
+        to_number,
+        mensaje
+    )
 
-        # Guardar en historial de mensajes
-        meta_msg_id = detalle.get('messages', [{}])[0].get('id') if ok else None
+    if not ok:
+        # Meta rechazó el mensaje (ej: número no autorizado, token inválido, etc.)
+        # Retornamos 400 (error del cliente/configuración) no 502 (que confunde a Fly)
+        error_msg = 'Error al enviar mensaje via Meta API'
+        try:
+            # Intentar extraer el mensaje de error de Meta
+            meta_error = detalle.get('error', {})
+            if meta_error:
+                error_msg = meta_error.get('message', error_msg)
+                error_code = meta_error.get('code', '')
+                if error_code == 131030:
+                    error_msg = 'Número no autorizado. Agrega el número a la lista de destinatarios en Meta Developers.'
+        except Exception:
+            pass
+        logger.warning('[CRM Meta] Meta API rechazó el mensaje: %s', detalle)
+        return jsonify({'error': error_msg, 'meta_error': str(detalle)}), 400
+
+    # ── FASE 3: Guardar en DB el mensaje enviado exitosamente ────────────────
+    try:
+        db = get_db()
+        meta_msg_id = None
+        try:
+            messages_list = detalle.get('messages', [])
+            if messages_list:
+                meta_msg_id = messages_list[0].get('id')
+        except Exception:
+            pass
+
         db.execute("""
             INSERT INTO crm_mensajes
                 (lead_id, mensaje, tipo_emisor, meta_msg_id)
@@ -428,7 +461,6 @@ def enviar_mensaje_crm(current_user, negocio_id):
                 (%s, NULLIF(TRIM(%s), ''), 'agente', NULLIF(TRIM(%s), ''))
         """, (lead_id, mensaje, meta_msg_id or ''))
 
-        # Actualizar ultima_actividad del lead
         db.execute("""
             UPDATE crm_leads
             SET    ultima_actividad = CURRENT_TIMESTAMP,
@@ -437,11 +469,17 @@ def enviar_mensaje_crm(current_user, negocio_id):
         """, (lead_id,))
 
         g.db_conn.commit()
-        return jsonify({'success': True, 'meta_response': detalle})
     except Exception as exc:
-        g.db_conn.rollback()
-        logger.error('[CRM Meta] enviar_mensaje_crm:\n%s', traceback.format_exc())
-        return jsonify({'error': str(exc)}), 500
+        logger.error('[CRM Meta] enviar_mensaje_crm (DB write):\n%s', traceback.format_exc())
+        if hasattr(g, 'db_conn') and g.db_conn:
+            try:
+                g.db_conn.rollback()
+            except Exception:
+                pass
+        # El mensaje ya fue enviado a Meta — solo advertimos, no fallamos
+        logger.warning('[CRM Meta] Mensaje enviado a Meta pero NO guardado en DB: %s', exc)
+
+    return jsonify({'success': True, 'meta_message_id': meta_msg_id if 'meta_msg_id' in dir() else None})
 
 
 @bp.route('/negocios/<int:negocio_id>/crm/meta-config', methods=['GET'])
