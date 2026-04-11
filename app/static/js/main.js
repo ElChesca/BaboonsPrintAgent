@@ -2,7 +2,7 @@
 // ✅ ARCHIVO COMPLETO (Versión 1.7.1 - DYNAMIC MODULES FIX) ✅
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-export const APP_VERSION = "1.9.17";
+export const APP_VERSION = "1.9.18";
 // 1.9.15: Corregido error de sintaxis en estadísticas de Restó.
 // HISTORIAL DE VERSIONES:
 // 1.9.6: High Contrast KDS and Bar/Dolce station fixes sync.

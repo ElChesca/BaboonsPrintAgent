@@ -156,6 +156,7 @@ function _filtrarContactos() {
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
 export async function seleccionarContacto(leadId) {
+    console.log('[CRM Meta] Seleccionando lead:', leadId);
     CrmMeta.leadSeleccionado = leadId;
 
     // Resaltar en la lista
@@ -240,13 +241,23 @@ function _renderMensajes(mensajes) {
 // ─── Enviar Mensaje ───────────────────────────────────────────────────────────
 
 export async function enviarMensaje() {
-    if (!CrmMeta.leadSeleccionado) return;
+    console.log('[CRM Meta] Intento de envío. Lead activo:', CrmMeta.leadSeleccionado);
+    
+    if (!CrmMeta.leadSeleccionado) {
+        console.error('[CRM Meta] No se puede enviar: leadSeleccionado es NULL');
+        _showToast('Por favor, selecciona un contacto primero.', 'warn');
+        return;
+    }
 
     const input   = document.getElementById('crm-input-mensaje');
     const btnEnv  = document.getElementById('crm-btn-enviar');
     const mensaje = (input?.value || '').trim();
 
-    if (!mensaje) return;
+    console.log('[CRM Meta] Mensaje a enviar:', mensaje);
+    if (!mensaje) {
+        console.warn('[CRM Meta] Mensaje vacío, abortando.');
+        return;
+    }
 
     input.disabled  = true;
     btnEnv.disabled = true;
