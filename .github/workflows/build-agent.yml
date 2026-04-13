@@ -1,4 +1,4 @@
-﻿name: Build and Release Agent
+name: Build and Release Agent
 
 on:
   push:
@@ -19,9 +19,14 @@ jobs:
         pip install pyinstaller requests python-escpos pywin32 Pillow qrcode
     - name: Build with PyInstaller
       run: |
-        pyinstaller --onefile --console --collect-all escpos --hidden-import=escpos --name "BaboonsPrintAgent" baboons_print_router.py
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
+        pyinstaller --onefile --console --collect-all escpos --hidden-import=escpos --name "Agente_Impresion_Baboons" baboons_print_router.py
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/heads/main')
       with:
-        name: BaboonsPrintAgent-Windows
-        path: dist/BaboonsPrintAgent.exe
+        files: dist/Agente_Impresion_Baboons.exe
+        tag_name: latest-agent
+        name: Latest Agent Build
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
