@@ -1597,6 +1597,7 @@ def add_items_to_comanda(current_user, id):
                     )
                     added_ids.append(db.fetchone()['id'])
             
+        # 3. Actualizar el total de la comanda (SUMAR nuevos items)
         db.execute("UPDATE comandas SET total = total + %s WHERE id = %s", (total_a_sumar, id))
         
         #  NUEVO: Generar trabajos de impresión Inteligentes 
@@ -2105,16 +2106,25 @@ def finalizar_cobro_comanda(current_user, id):
     data = request.get_json()
     metodo_pago = data.get('metodo_pago', 'Efectivo')
     
-    # Detalles de tarjeta (NUEVO)
+    try:
+        db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS monto_cupon NUMERIC(15,2) DEFAULT 0")
+        db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS concepto_factura TEXT")
+        g.db_conn.commit()
+    except: 
+        g.db_conn.rollback()
+
+    # Detalles de tarjeta
     t_marca = data.get('tarjeta_marca')
     t_u4 = data.get('tarjeta_ultimos_4')
     t_lote = data.get('tarjeta_lote')
     t_cupon = data.get('tarjeta_cupon')
 
-    # soporte mixto
+    # Soporte mixto y cupones
     monto_efectivo = float(data.get('monto_efectivo', 0))
     monto_mp = float(data.get('monto_mp', 0))
     monto_cta_cte = float(data.get('monto_cta_cte', 0))
+    monto_cupon = float(data.get('monto_cupon', 0))
+    concepto_factura = data.get('concepto_factura')
 
     try:
         # 1. Obtener comanda y validar
@@ -2164,20 +2174,20 @@ def finalizar_cobro_comanda(current_user, id):
                 negocio_id, cliente_id, usuario_id, total, metodo_pago, 
                 fecha, caja_sesion_id, vendedor_id,
                 tarjeta_marca, tarjeta_ultimos_4, tarjeta_lote, tarjeta_cupon, numero_interno,
-                comanda_id, mesa_id, monto_ef, monto_mp, monto_cta_cte
+                comanda_id, mesa_id, monto_ef, monto_mp, monto_cta_cte, monto_cupon, concepto_factura
             ) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
         """
         # Calcular montos individuales si es mixto o simple
         m_ef = monto_efectivo if metodo_pago == 'Mixto' else (total_pago if metodo_pago == 'Efectivo' else 0)
-        m_mp = monto_mp if metodo_pago == 'Mixto' else (total_pago if metodo_pago.startswith('Mercado Pago') else 0)
+        m_mp = monto_mp if metodo_pago == 'Mixto' else (total_pago if metodo_pago.startswith('Mercado Pago') or metodo_pago == 'MP Transferencia/QR' else 0)
         m_cc = monto_cta_cte if metodo_pago == 'Mixto' else (total_pago if metodo_pago == 'Cuenta Corriente' else 0)
 
         db.execute(insert_sql, (
             negocio_id, cliente_id, current_user['id'], total_pago, f"Ventas Restó ({metodo_pago})", 
             datetime.datetime.now(), sesion_abierta['id'], vendedor_id, 
             t_marca, t_u4, t_lote, t_cupon, proximo_nro,
-            id, comanda['mesa_id'], m_ef, m_mp, m_cc
+            id, comanda['mesa_id'], m_ef, m_mp, m_cc, monto_cupon, concepto_factura
         ))
         
         res_venta = db.fetchone()
@@ -2256,10 +2266,19 @@ def pago_parcial_comanda(current_user, id):
             g.db_conn.commit()
         except: pass
 
-        db.execute("SELECT * FROM comandas WHERE id = %s AND estado = 'abierta'", (id,))
+        # Permitir cobrar si está abierta o en estado 'cuenta' (cuando ya pidieron la cuenta)
+        db.execute("SELECT estado FROM comandas WHERE id = %s", (id,))
+        check_c = db.fetchone()
+        if not check_c:
+            return jsonify({'error': f'La comanda {id} no existe en la base de datos'}), 404
+            
+        # Auto-recuperación: Si el estado es 'cerrada' pero sigue vinculada a la mesa, permitimos el flujo para destrabar
+        estado_actual = check_c['estado']
+        if estado_actual not in ['abierta', 'cuenta', 'cerrada']:
+             return jsonify({'error': f'La comanda {id} está en estado "{estado_actual}".'}), 404
+             
+        db.execute("SELECT * FROM comandas WHERE id = %s", (id,))
         comanda = db.fetchone()
-        if not comanda:
-            return jsonify({'error': 'Comanda no encontrada o ya cerrada'}), 404
             
         negocio_id = comanda['negocio_id']
         
@@ -2273,16 +2292,28 @@ def pago_parcial_comanda(current_user, id):
         detalles_finales = []
 
         for item_req in items_a_pagar:
-            db.execute("""
-                SELECT cd.*, mi.producto_id, mi.stock_control, mi.nombre as menu_nombre,
-                       g.nombre as guarnicion_nombre
-                FROM comandas_detalle cd
-                JOIN menu_items mi ON cd.menu_item_id = mi.id
-                LEFT JOIN resto_guarniciones g ON cd.guarnicion_id = g.id
-                WHERE cd.id = %s AND cd.comanda_id = %s AND cd.estado NOT IN ('anulado', 'cobrado')
-            """, (item_req['id'], id))
-            d = db.fetchone()
-            if not d: continue
+            try:
+                target_id = int(item_req.get('id', 0))
+                db.execute("""
+                    SELECT cd.id, cd.estado, cd.comanda_id, cd.cantidad, cd.precio_unitario, cd.notas, cd.parent_detalle_id, cd.tiempo,
+                           mi.producto_id, mi.stock_control
+                    FROM comandas_detalle cd
+                    JOIN menu_items mi ON cd.menu_item_id = mi.id
+                    WHERE cd.id = %s
+                """, (target_id,))
+                d = db.fetchone()
+                
+                if not d or d['estado'] in ('anulado', 'cobrado'):
+                    continue
+
+                cant_cobrar = float(item_req['cantidad'])
+                if cant_cobrar > float(d['cantidad']):
+                    cant_cobrar = float(d['cantidad'])
+
+                subt = cant_cobrar * float(d['precio_unitario'])
+                total_venta += subt
+            except:
+                continue
 
             # Verificar si ya se descontó stock (ej: en KDS al marcar entregado)
             ya_descontado = d.get('stock_descontado', False)
@@ -2292,7 +2323,7 @@ def pago_parcial_comanda(current_user, id):
                 cant_cobrar = float(d['cantidad'])
 
             subt = cant_cobrar * float(d['precio_unitario'])
-            total_venta = subt
+            total_venta += subt
             detalles_finales.append({
                 'id': d['id'],
                 'producto_id': d['producto_id'],
@@ -2302,19 +2333,39 @@ def pago_parcial_comanda(current_user, id):
                 'stock_control': d['stock_control']
             })
 
-            # Ajustar comanda_detalle
-            if cant_cobrar == float(d['cantidad']):
-                db.execute("UPDATE comandas_detalle SET estado = 'cobrado' WHERE id = %s", (d['id'],))
+            # AJUSTAR COMANDA_DETALLE (LÓGICA DE DIVISIÓN REAL)
+            # d['cantidad'] es lo que hay en DB (ej: 3)
+            # cant_cobrar es lo que el mozo quiere pagar (ej: 1)
+            
+            if abs(cant_cobrar - float(d['cantidad'])) < 0.01:
+                # Caso A: Se paga el ítem completo
+                db.execute("UPDATE comandas_detalle SET estado = 'cobrado' WHERE id = %s OR parent_detalle_id = %s", (d['id'], d['id']))
             else:
-                # Dividir el ítem (Restar cantidad cobrada de la original)
+                # Caso B: Pago PARCIAL de un ítem (ej: 1 de 3)
+                # 1. Restamos la cantidad del ítem original (Sigue estando pendiente/en cocina/etc)
                 db.execute("UPDATE comandas_detalle SET cantidad = cantidad - %s, subtotal = subtotal - %s WHERE id = %s", 
                            (cant_cobrar, subt, d['id']))
-                db.execute("""INSERT INTO comandas_detalle (comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, estado, notas)
-                              VALUES (%s, %s, %s, %s, %s, 'cobrado', %s)""", 
-                           (id, d['menu_item_id'], cant_cobrar, d['precio_unitario'], subt, d['notas']))
+                
+                # 2. Insertamos un registro clonado pero con el estado 'cobrado'
+                db.execute("""
+                    INSERT INTO comandas_detalle (
+                        comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, 
+                        estado, notas, parent_detalle_id, tiempo
+                    )
+                    VALUES (%s, %s, %s, %s, %s, 'cobrado', %s, %s, %s)
+                """, (
+                    id, d['menu_item_id'], cant_cobrar, d['precio_unitario'], subt, 
+                    d['notas'], d['parent_detalle_id'], d['tiempo']
+                ))
 
         if not detalles_finales:
-             return jsonify({'error': 'No se procesaron ítems válidos para el pago'}), 400
+             db.execute("SELECT id, menu_item_id, estado, cantidad, subtotal FROM comandas_detalle WHERE comanda_id = %s", (id,))
+             db_state = db.fetchall()
+             return jsonify({
+                 'error': 'AUDITORIA DE FALLO: El servidor no encontró coincidencias.',
+                 'frontend_envio': items_a_pagar,
+                 'backend_db_real': [dict(r) for r in db_state]
+             }), 400
 
         # Crear Venta
         db.execute("SELECT id FROM clientes WHERE negocio_id = %s LIMIT 1", (negocio_id,))
@@ -2326,11 +2377,34 @@ def pago_parcial_comanda(current_user, id):
         nro_row_p = db.fetchone()
         proximo_nro_parcial = (nro_row_p['proximo'] if nro_row_p else 1) or 1
 
+        # Extraer data del pago (NUEVA ESTRUCTURA UNIFICADA)
+        payment_data = data.get('payment', {})
+        metodo_pago = payment_data.get('metodo_pago', 'Ventas Restó (Parcial)')
+        monto_cupon = float(payment_data.get('monto_cupon', 0))
+        concepto_factura = payment_data.get('concepto_factura')
+        
+        # Tarjetas y otros montos
+        t_marca = payment_data.get('tarjeta_marca')
+        t_u4 = payment_data.get('tarjeta_ultimos_4')
+        t_lote = payment_data.get('tarjeta_lote')
+        t_cupon = payment_data.get('tarjeta_cupon')
+        
+        monto_efectivo = float(payment_data.get('monto_efectivo', 0))
+        monto_mp = float(payment_data.get('monto_mp', 0))
+        monto_cta_cte = float(payment_data.get('monto_cta_cte', 0))
+
         db.execute(
-            """INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, vendedor_id, numero_interno, comanda_id, mesa_id) 
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-            (negocio_id, cliente_id, current_user['id'], total_venta, 'Ventas Restó (Parcial)', datetime.datetime.now(), 
-             sesion_abierta['id'], comanda['mozo_id'], proximo_nro_parcial, id, comanda['mesa_id'])
+            """INSERT INTO ventas (
+                negocio_id, cliente_id, usuario_id, total, metodo_pago, 
+                fecha, caja_sesion_id, vendedor_id, numero_interno, comanda_id, mesa_id,
+                tarjeta_marca, tarjeta_ultimos_4, tarjeta_lote, tarjeta_cupon,
+                monto_ef, monto_mp, monto_cta_cte, monto_cupon, concepto_factura
+               ) 
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+            (negocio_id, cliente_id, current_user['id'], total_venta, metodo_pago, datetime.datetime.now(), 
+             sesion_abierta['id'], comanda['mozo_id'], proximo_nro_parcial, id, comanda['mesa_id'],
+             t_marca, t_u4, t_lote, t_cupon,
+             monto_efectivo, monto_mp, monto_cta_cte, monto_cupon, concepto_factura)
         )
         venta_id = db.fetchone()['id']
 

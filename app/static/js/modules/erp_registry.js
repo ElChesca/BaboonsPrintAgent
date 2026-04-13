@@ -284,10 +284,17 @@ export const ERP_REGISTRY = {
         category: 'reportes'
     },
     'agente_facturacion': {
-        label: 'Agente de Facturación (ARCA)',
-        icon: 'static/img/icons/ventas.png',
+        label: 'Configuración ARCA',
+        icon: 'static/img/icons/configuracion.png',
         path: 'static/agente_facturacion.html',
         category: 'administrativo',
+        color: 'rgba(79, 70, 229, 0.12)'
+    },
+    'factura': {
+        label: 'Facturación Electrónica',
+        icon: 'static/img/icons/ventas.png',
+        path: 'static/factura.html',
+        category: 'operaciones',
         color: 'rgba(79, 70, 229, 0.12)'
     },
 

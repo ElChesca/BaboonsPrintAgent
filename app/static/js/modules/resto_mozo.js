@@ -109,8 +109,11 @@ export async function inicializarRestoMozo() {
     const btnReprintComanda = document.getElementById('btn-reprint-comanda');
     if (btnReprintComanda) btnReprintComanda.onclick = () => reimprimirComanda();
 
-    const btnSplitAccount = document.getElementById('btn-split-account');
-    if (btnSplitAccount) btnSplitAccount.onclick = () => window.abrirModalDivision();
+    const btnSplitMesa = document.getElementById('btn-split-mesa');
+    if (btnSplitMesa) btnSplitMesa.onclick = () => window.abrirCalculadoraDivision();
+
+    const btnSplitPayment = document.getElementById('btn-split-payment');
+    if (btnSplitPayment) btnSplitPayment.onclick = () => window.abrirModalDivision();
 
     const btnMoveMesa = document.getElementById('btn-move-mesa');
     if (btnMoveMesa) btnMoveMesa.onclick = () => moverMesa();
@@ -170,6 +173,49 @@ export async function inicializarRestoMozo() {
     await cargarNotificaciones(); // Load immediately
     startNotificationPolling();
 }
+
+// ==========================================
+// 🧮 CALCULADORA DE DIVISIÓN RÁPIDA (NUEVA)
+// ==========================================
+async function abrirCalculadoraDivision() {
+    if (!activeComanda) return;
+
+    const total = activeComanda.total || 0;
+    const paxDefault = activeComanda.comensales || 2;
+
+    const { value: personas } = await Swal.fire({
+        title: 'Dividir Mesa (Calculadora)',
+        text: `Total actual: ${formatearMoneda(total)}`,
+        input: 'range',
+        inputLabel: '¿Entre cuántas personas dividimos?',
+        inputAttributes: { min: 2, max: 20, step: 1 },
+        inputValue: paxDefault,
+        showCancelButton: true,
+        confirmButtonText: 'Calcular',
+        cancelButtonText: 'Cerrar',
+        confirmButtonColor: '#4f46e5',
+        customClass: { popup: 'premium-swal-v2' }
+    });
+
+    if (personas) {
+        const cadaUno = total / personas;
+        await Swal.fire({
+            title: 'Resultado de División',
+            html: `
+                <div style="font-size: 1.2rem; padding: 10px;">
+                    <p>Total: <b>${formatearMoneda(total)}</b></p>
+                    <p>Personas: <b>${personas}</b></p>
+                    <hr>
+                    <p style="color: #10b981; font-size: 1.5rem;">Paga cada uno: <br><b>${formatearMoneda(cadaUno)}</b></p>
+                </div>
+            `,
+            icon: 'info',
+            confirmButtonColor: '#4f46e5',
+            customClass: { popup: 'premium-swal-v2' }
+        });
+    }
+}
+window.abrirCalculadoraDivision = abrirCalculadoraDivision;
 
 let printHubIp = '';
 async function cargarConfigImpresion() {
@@ -1026,14 +1072,25 @@ async function selectMesa(mesa) {
                     showPOSView();
                     
                     const btnCloseMesa = document.getElementById('btn-close-mesa');
+                    const btnSplitPayment = document.getElementById('btn-split-payment');
+                    
                     if (btnCloseMesa) {
                         const isAdmin = ['admin', 'superadmin', 'adicionista', 'cajero'].includes((appState.userRol || '').toLowerCase());
-                        if (estadoMesa === 'en_cobro') {
+                        const isEnCobro = estadoMesa === 'en_cobro';
+
+                        if (isEnCobro) {
                             btnCloseMesa.innerHTML = '<i class="fas fa-cash-register me-1"></i> FINALIZAR COBRO';
                             btnCloseMesa.disabled = !isAdmin;
                         } else {
                             btnCloseMesa.innerHTML = '<i class="fas fa-file-invoice-dollar me-2"></i> PEDIR CUENTA';
                             btnCloseMesa.disabled = false;
+                        }
+
+                        // ✅ BLOQUEO DE SEGURIDAD PARA DIVIDIR PAGO
+                        if (btnSplitPayment) {
+                            btnSplitPayment.disabled = !isEnCobro;
+                            btnSplitPayment.style.opacity = isEnCobro ? '1' : '0.5';
+                            btnSplitPayment.style.cursor = isEnCobro ? 'pointer' : 'not-allowed';
                         }
                     }
                 }
@@ -1086,8 +1143,7 @@ async function selectMesa(mesa) {
                 confirmButtonText: 'ABRIR MESA',
                 confirmButtonColor: '#4f46e5',
                 cancelButtonText: 'Cancelar',
-                width: '90%',
-                maxWidth: '450px'
+                width: '450px'
             });
 
             if (formValues) {
@@ -1535,14 +1591,23 @@ export async function setupPaymentLogic(comandaId, totalVenta, mesaNum, onComple
         return;
     }
 
-    // 🔍 Verificar si Mercado Pago está configurado
+    // 🔍 Verificar configuración de Mercado Pago y Reglas de Negocio
     let mpConfigured = false;
+    let restoConfigs = {};
     try {
-        const configStatus = await fetchData(`/api/negocios/${negId}/mp/config-status`);
+        const [configStatus, allConfigs] = await Promise.all([
+            fetchData(`/api/negocios/${negId}/mp/config-status`),
+            fetchData(`/api/negocios/${negId}/configuraciones`)
+        ]);
         mpConfigured = configStatus && configStatus.configured;
+        restoConfigs = allConfigs || {};
     } catch (err) {
-        console.warn("No se pudo verificar configuración de MP:", err);
+        console.warn("No se pudo verificar configuración:", err);
     }
+
+    const showCupon = restoConfigs.resto_mp_validar_cupon === 'Si';
+    const showConcepto = restoConfigs.resto_permitir_concepto_manual === 'Si';
+    const qrAuto = restoConfigs.resto_mp_qr_automatico === 'Si';
 
     const { value: paymentData } = await Swal.fire({
         title: `Finalizar Cobro - Mesa #${mesaNum}`,
@@ -1577,6 +1642,43 @@ export async function setupPaymentLogic(comandaId, totalVenta, mesaNum, onComple
                         <option value="Mixto">🔀 Mixto</option>
                     </select>
                 </div>
+
+                <!-- Panel Validación MP + Cupón -->
+                <div id="swal-panel-mp-validacion" style="display:none; background:#f0fdf4; padding:15px; border-radius:12px; border:1px solid #bbf7d0; margin-top:10px;" class="animate__animated animate__fadeIn">
+                    <p class="small fw-bold text-success mb-2 border-bottom pb-1"><i class="fas fa-percentage me-1"></i> Validación Mercado Pago</p>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="small text-muted">Pago Neto ($)</label>
+                            <input type="number" id="swal-mp-neto" class="form-control" value="${totalVenta}" step="0.01">
+                        </div>
+                        <div class="col-6">
+                            <label class="small text-muted">Cupón/Desc ($)</label>
+                            <input type="number" id="swal-mp-cupon" class="form-control" value="0" step="0.01" ${!showCupon ? 'disabled' : ''}>
+                        </div>
+                        <div class="col-12">
+                            <label class="small text-muted">Nro. de Cupón / Op. POS</label>
+                            <input type="text" id="swal-mp-nro-cupon" class="form-control" placeholder="Ej: 123456" style="background:#fff;">
+                        </div>
+                        <div class="col-12 text-center mt-2">
+                            <div id="mp-validation-msg" class="small fw-bold text-danger"></div>
+                        </div>
+                        ${qrAuto ? `
+                        <div class="col-12 mt-2">
+                            <button type="button" id="btn-generar-qr-dinamico" class="btn btn-primary btn-sm w-100 rounded-pill">
+                                <i class="fas fa-qrcode me-1"></i> Generar QR por $<span id="lbl-qr-monto">${totalVenta}</span>
+                            </button>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <!-- Panel Concepto Manual -->
+                ${showConcepto ? `
+                <div class="mt-3">
+                    <label class="form-label small fw-bold text-muted">CONCEPTO MANUAL EN FACTURA (OPCIONAL):</label>
+                    <input type="text" id="swal-concepto-factura" class="form-control" placeholder="Ej: Consumo Gastronómico" style="border-radius:10px;">
+                </div>
+                ` : ''}
 
                 <!-- Panel Detalles de Tarjeta -->
                 <div id="swal-panel-tarjeta" style="display:none; background:#f0f9ff; padding:15px; border-radius:12px; border:1px solid #bae6fd; margin-top:10px;" class="animate__animated animate__fadeIn">
@@ -1706,7 +1808,10 @@ export async function setupPaymentLogic(comandaId, totalVenta, mesaNum, onComple
                 panelTarjeta.style.display = (val.includes('Tarjeta')) ? 'block' : 'none';
                 panelMixto.style.display = (val === 'Mixto') ? 'block' : 'none';
                 
-                if (val === 'MP Transferencia/QR' || val === 'Mercado Pago Point') {
+                const panelMPVal = document.getElementById('swal-panel-mp-validacion');
+                if (panelMPVal) panelMPVal.style.display = (val === 'MP Transferencia/QR') ? 'block' : 'none';
+
+                if (val === 'Mercado Pago Point') {
                     Swal.getConfirmButton().style.display = 'none';
                     iniciarFlujoPagoExpress(val);
                 } else {
@@ -1716,6 +1821,45 @@ export async function setupPaymentLogic(comandaId, totalVenta, mesaNum, onComple
                     document.getElementById('swal-panel-point').style.display = 'none';
                 }
             };
+
+            // Lógica Validación de Montos MP
+            const inpNeto = document.getElementById('swal-mp-neto');
+            const inpCupon = document.getElementById('swal-mp-cupon');
+            const msgVal = document.getElementById('mp-validation-msg');
+            const btnQR = document.getElementById('btn-generar-qr-dinamico');
+            const lblQRMonto = document.getElementById('lbl-qr-monto');
+
+            const validarMontosMP = () => {
+                if (!inpNeto) return;
+                const neto = parseFloat(inpNeto.value) || 0;
+                const cupon = parseFloat(inpCupon.value) || 0;
+                const diff = Math.abs((neto + cupon) - totalVenta);
+                
+                if (diff > 1) {
+                    msgVal.innerText = `⚠️ La suma (${formatearMoneda(neto+cupon)}) no coincide con el total`;
+                    if (btnQR) btnQR.disabled = true;
+                    return false;
+                } else {
+                    msgVal.innerText = "";
+                    if (btnQR) {
+                        btnQR.disabled = false;
+                        lblQRMonto.innerText = neto.toLocaleString();
+                    }
+                    return true;
+                }
+            };
+
+            if (inpNeto) inpNeto.oninput = validarMontosMP;
+            if (inpCupon) inpCupon.oninput = validarMontosMP;
+
+            if (btnQR) {
+                btnQR.onclick = () => {
+                    if (validarMontosMP()) {
+                        const neto = parseFloat(inpNeto.value) || 0;
+                        iniciarFlujoPagoExpress('MP Transferencia/QR', neto);
+                    }
+                };
+            }
 
             // Botón cancelar QR (Limpia la caja física)
             document.getElementById('btn-cancelar-qr').onclick = async () => {
@@ -1753,14 +1897,45 @@ export async function setupPaymentLogic(comandaId, totalVenta, mesaNum, onComple
                  payload.tarjeta_cupon = document.getElementById('swal-t-cupon').value;
              }
 
-             if (m === 'Mercado Pago Point' || m === 'MP Transferencia/QR') {
+             if (m === 'MP Transferencia/QR') {
+                 if (qrAuto) {
+                    try {
+                        const loadedPayload = select.dataset.finalPayload ? JSON.parse(select.dataset.finalPayload) : null;
+                        if (loadedPayload) return loadedPayload;
+                        Swal.showValidationMessage('Esperando confirmación de Mercado Pago...');
+                        return false;
+                    } catch (err) { return false; }
+                 } else {
+                     // Modo Manual o con Cupón POS: Validar montos
+                     const neto = parseFloat(document.getElementById('swal-mp-neto').value) || 0;
+                     const cupon = parseFloat(document.getElementById('swal-mp-cupon').value) || 0;
+                     const nroCupon = document.getElementById('swal-mp-nro-cupon').value;
+
+                     if (Math.abs((neto + cupon) - totalVenta) > 1) {
+                         Swal.showValidationMessage('La suma de pago y cupón debe coincidir con el total');
+                         return false;
+                     }
+                     payload.monto_mp = neto;
+                     payload.monto_cupon = cupon;
+                     payload.tarjeta_cupon = nroCupon;
+                 }
+             }
+
+             if (m === 'Mercado Pago Point') {
                  try {
                      const loadedPayload = select.dataset.finalPayload ? JSON.parse(select.dataset.finalPayload) : null;
                      if (loadedPayload) return loadedPayload;
-                     Swal.showValidationMessage('Esperando confirmación de pago...');
+                     Swal.showValidationMessage('Esperando confirmación de pago en el Point...');
                      return false;
                  } catch (err) { return false; }
              }
+
+             // Agregar concepto manual si existe
+             const concepto = document.getElementById('swal-concepto-factura');
+             if (concepto && concepto.value.trim()) {
+                 payload.concepto_factura = concepto.value.trim();
+             }
+
              return payload;
         },
         showCancelButton: true,
@@ -1820,16 +1995,25 @@ async function abrirModalDivision() {
     let itemsHtml = `
         <div class="split-selector-list text-start" style="max-height: 300px; overflow-y: auto;">
             ${pendientes.map(item => `
-                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
-                    <div style="flex: 1;">
-                        <input type="checkbox" class="form-check-input me-2 split-item-check" 
-                               id="check-${item.id}" data-id="${item.id}" data-max="${item.cantidad}">
-                        <label for="check-${item.id}" class="small fw-bold">${item.producto_nombre}</label>
+                <div class="d-flex justify-content-between align-items-center mb-3 p-3 border-bottom animate__animated animate__fadeIn" style="background:#fff; border-radius:15px; box-shadow:0 2px 8px rgba(0,0,0,0.03);">
+                    <div style="flex: 1; display:flex; align-items:center;">
+                        <input type="checkbox" class="form-check-input me-3 split-item-check" 
+                               id="check-${item.id}" data-id="${item.id}" data-max="${item.cantidad}" style="width:24px; height:24px; cursor:pointer;">
+                        <label for="check-${item.id}" class="fw-bold text-dark" style="font-size:0.95rem; cursor:pointer;">${item.producto_nombre}</label>
                     </div>
-                    <div class="d-flex align-items-center" style="width: 100px;">
-                        <input type="number" class="form-control form-control-sm split-item-qty" 
-                               id="qty-${item.id}" value="${item.cantidad}" min="1" max="${item.cantidad}" 
-                               style="width: 70px;" disabled>
+                    
+                    <div class="d-flex align-items-center bg-white p-1" style="border-radius:30px; border:2px solid #e2e8f0; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+                         <button class="btn btn-sm btn-light rounded-circle split-qty-btn" type="button" 
+                                 onclick="window.adjustSplitQty(${item.id}, -1)" style="width:32px; height:32px; display:flex; align-items:center; justify-content:center;">
+                                 <i class="fas fa-minus text-muted"></i>
+                         </button>
+                         <input type="number" class="form-control form-control-sm border-0 bg-transparent text-center fw-bold split-item-qty" 
+                                id="qty-${item.id}" value="${item.cantidad}" min="1" max="${item.cantidad}" 
+                                style="width: 40px; color: #1e293b; font-size: 1rem; padding: 0; pointer-events:none;" readonly>
+                         <button class="btn btn-sm btn-light rounded-circle split-qty-btn" type="button" 
+                                 onclick="window.adjustSplitQty(${item.id}, 1)" style="width:32px; height:32px; display:flex; align-items:center; justify-content:center;">
+                                 <i class="fas fa-plus text-primary"></i>
+                         </button>
                     </div>
                 </div>
             `).join('')}
@@ -1847,10 +2031,25 @@ async function abrirModalDivision() {
             const checks = document.querySelectorAll('.split-item-check');
             checks.forEach(c => {
                 c.onchange = (e) => {
-                    const id = e.target.dataset.id;
-                    document.getElementById(`qty-${id}`).disabled = !e.target.checked;
+                    const row = e.target.closest('.d-flex');
+                    if (e.target.checked) row.style.background = '#f0fdf4';
+                    else row.style.background = '#fff';
                 };
             });
+
+            // Función global para los botones +/-
+            window.adjustSplitQty = (id, delta) => {
+                const inp = document.getElementById(`qty-${id}`);
+                const max = parseFloat(inp.max);
+                let val = parseFloat(inp.value) + delta;
+                if (val < 1) val = 1;
+                if (val > max) val = max;
+                inp.value = val;
+                
+                // Si el usuario ajusta cantidad, auto-checkeamos por comodidad
+                document.getElementById(`check-${id}`).checked = true;
+                document.getElementById(`check-${id}`).dispatchEvent(new Event('change'));
+            };
         },
         preConfirm: () => {
             const selected = [];
@@ -1858,7 +2057,12 @@ async function abrirModalDivision() {
             checks.forEach(c => {
                 const id = c.dataset.id;
                 const qty = document.getElementById(`qty-${id}`).value;
-                selected.push({ id: parseInt(id), cantidad: parseFloat(qty) });
+                const item = pendientes.find(p => p.id == id);
+                selected.push({ 
+                    id: parseInt(id), 
+                    cantidad: parseFloat(qty), 
+                    precio_unitario: item.precio_unitario 
+                });
             });
             if (selected.length === 0) {
                 Swal.showValidationMessage('Debes seleccionar al menos un producto');
@@ -1868,28 +2072,41 @@ async function abrirModalDivision() {
     });
 
     if (formValues) {
-        document.getElementById('pos-loading').style.display = 'flex';
-        try {
-            const res = await sendData(`/api/comandas/${activeComanda.id}/pago-parcial`, { items: formValues }, 'POST');
+        const subtotalSelected = formValues.reduce((acc, item) => acc + (item.cantidad * item.precio_unitario), 0);
+        
+        // ✨ NUEVO FLUJO: Enviar a la lógica de cobro centralizada
+        await setupPaymentLogic(activeComanda.id, subtotalSelected, mesaSeleccionada.numero, async (paymentData) => {
+            document.getElementById('pos-loading').style.display = 'flex';
+            try {
+                // Combinamos los ítems seleccionados con la data del pago
+                const payload = {
+                    items: formValues,
+                    payment: paymentData
+                };
 
-            await Swal.fire({
-                title: 'Pago Parcial Exitoso',
-                text: `Venta #${res.venta_id} registrada. ${res.comanda_finalizada ? 'Mesa liberada.' : 'Mesa pendiente.'}`,
-                icon: 'success'
-            });
+                console.log("🚀 ENVIANDO PAGO PARCIAL:", formValues); console.table(formValues);
+                const res = await sendData(`/api/comandas/${activeComanda.id}/pago-parcial`, payload, 'POST');
 
-            if (res.comanda_finalizada) {
-                showSalonView();
-            } else {
-                await cargarComandaDeMesa(mesaSeleccionada.id);
-                renderOrderSummary();
+                await Swal.fire({
+                    title: res.comanda_finalizada ? '¡Mesa Liberada!' : '¡Pago Parcial!',
+                    text: res.comanda_finalizada ? `Cobro completado. Venta #${res.venta_id}` : `Pago parcial registrado. Venta #${res.venta_id}. La mesa aún tiene saldo pendiente.`,
+                    icon: 'success',
+                    customClass: { popup: 'premium-swal-v2' }
+                });
+
+                if (res.comanda_finalizada) {
+                    showSalonView();
+                } else {
+                    await cargarComandaDeMesa(mesaSeleccionada.id);
+                    renderOrderSummary();
+                }
+            } catch (error) {
+                console.error(error);
+                mostrarNotificacion("Error al procesar pago parcial", "error");
+            } finally {
+                document.getElementById('pos-loading').style.display = 'none';
             }
-        } catch (error) {
-            console.error(error);
-            mostrarNotificacion("Error al procesar pago parcial", "error");
-        } finally {
-            document.getElementById('pos-loading').style.display = 'none';
-        }
+        });
     }
 }
 
@@ -2121,54 +2338,5 @@ window.abrirModalNotaManual = async (index) => {
     }
 };
 
-window.abrirModalDivision = async () => {
-    if (!activeComanda) {
-        mostrarNotificacion("No hay una cuenta activa", "warning");
-        return;
-    }
-
-    const total = parseFloat(activeComanda.total || 0);
-    const paxDefault = parseInt(activeComanda.num_comensales || 1);
-
-    if (total <= 0) {
-        mostrarNotificacion("Sin consumo registrado", "info");
-        return;
-    }
-
-    const { value: divisionComensales } = await Swal.fire({
-        title: 'Dividir Cuenta',
-        text: '¿En cuántos comensales se divide la cuenta?',
-        input: 'number',
-        inputAttributes: { min: 1, max: 50, step: 1 },
-        inputValue: paxDefault,
-        showCancelButton: true,
-        confirmButtonText: 'Calcular División',
-        cancelButtonText: 'Cerrar',
-        confirmButtonColor: '#4f46e5',
-        customClass: { popup: 'premium-swal-v2' }
-    });
-
-    if (divisionComensales) {
-        const n = parseInt(divisionComensales);
-        const porCadaUno = total / n;
-        
-        Swal.fire({
-            title: `Cuentas Divididas (x${n})`,
-            html: `
-                <div class="text-center p-3" style="background:#f8fafc; border-radius:30px; border:4px dashed #cbd5e1;">
-                    <div style="font-size:0.75rem; color:#94a3b8; font-weight:800; text-transform:uppercase; margin-bottom:12px; letter-spacing:0.5px;">Gasto Total de Mesa</div>
-                    <div style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:15px;">${formatearMoneda(total)}</div>
-                    
-                    <div style="height:2px; background:#e2e8f0; margin:15px 0;"></div>
-                    
-                    <div style="font-size:3.2rem; font-weight:950; color:#4f46e5; line-height:1; letter-spacing:-2px;">${formatearMoneda(porCadaUno)}</div>
-                    <div style="font-size:0.9rem; color:#64748b; font-weight:800; margin-top:10px;">POR PERSONA</div>
-                </div>
-                <div class="small text-muted mt-3 fw-600">Calculado para ${n} comensales</div>
-            `,
-            confirmButtonText: 'ENTENDIDO',
-            confirmButtonColor: '#4f46e5',
-            customClass: { popup: 'premium-swal-v2' }
-        });
-    }
-};
+// Se eliminó la calculadora simple duplicada para usar el sistema de sub-comandas superior.
+window.abrirModalDivision = abrirModalDivision;

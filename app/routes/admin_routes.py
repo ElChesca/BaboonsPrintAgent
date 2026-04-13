@@ -10,17 +10,18 @@ except ImportError:
 bp = Blueprint('admin_apps', __name__)
 
 # Flag global para evitar sembrado redundante en cada request (Optimización Fly.io)
-_modules_seeded = False  # resetear para forzar re-seed con nuevos módulos (crm_meta agregado)
+# Cache persistente para evitar reinicios innecesarios en un mismo worker
+_modules_seeded_v4 = False
 
 import time
 
 def _ensure_modules_seeded(db):
     """Asegura que todos los módulos del ERP y sus permisos base existan (Regla 14)."""
-    global _modules_seeded
-    if _modules_seeded:
+    global _modules_seeded_v4
+    if _modules_seeded_v4:
         return
     
-    _modules_seeded = True
+    _modules_seeded_v4 = True
     start_time = time.time()
     print("⏳ [Seeding] Iniciando sincronización de catálogo de módulos (Optimizado)...")
     
@@ -98,6 +99,7 @@ def _ensure_modules_seeded(db):
             ('crm_contactos', 'CRM Contactos / Leads', 'Ventas', ['resto', 'distribuidora', 'retail']),
             ('crm_meta', 'CRM Meta (WhatsApp/IG/FB)', 'Ventas', ['resto', 'distribuidora', 'retail']),
             ('agente_facturacion', 'Agente de Facturación (ARCA)', 'Administración', ['retail', 'distribuidora', 'resto']),
+            ('factura', 'Facturación Electrónica', 'Administración', ['retail', 'distribuidora', 'resto']),
             
             # DASHBOARDS / HOMES
             ('home_retail', 'Home Retail', 'Dashboards', ['retail']),

@@ -20,6 +20,16 @@ def facturar_venta(current_user, venta_id):
     venta = db.fetchone()
     if not venta or venta['estado'] == 'Facturada':
         return jsonify({'error': 'La venta no se puede facturar o ya ha sido facturada.'}), 409
+
+    # ✨ NUEVO: Si viene un concepto personalizado (máscara), actualizar la venta
+    concepto_mask = data.get('concepto_personalizado')
+    if concepto_mask:
+        try:
+            db.execute("UPDATE ventas SET concepto_factura = %s WHERE id = %s", (concepto_mask, venta_id))
+            g.db_conn.commit()
+        except Exception as e:
+            print(f"Error actualizando concepto: {e}")
+            pass
         
     # --- Facturación "en Negro" (No Fiscal) ---
     if tipo_facturacion == 'negro':

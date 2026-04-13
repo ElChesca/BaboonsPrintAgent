@@ -102,6 +102,38 @@
             <small>Usa el botón "Buscar" para obtener el ID correcto de tu terminal si es un Point Smart/Plus.</small>
         </div>
 
+        <div class="config-section-title" style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+            <h3>🍴 Reglas de Restó y Cobros</h3>
+            <p><small class="text-muted">Personaliza el flujo de pago para tu local gastronómico.</small></p>
+        </div>
+
+        <div class="config-item">
+            <label for="config-resto-mp-qr-auto">Generar QR de Mercado Pago automáticamente:</label>
+            <select id="config-resto-mp-qr-auto" data-clave="resto_mp_qr_automatico">
+                <option value="No">No (Manual / Estático)</option>
+                <option value="Si">Sí (Dinámico por terminal)</option>
+            </select>
+            <small>Si es 'Sí', al elegir MP se disparará el QR dinámico por el monto neto.</small>
+        </div>
+
+        <div class="config-item">
+            <label for="config-resto-mp-cupon">Habilitar validación de Cupones en MP:</label>
+            <select id="config-resto-mp-cupon" data-clave="resto_mp_validar_cupon">
+                <option value="No">No</option>
+                <option value="Si">Sí</option>
+            </select>
+            <small>Permitirá ingresar un monto de cupón que se descontará del pago final.</small>
+        </div>
+
+        <div class="config-item">
+            <label for="config-resto-concepto-manual">Permitir Concepto Manual en Factura:</label>
+            <select id="config-resto-concepto-manual" data-clave="resto_permitir_concepto_manual">
+                <option value="No">No</option>
+                <option value="Si">Sí</option>
+            </select>
+            <small>Habilita un campo para sobrescribir el detalle de la factura (ej: "Consumo Gastronómico").</small>
+        </div>
+
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Guardar Configuración</button>
         </div>

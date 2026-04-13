@@ -58,6 +58,12 @@ async function cargarDatosVenta(ventaId) {
         });
         
         document.getElementById('factura-medio-pago').value = ventaActual.cabecera.metodo_pago;
+
+        // ✨ NUEVO: Cargar Máscara si existe
+        if (ventaActual.cabecera.concepto_factura) {
+            document.getElementById('factura-concepto-manual').value = ventaActual.cabecera.concepto_factura;
+        }
+
         recalcularTotales();
 
     } catch (error) {
@@ -68,8 +74,13 @@ async function cargarDatosVenta(ventaId) {
 async function confirmarFacturacion(tipo) {
     const ventaId = ventaActual.cabecera.id;
     try {
+        const conceptoManual = document.getElementById('factura-concepto-manual').value;
         const response = await fetchData(`/api/ventas/${ventaId}/facturar`, {
-            method: 'POST', body: JSON.stringify({ tipo: tipo })
+            method: 'POST', 
+            body: JSON.stringify({ 
+                tipo: tipo,
+                concepto_personalizado: conceptoManual // Enviamos la máscara para el agente
+            })
         });
         mostrarNotificacion(response.message, 'success');
         

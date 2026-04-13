@@ -55,13 +55,18 @@
                     <option value="X">Comprobante X (No Fiscal)</option>
                 </select>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin-top: 15px;">
                 <label for="factura-medio-pago">Medio de Pago:</label>
                 <select id="factura-medio-pago">
                     <option>Efectivo</option><option>Mercado Pago</option><option>Tarjeta</option><option>Transferencia</option>
                 </select>
             </div>
-            <div class="form-actions">
+            <div class="form-group" style="margin-top: 15px;">
+                <label for="factura-concepto-manual" style="color: #4f46e5; font-weight: bold;">Concepto / Máscara en Factura:</label>
+                <input type="text" id="factura-concepto-manual" class="form-control" style="border: 2px solid #4f46e5; border-radius: 8px; padding: 10px; width: 100%;" placeholder="Ej: Consumo Gastronómico">
+                <small style="color: #64748b; display: block; margin-top: 5px;">Si escribís algo acá, ARCA usará este texto como descripción única.</small>
+            </div>
+            <div class="form-actions" style="margin-top: 20px;">
                 <button id="btn-confirmar-factura-oficial" class="btn-primary">Confirmar Factura Oficial (AFIP)</button>
                 <button id="btn-confirmar-factura-negro" class="btn-secondary">Confirmar Factura "X"</button>
             </div>
