@@ -595,22 +595,34 @@ async function abrirEdicion(lead) {
 
     try {
         const historial = await fetchData(`/api/crm/leads/${lead.id}/historial`);
-        timelineContainer.innerHTML = '<h6 class="small fw-bold mb-3">Historial de Actividad</h6>';
+        timelineContainer.innerHTML = '<h6 class="small fw-bold mb-4 text-muted text-uppercase" style="letter-spacing: 0.05em;">Bitácora de Eventos</h6>';
         
+        if (historial.length === 0) {
+            timelineContainer.innerHTML += '<div class="text-center py-5 opacity-50"><i class="fa fa-history mb-2 fs-3"></i><p class="small">Sin actividad registrada aún</p></div>';
+        }
+
         historial.forEach(h => {
             const item = document.createElement('div');
-            item.className = 'd-flex mb-2 small';
+            item.className = 'timeline-item animate__animated animate__fadeInRight';
+            
+            // Mapeo selectivo de iconos
+            let icon = 'fa-arrow-right';
+            if (h.tipo_accion.toLowerCase().includes('reserva')) icon = 'fa-calendar-check';
+            if (h.tipo_accion.toLowerCase().includes('nota')) icon = 'fa-comment-dots';
+            if (h.tipo_accion.toLowerCase().includes('cambio')) icon = 'fa-exchange-alt';
+            if (h.tipo_accion.toLowerCase().includes('venta')) icon = 'fa-shopping-cart';
+
             item.innerHTML = `
-                <div class="text-muted me-2" style="min-width: 70px;">${h.fecha}</div>
-                <div>
-                    <span class="badge bg-light text-dark border-0 p-0 me-1">${h.tipo_accion.toUpperCase()}:</span>
-                    <span class="text-secondary">${h.descripcion}</span>
+                <span class="timeline-date"><i class="fa ${icon} me-1 x-small"></i> ${h.fecha}</span>
+                <div class="timeline-content shadow-sm">
+                    <strong class="d-block x-small text-primary mb-1">${h.tipo_accion.toUpperCase()}</strong>
+                    <span class="d-block">${h.descripcion}</span>
                 </div>
             `;
             timelineContainer.appendChild(item);
         });
     } catch (e) {
-        timelineContainer.innerHTML = '';
+        timelineContainer.innerHTML = '<div class="alert alert-soft-danger small">Error al cargar historial</div>';
     }
 
     modal.style.display = 'flex';
