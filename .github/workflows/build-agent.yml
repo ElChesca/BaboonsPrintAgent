@@ -19,7 +19,7 @@ jobs:
         pip install pyinstaller requests python-escpos pywin32 Pillow qrcode
     - name: Build with PyInstaller
       run: |
-        pyinstaller --onefile --noconsole --collect-all escpos --hidden-import=escpos --name "BaboonsPrintAgent" baboons_print_router.py
+        pyinstaller --onefile --console --collect-all escpos --hidden-import=escpos --name "BaboonsPrintAgent" baboons_print_router.py
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
