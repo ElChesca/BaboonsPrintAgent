@@ -4,6 +4,38 @@ from flask.cli import with_appcontext
 from app.database import get_db, close_db
 from flask import current_app
 
+@click.command('sync-reservas-crm')
+@with_appcontext
+def sync_reservas_crm():
+    """Sincroniza todas las reservas existentes hacia la tabla crm_leads."""
+    db = get_db()
+    click.echo("🔄 Iniciando sincronización de reservas a CRM...")
+    try:
+        # Traer todas las reservas que tengan teléfono o email
+        db.execute("""
+            SELECT negocio_id, nombre_cliente, email, telefono, fecha_reserva, hora_reserva, num_comensales, fecha_nacimiento
+            FROM mesas_reservas
+            WHERE email IS NOT NULL OR telefono IS NOT NULL
+        """)
+        reservas = db.fetchall()
+        count = 0
+        
+        from app.routes.reservas_routes import _upsert_crm_lead
+        
+        for r in reservas:
+            _upsert_crm_lead(
+                r['negocio_id'], r['nombre_cliente'], r['email'], r['telefono'],
+                r['fecha_reserva'], r['hora_reserva'], r['num_comensales'], r['fecha_nacimiento']
+            )
+            count += 1
+            if count % 10 == 0: click.echo(f"  > {count} procesados...")
+            
+        import flask
+        flask.g.db_conn.commit()
+        click.echo(f"✅ Sincronización completada. {count} contactos procesados.")
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
+
 @click.command('init-crm-db')
 @with_appcontext
 def init_crm_db_command():

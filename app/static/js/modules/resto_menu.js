@@ -49,6 +49,11 @@ export async function inicializarRestoMenu() {
     const formBranding = document.getElementById('form-branding-menu');
     if (formBranding) formBranding.onsubmit = guardarBranding;
 
+    const btnConfigGuar = document.getElementById('btn-config-guarniciones');
+    if (btnConfigGuar) btnConfigGuar.onclick = () => window.abrirModalGuarniciones();
+    const formGuar = document.getElementById('form-guarnicion');
+    if (formGuar) formGuar.onsubmit = guardarGuarnicion;
+
     const btnAddInsumo = document.getElementById('btn-add-insumo-receta');
     if (btnAddInsumo) btnAddInsumo.onclick = agregarInsumoAReceta;
 
@@ -1681,3 +1686,142 @@ window.eliminarComponenteDeCombo = function(compId) {
         }
     });
 };
+// --- 🍟 GESTIÓN DE GUARNICIONES (ADICIONALES) ---
+
+let guarnicionesCache = [];
+
+window.abrirModalGuarniciones = async () => {
+    const modal = document.getElementById('modal-guarniciones');
+    if (modal) {
+        modal.style.display = 'flex';
+        resetFormGuarnicion();
+        await cargarGuarniciones();
+    }
+};
+
+window.cerrarModalGuarniciones = () => {
+    const modal = document.getElementById('modal-guarniciones');
+    if (modal) modal.style.display = 'none';
+};
+
+async function cargarGuarniciones() {
+    const idNegocio = appState.negocioActivoId;
+    try {
+        guarnicionesCache = await fetchData(`/api/negocios/${idNegocio}/guarniciones`);
+        renderizarGuarniciones();
+    } catch (error) {
+        console.error("Error al cargar guarniciones:", error);
+        mostrarNotificacion("Error al cargar guarniciones", "error");
+    }
+}
+
+function renderizarGuarniciones() {
+    const tbody = document.getElementById('guarniciones-table-body');
+    const noItems = document.getElementById('no-guarniciones');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    
+    if (guarnicionesCache.length === 0) {
+        if (noItems) noItems.style.display = 'block';
+        return;
+    }
+    if (noItems) noItems.style.display = 'none';
+
+    guarnicionesCache.forEach(g => {
+        const tr = document.createElement('tr');
+        tr.className = 'animate__animated animate__fadeIn';
+        tr.innerHTML = `
+            <td>
+                <div class="fw-800 text-dark">${g.nombre}</div>
+                <div class="xx-small text-muted text-uppercase ls-1">Acompañamiento</div>
+            </td>
+            <td class="text-center fw-800 text-primary">
+                $${parseFloat(g.precio_extra).toLocaleString('es-AR')}
+            </td>
+            <td class="text-end">
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-light border px-2" onclick="window.editarGuarnicion(${g.id})" title="Editar">
+                        <i class="fas fa-pencil-alt text-muted small"></i>
+                    </button>
+                    <button class="btn btn-sm btn-light border px-2 text-danger" onclick="window.eliminarGuarnicion(${g.id})" title="Eliminar">
+                        <i class="fas fa-trash-alt small"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function guardarGuarnicion(e) {
+    if (e) e.preventDefault();
+    const id = document.getElementById('guar-id').value;
+    const nombre = document.getElementById('guar-nombre').value;
+    const precio = parseFloat(document.getElementById('guar-precio').value) || 0;
+
+    if (!nombre) return mostrarNotificacion("El nombre es obligatorio", "warning");
+
+    const idNegocio = appState.negocioActivoId;
+    const url = id ? `/api/guarniciones/${id}` : `/api/negocios/${idNegocio}/guarniciones`;
+    const method = id ? 'PUT' : 'POST';
+
+    try {
+        await sendData(url, { nombre, precio_extra: precio }, method);
+        mostrarNotificacion(id ? "Guarnición actualizada" : "Guarnición creada", "success");
+        resetFormGuarnicion();
+        await cargarGuarniciones();
+    } catch (error) {
+        mostrarNotificacion(error.message, "error");
+    }
+}
+
+window.editarGuarnicion = (id) => {
+    const g = guarnicionesCache.find(x => x.id == id);
+    if (!g) return;
+
+    document.getElementById('guar-id').value = g.id;
+    document.getElementById('guar-nombre').value = g.nombre;
+    document.getElementById('guar-precio').value = g.precio_extra;
+    
+    const btnSubmit = document.querySelector('#form-guarnicion button[type="submit"]');
+    if (btnSubmit) {
+        btnSubmit.innerHTML = '<i class="fas fa-sync-alt me-1"></i> Actualizar';
+        btnSubmit.classList.replace('btn-primary-premium', 'btn-warning-soft');
+    }
+};
+
+window.eliminarGuarnicion = async (id) => {
+    const res = await Swal.fire({
+        title: '¿Eliminar guarnición?',
+        text: 'Ya no estará disponible para nuevas adiciones.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (res.isConfirmed) {
+        try {
+            await sendData(`/api/guarniciones/${id}`, {}, 'DELETE');
+            mostrarNotificacion("Guarnición eliminada", "success");
+            await cargarGuarniciones();
+            if (document.getElementById('guar-id').value == id) resetFormGuarnicion();
+        } catch (error) {
+            mostrarNotificacion(error.message, "error");
+        }
+    }
+};
+
+function resetFormGuarnicion() {
+    const form = document.getElementById('form-guarnicion');
+    if (form) form.reset();
+    document.getElementById('guar-id').value = '';
+    
+    const btnSubmit = document.querySelector('#form-guarnicion button[type="submit"]');
+    if (btnSubmit) {
+        btnSubmit.innerHTML = '<i class="fas fa-save me-1"></i> Guardar';
+        btnSubmit.classList.replace('btn-warning-soft', 'btn-primary-premium');
+    }
+}

@@ -1398,6 +1398,54 @@
 
     .pos-footer-btn i { font-size: 1rem; }
 
+    /* ---- NOTAS & GUARNICIONES CHIPS ---- */
+    .oi-notas-wrapper, .oi-guarniciones-wrapper {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+    }
+
+    .oi-guarniciones-wrapper {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 5px;
+        scrollbar-width: none;
+    }
+    .oi-guarniciones-wrapper::-webkit-scrollbar { display: none; }
+
+    .nota-chip {
+        padding: 5px 12px;
+        background: white;
+        border: 1.5px solid var(--mozo-border);
+        border-radius: 50px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--mozo-text-dim);
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        white-space: nowrap;
+        user-select: none;
+    }
+
+    .nota-chip:active { transform: scale(0.92); }
+
+    .nota-chip.active {
+        background: var(--mozo-primary);
+        color: white;
+        border-color: var(--mozo-primary);
+        box-shadow: 0 4px 10px rgba(79,70,229,0.3);
+    }
+
+    .nota-cat-title {
+        font-size: 0.6rem;
+        font-weight: 800;
+        color: var(--mozo-text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        opacity: 0.8;
+    }
+
     .pos-btn-pax {
         background: var(--mozo-bg);
         color: var(--mozo-text-dim);

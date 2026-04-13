@@ -27,9 +27,15 @@ def ensure_crm_table():
         "ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS cliente_erp_id INT",
         "ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS reserva_cliente_id INT",
         "ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS fecha_nacimiento DATE",
+        "ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS proxima_accion_fecha TIMESTAMPTZ",
+        "ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS proxima_accion_tipo VARCHAR(50)",
     ]
     for stmt in alter_cols:
         db.execute(stmt)
+    
+    # IMPORTANTE: Sin el commit, los cambios de estructura no se guardan en Postgres
+    if hasattr(g, 'db_conn') and g.db_conn:
+        g.db_conn.commit()
     # Tabla de historial de actividad
     db.execute("""
         CREATE TABLE IF NOT EXISTS crm_actividades (
@@ -290,7 +296,7 @@ def get_leads():
 
         query = f"""
                SELECT id, nombre, email, telefono, estado, origen, notas,
-                      ultima_actividad,
+                      ultima_actividad, proxima_accion_fecha, proxima_accion_tipo,
                       COALESCE(
                           to_char(ultima_actividad, 'YYYY-MM-DD"T"HH24:MI:SS'),
                           to_char(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS')
@@ -315,6 +321,8 @@ def get_leads():
                 'notas': row['notas'],
                 'fecha_creacion': row['fecha_creacion'],
                 'ultima_actividad': str(row['ultima_actividad']) if row['ultima_actividad'] else None,
+                'proxima_accion_fecha': str(row['proxima_accion_fecha']) if row['proxima_accion_fecha'] else None,
+                'proxima_accion_tipo': row['proxima_accion_tipo'],
             })
 
         total_pages = (total_records + limit_arg - 1) // limit_arg
@@ -370,7 +378,7 @@ def create_lead():
 def update_lead(lead_id):
     data = request.get_json()
     # Lista de campos que permitimos actualizar
-    fields = ['nombre', 'email', 'telefono', 'estado', 'origen', 'notas']
+    fields = ['nombre', 'email', 'telefono', 'estado', 'origen', 'notas', 'proxima_accion_fecha', 'proxima_accion_tipo']
     updates = []
     values = []
 
@@ -452,7 +460,7 @@ def patch_lead(lead_id):
         if not lead_actual:
             return jsonify({'error': 'Lead no encontrado'}), 404
 
-        fields = ['estado', 'notas', 'nombre', 'telefono']
+        fields = ['estado', 'notas', 'nombre', 'telefono', 'proxima_accion_fecha', 'proxima_accion_tipo']
         updates = []
         values = []
         for f in fields:

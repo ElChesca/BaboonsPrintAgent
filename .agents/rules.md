@@ -12,8 +12,11 @@ Antes y después de codificar, el Agente debe cumplir este ciclo:
 - **Producción (`APP_ENV=production`)**: Fly.io (`multinegociobaboons-fly`), Postgres en Neon, volumen en `/app/app/static/img/premios`.
 - **ID de Negocio**: En backend, obtener de `g.negocio_id`. En frontend, de `appState.negocioActivoId`.
 - **Registro de Módulos**: Todo nuevo módulo DEBE registrarse en `app/routes/admin_routes.py` (dentro de las listas `default_distri`/`default_retail`) y en el switch de `inicializarModulo` en `main.js`.
+- **Centralización CRM**: Todo lo relacionado con el módulo CRM (Kanban, Chat de Meta, Social) debe desarrollarse e integrarse dentro de la carpeta `app/static/crm_social/`. No crear archivos de CRM fuera de esta ruta. El CRM debe estar profundamente integrado con los módulos de Ventas, Reservas y Presupuestos.
 - **Desarrollo (`APP_ENV=development`)**: Fly.io (`multinegociobaboons-dev`), SQLite local, volumen `/data`. Ruta DB: `/data/inventario.db`.
-- **REGLA DE EJECUCIÓN DB**: El Agente **NUNCA** debe ejecutar scripts SQL directamente en Producción o Desarrollo. Todo cambio en la DB debe proveerse como un script SQL para que el usuario lo ejecute manualmente, acompañado siempre de su respectivo script de `rollback`.
+- **REGLA DE EJECUCIÓN DB**: El Agente **NUNCA** debe ejecutar scripts SQL directamente en Producción o Desarrollo si el usuario tiene acceso a la consola. Todo cambio en la estructura o datos debe proveerse como un script SQL.
+- **SEGURIDAD CRÍTICA**: Cualquier sentencia `DELETE` o `UPDATE` debe incluir OBLIGATORIAMENTE una cláusula `WHERE negocio_id = X` para evitar la destrucción accidental de datos de otros negocios. Prohibido sugerir limpiezas globales sin esta restricción.
+- **AUDITORÍA DE ENTORNO**: Antes de proponer una solución técnica, verificar en `.env` o variables de entorno si la conexión es a **Neon (Postgres)** o **Local (SQLite)** para evitar diagnósticos erróneos.
 
 ## 3. Reglas de Base de Datos y Migraciones SQL
 > **⚠️ EJECUCIÓN OBLIGATORIA:** Siempre que el usuario solicite crear, alterar o eliminar tablas/columnas en la base de datos, el Agente **DEBE** invocar y seguir las instrucciones de la skill definida en `.antigravity/skills/crear_migracion.md`.
@@ -110,7 +113,13 @@ Antes de cada despliegue o finalización:
 - ❌ `Out-File -Encoding utf8` (mismo problema)
 - ❌ `git show <hash>:archivo | Out-File ...` (doble-codifica los bytes UTF-8)
 - ❌ `Get-Content | Set-Content` (pierde encoding original)
-- ❌ Cualquier pipe de PowerShell que termine en `Out-File` o `Set-Content` sobre archivos con tildes
+- ❌ Cualquier pipe de PowerShell que termine en `Out-File` o `Set-Content` sobre archivos con tildes.
+- ❌ Intentar crear archivos grandes con `write_to_file` si el sistema reporta latencia alta (>30s); en su lugar, romper la tarea en fragmentos o usar comandos de consola directos.
+
+### 9.1. Creación de Herramientas de Diagnóstico (Fast-Path)
+Para scripts de utilidad o diagnóstico menores a 50 líneas:
+1. Usar siempre `python -c` con redirección simple o Base64/Hex para asegurar que la creación sea instantánea y no dependa de la sincronización de archivos del VSCode/Editor.
+2. Siempre incluir `load_dotenv()` para asegurar que el script tenga acceso a la `DATABASE_URL` de producción.
 
 ### Síntomas de encoding roto (señales de alarma)
 - El Navbar muestra `AdministraciÃ³n`, `ConfiguraciÃ³n` en lugar de `Administración`, `Configuración`
@@ -143,3 +152,9 @@ Antes de cada despliegue o finalización:
 - Ambas plataformas (Fly y Google) se conectan a la misma base de datos en **Neon**.
 - El Agente debe asegurar que las tablas como `compras_facturas` existan antes de habilitar funciones de escaneo IA.
 - En Google Cloud, la variable de entorno `DATABASE_URL` es la fuente única de verdad para la conexión.
+
+## 11. Protocolo de Diagnóstico y Reparación en Vivo
+Cuando el sistema esté "mudo" o falle en producción:
+1. **Primero SQL**: Preguntar al usuario si tiene acceso a la consola de Neon. Si es así, entregar el SQL de inspección (`SELECT`) antes que cualquier código.
+2. **Segundo Filtros**: Validar que la consulta de diagnóstico incluya el `negocio_id` activo para no mezclar logs de distintos clientes.
+3. **Tercero Tokens**: Si el módulo usa APIs externas (Meta, Google), incluir siempre un paso de verificación manual de tokens expirados en la base de datos de producción.

@@ -230,6 +230,8 @@ def registrar_comprobante(current_user, negocio_id, proveedor_id):
 def get_historial_ingresos(current_user, negocio_id):
     db = get_db()
     proveedor_id = request.args.get('proveedor_id')
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
     limit = request.args.get('limit', default=50, type=int)
     offset = request.args.get('offset', default=0, type=int)
     
@@ -260,6 +262,14 @@ def get_historial_ingresos(current_user, negocio_id):
         if proveedor_id and proveedor_id != 'null':
             query += " AND i.proveedor_id = %s "
             params.append(int(proveedor_id))
+
+        if fecha_desde:
+            query += " AND i.fecha >= %s "
+            params.append(fecha_desde)
+        
+        if fecha_hasta:
+            query += " AND i.fecha <= %s "
+            params.append(f"{fecha_hasta} 23:59:59")
             
         query += " ORDER BY i.fecha DESC LIMIT %s OFFSET %s"
         params.extend([limit, offset])
@@ -278,6 +288,109 @@ def get_historial_ingresos(current_user, negocio_id):
         return jsonify(result)
     except Exception as e:
         print(f"Error en get_historial_ingresos: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/ingresos/stats', methods=['GET'])
+@token_required
+def get_ingresos_stats(current_user, negocio_id):
+    db = get_db()
+    try:
+        # Mes actual y anterior
+        hoy = datetime.date.today()
+        primero_este_mes = hoy.replace(day=1)
+        ultimo_mes_anterior = primero_este_mes - datetime.timedelta(days=1)
+        primero_mes_anterior = ultimo_mes_anterior.replace(day=1)
+
+        # 1. Gasto total mes actual
+        db.execute("""
+            SELECT SUM(total_factura) as total 
+            FROM ingresos_mercaderia 
+            WHERE negocio_id = %s AND fecha >= %s
+        """, (negocio_id, primero_este_mes))
+        gasto_este_mes = db.fetchone()['total'] or 0
+
+        # 2. Gasto mes anterior
+        db.execute("""
+            SELECT SUM(total_factura) as total 
+            FROM ingresos_mercaderia 
+            WHERE negocio_id = %s AND fecha >= %s AND fecha <= %s
+        """, (negocio_id, primero_mes_anterior, ultimo_mes_anterior))
+        gasto_mes_anterior = db.fetchone()['total'] or 0
+
+        # 3. Deuda Total (Pendiente de pago)
+        db.execute("""
+            SELECT 
+                SUM(total_factura) - COALESCE(SUM(pagos.monto), 0) as deuda
+            FROM ingresos_mercaderia i
+            LEFT JOIN (
+                SELECT ingreso_mercaderia_id, SUM(monto_aplicado) as monto
+                FROM pagos_proveedores_ingresos
+                GROUP BY ingreso_mercaderia_id
+            ) pagos ON i.id = pagos.ingreso_mercaderia_id
+            WHERE i.negocio_id = %s
+        """, (negocio_id,))
+        deuda_total = db.fetchone()['deuda'] or 0
+
+        # 4. Top Proveedores (Facturación mes actual)
+        db.execute("""
+            SELECT p.nombre, SUM(i.total_factura) as total
+            FROM ingresos_mercaderia i
+            JOIN proveedores p ON i.proveedor_id = p.id
+            WHERE i.negocio_id = %s AND i.fecha >= %s
+            GROUP BY p.nombre
+            ORDER BY total DESC
+            LIMIT 5
+        """, (negocio_id, primero_este_mes))
+        top_proveedores = db.fetchall()
+
+        return jsonify({
+            'gasto_este_mes': float(gasto_este_mes),
+            'gasto_mes_anterior': float(gasto_mes_anterior),
+            'deuda_total': float(deuda_total),
+            'top_proveedores': [dict(row) for row in top_proveedores]
+        })
+    except Exception as e:
+        print(f"Error en get_ingresos_stats: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/proveedores/<int:proveedor_id>/analisis_costos', methods=['GET'])
+@token_required
+def get_analisis_costos_proveedor(current_user, negocio_id, proveedor_id):
+    db = get_db()
+    try:
+        # 1. Identificar Top 5 productos comprados a este proveedor (por volumen total histórico)
+        db.execute("""
+            SELECT d.producto_id, p.nombre, SUM(d.cantidad) as total_qty
+            FROM ingresos_mercaderia_detalle d
+            JOIN ingresos_mercaderia i ON d.ingreso_id = i.id
+            JOIN productos p ON d.producto_id = p.id
+            WHERE i.negocio_id = %s AND i.proveedor_id = %s
+            GROUP BY d.producto_id, p.nombre
+            ORDER BY total_qty DESC
+            LIMIT 5
+        """, (negocio_id, proveedor_id))
+        top_productos = db.fetchall()
+
+        result = []
+        for prod in top_productos:
+            # 2. Obtener historial de precios para cada uno
+            db.execute("""
+                SELECT i.fecha, d.precio_costo_unitario
+                FROM ingresos_mercaderia_detalle d
+                JOIN ingresos_mercaderia i ON d.ingreso_id = i.id
+                WHERE i.negocio_id = %s AND i.proveedor_id = %s AND d.producto_id = %s
+                ORDER BY i.fecha ASC
+            """, (negocio_id, proveedor_id, prod['producto_id']))
+            historial = db.fetchall()
+            
+            result.append({
+                'nombre': prod['nombre'],
+                'puntos': [{'fecha': h['fecha'].strftime('%Y-%m-%d'), 'precio': float(h['precio_costo_unitario'] or 0)} for h in historial]
+            })
+
+        return jsonify(result)
+    except Exception as e:
+        print(f"Error en get_analisis_costos_proveedor: {e}")
         return jsonify({'error': str(e)}), 500
 
 

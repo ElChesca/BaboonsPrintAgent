@@ -8,6 +8,10 @@ let currentOffset = 0;
 const PAGE_SIZE = 50;
 let historialActual = [];
 
+// Instancias de gráficos para poder destruirlas/recrearlas
+let chartTipos = null;
+let chartAjustes = null;
+
 // --- Funciones de Renderizado y Carga ---
 
 /**
@@ -101,6 +105,106 @@ function renderizarHistorial(historial, append = false) {
             </tr>
         `;
     });
+
+    // ✨ Renderizar gráficos con la data cargada
+    renderizarGraficosInventario(historialActual);
+}
+
+/**
+ * Agrega y visualiza los datos en los gráficos de historial
+ */
+function renderizarGraficosInventario(data) {
+    if (!data || data.length === 0) return;
+
+    // 1. Agregación de Datos
+    const counts = {};
+    const ajustesPorProducto = {};
+    let totalIngresos = 0;
+    let maxAdjNeg = 0;
+
+    data.forEach(mov => {
+        // Tipos
+        counts[mov.tipo_movimiento] = (counts[mov.tipo_movimiento] || 0) + 1;
+
+        const cant = parseFloat(mov.cantidad_cambio) || 0;
+        
+        // Ingresos
+        if (mov.tipo_movimiento === 'Ingreso') {
+            totalIngresos += cant;
+        }
+
+        // Ajustes (Mermas / Diferencias)
+        if (mov.tipo_movimiento === 'Ajuste') {
+            ajustesPorProducto[mov.producto_nombre] = (ajustesPorProducto[mov.producto_nombre] || 0) + cant;
+            if (cant < maxAdjNeg) maxAdjNeg = cant;
+        }
+    });
+
+    // 2. Actualizar KPIs de texto
+    const elTotal = document.getElementById('val-total-movs');
+    const elMaxNeg = document.getElementById('val-max-ajuste-neg');
+    const elIngresos = document.getElementById('val-total-ingresos');
+
+    if (elTotal) elTotal.innerText = data.length;
+    if (elMaxNeg) elMaxNeg.innerText = maxAdjNeg.toFixed(2);
+    if (elIngresos) elIngresos.innerText = `+${totalIngresos.toFixed(2)}`;
+
+    // 3. Gráfico de Distribución (Pie/Doughnut)
+    const ctxTipos = document.getElementById('chart-inv-tipos');
+    if (ctxTipos) {
+        if (chartTipos) chartTipos.destroy();
+        chartTipos = new Chart(ctxTipos, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(counts),
+                datasets: [{
+                    data: Object.values(counts),
+                    backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#64748b', '#ef4444'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } } },
+                cutout: '70%'
+            }
+        });
+    }
+
+    // 4. Gráfico de Ajustes (Bar)
+    const ctxAjustes = document.getElementById('chart-inv-ajustes');
+    if (ctxAjustes) {
+        if (chartAjustes) chartAjustes.destroy();
+        
+        // Ordenar productos por magnitud de ajuste
+        const sortedProds = Object.entries(ajustesPorProducto)
+            .sort((a, b) => a[1] - b[1]) // De más negativo a positivo
+            .slice(0, 8); // Top 8
+
+        chartAjustes = new Chart(ctxAjustes, {
+            type: 'bar',
+            data: {
+                labels: sortedProds.map(p => p[0].substring(0, 15) + '...'),
+                datasets: [{
+                    label: 'Dif. Stock',
+                    data: sortedProds.map(p => p[1]),
+                    backgroundColor: sortedProds.map(p => p[1] < 0 ? '#ef4444' : '#10b981'),
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                scales: { 
+                    x: { grid: { display: false } }, 
+                    y: { grid: { display: false }, ticks: { font: { size: 9 } } } 
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
 }
 
 async function cargarHistorial(append = false) {

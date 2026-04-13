@@ -132,6 +132,17 @@ export function inicializarLogicaPresupuestos() {
         // Si no, cargamos los datos para un presupuesto nuevo
         cargarDatosIniciales();
     }
+
+    // ─── INTEGRACIÓN CRM META ───
+    const tempLead = sessionStorage.getItem('temp_lead_presupuesto');
+    if (tempLead) {
+        try {
+            const lead = JSON.parse(tempLead);
+            sessionStorage.removeItem('temp_lead_presupuesto');
+            _procesarLeadEntrante(lead);
+        } catch (err) { console.error('[Presupuestos] Error en lead:', err); }
+    }
+
     // --- Lógica del Modal de Búsqueda de Clientes ---
     const modalBuscarCliente = document.getElementById('modal-buscar-cliente-presupuesto');
     const btnBuscarCliente = document.getElementById('btn-buscar-cliente-presupuesto');
@@ -328,4 +339,31 @@ export function inicializarLogicaPresupuestos() {
             elementos.btnGuardar.textContent = 'Guardar Presupuesto';
         }
     };
+}
+
+/** ─── INTEGRACIÓN COMERCIAL 360° ─── */
+async function _procesarLeadEntrante(lead) {
+    mostrarNotificacion('Buscando cliente vinculado...', 'info');
+    try {
+        // 1. Intentar buscar cliente por teléfono (últimos 8 dígitos son más confiables en AR)
+        const query = lead.telefono ? lead.telefono.slice(-8) : lead.nombre;
+        const res = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes?search=${encodeURIComponent(query)}&limit=1`);
+        const clientes = res.data || [];
+
+        if (clientes.length > 0) {
+            const hiddenInput = document.getElementById('presupuesto-cliente');
+            const displayInput = document.getElementById('presupuesto-cliente-display');
+            if (hiddenInput && displayInput) {
+                hiddenInput.value = clientes[0].id;
+                displayInput.value = clientes[0].nombre;
+            }
+            mostrarNotificacion(`Cliente vinculado: ${clientes[0].nombre}`, 'success');
+        } else {
+            mostrarNotificacion('Lead no registrado. Abrí "Búsqueda" o creá uno nuevo.', 'warning');
+            const displayInput = document.getElementById('presupuesto-cliente-display');
+            if (displayInput) displayInput.value = lead.nombre + ' (Lead Meta)';
+        }
+    } catch (err) {
+        console.error('Error procesando vinculación:', err);
+    }
 }

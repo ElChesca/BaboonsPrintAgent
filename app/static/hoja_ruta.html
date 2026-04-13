@@ -605,6 +605,9 @@
                                             style="font-size: 0.7rem;">Total Vendido (Neto)</small>
                                         <div class="h2 fw-bold text-success mb-0" id="liq-total-final-rendir"
                                             style="font-size: 1.5rem;">$ 0.00</div>
+                                        <div id="liq-total-desglose-linea" class="text-muted small mt-1" style="font-size: 0.75rem; font-style: italic;">
+                                            Calculando desglose...
+                                        </div>
                                     </div>
                                 </div>
 
@@ -952,6 +955,35 @@
     .custom-div-icon {
         background: transparent;
         border: none;
+    }
+
+    /* Estilos Premium Liquidación */
+    .method-icon-box {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    #tbody-liq-cobros tr {
+        transition: background-color 0.2s ease;
+    }
+
+    #tbody-liq-cobros tr:hover {
+        background-color: #f1f5f9 !important;
+    }
+
+    .ls-1 {
+        letter-spacing: 1px;
+    }
+
+    .italic {
+        font-style: italic;
     }
 </style>
 

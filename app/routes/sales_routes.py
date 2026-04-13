@@ -17,6 +17,8 @@ def registrar_venta(current_user, negocio_id):
     # 0. Asegurar columnas de migración
     try:
         db.execute("ALTER TABLE ventas_detalle ADD COLUMN IF NOT EXISTS producto_nombre TEXT")
+        db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS comanda_id INTEGER")
+        db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS mesa_id INTEGER")
         db.execute("""
             CREATE TABLE IF NOT EXISTS ventas_bitacora (
                 id SERIAL PRIMARY KEY,
@@ -103,7 +105,12 @@ def registrar_venta(current_user, negocio_id):
 
         metodo_pago = data.get('metodo_pago')
         if metodo_pago == 'Mixto':
-            metodo_cta_cte = 'Cuenta Corriente'
+            montos_mixtos = data.get('montos_mixtos', {})
+            monto_ef = float(montos_mixtos.get('Efectivo', 0))
+            monto_mp = float(montos_mixtos.get('MercadoPago', 0))
+            monto_tarjeta = float(montos_mixtos.get('Tarjeta', 0))
+            monto_debito = float(montos_mixtos.get('Debito', 0))
+            monto_transf = float(montos_mixtos.get('Transferencia', 0))
             monto_cta_cte = float(montos_mixtos.get('CuentaCorriente', 0))
 
             # Determinar método y monto principal para la venta base
@@ -254,6 +261,18 @@ def registrar_venta(current_user, negocio_id):
 @token_required
 def get_historial_ventas(current_user, negocio_id):
     db = get_db()
+    # Asegurar columnas (por si aún no se corrió el POST)
+    try:
+        db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS comanda_id INTEGER")
+        db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS mesa_id INTEGER")
+        db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS monto_ef NUMERIC DEFAULT 0")
+        db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS monto_mp NUMERIC DEFAULT 0")
+        db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS monto_cta_cte NUMERIC DEFAULT 0")
+        db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS monto_transferencia NUMERIC DEFAULT 0")
+        db.execute("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS monto_tarjeta NUMERIC DEFAULT 0")
+        g.db_conn.commit()
+    except: pass
+
     fecha_desde = request.args.get('fecha_desde')
     fecha_hasta = request.args.get('fecha_hasta')
     cliente_id = request.args.get('cliente_id')
@@ -270,10 +289,13 @@ def get_historial_ventas(current_user, negocio_id):
             v.tipo_factura,
             v.numero_factura,
             p.id as pedido_id,
-            p.hoja_ruta_id
+            p.hoja_ruta_id,
+            v.comanda_id,
+            m.numero as mesa_numero
         FROM ventas v
         LEFT JOIN clientes c ON v.cliente_id = c.id
         LEFT JOIN pedidos p ON p.venta_id = v.id
+        LEFT JOIN mesas m ON v.mesa_id = m.id
         WHERE v.negocio_id = %s
     """
     params = [negocio_id]

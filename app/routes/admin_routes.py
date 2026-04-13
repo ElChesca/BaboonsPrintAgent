@@ -10,7 +10,7 @@ except ImportError:
 bp = Blueprint('admin_apps', __name__)
 
 # Flag global para evitar sembrado redundante en cada request (Optimización Fly.io)
-_modules_seeded = False  # resetear para forzar re-seed con nuevos módulos (resto_cocina standardized)
+_modules_seeded = False  # resetear para forzar re-seed con nuevos módulos (crm_meta agregado)
 
 import time
 
@@ -96,6 +96,7 @@ def _ensure_modules_seeded(db):
             # CRM & Marketing
             ('crm_social', 'CRM & Marketing Digital', 'Ventas', ['resto']),
             ('crm_contactos', 'CRM Contactos / Leads', 'Ventas', ['resto', 'distribuidora', 'retail']),
+            ('crm_meta', 'CRM Meta (WhatsApp/IG/FB)', 'Ventas', ['resto', 'distribuidora', 'retail']),
             ('agente_facturacion', 'Agente de Facturación (ARCA)', 'Administración', ['retail', 'distribuidora', 'resto']),
             
             # DASHBOARDS / HOMES

@@ -1844,6 +1844,19 @@ async function abrirModalLiquidacion(id, estadoActual) {
         }
         setVal('liq-total-final-rendir', `$ ${resumen.pilares.total_vendido.toLocaleString()}`);
 
+        // ✨ NUEVO: Desglose Monetario Global (para ver cuánto es EF, MP, CC)
+        const dg = resumen.pilares.desglose_global || resumen.desglose_global || {};
+        const dgParts = [];
+        if (dg.total_ef > 0) dgParts.push(`<span class="text-success fw-bold">EF: $${dg.total_ef.toLocaleString()}</span>`);
+        if (dg.total_mp > 0) dgParts.push(`<span class="text-primary fw-bold">MP: $${dg.total_mp.toLocaleString()}</span>`);
+        if (dg.total_ctacte > 0) dgParts.push(`<span class="text-warning fw-bold">CC: $${dg.total_ctacte.toLocaleString()}</span>`);
+        if (dg.total_transf > 0) dgParts.push(`<span class="text-info fw-bold">TR: $${dg.total_transf.toLocaleString()}</span>`);
+        
+        const elDesglose = document.getElementById('liq-total-desglose-linea');
+        if (elDesglose) {
+            elDesglose.innerHTML = dgParts.length > 0 ? dgParts.join(' | ') : 'Sin cobros registrados';
+        }
+
         // Pilar 1: Mercadería Entregada
         if (!resumen.productos || resumen.productos.length === 0) {
             tbody.innerHTML = '<tr><td colspan="2" class="text-center">No se entregó mercadería</td></tr>';
@@ -1941,18 +1954,60 @@ async function abrirModalLiquidacion(id, estadoActual) {
                     return 'bg-secondary';
                 };
 
-                tbodyCobros.innerHTML = cobros.map(c => `
+                tbodyCobros.innerHTML = cobros.map(c => {
+                    const cant = c.cantidad_pedidos || 0;
+                    const pedidosText = cant > 0 ? 
+                        `<span class="badge bg-light text-dark border">${cant} pedido${cant !== 1 ? 's' : ''}</span>` :
+                        `<span class="badge bg-light text-muted border" style="font-weight: normal; opacity: 0.7;">Complemento de pago</span>`;
+
+                    return `
                     <tr>
                         <td class="ps-4">
-                            ${iconoMetodo(c.metodo_pago)}
-                            <span class="badge ${colorBadge(c.metodo_pago)} rounded-pill">${c.metodo_pago || 'N/D'}</span>
+                            <div class="d-flex align-items-center">
+                                <div class="method-icon-box me-3">
+                                    ${iconoMetodo(c.metodo_pago)}
+                                </div>
+                                <span class="badge ${colorBadge(c.metodo_pago)} rounded-pill px-3">${c.metodo_pago || 'N/D'}</span>
+                            </div>
                         </td>
                         <td class="text-center">
-                            <span class="badge bg-light text-dark border">${c.cantidad_pedidos} pedido${c.cantidad_pedidos !== 1 ? 's' : ''}</span>
+                            ${pedidosText}
                         </td>
-                        <td class="pe-4 text-end fw-bold text-success">$ ${parseFloat(c.total_metodo).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                    </tr>
-                `).join('');
+                        <td class="pe-4 text-end">
+                            <div class="fw-bold text-success" style="font-size: 1.1rem;">
+                                $ ${parseFloat(c.total_metodo).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                            </div>
+                        </td>
+                    </tr>`;
+                }).join('');
+
+                // ✨ NUEVO: Actualizar también el mini-desglose lateral (Sidebar)
+                const miniDesglose = document.getElementById('liq-desglose-cobros-list');
+                if (miniDesglose) {
+                    const dg = resumen.pilares.desglose_global || resumen.desglose_global || {};
+                    const items = [];
+                    if (dg.total_ef > 0) items.push({ n: 'Efectivo', v: dg.total_ef });
+                    if (dg.total_mp > 0) items.push({ n: 'Mercado Pago', v: dg.total_mp });
+                    if (dg.total_ctacte > 0) items.push({ n: 'Cuenta Corriente', v: dg.total_ctacte });
+                    if (dg.total_transf > 0) items.push({ n: 'Transferencia', v: dg.total_transf });
+
+                    if (items.length > 0) {
+                        miniDesglose.innerHTML = items.map(c => `
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted"><i class="fas fa-caret-right me-1"></i>${c.n}</span>
+                                <span class="fw-bold">$ ${c.v.toLocaleString()}</span>
+                            </div>
+                        `).join('');
+                    } else {
+                        // Fallback a resumen_cobros si desglose_global está en 0 (retrocompatibilidad)
+                        miniDesglose.innerHTML = cobros.map(c => `
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted"><i class="fas fa-caret-right me-1"></i>${c.metodo_pago}</span>
+                                <span class="fw-bold">$ ${parseFloat(c.total_metodo).toLocaleString('es-AR')}</span>
+                            </div>
+                        `).join('');
+                    }
+                }
 
                 if (infoCard && infoCobro) {
                     const fmtFecha = (f) => {
@@ -1989,6 +2044,8 @@ async function abrirModalLiquidacion(id, estadoActual) {
                 }
             } else {
                 seccionCobro.style.display = 'none';
+                const miniDesglose = document.getElementById('liq-desglose-cobros-list');
+                if (miniDesglose) miniDesglose.innerHTML = '<div class="text-center text-muted py-2 italic font-sm">Sin cobros registrados</div>';
             }
         }
 

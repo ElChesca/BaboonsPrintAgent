@@ -52,6 +52,31 @@ export function inicializarReservas() {
     document.addEventListener('change', e => {
         if (e.target && e.target.id === 'nr-fecha') cargarHorasDisponibles();
     });
+
+    // ─── INTEGRACIÓN CRM META ───
+    const tempLead = sessionStorage.getItem('temp_lead_reserva');
+    if (tempLead) {
+        try {
+            const lead = JSON.parse(tempLead);
+            sessionStorage.removeItem('temp_lead_reserva');
+            
+            // Abrimos el modal y llenamos los campos con un pequeño delay para asegurar renderizado
+            abrirModalNuevaReserva();
+            setTimeout(() => {
+                const inputNombre = document.getElementById('nr-nombre');
+                const inputTelef = document.getElementById('nr-telefono');
+                const inputOrigen = document.getElementById('nr-origen');
+                
+                if (inputNombre) inputNombre.value = lead.nombre || '';
+                if (inputTelef) inputTelef.value = lead.telefono || '';
+                if (inputOrigen) inputOrigen.value = lead.origen || 'whatsapp';
+                
+                mostrarNotificacion('Datos de Lead importados del CRM', 'info');
+            }, 400);
+        } catch (err) {
+            console.error('[Reservas] Error procesando lead temporal:', err);
+        }
+    }
 }
 
 async function cargarWAConfig() {

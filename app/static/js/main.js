@@ -2,8 +2,8 @@
 // ✅ ARCHIVO COMPLETO (Versión 1.7.1 - DYNAMIC MODULES FIX) ✅
 
 // --- 1. CONFIGURACIÓN CENTRAL DE VERSIÓN ---
-export const APP_VERSION = "1.9.18";
-// 1.9.15: Corregido error de sintaxis en estadísticas de Restó.
+export const APP_VERSION = "1.9.29";
+// 1.9.29: Compact search bar, stat-total counter fix.
 // HISTORIAL DE VERSIONES:
 // 1.9.6: High Contrast KDS and Bar/Dolce station fixes sync.
 // 1.7.1: Final Fix regarding cross-module cache mismatches: Dynamic imports between modules + modal visibility.
@@ -209,6 +209,7 @@ const PATH_MAP = {
     'rentals_contracts': 'static/rentals/rentals_contracts.html',
     'crm_social': 'static/crm_social/crm_social.html',
     'crm_contactos': 'static/crm_social/crm_contactos.html',
+    'crm_meta': 'static/crm_social/crm_meta.html',
     'admin_apps': 'static/admin_apps.html',
     'home': 'DYNAMIC_HOME' // 🚀 Alias especial manejado en loadContent
 };

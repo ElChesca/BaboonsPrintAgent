@@ -70,6 +70,16 @@ async function cargarHistorialVentas() {
                 // Estilo de fila atenuada para ventas anuladas
                 const rowStyle = venta.estado === 'Anulada' ? 'opacity:0.6;background:#fafafa;' : '';
 
+                // ✨ COLUMNA DINÁMICA: Pedido/HR vs Mesa/Comanda
+                let columnaContextoHtml = '-';
+                if (appState.negocioActivoTipo === 'resto') {
+                    if (venta.comanda_id) {
+                        columnaContextoHtml = `<span class="badge" style="background:var(--primary-color);color:white;">Mesa ${venta.mesa_numero || '?'}</span> <small class="text-muted">#${venta.comanda_id}</small>`;
+                    }
+                } else {
+                     columnaContextoHtml = venta.pedido_id ? `<span class="badge bg-light text-dark">#${venta.pedido_id}</span> ${venta.hoja_ruta_id ? `<small class="text-muted">(HR #${venta.hoja_ruta_id})</small>` : '<small class="text-muted">(Directa)</small>'}` : '-';
+                }
+
                 return `
                     <tr class="master-row" data-id="${venta.id}" style="${rowStyle}">
                         <td><strong>#${venta.numero_interno}</strong></td>
@@ -78,11 +88,17 @@ async function cargarHistorialVentas() {
                         <td>${venta.metodo_pago}</td>
                         <td>${formatCurrency(venta.total)}</td>
                         <td>${estadoHtml}</td>
-                        <td>${venta.pedido_id ? `<span class="badge bg-light text-dark">#${venta.pedido_id}</span> ${venta.hoja_ruta_id ? `<small class="text-muted">(HR #${venta.hoja_ruta_id})</small>` : '<small class="text-muted">(Directa)</small>'}` : '-'}</td>
+                        <td>${columnaContextoHtml}</td>
                         <td class="acciones">${accionesHtml}</td>
                     </tr>
                 `;
             }).join('');
+
+            // ✨ Actualizar Header de la tabla según tipo de negocio
+            const thContexto = document.querySelector('#tabla-historial-ventas thead th:nth-child(7)');
+            if (thContexto) {
+                thContexto.textContent = appState.negocioActivoTipo === 'resto' ? 'Mesa / Comanda' : 'Pedido / HR';
+            }
 
             tbody.innerHTML = rows;
 

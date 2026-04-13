@@ -51,3 +51,4 @@ Para evitar que módulos críticos queden ocultos por errores de configuración 
 - **Mantener el "Light Mode"**: No aplicar gradientes oscuros, glassmorphism o efectos visuales que degraden la legibilidad del ERP.
 - **Respetar Layouts**: Los encabezados, barras de navegación y el módulo `admin_apps.html` deben conservar su estructura visual actual. No rediseñar componentes que ya funcionan y son legibles.
 - **Consistencia**: Al crear un nuevo módulo, debe clonar la estética de los módulos estabilizados (ej: `orden_compra` o `inventario`), usando las mismas clases de borde, sombreado y tipografía.
+- **Stock en Ventas**: Todo módulo de toma de pedidos o ventas (Vendedores, POS, etc.) DEBE mostrar el **Stock Disponible Real** (Físico - Comprometido). Ver `KNOWLEDGE_LOGISTICA_DISTRIBUCION.md` para la fórmula técnica.

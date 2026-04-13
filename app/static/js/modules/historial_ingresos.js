@@ -9,6 +9,10 @@ let modalDetalles;
 let closeModalBtn;
 let contenidoModal;
 let filtroProveedorSelect;
+let filtroFechaDesde;
+let filtroFechaHasta;
+let btnBuscar;
+let demandInstruction;
 
 // --- Helpers ---
 const formatCurrency = (value) => {
@@ -267,15 +271,23 @@ async function cargarHistorial(append = false) {
     }
 
     let url = `/api/negocios/${appState.negocioActivoId}/ingresos?limit=${LIMIT}&offset=${offset}`;
+    
     const proveedorIdSeleccionado = filtroProveedorSelect.value;
-    if (proveedorIdSeleccionado && proveedorIdSeleccionado !== 'null') {
-        url += `&proveedor_id=${proveedorIdSeleccionado}`;
-    }
+    const fechaDesde = filtroFechaDesde.value;
+    const fechaHasta = filtroFechaHasta.value;
+
+    if (proveedorIdSeleccionado && proveedorIdSeleccionado !== 'null') url += `&proveedor_id=${proveedorIdSeleccionado}`;
+    if (fechaDesde) url += `&fecha_desde=${fechaDesde}`;
+    if (fechaHasta) url += `&fecha_hasta=${fechaHasta}`;
 
     try {
         const ingresos = await fetchData(url);
         if (Array.isArray(ingresos)) {
             renderizarHistorial(ingresos, append);
+            // Si hay resultados, ocultamos la instrucción
+            if (ingresos.length > 0 && demandInstruction) {
+                demandInstruction.style.display = 'none';
+            }
         } else {
             throw new Error("Respuesta inválida");
         }
@@ -283,6 +295,50 @@ async function cargarHistorial(append = false) {
         console.error("Error cargando historial:", error);
         mostrarNotificacion('Error al cargar historial.', 'error');
         if (!append) tablaBody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: red;">Error al cargar.</td></tr>';
+    }
+}
+
+/** CARGAR ESTADÍSTICAS RÁPIDAS (Baboon Stats Style) */
+async function cargarStatsIngresos() {
+    if (!appState.negocioActivoId) return;
+
+    try {
+        const stats = await fetchData(`/api/negocios/${appState.negocioActivoId}/ingresos/stats`);
+        
+        // 1. Gasto Mes Actual
+        const elGasto = document.getElementById('stat-gasto-mes');
+        const elComparativa = document.getElementById('stat-comparativa-mes');
+        if (elGasto) elGasto.innerText = formatCurrency(stats.gasto_este_mes);
+        
+        if (elComparativa) {
+            const diff = stats.gasto_este_mes - stats.gasto_mes_anterior;
+            const pct = stats.gasto_mes_anterior > 0 ? (diff / stats.gasto_mes_anterior) * 100 : 0;
+            const icon = diff >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+            const colorClass = diff >= 0 ? 'text-white' : 'text-white'; // Mantenemos blanco sobre el fondo purpura
+            elComparativa.innerHTML = `<i class="fas ${icon} me-1"></i> ${pct.toFixed(1)}% vs mes anterior`;
+        }
+
+        // 2. Deuda Total
+        const elDeuda = document.getElementById('stat-deuda-total');
+        if (elDeuda) elDeuda.innerText = formatCurrency(stats.deuda_total);
+
+        // 3. Top Proveedores
+        const elTopList = document.getElementById('top-proveedores-mini-list');
+        if (elTopList) {
+            if (stats.top_proveedores && stats.top_proveedores.length > 0) {
+                elTopList.innerHTML = stats.top_proveedores.map((p, idx) => `
+                    <div class="prov-item">
+                        <span><span class="text-primary fw-bold">#${idx+1}</span> ${p.nombre}</span>
+                        <span class="fw-bold">${formatCurrency(p.total)}</span>
+                    </div>
+                `).join('');
+            } else {
+                elTopList.innerHTML = '<p class="text-muted mb-0">Sin compras este mes.</p>';
+            }
+        }
+
+    } catch (e) {
+        console.error("Error cargando stats de ingresos:", e);
     }
 }
 
@@ -351,21 +407,157 @@ export function inicializarLogicaHistorialIngresos() {
     closeModalBtn = document.getElementById('close-detalles-ingreso');
     contenidoModal = document.getElementById('contenido-detalles-ingreso');
     filtroProveedorSelect = document.getElementById('filtro-proveedor-ingresos');
+    filtroFechaDesde = document.getElementById('filtro-fecha-desde');
+    filtroFechaHasta = document.getElementById('filtro-fecha-hasta');
+    btnBuscar = document.getElementById('btn-buscar-historial');
+    demandInstruction = document.getElementById('demand-instruction');
 
     if (!tablaBody || !modalDetalles || !closeModalBtn || !contenidoModal || !filtroProveedorSelect) return;
 
     tablaBody.addEventListener('click', handleTablaClick);
     closeModalBtn.addEventListener('click', closeModalHandler);
-    filtroProveedorSelect.addEventListener('change', cargarHistorial);
+    
+    // El filtrado ahora es explícito por botón o cambio de proveedor
+    const handleFilterChange = () => {
+        const proveedorId = filtroProveedorSelect.value;
+        cargarHistorial(false);
+        if (proveedorId) {
+            cargarAnalisisCostoProveedor(proveedorId);
+        } else {
+            const analysisSection = document.getElementById('provider-analysis-section');
+            if (analysisSection) analysisSection.style.display = 'none';
+        }
+    };
+
+    if (btnBuscar) btnBuscar.onclick = handleFilterChange;
+    filtroProveedorSelect.addEventListener('change', handleFilterChange);
 
     (async () => {
         try {
             await poblarFiltroProveedores();
-            await cargarHistorial();
+            
+            // Si veniamos con un proveedor en la URL, cargar analisis
+            if (filtroProveedorSelect.value) {
+                cargarAnalisisCostoProveedor(filtroProveedorSelect.value);
+            }
+
+            // 🚀 Solo cargamos Stats al inicio por performance. El listado queda vacío hasta filtrar.
+            await cargarStatsIngresos();
+            
+            // Mensaje inicial en la tabla
+            tablaBody.innerHTML = '<tr><td colspan="9" class="text-center py-5 text-muted"><i class="fas fa-search fa-2x mb-3 d-block opacity-20"></i>Utiliza los filtros arriba para consultar el historial detallado.</td></tr>';
+
         } catch (error) {
             console.error(error);
         }
     })();
+}
+
+let costChart = null;
+async function cargarAnalisisCostoProveedor(proveedorId) {
+    const analysisSection = document.getElementById('provider-analysis-section');
+    const chartCanvas = document.getElementById('provider-cost-chart');
+    const providerNameBadge = document.getElementById('analysis-provider-name');
+    
+    if (!analysisSection || !chartCanvas) return;
+
+    try {
+        const data = await fetchData(`/api/negocios/${appState.negocioActivoId}/proveedores/${proveedorId}/analisis_costos`);
+        
+        if (!data || data.length === 0) {
+            analysisSection.style.display = 'none';
+            return;
+        }
+
+        analysisSection.style.display = 'block';
+        if (providerNameBadge) {
+            const proveedorNombre = filtroProveedorSelect.options[filtroProveedorSelect.selectedIndex].text;
+            providerNameBadge.innerText = proveedorNombre;
+        }
+
+        if (costChart) {
+            costChart.destroy();
+        }
+
+        const colors = [
+            '#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'
+        ];
+
+        // Preparar datasets
+        const datasets = data.map((prod, idx) => ({
+            label: prod.nombre,
+            data: prod.puntos.map(p => ({ x: new Date(p.fecha + 'T00:00:00'), y: p.precio })),
+            borderColor: colors[idx % colors.length],
+            backgroundColor: colors[idx % colors.length] + '20',
+            borderWidth: 3,
+            tension: 0.3,
+            fill: false,
+            pointRadius: 4,
+            pointHoverRadius: 6
+        }));
+
+        costChart = new Chart(chartCanvas, {
+            type: 'line',
+            data: { datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { 
+                            unit: 'day',
+                            displayFormats: { day: 'dd/MM' }
+                        },
+                        grid: { display: false },
+                        ticks: {
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        ticks: {
+                            callback: value => '$' + value.toLocaleString()
+                        },
+                        grid: {
+                            color: '#f1f5f9'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { 
+                        position: 'bottom', 
+                        labels: { 
+                            usePointStyle: true, 
+                            boxWidth: 8,
+                            padding: 20,
+                            font: { size: 11, weight: '600' }
+                        } 
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        padding: 12,
+                        titleFont: { size: 13, weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: (context) => ` ${context.dataset.label}: $${context.parsed.y.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                        }
+                    }
+                }
+            }
+        });
+
+    } catch (e) {
+        console.error("Error cargando análisis de costos:", e);
+        analysisSection.style.display = 'none';
+    }
 }
 
 // --- PDF GENERATION ---

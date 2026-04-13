@@ -8,6 +8,7 @@ bp = Blueprint('resto', __name__)
 
 # ✨ VARIABLES GLOBALES PARA OPTIMIZACIÓN ✨
 MIGRACION_COMBOS_REALIZADA = False
+MIGRACION_GUARNICIONES_REALIZADA = False
 
 #  MESAS 
 
@@ -33,71 +34,136 @@ def get_resto_stats(current_user, negocio_id):
         except:
             pass
 
-        hoy = datetime.date.today()
+        # 0. Parámetros de fecha
+        desde = request.args.get('desde')
+        hasta = request.args.get('hasta')
         
-        # 1. Resumen de Hoy
+        if not desde:
+            desde = datetime.date.today().isoformat()
+        if not hasta:
+            hasta = datetime.date.today().isoformat()
+
+        # 1. Resumen de Ventas (Rango)
         db.execute("""
             SELECT COUNT(*) filter (where metodo_pago LIKE 'Ventas Restó%%') as total_ventas,
                    COALESCE(SUM(total) filter (where metodo_pago LIKE 'Ventas Restó%%'), 0) as monto_total
             FROM ventas 
-            WHERE negocio_id = %s AND fecha::date = %s
-        """, (negocio_id, hoy))
+            WHERE negocio_id = %s AND fecha::date BETWEEN %s AND %s
+        """, (negocio_id, desde, hasta))
         resumen = db.fetchone()
         
-        # 2. Ranking de Empleados (Ventas Restó Hoy)
+        # 2. Ranking de Empleados (Rango)
         db.execute("""
             SELECT v.nombre, COALESCE(SUM(ve.total), 0) as total_vendido
             FROM vendedores v
-            LEFT JOIN ventas ve ON v.id = ve.vendedor_id AND ve.fecha::date = %s AND ve.metodo_pago LIKE 'Ventas Restó%%'
+            LEFT JOIN ventas ve ON v.id = ve.vendedor_id AND ve.fecha::date BETWEEN %s AND %s AND ve.metodo_pago LIKE 'Ventas Restó%%'
             WHERE v.negocio_id = %s AND v.activo = TRUE
             GROUP BY v.id, v.nombre
+            HAVING COALESCE(SUM(ve.total), 0) > 0
             ORDER BY total_vendido DESC
-        """, (hoy, negocio_id))
+        """, (desde, hasta, negocio_id))
         ranking_staff = [dict(r) for r in db.fetchall()]
         
-        # 3. Top 5 Productos del Menú (Hoy)
+        # 3. Top 5 Productos del Menú (Rango)
         db.execute("""
             SELECT mi.nombre, SUM(vd.cantidad) as total_cantidad
             FROM ventas_detalle vd
             JOIN ventas v ON vd.venta_id = v.id
             JOIN menu_items mi ON vd.producto_id = mi.producto_id
-            WHERE v.negocio_id = %s AND v.fecha::date = %s AND v.metodo_pago LIKE 'Ventas Restó%%'
+            WHERE v.negocio_id = %s AND v.fecha::date BETWEEN %s AND %s AND v.metodo_pago LIKE 'Ventas Restó%%'
             GROUP BY mi.id, mi.nombre
             ORDER BY total_cantidad DESC
-            LIMIT 5
-        """, (negocio_id, hoy))
+            LIMIT 10
+        """, (negocio_id, desde, hasta))
         top_productos = [dict(r) for r in db.fetchall()]
+
+        # 4. Top Categorías (Rango) - NUEVO
+        db.execute("""
+            SELECT mc.nombre, SUM(vd.cantidad) as total_cantidad
+            FROM ventas_detalle vd
+            JOIN ventas v ON vd.venta_id = v.id
+            JOIN menu_items mi ON vd.producto_id = mi.producto_id
+            JOIN menu_categorias mc ON mi.categoria_id = mc.id
+            WHERE v.negocio_id = %s AND v.fecha::date BETWEEN %s AND %s AND v.metodo_pago LIKE 'Ventas Restó%%'
+            GROUP BY mc.id, mc.nombre
+            ORDER BY total_cantidad DESC
+            LIMIT 5
+        """, (negocio_id, desde, hasta))
+        top_categorias = [dict(r) for r in db.fetchall()]
         
-        # 4. Estado de Mesas actual
+        # 5. Estado de Mesas actual (Tiempo Real)
         db.execute("SELECT estado, COUNT(*) as cantidad FROM mesas WHERE negocio_id = %s GROUP BY estado", (negocio_id,))
         mesas_estado = {r['estado']: r['cantidad'] for r in db.fetchall()}
 
-        # 5. Conteo de PAX (Cubiertos) del día
+        # 6. Conteo de PAX (Cubiertos) del rango
         db.execute("""
             SELECT COALESCE(SUM(num_comensales), 0) as total_pax
             FROM comandas 
-            WHERE negocio_id = %s AND fecha_apertura::date = %s
-        """, (negocio_id, hoy))
+            WHERE negocio_id = %s AND fecha_apertura::date BETWEEN %s AND %s
+        """, (negocio_id, desde, hasta))
         pax_data = db.fetchone()
 
-        # 6. Tiempo Promedio de Preparación (Hoy)
+        # 7. Historial de PAX por Día (NUEVO para gráfico)
         db.execute("""
-            SELECT AVG(EXTRACT(EPOCH FROM (fecha_estado_cambiado  fecha_pedido)) / 60) as promedio_min
+            SELECT fecha_apertura::date as fecha, COALESCE(SUM(num_comensales), 0) as cantidad
+            FROM comandas 
+            WHERE negocio_id = %s AND fecha_apertura::date BETWEEN %s AND %s
+            GROUP BY fecha_apertura::date
+            ORDER BY fecha_apertura::date ASC
+        """, (negocio_id, desde, hasta))
+        pax_historial = [dict(r) for r in db.fetchall()]
+
+        # 8. Tiempo Promedio de Preparación (Rango)
+        db.execute("""
+            SELECT AVG(EXTRACT(EPOCH FROM (fecha_estado_cambiado - fecha_pedido)) / 60) as promedio_min
             FROM comandas_detalle
             WHERE estado IN ('cobrado', 'entregado') 
-              AND fecha_pedido::date = %s
+              AND fecha_pedido::date BETWEEN %s AND %s
               AND fecha_estado_cambiado IS NOT NULL
-        """, (hoy,))
+        """, (desde, hasta))
         tiempo_data = db.fetchone()
         promedio_preparacion = round(float(tiempo_data['promedio_min']), 1) if tiempo_data and tiempo_data['promedio_min'] else 0
+
+        # 9. Conteo de Reservas Desglosado (NUEVO)
+        db.execute("""
+            SELECT 
+                COUNT(*) FILTER (WHERE estado = 'confirmada') as confirmadas,
+                COUNT(*) FILTER (WHERE estado = 'pendiente') as pendientes
+            FROM mesas_reservas
+            WHERE negocio_id = %s AND fecha_reserva BETWEEN %s AND %s
+              AND estado NOT IN ('cancelada')
+        """, (negocio_id, desde, hasta))
+        reservas_data = db.fetchone()
+
+        # 10. Estadísticas por Destino KDS (Cocina, Bar, Dolce)
+        db.execute("""
+            SELECT COALESCE(NULLIF(mi.destino_kds, ''), 'Sin Destino') as destino, 
+                   SUM(vd.cantidad) as total_cantidad,
+                   SUM(vd.subtotal) as total_monto
+            FROM ventas_detalle vd
+            JOIN ventas v ON vd.venta_id = v.id
+            JOIN menu_items mi ON vd.producto_id = mi.producto_id
+            WHERE v.negocio_id = %s AND v.fecha::date BETWEEN %s AND %s AND v.metodo_pago LIKE 'Ventas Restó%%'
+            GROUP BY mi.destino_kds
+            ORDER BY total_monto DESC
+        """, (negocio_id, desde, hasta))
+        kds_stats = [dict(r) for r in db.fetchall()]
 
         return jsonify({
             'resumen': dict(resumen),
             'ranking_staff': ranking_staff,
             'top_productos': top_productos,
+            'top_categorias': top_categorias,
             'mesas_estado': mesas_estado,
             'pax_hoy': int(pax_data['total_pax']) if pax_data else 0,
-            'tiempo_promedio_min': promedio_preparacion
+            'pax_historial': pax_historial,
+            'tiempo_promedio_min': promedio_preparacion,
+            'reservas': {
+                'confirmadas': reservas_data['confirmadas'] or 0,
+                'pendientes': reservas_data['pendientes'] or 0,
+                'total': (reservas_data['confirmadas'] or 0) + (reservas_data['pendientes'] or 0)
+            },
+            'kds_stats': kds_stats
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -246,6 +312,96 @@ def manage_destino_kds(current_user, id):
         db.execute(f"UPDATE resto_destinos_kds SET {', '.join(campos)} WHERE id = %s", tuple(valores))
         g.db_conn.commit()
         return jsonify({'message': 'Destino actualizado'})
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# 🍟 GUARNICIONES (Acompañamientos) 
+
+@bp.route('/negocios/<int:negocio_id>/guarniciones', methods=['GET'])
+@token_required
+def get_guarniciones(current_user, negocio_id):
+    db = get_db()
+    
+    # Automigración de Guarniciones
+    global MIGRACION_GUARNICIONES_REALIZADA
+    if not MIGRACION_GUARNICIONES_REALIZADA:
+        try:
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS resto_guarniciones (
+                    id SERIAL PRIMARY KEY,
+                    negocio_id INTEGER NOT NULL REFERENCES negocios(id),
+                    nombre VARCHAR(100) NOT NULL,
+                    precio_extra NUMERIC(15, 2) DEFAULT 0,
+                    activa BOOLEAN DEFAULT TRUE,
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            db.execute("ALTER TABLE comandas_detalle ADD COLUMN IF NOT EXISTS guarnicion_id INTEGER REFERENCES resto_guarniciones(id)")
+            g.db_conn.commit()
+            MIGRACION_GUARNICIONES_REALIZADA = True
+        except:
+            g.db_conn.rollback()
+
+    try:
+        db.execute("SELECT * FROM resto_guarniciones WHERE negocio_id = %s AND activa = TRUE ORDER BY nombre", (negocio_id,))
+        return jsonify([dict(r) for r in db.fetchall()])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/guarniciones', methods=['POST'])
+@token_required
+def add_guarnicion(current_user, negocio_id):
+    data = request.get_json()
+    nombre = data.get('nombre')
+    precio = data.get('precio_extra', 0)
+
+    if not nombre:
+        return jsonify({'error': 'El nombre es obligatorio'}), 400
+
+    db = get_db()
+    try:
+        db.execute(
+            "INSERT INTO resto_guarniciones (negocio_id, nombre, precio_extra) VALUES (%s, %s, %s) RETURNING id",
+            (negocio_id, nombre, precio)
+        )
+        nuevo_id = db.fetchone()['id']
+        g.db_conn.commit()
+        return jsonify({'id': nuevo_id, 'message': 'Guarnición creada con éxito'}), 201
+    except Exception as e:
+        g.db_conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/guarniciones/<int:id>', methods=['PUT', 'DELETE'])
+@token_required
+def manage_guarnicion(current_user, id):
+    db = get_db()
+    if request.method == 'DELETE':
+        try:
+            db.execute("UPDATE resto_guarniciones SET activa = FALSE WHERE id = %s", (id,))
+            g.db_conn.commit()
+            return jsonify({'message': 'Guarnición eliminada'})
+        except Exception as e:
+            g.db_conn.rollback()
+            return jsonify({'error': str(e)}), 500
+
+    # PUT
+    data = request.get_json()
+    campos = []
+    valores = []
+    for k in ['nombre', 'precio_extra', 'activa']:
+        if k in data:
+            campos.append(f"{k} = %s")
+            valores.append(data[k])
+    
+    if not campos:
+        return jsonify({'error': 'Sin campos para editar'}), 400
+        
+    valores.append(id)
+    try:
+        db.execute(f"UPDATE resto_guarniciones SET {', '.join(campos)} WHERE id = %s", tuple(valores))
+        g.db_conn.commit()
+        return jsonify({'message': 'Guarnición actualizada'})
     except Exception as e:
         g.db_conn.rollback()
         return jsonify({'error': str(e)}), 500
@@ -684,6 +840,17 @@ def get_cocina_pendientes(current_user, negocio_id):
                         negocio_id INTEGER
                     )
                 """)
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS resto_guarniciones (
+                        id SERIAL PRIMARY KEY,
+                        negocio_id INTEGER NOT NULL REFERENCES negocios(id),
+                        nombre VARCHAR(100) NOT NULL,
+                        precio_extra NUMERIC(15, 2) DEFAULT 0,
+                        activa BOOLEAN DEFAULT TRUE,
+                        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                db.execute("ALTER TABLE comandas_detalle ADD COLUMN IF NOT EXISTS guarnicion_id INTEGER REFERENCES resto_guarniciones(id)")
                 g.db_conn.commit()
             except: pass
             
@@ -713,13 +880,15 @@ def get_cocina_pendientes(current_user, negocio_id):
                 cat.estacion as categoria_estacion,
                 v.nombre as mozo_nombre,
                 cd.parent_detalle_id,
-                cd.tiempo
+                cd.tiempo,
+                g.nombre as guarnicion_nombre
             FROM comandas_detalle cd
             JOIN comandas c ON cd.comanda_id = c.id
             JOIN menu_items mi ON cd.menu_item_id = mi.id
             JOIN menu_categorias cat ON mi.categoria_id = cat.id
             JOIN mesas m ON c.mesa_id = m.id
             JOIN vendedores v ON c.mozo_id = v.id
+            LEFT JOIN resto_guarniciones g ON cd.guarnicion_id = g.id
             WHERE c.negocio_id = %s 
               AND c.estado = 'abierta'
               AND cd.estado IN ('pendiente', 'cocinando')
@@ -797,7 +966,7 @@ def get_mozo_notificaciones(current_user, negocio_id):
         query = """
             SELECT 
                 cd.id, cd.comanda_id, cd.cantidad, mi.nombre as producto_nombre,
-                m.numero as mesa_numero, cd.fecha_pedido
+                m.numero as mesa_numero, cd.fecha_pedido, c.mozo_id
             FROM comandas_detalle cd
             JOIN comandas c ON cd.comanda_id = c.id
             JOIN menu_items mi ON cd.menu_item_id = mi.id
@@ -808,10 +977,20 @@ def get_mozo_notificaciones(current_user, negocio_id):
         """
         params = [negocio_id]
         
-        # Filtrar por mozo si el usuario es mozo (vendedor)
-        if current_user.get('rol') == 'vendedor' and current_user.get('vendedor_id'):
-            query += " AND c.mozo_id = %s"
-            params.append(current_user['vendedor_id'])
+        # Filtrar por mozo si el usuario tiene un ID vinculado (vendedor o empleado mozo)
+        vendedor_id = current_user.get('vendedor_id')
+        empleado_id = current_user.get('empleado_id')
+        
+        # Si NO es admin/superadmin, forzamos el filtro por su ID
+        if current_user.get('rol') not in ['admin', 'superadmin', 'cajero', 'adicionista']:
+            # Priorizamos vendedor_id porque es el que usa la tabla comandas.mozo_id
+            if vendedor_id:
+                query += " AND c.mozo_id = %s"
+                params.append(vendedor_id)
+            elif empleado_id:
+                # Si es empleado pero no tiene vendedor_id, tratamos de matchear (aunque mozo_id suele ser vendedor_id)
+                query += " AND c.mozo_id = %s"
+                params.append(empleado_id)
 
         db.execute(query, tuple(params))
         notifs = db.fetchall()
@@ -1331,11 +1510,29 @@ def get_comanda_detail(current_user, id):
             
         res = dict(comanda)
         
+        # Migración proactiva de guarnición si falla el GET inicial
+        try:
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS resto_guarniciones (
+                    id SERIAL PRIMARY KEY,
+                    negocio_id INTEGER NOT NULL REFERENCES negocios(id),
+                    nombre VARCHAR(100) NOT NULL,
+                    precio_extra NUMERIC(15, 2) DEFAULT 0,
+                    activa BOOLEAN DEFAULT TRUE,
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            db.execute("ALTER TABLE comandas_detalle ADD COLUMN IF NOT EXISTS guarnicion_id INTEGER REFERENCES resto_guarniciones(id)")
+            g.db_conn.commit()
+        except: pass
+
         db.execute("""
-            SELECT cd.*, mi.nombre as producto_nombre, mi.imagen_url, mc.estacion
+            SELECT cd.*, mi.nombre as producto_nombre, mi.imagen_url, mc.estacion,
+                   g.nombre as guarnicion_nombre
             FROM comandas_detalle cd
             LEFT JOIN menu_items mi ON cd.menu_item_id = mi.id
             LEFT JOIN menu_categorias mc ON mi.categoria_id = mc.id
+            LEFT JOIN resto_guarniciones g ON cd.guarnicion_id = g.id
             WHERE cd.comanda_id = %s
         """, (id,))
         res['detalles'] = [dict(d) for d in db.fetchall()]
@@ -1355,6 +1552,22 @@ def add_items_to_comanda(current_user, id):
         
     db = get_db()
     try:
+        # Migración silenciosa: Asegurar columna guarnicion_id
+        try:
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS resto_guarniciones (
+                    id SERIAL PRIMARY KEY,
+                    negocio_id INTEGER NOT NULL REFERENCES negocios(id),
+                    nombre VARCHAR(100) NOT NULL,
+                    precio_extra NUMERIC(15, 2) DEFAULT 0,
+                    activa BOOLEAN DEFAULT TRUE,
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            db.execute("ALTER TABLE comandas_detalle ADD COLUMN IF NOT EXISTS guarnicion_id INTEGER REFERENCES resto_guarniciones(id)")
+            g.db_conn.commit()
+        except: pass
+
         total_a_sumar = 0
         added_ids = []
         for item in items:
@@ -1363,9 +1576,9 @@ def add_items_to_comanda(current_user, id):
             
             # 1. Insertar el ítem "Padre"
             db.execute(
-                """INSERT INTO comandas_detalle (comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, estado, notas, tiempo)
-                   VALUES (%s, %s, %s, %s, %s, 'pendiente', %s, %s) RETURNING id""",
-                (id, item['menu_item_id'], item['cantidad'], item['precio_unitario'], subt, item.get('notas', ''), item.get('tiempo', 1))
+                """INSERT INTO comandas_detalle (comanda_id, menu_item_id, cantidad, precio_unitario, subtotal, estado, notas, tiempo, guarnicion_id)
+                   VALUES (%s, %s, %s, %s, %s, 'pendiente', %s, %s, %s) RETURNING id""",
+                (id, item['menu_item_id'], item['cantidad'], item['precio_unitario'], subt, item.get('notes', item.get('notas', '')), item.get('tiempo', 1), item.get('guarnicion_id'))
             )
             parent_id = db.fetchone()['id']
             added_ids.append(parent_id)
@@ -1660,9 +1873,11 @@ def cerrar_comanda(current_user, id):
 
         # 3. Obtener detalles NO cobrados
         db.execute("""
-            SELECT cd.*, mi.producto_id, mi.stock_control, mi.nombre as menu_nombre
+            SELECT cd.*, mi.producto_id, mi.stock_control, mi.nombre as menu_nombre,
+                   g.nombre as guarnicion_nombre
             FROM comandas_detalle cd
             JOIN menu_items mi ON cd.menu_item_id = mi.id
+            LEFT JOIN resto_guarniciones g ON cd.guarnicion_id = g.id
             WHERE cd.comanda_id = %s AND cd.estado NOT IN ('anulado', 'cobrado')
         """, (id,))
         detalles = db.fetchall()
@@ -1692,9 +1907,18 @@ def cerrar_comanda(current_user, id):
         
         # 6. Insertar detalles de venta y descontar stock
         for d in detalles:
+            # Persistir extra (guarnicion) en el nombre para historial
+            nombre_final = d['menu_nombre']
+            extras = []
+            if d.get('guarnicion_nombre'): extras.append(f"G: {d['guarnicion_nombre']}")
+            if d.get('notas'): extras.append(d['notas'])
+            
+            if extras:
+                nombre_final += f" ({' | '.join(extras)})"
+
             db.execute(
                 "INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal, producto_nombre) VALUES (%s, %s, %s, %s, %s, %s)",
-                (venta_id, d['producto_id'], d['cantidad'], d['precio_unitario'], d['subtotal'], d['menu_nombre'])
+                (venta_id, d['producto_id'], d['cantidad'], d['precio_unitario'], d['subtotal'], nombre_final)
             )
             
             # Descontar stock si aún no fue marcado como entregado (prevent double discount)
@@ -1910,9 +2134,11 @@ def finalizar_cobro_comanda(current_user, id):
             
         # 3. Obtener detalles NO cobrados
         db.execute("""
-            SELECT cd.*, mi.producto_id, mi.stock_control, mi.nombre as menu_nombre
+            SELECT cd.*, mi.producto_id, mi.stock_control, mi.nombre as menu_nombre,
+                   g.nombre as guarnicion_nombre
             FROM comandas_detalle cd
             JOIN menu_items mi ON cd.menu_item_id = mi.id
+            LEFT JOIN resto_guarniciones g ON cd.guarnicion_id = g.id
             WHERE cd.comanda_id = %s AND cd.estado NOT IN ('anulado', 'cobrado')
         """, (id,))
         detalles = db.fetchall()
@@ -1937,14 +2163,21 @@ def finalizar_cobro_comanda(current_user, id):
             INSERT INTO ventas (
                 negocio_id, cliente_id, usuario_id, total, metodo_pago, 
                 fecha, caja_sesion_id, vendedor_id,
-                tarjeta_marca, tarjeta_ultimos_4, tarjeta_lote, tarjeta_cupon, numero_interno
+                tarjeta_marca, tarjeta_ultimos_4, tarjeta_lote, tarjeta_cupon, numero_interno,
+                comanda_id, mesa_id, monto_ef, monto_mp, monto_cta_cte
             ) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
         """
+        # Calcular montos individuales si es mixto o simple
+        m_ef = monto_efectivo if metodo_pago == 'Mixto' else (total_pago if metodo_pago == 'Efectivo' else 0)
+        m_mp = monto_mp if metodo_pago == 'Mixto' else (total_pago if metodo_pago.startswith('Mercado Pago') else 0)
+        m_cc = monto_cta_cte if metodo_pago == 'Mixto' else (total_pago if metodo_pago == 'Cuenta Corriente' else 0)
+
         db.execute(insert_sql, (
             negocio_id, cliente_id, current_user['id'], total_pago, f"Ventas Restó ({metodo_pago})", 
             datetime.datetime.now(), sesion_abierta['id'], vendedor_id, 
-            t_marca, t_u4, t_lote, t_cupon, proximo_nro
+            t_marca, t_u4, t_lote, t_cupon, proximo_nro,
+            id, comanda['mesa_id'], m_ef, m_mp, m_cc
         ))
         
         res_venta = db.fetchone()
@@ -1954,9 +2187,20 @@ def finalizar_cobro_comanda(current_user, id):
         
         # 6. Insertar detalles y descontar stock
         for d in detalles:
+            # Persistir notas (guarniciones, términos) en el nombre de la venta para el historial/ticket
+            nombre_final_venta = d['menu_nombre']
+            extras_label = []
+            if d.get('guarnicion_nombre'):
+                extras_label.append(f"G: {d['guarnicion_nombre']}")
+            if d.get('notas'):
+                extras_label.append(d['notas'])
+            
+            if extras_label:
+                nombre_final_venta += f" ({' | '.join(extras_label)})"
+
             db.execute(
                 "INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal, producto_nombre) VALUES (%s, %s, %s, %s, %s, %s)",
-                (venta_id, d['producto_id'], d['cantidad'], d['precio_unitario'], d['subtotal'], d['menu_nombre'])
+                (venta_id, d['producto_id'], d['cantidad'], d['precio_unitario'], d['subtotal'], nombre_final_venta)
             )
             
             if not d.get('stock_descontado', False):
@@ -2030,9 +2274,11 @@ def pago_parcial_comanda(current_user, id):
 
         for item_req in items_a_pagar:
             db.execute("""
-                SELECT cd.*, mi.producto_id, mi.stock_control, mi.nombre as menu_nombre
+                SELECT cd.*, mi.producto_id, mi.stock_control, mi.nombre as menu_nombre,
+                       g.nombre as guarnicion_nombre
                 FROM comandas_detalle cd
                 JOIN menu_items mi ON cd.menu_item_id = mi.id
+                LEFT JOIN resto_guarniciones g ON cd.guarnicion_id = g.id
                 WHERE cd.id = %s AND cd.comanda_id = %s AND cd.estado NOT IN ('anulado', 'cobrado')
             """, (item_req['id'], id))
             d = db.fetchone()
@@ -2081,18 +2327,33 @@ def pago_parcial_comanda(current_user, id):
         proximo_nro_parcial = (nro_row_p['proximo'] if nro_row_p else 1) or 1
 
         db.execute(
-            """INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, vendedor_id, numero_interno) 
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+            """INSERT INTO ventas (negocio_id, cliente_id, usuario_id, total, metodo_pago, fecha, caja_sesion_id, vendedor_id, numero_interno, comanda_id, mesa_id) 
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
             (negocio_id, cliente_id, current_user['id'], total_venta, 'Ventas Restó (Parcial)', datetime.datetime.now(), 
-             sesion_abierta['id'], comanda['mozo_id'], proximo_nro_parcial)
+             sesion_abierta['id'], comanda['mozo_id'], proximo_nro_parcial, id, comanda['mesa_id'])
         )
         venta_id = db.fetchone()['id']
 
         for df in detalles_finales:
-            # Recuperamos nombre para persistencia
-            db.execute("SELECT mi.nombre FROM comandas_detalle cd JOIN menu_items mi ON cd.menu_item_id = mi.id WHERE cd.id = %s", (df['id'],))
+            # Recuperamos nombre y notas para persistencia en venta
+            db.execute("""
+                SELECT mi.nombre, cd.notas, g.nombre as guarnicion_nombre 
+                FROM comandas_detalle cd 
+                JOIN menu_items mi ON cd.menu_item_id = mi.id 
+                LEFT JOIN resto_guarniciones g ON cd.guarnicion_id = g.id
+                WHERE cd.id = %s
+            """, (df['id'],))
             item_n = db.fetchone()
             p_nom = item_n['nombre'] if item_n else "Item s/n"
+            
+            extras_label = []
+            if item_n and item_n.get('guarnicion_nombre'):
+                extras_label.append(f"G: {item_n['guarnicion_nombre']}")
+            if item_n and item_n.get('notas'):
+                extras_label.append(item_n['notas'])
+            
+            if extras_label:
+                p_nom += f" ({' | '.join(extras_label)})"
 
             db.execute(
                 "INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal, producto_nombre) VALUES (%s, %s, %s, %s, %s, %s)",

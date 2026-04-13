@@ -42,10 +42,8 @@ async function poblarSelectores() {
         productosCache = productos;
         const selProv = document.getElementById('ingreso-proveedor-selector');
         
-        if (!selProv) {
-             console.error("Selector de proveedor no encontrado.");
-             return;
-        }
+        // Race condition: the user might have navigated away while fetching
+        if (!selProv) return;
 
         selProv.innerHTML = '<option value="">Seleccione un proveedor...</option>';
         proveedores.forEach(p => selProv.innerHTML += `<option value="${p.id}">${p.nombre}</option>`);

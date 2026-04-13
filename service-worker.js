@@ -4,8 +4,14 @@
 // ✨ 1. CONFIGURACIÓN CENTRAL DE VERSIÓN
 // ✨ ¡DEBE SER IDÉNTICA a la de tu main.js!
 // ✨ ========================================================================
-const APP_VERSION = "1.9.14";
+const APP_VERSION = "1.9.29";
 // HISTORIAL DE VERSIONES:
+// 1.9.29: Compact search bar, stat-total counter fix.
+// 1.9.28: Fix filter active persistence.
+// 1.9.27: Baboons Premium Design.
+// 1.9.26: Filtros dinámicos de Estado y Origen.
+// 1.9.25: Pilar 1 CRM Actividades (Reloj Odoo) implementado.
+// 1.9.15: Corregido error de sintaxis en estadísticas de Restó.
 // 1.9.14: Cleaned up duplicate Current Accounts cards in dashboard.
 // 1.9.13: Updated version.
 // 1.9.12: Switched back to Gemini on Cloud Run.
@@ -60,6 +66,11 @@ const urlsToCache = [
     `/static/historial_ajustes.html${v}`,
     `/static/js/modules/historial_ajustes.js${v}`,
     `/static/css/kds.css${v}`,
+
+    // --- CRM Social (Pilar 1) ---
+    `/static/crm_social/crm_social.html${v}`,
+    `/static/crm_social/js/crm_main.js${v}`,
+    `/static/crm_social/css/crm_styles.css${v}`,
 
     // --- Recursos estáticos (no cambian) ---
     '/static/img/logo.png',

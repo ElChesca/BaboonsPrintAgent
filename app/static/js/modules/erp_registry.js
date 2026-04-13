@@ -348,6 +348,13 @@ export const ERP_REGISTRY = {
         category: 'operaciones',
         color: 'rgba(79, 70, 229, 0.12)'
     },
+    'crm_meta': {
+        label: 'CRM Meta (WhatsApp/IG/FB)',
+        icon: 'static/img/icons/clientes.png',
+        path: 'static/crm_social/crm_meta.html',
+        category: 'operaciones',
+        color: 'rgba(37, 211, 102, 0.12)'
+    },
     'gastos': {
         label: 'Gestión de Gastos',
         icon: 'static/img/icons/gastos.png',

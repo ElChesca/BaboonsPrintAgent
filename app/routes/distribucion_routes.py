@@ -844,6 +844,20 @@ def get_resumen_liquidacion(current_user, id):
         resumen_cobros_rows = db.fetchall()
         resumen_cobros = [dict(r) for r in resumen_cobros_rows]
 
+        # ✨ NUEVO: Desglose Monetario Global (Suma de componentes)
+        # Esto sirve para mostrar "Total a rendir: $1000 ($800 EF, $200 MP)"
+        db.execute("""
+            SELECT 
+                SUM(COALESCE(monto_ef, 0)) as total_ef,
+                SUM(COALESCE(monto_mp, 0)) as total_mp,
+                SUM(COALESCE(monto_cta_cte, 0)) as total_ctacte,
+                SUM(COALESCE(monto_transferencia, 0)) as total_transf,
+                SUM(COALESCE(monto_tarjeta, 0)) as total_tarjeta
+            FROM ventas 
+            WHERE hoja_ruta_id = %s AND estado != 'Anulada'
+        """, (id,))
+        desglose_global = dict(db.fetchone())
+
         # Fecha del primer y último cobro de la HR
         db.execute("""
             SELECT
@@ -871,7 +885,8 @@ def get_resumen_liquidacion(current_user, id):
                 'total_original': total_original_hr,
                 'total_no_entregados': total_no_entregados,
                 'total_rebotes': total_rebotes,
-                'pedidos_pendientes': pedidos_no_entregados_detalle
+                'pedidos_pendientes': pedidos_no_entregados_detalle,
+                'desglose_global': desglose_global
             },
             'detalles_venta': [dict(d) for d in detalles_venta],
             'productos': res_productos,
@@ -1468,26 +1483,55 @@ def entregar_pedido(current_user, pedido_ids):
             db.execute("UPDATE pedidos SET estado = 'entregado', fecha_entrega = CURRENT_TIMESTAMP, usuario_entrega_id = %s WHERE id = %s", 
                        (current_user['id'], p_id))
             
-            # --- LÓGICA DE COBRO (SIMPLIFICADA AL ESQUEMA REAL) ---
+            # --- LÓGICA DE COBRO (SOPORTE MIXTO REAL) ---
             metodo_pago = data.get('metodo_pago')
             if metodo_pago:
-                # 1. Crear venta física (Se vincula a la caja vía caja_sesion_id y a la hoja de ruta)
-                db.execute("""
-                    INSERT INTO ventas (negocio_id, cliente_id, fecha, total, metodo_pago, usuario_id, caja_sesion_id, hoja_ruta_id)
-                    VALUES (%s, %s, CURRENT_TIMESTAMP, %s, %s, %s, %s, %s) RETURNING id
-                """, (negocio_id, cliente_id, total_venta_calculado, metodo_pago, current_user['id'], sesion_abierta['id'] if sesion_abierta else None, hr_id))
-                venta_id = db.fetchone()['id']
-
-                # 2. Vincular pedido con la venta (Marca como PAGADO)
-                db.execute("UPDATE pedidos SET venta_id = %s WHERE id = %s", (venta_id, p_id))
+                monto_ef = float(data.get('monto_efectivo', 0))
+                monto_mp = float(data.get('monto_mp', 0))
                 
-                # 3. Cuenta Corriente (si aplica)
-                if metodo_pago == 'Cuenta Corriente' or (metodo_pago == 'Mixto' and (total_venta_calculado - (float(data.get('monto_efectivo',0)) + float(data.get('monto_mp',0)))) > 0.01):
-                    monto_ctacte = total_venta_calculado if metodo_pago == 'Cuenta Corriente' else (total_venta_calculado - (float(data.get('monto_efectivo', 0)) + float(data.get('monto_mp', 0))))
-                    db.execute("""
-                        INSERT INTO clientes_cuenta_corriente (cliente_id, fecha, concepto, debe, venta_id)
-                        VALUES (%s, CURRENT_TIMESTAMP, %s, %s, %s)
-                    """, (cliente_id, f"Cargo pedido #{p_id}", monto_ctacte, venta_id))
+                # Lista de componentes para insertar
+                componentes = []
+                
+                if metodo_pago == 'Mixto':
+                    # Determinar si hay saldo para Cta Cte
+                    total_pagado_ef_mp = monto_ef + monto_mp
+                    monto_ctacte = total_venta_calculado - total_pagado_ef_mp
+                    
+                    if monto_ef > 0: componentes.append(('Efectivo', monto_ef))
+                    if monto_mp > 0: componentes.append(('Mercado Pago', monto_mp))
+                    if monto_ctacte > 0.01: componentes.append(('Cuenta Corriente', monto_ctacte))
+                else:
+                    # Pago simple
+                    componentes.append((metodo_pago, total_venta_calculado))
+
+                # Insertar cada componente como una venta separada
+                primera_venta_id = None
+                for i, (metodo, monto) in enumerate(componentes):
+                    # Determinar qué columna de monto llenar
+                    col_monto = 'monto_ef' if metodo == 'Efectivo' else ('monto_mp' if metodo == 'Mercado Pago' else ('monto_cta_cte' if metodo == 'Cuenta Corriente' else None))
+                    
+                    sql_insert_comp = f"""
+                        INSERT INTO ventas (negocio_id, cliente_id, fecha, total, metodo_pago, usuario_id, caja_sesion_id, hoja_ruta_id, {col_monto if col_monto else 'total'})
+                        VALUES (%s, %s, CURRENT_TIMESTAMP, %s, %s, %s, %s, %s, %s) RETURNING id
+                    """
+                    args_insert_comp = [negocio_id, cliente_id, monto, metodo, current_user['id'], sesion_abierta['id'] if sesion_abierta else None, hr_id, monto]
+                    
+                    db.execute(sql_insert_comp, args_insert_comp)
+                    
+                    v_id = db.fetchone()['id']
+                    if i == 0: primera_venta_id = v_id
+                    
+                    # Si es Cuenta Corriente, insertar en la tabla de CC
+                    if metodo == 'Cuenta Corriente':
+                        db.execute("""
+                            INSERT INTO clientes_cuenta_corriente (cliente_id, fecha, concepto, debe, venta_id)
+                            VALUES (%s, CURRENT_TIMESTAMP, %s, %s, %s)
+                        """, (cliente_id, f"Cargo pedido(s) #{','.join(map(str, ids_list))}", monto, v_id))
+
+                # Vincular pedido(s) con la venta principal (la primera)
+                if primera_venta_id:
+                    for pid_to_link in ids_list:
+                        db.execute("UPDATE pedidos SET venta_id = %s WHERE id = %s", (primera_venta_id, pid_to_link))
 
             # Marcar visita si es el último pedido o consolidado
             db.execute("UPDATE hoja_ruta_items SET visitado = TRUE, fecha_visita = CURRENT_TIMESTAMP WHERE hoja_ruta_id = %s AND cliente_id = %s",

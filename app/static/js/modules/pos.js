@@ -21,6 +21,36 @@ export async function inicializarLogicaPOS() {
     // 4. Actualizar UI Inicial
     renderCart();
     actualizarInfoUsuario();
+
+    // ─── INTEGRACIÓN CRM META ───
+    const tempLead = sessionStorage.getItem('temp_lead_venta');
+    if (tempLead) {
+        try {
+            const lead = JSON.parse(tempLead);
+            sessionStorage.removeItem('temp_lead_venta');
+            _autoVincularClientePOS(lead);
+        } catch (e) { console.error("[POS] Error lead:", e); }
+    }
+}
+
+async function _autoVincularClientePOS(lead) {
+    try {
+        const query = lead.telefono ? lead.telefono.slice(-8) : lead.nombre;
+        const res = await fetchData(`/api/negocios/${appState.negocioActivoId}/clientes?search=${encodeURIComponent(query)}&limit=1`);
+        const clientes = res.data || [];
+
+        const hId = document.getElementById('cliente-selector');
+        const dName = document.getElementById('cliente-display');
+
+        if (clientes.length > 0) {
+            if (hId) hId.value = clientes[0].id;
+            if (dName) dName.value = clientes[0].nombre;
+            mostrarNotificacion(`Venta vinculada a: ${clientes[0].nombre}`, 'success');
+        } else {
+            if (dName) dName.value = lead.nombre + ' (Socio/Lead)';
+            mostrarNotificacion('El lead no es cliente registrado. Usando nombre temporal.', 'info');
+        }
+    } catch (e) { console.error("Error vinculando cliente POS:", e); }
 }
 
 async function verificarCaja() {

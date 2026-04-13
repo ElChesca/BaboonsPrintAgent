@@ -34,6 +34,16 @@ import json
 import logging
 import traceback
 import requests
+import re
+
+def _sanitizar_numero(numero):
+    """Elimina caracteres no numéricos y normaliza el 549 de Argentina para Meta Sandbox."""
+    if not numero: return ""
+    num = re.sub(r'\D', '', str(numero))
+    # Si es Argentina (54) y tiene el prefijo de celular (9), se lo sacamos para el Sandbox
+    if num.startswith('549') and len(num) == 13:
+        num = '54' + num[3:]
+    return num
 
 from flask import Blueprint, request, jsonify, g
 from app.database import get_db
@@ -121,10 +131,11 @@ def _enviar_mensaje_meta(access_token, phone_number_id, to_number, texto, templa
         }
 
     try:
+        print(f"[CRM DEBUG] URL: {url} | Payload: {json.dumps(payload)}", flush=True)
         resp = requests.post(url, headers=headers, json=payload, timeout=15)
         data = resp.json()
         if not resp.ok:
-            logger.warning('[CRM Meta] Meta API %s: %s', resp.status_code, data)
+            logger.warning('[CRM Meta] Meta API %s: %s | PAYLOAD ENVIADO: %s', resp.status_code, data, json.dumps(payload))
         return resp.ok, data
     except requests.RequestException as exc:
         logger.error('[CRM Meta] Error llamando a Meta Graph API:\n%s', traceback.format_exc())
@@ -430,7 +441,12 @@ def enviar_mensaje_crm(current_user, negocio_id):
             except: pass
         return jsonify({'error': 'Error de base de datos: ' + str(exc)}), 500
 
-    to_number = (lead.get('wa_id') or lead.get('telefono') or '').strip()
+    # Convertir a dict para que .get() funcione tanto en SQLite (Row) como en Postgres (DictCursor)
+    lead_data = dict(lead)
+    # Prioridad: telefono (manual) > wa_id (webhook)
+    raw_to    = (lead_data.get('telefono') or lead_data.get('wa_id') or '').strip()
+    to_number = _sanitizar_numero(raw_to)
+
     if not to_number:
         return jsonify({'error': 'El lead no tiene número válido'}), 400
 
@@ -446,14 +462,20 @@ def enviar_mensaje_crm(current_user, negocio_id):
     )
 
     if not ok:
-        error_msg = 'Error al enviar via Meta API'
-        try:
-            meta_error = detalle.get('error', {})
-            if meta_error:
-                error_msg = meta_error.get('message', error_msg)
-        except: pass
         logger.warning('[CRM Meta] Meta rechazó el mensaje: %s', detalle)
-        return jsonify({'error': error_msg, 'meta_error': str(detalle)}), 400
+        return jsonify({
+            'error': detalle.get('error', {}).get('message', 'Error en Meta API'),
+            'meta_detail': detalle,
+            'payload_was': {
+                'messaging_product': 'whatsapp',
+                'to': to_number,
+                'type': 'template' if template else 'text',
+                'template': {
+                    'name': template,
+                    'language': { 'code': data.get('language', 'en_US' if template == 'hello_world' else 'es') }
+                } if template else None
+            }
+        }), 400
 
     # ── FASE 3: Guardar en DB el mensaje ───────────────────────────────────
     try:
@@ -472,7 +494,7 @@ def enviar_mensaje_crm(current_user, negocio_id):
             VALUES (%s, %s, 'agente', %s)
         """, (lead_id, msg_to_save, meta_msg_id))
 
-        db.execute("UPDATE crm_leads SET ultima_actividad = NOW(), actualizado_en = NOW() WHERE id = %s", (lead_id,))
+        db.execute("UPDATE crm_leads SET ultima_actividad = CURRENT_TIMESTAMP, actualizado_en = CURRENT_TIMESTAMP WHERE id = %s", (lead_id,))
         g.db_conn.commit()
     except Exception as exc:
         logger.error('[CRM Meta] enviar_mensaje_crm (DB write error):\n%s', traceback.format_exc())
@@ -544,4 +566,80 @@ def save_meta_config_negocio(current_user, negocio_id):
     except Exception as exc:
         g.db_conn.rollback()
         logger.error('[CRM Meta] save_meta_config_negocio:\n%s', traceback.format_exc())
+        return jsonify({'error': str(exc)}), 500
+@bp.route('/negocios/<int:negocio_id>/crm/lead-historial/<int:lead_id>', methods=['GET'])
+@token_required
+def get_lead_historial_consolidado(current_user, negocio_id, lead_id):
+    """
+    Obtiene un resumen de la actividad comercial del lead (Reservas, Ventas y Presupuestos)
+    basado en su número de teléfono.
+    """
+    db = get_db()
+    try:
+        # 1. Obtener el teléfono del lead
+        db.execute("SELECT telefono FROM crm_leads WHERE id = %s AND negocio_id = %s", (lead_id, negocio_id))
+        lead = db.fetchone()
+        if not lead or not lead['telefono']:
+            return jsonify({'reservas': [], 'ventas': [], 'presupuestos': []})
+
+        telefono = lead['telefono']
+        # Normalizar para búsqueda (útlimos 8 dígitos)
+        tel_search = f"%{telefono[-8:]}%" if len(telefono) >= 8 else f"%{telefono}%"
+
+        # 2. Buscar últimas 3 Reservas
+        db.execute("""
+            SELECT id, fecha_reserva, hora_reserva, estado, num_comensales
+            FROM   mesas_reservas
+            WHERE  negocio_id = %s AND (telefono LIKE %s OR nombre_cliente LIKE %s)
+            ORDER  BY fecha_reserva DESC, hora_reserva DESC
+            LIMIT  3
+        """, (negocio_id, tel_search, tel_search))
+        reservas = []
+        for r in db.fetchall():
+            res_dict = dict(r)
+            # JSON no soporta objetos 'time' ni 'date' directamente
+            if res_dict.get('fecha_reserva'): res_dict['fecha_reserva'] = str(res_dict['fecha_reserva'])
+            if res_dict.get('hora_reserva'): res_dict['hora_reserva'] = str(res_dict['hora_reserva'])[:5]
+            reservas.append(res_dict)
+
+        # 3. Buscar últimas 3 Ventas
+        db.execute("""
+            SELECT v.id, v.fecha, v.total, v.metodo_pago
+            FROM   ventas v
+            JOIN   clientes c ON v.cliente_id = c.id
+            WHERE  v.negocio_id = %s AND (c.telefono LIKE %s OR c.nombre LIKE %s)
+            ORDER  BY v.fecha DESC
+            LIMIT  3
+        """, (negocio_id, tel_search, tel_search))
+        ventas = [dict(v) for v in db.fetchall()]
+
+        # 4. Buscar últimos 3 Presupuestos
+        db.execute("""
+            SELECT p.id, p.fecha, p.bonificacion, p.descuento_fijo, p.interes, p.tipo_comprobante
+            FROM   presupuestos p
+            LEFT JOIN clientes c ON p.cliente_id = c.id
+            WHERE  p.negocio_id = %s AND (c.telefono LIKE %s OR c.nombre LIKE %s)
+            ORDER  BY p.fecha DESC
+            LIMIT  3
+        """, (negocio_id, tel_search, tel_search))
+        presupuestos_rows = db.fetchall()
+        presupuestos = []
+        for p in presupuestos_rows:
+            # Calcular total aproximado (el query original de presupuestos hace esto dinámicamente)
+            db.execute("SELECT SUM(subtotal) as st FROM presupuestos_detalle WHERE presupuesto_id = %s", (p['id'],))
+            st_row = db.fetchone()
+            subtotal = float(st_row['st'] or 0)
+            total = (subtotal - float(p['descuento_fijo'] or 0)) * (1 - float(p['bonificacion'] or 0)/100) * (1 + float(p['interes'] or 0)/100)
+            
+            p_dict = dict(p)
+            p_dict['total'] = total
+            presupuestos.append(p_dict)
+
+        return jsonify({
+            'reservas': reservas,
+            'ventas': ventas,
+            'presupuestos': presupuestos
+        })
+    except Exception as exc:
+        logger.error('[CRM Meta] get_lead_historial_consolidado error:\n%s', traceback.format_exc())
         return jsonify({'error': str(exc)}), 500

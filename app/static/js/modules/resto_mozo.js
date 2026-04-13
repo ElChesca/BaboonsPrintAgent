@@ -14,6 +14,7 @@ let orderDraft = []; // Items not yet sent
 let activeComanda = null; // Comanda already in DB
 let currentCategory = 'popular';
 let isOpeningMesa = false; // ✨ Bloqueo doble click
+let guarnicionesCacheMozo = []; // NUEVO: Cache para guarniciones
 
 // Salon Filters
 let currentZone = 'all';
@@ -151,7 +152,8 @@ export async function inicializarRestoMozo() {
         cargarListasPrecios(), 
         cargarMenu(),
         cargarMozos(),
-        cargarConfigReservasMozo() // Cargar config de alertas
+        cargarConfigReservasMozo(), // Cargar config de alertas
+        cargarGuarnicionesMozo() // NUEVO
     ]);
 
     // Intervalo de refresco de mesas
@@ -193,42 +195,43 @@ async function cargarNotificaciones() {
     try {
         const notifs = await fetchData(`/api/negocios/${appState.negocioActivoId}/mozo/notificaciones`);
         notifsCache = notifs || [];
+        // Toast and sound for NEW items only, and only if it belongs to this mozo
+        const currentUser = getCurrentUser();
+        const myMozoId = currentUser ? (currentUser.vendedor_id || currentUser.empleado_id) : null;
+        const isAdmin = ['admin', 'superadmin', 'cajero', 'adicionista'].includes((currentUser?.rol || '').toLowerCase());
 
-        // Toast for NEW items only
         notifs.forEach(n => {
             if (!notifiedItems.has(n.id)) {
-                mostrarNotificacion(`🔔 Mesa #${n.mesa_numero}: ¡${n.producto_nombre} LISTO!`, "success");
-                notifiedItems.add(n.id);
+                // Notificar visualmente y sonoramente SOLO si es su mesa o es admin
+                const isMine = String(n.mozo_id) === String(myMozoId);
                 
-                // 📳 Vibración (4 pulsos)
-                if ("vibrate" in navigator) {
-                    navigator.vibrate([200, 80, 200, 80, 200, 80, 200]);
-                }
+                if (isMine || (isAdmin && !myMozoId)) { 
+                    mostrarNotificacion(`🔔 Mesa #${n.mesa_numero}: ¡${n.producto_nombre} LISTO!`, "success");
+                    
+                    if ("vibrate" in navigator) {
+                        navigator.vibrate([200, 80, 200, 80, 200, 80, 200]);
+                    }
 
-                // 🔊 Ding via Web Audio API (sin archivos externos)
-                try {
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    const playDing = (startTime) => {
-                        const osc = ctx.createOscillator();
-                        const gain = ctx.createGain();
-                        osc.connect(gain);
-                        gain.connect(ctx.destination);
-                        osc.type = 'sine';
-                        osc.frequency.setValueAtTime(880, startTime);
-                        osc.frequency.exponentialRampToValueAtTime(440, startTime + 0.4);
-                        gain.gain.setValueAtTime(0.7, startTime);
-                        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
-                        osc.start(startTime);
-                        osc.stop(startTime + 0.6);
-                    };
-                    // 4 dings separados por 0.4s cada uno
-                    playDing(ctx.currentTime);
-                    playDing(ctx.currentTime + 0.7);
-                    playDing(ctx.currentTime + 1.4);
-                    playDing(ctx.currentTime + 2.1);
-                } catch(e) {
-                    console.warn("Web Audio API no disponible:", e.message);
+                    try {
+                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                        const playDing = (startTime) => {
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(880, startTime);
+                            osc.frequency.exponentialRampToValueAtTime(440, startTime + 0.4);
+                            gain.gain.setValueAtTime(0.7, startTime);
+                            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
+                            osc.start(startTime);
+                            osc.stop(startTime + 0.6);
+                        };
+                        playDing(ctx.currentTime);
+                        playDing(ctx.currentTime + 0.7);
+                    } catch(e) {}
                 }
+                notifiedItems.add(n.id);
             }
         });
 
@@ -454,6 +457,12 @@ async function cambiarListaComanda(nuevaListaId) {
     } finally {
         document.getElementById('pos-loading').style.display = 'none';
     }
+}
+
+async function cargarGuarnicionesMozo() {
+    try {
+        guarnicionesCacheMozo = await fetchData(`/api/negocios/${appState.negocioActivoId}/guarniciones`, { silent: true });
+    } catch (err) { console.warn("Error cargando guarniciones", err); }
 }
 
 function renderMesas() {
@@ -708,7 +717,10 @@ async function renderProducts(filter = '') {
 }
 
 function addToDraft(item) {
-    const existing = orderDraft.find(i => i.id === item.id);
+    // En modo Restó, preferimos NO agrupar automáticamente para que cada plato 
+    // pueda tener su propia guarnición/término de cocción. 
+    // Si el mozo quiere agrupar, puede hacerlo con el botón [+] en el pedido.
+    const existing = null; // Forzamos creación de nueva línea
     if (existing) {
         existing.cantidad++;
     } else {
@@ -716,6 +728,7 @@ function addToDraft(item) {
             id: item.id,
             nombre: item.nombre,
             precio: item.precio,
+            precio_original: item.precio, // Guardamos el base para los cálculos de extras
             cantidad: 1,
             tiempo: 1 // Default: Tiempo 1 (Entradas)
         });
@@ -800,7 +813,11 @@ function renderOrderSummary() {
             html += `
                 <div class="order-item-v2 ${isArrived ? 'pending' : 'delivered'}" style="opacity: ${isArrived ? '1' : '0.6'}">
                     <div class="oi-left">
-                        <span class="oi-name">${item.producto_nombre || item.nombre || 'Item'} ${item.notas ? `<small>(${item.notas})</small>` : ''}</span>
+                        <span class="oi-name">
+                            ${item.producto_nombre || item.nombre || 'Item'} 
+                            ${item.notas ? `<small class="text-muted italic">(${item.notas})</small>` : ''}
+                            ${item.guarnicion_nombre ? `<div class="mt-1"><span class="badge bg-secondary-subtle text-secondary border-secondary" style="font-size:0.6rem; letter-spacing:0.5px">G: ${item.guarnicion_nombre}</span></div>` : ''}
+                        </span>
                         <span class="oi-price">${formatearMoneda(item.precio_unitario)} x${Math.round(item.cantidad)}</span>
                         <div class="oi-status mt-1">
                             ${item.estado === 'cocinando' ?
@@ -879,6 +896,26 @@ function renderOrderSummary() {
                         `).join('')}
                     </div>
 
+                    ${guarnicionesCacheMozo.length > 0 ? `
+                        <div class="nota-cat-title px-1 d-flex align-items-center mb-1">
+                            <i class="fas fa-utensils me-1 text-muted" style="font-size:0.6rem"></i>
+                            <span class="small fw-700 text-muted">Acompañamiento</span>
+                        </div>
+                        <div class="oi-guarniciones-wrapper mb-2 custom-scroll d-flex gap-1 overflow-auto pb-1">
+                            <div class="nota-chip ${!item.guarnicion_id ? 'active' : ''}" onclick="window.updateDraftGuarnicion(${index}, null)">
+                                Sin Guarn.
+                            </div>
+                            ${guarnicionesCacheMozo.map(g => {
+                                const extra = parseFloat(g.precio_extra) || 0;
+                                return `
+                                    <div class="nota-chip ${item.guarnicion_id == g.id ? 'active' : ''}" onclick="window.updateDraftGuarnicion(${index}, ${g.id})">
+                                        ${g.nombre} ${extra > 0 ? `<span class="ms-1 text-success fw-800" style="font-size:0.6rem;">+$${extra}</span>` : ''}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    ` : ''}
+
                     ${item.notas_manuales ? `
                         <div class="oi-manual-note-display px-1">
                             <span class="badge rounded-pill bg-light text-muted border" style="font-size:0.65rem; font-weight:600; padding:4px 10px;">
@@ -909,6 +946,46 @@ window.updateDraftQty = (index, delta) => {
 window.updateDraftTiempo = (index, tiempo) => {
     if (orderDraft[index]) {
         orderDraft[index].tiempo = tiempo;
+        renderOrderSummary();
+    }
+}
+
+window.updateDraftGuarnicion = (index, guarId) => {
+    if (orderDraft[index]) {
+        const item = orderDraft[index];
+        const oldGuarId = item.guarnicion_id;
+        
+        // Si ya tenía una guarnición con precio, descontarla del precio del item (o manejarlo aparte)
+        // Pero en este sistema el precio del item draft es el precio base.
+        // Si la guarnición tiene precio extra, se suma.
+        
+        let extraAnterior = 0;
+        if (oldGuarId) {
+            const oldG = guarnicionesCacheMozo.find(x => x.id == oldGuarId);
+            if (oldG) extraAnterior = parseFloat(oldG.precio_extra) || 0;
+        }
+
+        let extraNuevo = 0;
+        if (guarId) {
+            const newG = guarnicionesCacheMozo.find(x => x.id == guarId);
+            if (newG) {
+                extraNuevo = parseFloat(newG.precio_extra) || 0;
+                item.guarnicion_nombre = newG.nombre;
+            }
+        } else {
+            item.guarnicion_nombre = null;
+        }
+
+        item.guarnicion_id = guarId;
+        // Ajustar el precio del item draft sumando el delta del extra
+        // Nota: Esto asume que item.precio es el TOTAL (Base + Extra)
+        // Pero mejor si guardamos el 'precio_original'
+        if (item.precio_original === undefined) item.precio_original = parseFloat(item.precio) || 0;
+        
+        // El precio final es el base + el extra de la guarnición seleccionada
+        const precioBase = parseFloat(item.precio_original) || 0;
+        item.precio = precioBase + extraNuevo;
+        
         renderOrderSummary();
     }
 }
@@ -1119,17 +1196,21 @@ async function enviarComanda() {
     }
 
     const btnFinalize = document.getElementById('btn-finalize-order');
-    if (btnFinalize) btnFinalize.disabled = true;
+    const originalText = btnFinalize ? btnFinalize.innerHTML : '';
+    if (btnFinalize) {
+        btnFinalize.disabled = true;
+        btnFinalize.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Enviando...';
+    }
 
     document.getElementById('pos-loading').style.display = 'flex';
     try {
         const payload = {
             detalles: orderDraft.map(i => {
-                const combinedNotes = [i.notas, i.notas_manuales].filter(n => n).join(' | ');
+                const combinedNotes = [i.notas, i.notas_manuales, i.guarnicion_nombre ? `G: ${i.guarnicion_nombre}` : null].filter(n => n).join(' | ');
                 return {
                     menu_item_id: i.id,
                     cantidad: i.cantidad,
-                    precio_unitario: i.precio,
+                    precio_unitario: i.precio, // Ya incluye el precio extra si se seleccionó en updateDraftGuarnicion
                     nombre: i.nombre,
                     tiempo: i.tiempo || 1,
                     notas: combinedNotes
@@ -1155,7 +1236,10 @@ async function enviarComanda() {
         mostrarNotificacion("Error al enviar comanda", "error");
     } finally {
         document.getElementById('pos-loading').style.display = 'none';
-        if (btnFinalize) btnFinalize.disabled = false;
+        if (btnFinalize) {
+            btnFinalize.disabled = false;
+            btnFinalize.innerHTML = originalText;
+        }
     }
 }
 

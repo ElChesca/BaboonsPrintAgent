@@ -22,8 +22,19 @@ def buscar_productos_compat(current_user):
     db = get_db()
     db.execute(
         """
-        SELECT id, nombre, alias, precio_venta, stock, sku, imagen_url, ubicacion
-        FROM productos
+        SELECT 
+            id, nombre, alias, precio_venta, stock as stock_fisico, sku, imagen_url, ubicacion,
+            COALESCE((
+                SELECT SUM(pd_inner.cantidad)
+                FROM pedidos p_inner
+                JOIN pedidos_detalle pd_inner ON p_inner.id = pd_inner.pedido_id
+                LEFT JOIN hoja_ruta hr ON p_inner.hoja_ruta_id = hr.id
+                WHERE pd_inner.producto_id = p.id
+                  AND p_inner.estado IN ('pendiente', 'preparado')
+                  AND (hr.id IS NULL OR hr.carga_confirmada IS FALSE)
+                  AND p_inner.negocio_id = %s
+            ), 0) as comprometido
+        FROM productos p
         WHERE negocio_id = %s AND activo = TRUE AND (
             nombre ILIKE %s OR
             sku ILIKE %s OR
@@ -31,10 +42,18 @@ def buscar_productos_compat(current_user):
         )
         LIMIT 20
         """,
-        (negocio_id, f"%{query_term}%", f"%{query_term}%", query_term)
+        (negocio_id, negocio_id, f"%{query_term}%", f"%{query_term}%", query_term)
     )
     productos = db.fetchall()
-    return jsonify([dict(p) for p in productos])
+    
+    result = []
+    for p in productos:
+        p_dict = dict(p)
+        # Calcular stock disponible
+        p_dict['stock'] = float(p_dict['stock_fisico']) - float(p_dict['comprometido'] or 0)
+        result.append(p_dict)
+
+    return jsonify(result)
 
 @bp.route('/negocios/<int:negocio_id>/productos', methods=['GET'])
 @token_required
@@ -324,16 +343,34 @@ def buscar_productos_con_precio(current_user, negocio_id):
     Esta es la ruta que usará tu pantalla de ventas (POS).
     """
     query_term = request.args.get('query', '')
-    cliente_id = request.args.get('cliente_id', None) # Recibimos el cliente desde el frontend
-    lista_id_override = request.args.get('lista_de_precio_id', None)
+    cliente_id = request.args.get('cliente_id')
+    lista_id_override = request.args.get('lista_de_precio_id')
+    exclude_pedido_id = request.args.get('exclude_pedido_id')
+    
+    # Sanitización: Convertir string vacío a None para evitar errores de tipo en SQL (Postgres)
+    if not cliente_id: cliente_id = None
+    if not lista_id_override: lista_id_override = None
+    if not exclude_pedido_id: exclude_pedido_id = None
     
     db = get_db()
 
     # Buscamos productos que coincidan con el término de búsqueda
     db.execute(
         """
-        SELECT id, nombre, alias, precio_venta, stock, sku, imagen_url, ubicacion
-        FROM productos
+        SELECT 
+            id, nombre, alias, precio_venta, stock, sku, imagen_url, ubicacion,
+            COALESCE((
+                SELECT SUM(pd_inner.cantidad)
+                FROM pedidos p_inner
+                JOIN pedidos_detalle pd_inner ON p_inner.id = pd_inner.pedido_id
+                LEFT JOIN hoja_ruta hr ON p_inner.hoja_ruta_id = hr.id
+                WHERE pd_inner.producto_id = p.id
+                  AND p_inner.estado IN ('pendiente', 'preparado')
+                  AND (hr.id IS NULL OR hr.carga_confirmada IS FALSE)
+                  AND p_inner.negocio_id = %s
+                  AND (%s IS NULL OR p_inner.id != %s)
+            ), 0) as comprometido
+        FROM productos p
         WHERE negocio_id = %s AND activo = TRUE AND (
             nombre ILIKE %s OR
             sku ILIKE %s OR
@@ -341,12 +378,17 @@ def buscar_productos_con_precio(current_user, negocio_id):
         )
         LIMIT 10
         """,
-        (negocio_id, f"%{query_term}%", f"%{query_term}%", query_term)
+        (negocio_id, exclude_pedido_id, exclude_pedido_id, negocio_id, f"%{query_term}%", f"%{query_term}%", query_term)
     )
     productos = db.fetchall()
 
     resultados_con_precio_final = []
     for producto in productos:
+        # Calcular stock disponible (Físico - Comprometido)
+        stock_fisico = float(producto['stock'])
+        comprometido = float(producto['comprometido'] or 0)
+        stock_disponible = stock_fisico - comprometido
+
         precio_base = float(producto['precio_venta'])
         precio_final = get_precio_producto(
             db_cursor=db,
@@ -360,6 +402,16 @@ def buscar_productos_con_precio(current_user, negocio_id):
         # Devolvemos ambos precios
         producto_dict['precio_original'] = precio_base
         producto_dict['precio_final'] = precio_final
+        
+        # Enviar información detallada de stock
+        producto_dict['stock_fisico'] = stock_fisico
+        producto_dict['stock_disponible'] = stock_disponible
+        producto_dict['stock_comprometido'] = comprometido
+        
+        # ✨ IMPORTANTE: Para compatibilidad con el frontend actual sin cambiar seller.js, 
+        # pisamos el campo 'stock' con el stock disponible real.
+        producto_dict['stock'] = stock_disponible
+
         # Renombramos precio_venta para evitar confusión
         producto_dict.pop('precio_venta', None)
 

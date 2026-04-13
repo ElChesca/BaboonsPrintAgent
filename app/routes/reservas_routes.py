@@ -125,12 +125,10 @@ def _migrate_reservas():
 def _upsert_crm_lead(negocio_id, nombre, email, telefono, fecha_reserva, hora_reserva, num_comensales, fecha_nacimiento=None):
     """
     Crea o actualiza un Lead en el CRM a partir de una reserva.
-    - Si ya existe un lead con ese email en ese negocio → actualiza y registra actividad.
-    - Si no existe → crea un lead nuevo con origen='reserva'.
-    Esta función es tolerante a fallos: si algo sale mal, no interrumpe el flujo principal.
+    - Se identifica al lead por EMAIL (prioridad) o por TELÉFONO.
     """
-    if not email:
-        return  # Sin email no podemos identificar al contacto de forma única
+    if not email and not telefono:
+        return  # Sin datos de contacto no podemos guardarlo
     try:
         db = get_db()
         actividad_desc = (
@@ -138,12 +136,25 @@ def _upsert_crm_lead(negocio_id, nombre, email, telefono, fecha_reserva, hora_re
             f"({num_comensales} pers.)"
         )
 
-        # Buscar lead existente por email + negocio_id
-        db.execute(
-            "SELECT id FROM crm_leads WHERE email = %s AND negocio_id = %s AND fecha_baja IS NULL",
-            (email.strip().lower(), negocio_id)
-        )
-        existente = db.fetchone()
+        # Normalizar email para evitar conflictos con strings vacíos
+        email = email.strip().lower() if (email and email.strip()) else None
+        
+        # Buscar lead existente: prioridad email, luego teléfono
+        existente = None
+        if email:
+            db.execute(
+                "SELECT id FROM crm_leads WHERE email = %s AND negocio_id = %s AND fecha_baja IS NULL",
+                (email, negocio_id)
+            )
+            existente = db.fetchone()
+        
+        if not existente and telefono and telefono.strip():
+            telefono = telefono.strip()
+            db.execute(
+                "SELECT id FROM crm_leads WHERE telefono = %s AND negocio_id = %s AND fecha_baja IS NULL",
+                (telefono, negocio_id)
+            )
+            existente = db.fetchone()
 
         if existente:
             lead_id = existente['id']
@@ -168,7 +179,7 @@ def _upsert_crm_lead(negocio_id, nombre, email, telefono, fecha_reserva, hora_re
                 VALUES (%s, %s, %s, %s, 'nuevo', 'reserva', %s, NOW())
                 RETURNING id
                 """,
-                (negocio_id, nombre_limpio, email.strip().lower(), telefono, fecha_nacimiento)
+                (negocio_id, nombre_limpio, email, telefono, fecha_nacimiento)
             )
             lead_id = db.fetchone()['id']
 
@@ -579,6 +590,7 @@ def get_bitacora_reserva(current_user, negocio_id, reserva_id):
         d['fecha'] = d['fecha'].isoformat()
         logs.append(d)
     return jsonify(logs)
+@bp.route('/negocios/<int:negocio_id>/reservas/pendientes-count', methods=['GET'])
 @token_required
 def admin_pendientes_count(current_user, negocio_id):
     db = get_db()

@@ -75,4 +75,23 @@ Al confirmar la bajada/entrega de un pedido (o conjunto de ellos) en el Modo Rep
 4.  **Vehículo Asignado**: La Hoja de Ruta queda vinculada al `vehiculo_id`, lo cual es indispensable para que los pedidos aparezcan en el "Modo Repartidor" del chofer asignado.
 
 ---
+## 📦 GESTIÓN DE STOCK RESERVADO (COMPROMETIDO)
+
+Para evitar la sobreventa de productos (unidades que figuran en sistema pero están reservadas para otros pedidos aún no despachados), se aplica la lógica de **Stock disponible real**.
+
+1.  **Definiciones de Stock**:
+    *   **Stock Físico (`productos.stock`)**: Cantidad total real en el depósito central.
+    *   **Stock Comprometido**: Suma de las cantidades de todos los pedidos en estado `pendiente` o `preparado` cuya Hoja de Ruta tiene `carga_confirmada = FALSE` (o no tienen HR aún).
+    *   **Stock Disponible**: `Stock Físico - Stock Comprometido`.
+
+2.  **Visualización en Ventas/Preventa**:
+    *   Tanto en la **App de Vendedores** como en el **POS**, el sistema debe mostrar el **Stock Disponible**.
+    *   La API de búsqueda (`/api/negocios/<id>/productos/buscar`) devuelve `stock_disponible` y el campo `stock` (pisado con el disponible para compatibilidad).
+    *   **Exclusión de Edición**: Al editar un pedido existente, la consulta debe incluir el parámetro `exclude_pedido_id` para NO restar del "Disponible" las unidades que ese mismo pedido ya tiene reservadas.
+
+3.  **Impacto en Carga de Camión**:
+    *   Al ejecutar `asignar_carga_vehiculo` (Confirmar Carga), el stock pasa de ser **Comprometido** a ser **Stock de Vehículo**. 
+    *   En este punto, se resta físicamente de `productos.stock`, por lo que el "Stock Disponible" para nuevas preventas no cambia (antes se restaba como comprometido, ahora se resta como físico).
+
+---
 **NOTA PARA LA IA**: Este flujo fue estabilizado tras errores de esquema e inconsistencias de estado (HR #143). NO CAMBIAR nombres de columnas ni lógicas de inserción sin verificar este documento primero.

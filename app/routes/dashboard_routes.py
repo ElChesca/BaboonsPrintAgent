@@ -373,3 +373,95 @@ def get_dashboard_distribucion(current_user, negocio_id):
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+@bp.route('/negocios/<int:negocio_id>/dashboard/profitability', methods=['GET'])
+@token_required
+def get_dashboard_profitability(current_user, negocio_id):
+    db = get_db()
+    desde = request.args.get('desde', (date.today() - timedelta(days=30)).isoformat())
+    hasta = request.args.get('hasta', date.today().isoformat())
+    hasta_siguiente = (datetime.strptime(hasta, '%Y-%m-%d').date() + timedelta(days=1)).isoformat()
+
+    try:
+        # 1. Ventas Totales en el periodo
+        db.execute("""
+            SELECT COALESCE(SUM(total), 0) as total_ventas, COUNT(*) as cantidad_ventas
+            FROM ventas
+            WHERE negocio_id = %s AND estado = 'finalizada' AND fecha >= %s AND fecha < %s
+        """, (negocio_id, desde, hasta_siguiente))
+        res_ventas = db.fetchone()
+
+        # 2. Costo Directo (Productos de reventa que no son Restó o no tienen receta)
+        db.execute("""
+            SELECT SUM(p.precio_costo * vd.cantidad) as costo_total
+            FROM ventas_detalle vd
+            JOIN ventas v ON vd.venta_id = v.id
+            JOIN productos p ON vd.producto_id = p.id
+            WHERE v.negocio_id = %s AND v.estado = 'finalizada' 
+              AND v.fecha >= %s AND v.fecha < %s
+              AND (v.metodo_pago NOT LIKE 'Ventas Restó%%')
+        """, (negocio_id, desde, hasta_siguiente))
+        costo_directo = db.fetchone()['costo_total'] or 0
+
+        # 3. Costo por Recetas (Restó / BOM) con Fallback para ítems sin receta definida
+        # Primero calculamos el costo basado en recetas definidas
+        db.execute("""
+            SELECT SUM(r.cantidad * i.precio_costo * vd.cantidad) as costo_total
+            FROM ventas_detalle vd
+            JOIN ventas v ON vd.venta_id = v.id
+            JOIN menu_items mi ON vd.producto_id = mi.producto_id
+            JOIN menu_recetas r ON mi.id = r.menu_item_id
+            JOIN productos i ON r.insumo_id = i.id
+            WHERE v.negocio_id = %s AND v.estado = 'finalizada' 
+              AND v.fecha >= %s AND v.fecha < %s
+        """, (negocio_id, desde, hasta_siguiente))
+        costo_recetas = db.fetchone()['costo_total'] or 0
+
+        # Segundo: Para ítems de Restó que NO tienen receta, usamos su costo directo (si lo tienen)
+        db.execute("""
+            SELECT SUM(p.precio_costo * vd.cantidad) as costo_total
+            FROM ventas_detalle vd
+            JOIN ventas v ON vd.venta_id = v.id
+            JOIN productos p ON vd.producto_id = p.id
+            WHERE v.negocio_id = %s AND v.estado = 'finalizada' 
+              AND v.fecha >= %s AND v.fecha < %s
+              AND v.metodo_pago LIKE 'Ventas Restó%%'
+              AND NOT EXISTS (
+                SELECT 1 FROM menu_items mi 
+                JOIN menu_recetas r ON mi.id = r.menu_item_id 
+                WHERE mi.producto_id = p.id
+              )
+        """, (negocio_id, desde, hasta_siguiente))
+        costo_resto_directo = db.fetchone()['costo_total'] or 0
+
+        costo_recetas += costo_resto_directo
+
+        # 4. Ingresos de Mercadería (Compras)
+        db.execute("""
+            SELECT COALESCE(SUM(total_factura), 0) as total_compras
+            FROM ingresos_mercaderia
+            WHERE negocio_id = %s AND fecha >= %s AND fecha < %s
+        """, (negocio_id, desde, hasta_siguiente))
+        total_compras = db.fetchone()['total_compras'] or 0
+
+        total_ventas = float(res_ventas['total_ventas'] or 0)
+        costo_total_estimado = float(costo_directo + costo_recetas)
+        margen = total_ventas - costo_total_estimado
+        porcentaje_margen = (margen / total_ventas * 100) if total_ventas > 0 else 0
+
+        return jsonify({
+            'ventas_totales': total_ventas,
+            'costo_total_estimado': costo_total_estimado,
+            'margen_bruto': margen,
+            'porcentaje_margen': round(porcentaje_margen, 2),
+            'total_compras': float(total_compras),
+            'costo_desglosado': {
+                'directo': float(costo_directo),
+                'recetas': float(costo_recetas)
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500

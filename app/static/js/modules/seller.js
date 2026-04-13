@@ -599,7 +599,7 @@ window.abrirModalPedidoSeller = async (clienteId, nombre, itemId, pedidoId = nul
         }
 
         const user = getCurrentUser();
-        const results = await fetchData(`/api/negocios/${user.negocio_id}/productos/buscar?query=${q}&cliente_id=${clienteId}`);
+        const results = await fetchData(`/api/negocios/${user.negocio_id}/productos/buscar?query=${q}&cliente_id=${clienteId}&exclude_pedido_id=${editingOrderId || ''}`);
         renderSearchResults(results);
     }, 400);
 };
@@ -616,14 +616,29 @@ function renderSearchResults(products) {
 
     products.forEach(p => {
         const item = document.createElement('button');
-        item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3';
-        item.onclick = () => addToCart(p);
+        const sinStock = p.stock_disponible <= 0;
+        
+        item.className = `list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 ${sinStock ? 'opacity-50' : ''}`;
+        
+        if (sinStock) {
+            item.disabled = true;
+            item.style.cursor = 'not-allowed';
+        } else {
+            item.onclick = () => addToCart(p);
+        }
+        
+        const stockClass = sinStock ? 'text-danger fw-bold' : 'text-muted';
+        const reservadoHtml = p.stock_comprometido > 0 ? `<span class="badge bg-warning text-dark ms-1" style="font-size: 0.6rem;">${p.stock_comprometido} reserv.</span>` : '';
+
         item.innerHTML = `
-            <div>
+            <div style="flex: 1; min-width: 0;">
                 <div class="fw-bold text-dark text-wrap" style="line-height:1.2">${formatProductName(p)}</div>
-                <small class="text-muted">Stock: ${p.stock}</small>
+                <div class="d-flex align-items-center mt-1">
+                    <small class="${stockClass}">${sinStock ? 'SIN STOCK' : 'Disp: ' + p.stock_disponible}</small>
+                    ${reservadoHtml}
+                </div>
             </div>
-            <div class="fw-bold text-primary">$${p.precio_final.toLocaleString()}</div>
+            <div class="fw-bold text-primary ms-2">$${p.precio_final.toLocaleString()}</div>
         `;
         container.appendChild(item);
     });
@@ -714,8 +729,14 @@ async function confirmarPedido() {
         }))
     };
 
+    const btn = document.getElementById('btn-confirmar-pedido');
+    const originalContent = btn.innerHTML;
+
     try {
-        Swal.fire({ title: 'Enviando...', didOpen: () => Swal.showLoading() });
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> ENVIANDO...';
+        
+        Swal.fire({ title: 'Enviando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
         let res;
         if (editingOrderId) {
@@ -771,6 +792,9 @@ async function confirmarPedido() {
                 confirmButtonColor: '#d33'
             });
         }
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
     }
 }
 
