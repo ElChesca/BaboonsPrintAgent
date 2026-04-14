@@ -1,11 +1,12 @@
 # baboons_print_router.py
-# Agente Local de Impresión - Versión 2.1 (Soporte Mejorado RED + USB)
+# Agente Local de Impresión - Versión 2.2 (Soporte Mejorado RED + USB + Resiliencia)
 import requests
 import time
 import json
 import logging
 import datetime
 import os
+import sys
 import socket
 import io
 from PIL import Image
@@ -22,15 +23,23 @@ try:
 except:
     Win32Raw = None
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACIÓN DE RUTAS ABSOLUTAS (Para el .exe fantasma) ---
+if getattr(sys, 'frozen', False):
+    # Si está corriendo como un .exe compilado por PyInstaller
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    # Si está corriendo como un script .py normal
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 API_URL = "https://multinegocio.baboons.com.ar/api"
-CONFIG_FILE = 'agent_config.json'
+CONFIG_FILE = os.path.join(BASE_DIR, 'agent_config.json')
+LOG_FILE = os.path.join(BASE_DIR, 'agent_log.txt')
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
-        logging.FileHandler("agent_log.txt", encoding='utf-8'),
+        logging.FileHandler(LOG_FILE, encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -174,22 +183,27 @@ def run_agent():
         return
 
     API_URL = server_url if server_url.endswith('/api') else f"{server_url}/api"
-    logger.info(f"🚀 Baboons Print Agent 2.1 INICIADO")
+    logger.info(f"🚀 Baboons Print Agent 2.2 INICIADO (Modo Silencioso Listo)")
     logger.info(f"📍 Negocio ID: {negocio_id}")
     logger.info(f"🌍 API: {API_URL}")
+    logger.info(f"📁 Directorio Base: {BASE_DIR}")
 
     while True:
+        # 1. Bloque EXCLUSIVO para el Heartbeat
         try:
-            # Heartbeat (indica que el agente está vivo)
             requests.post(f"{API_URL}/negocios/{negocio_id}/agente/heartbeat", 
                          headers={"Authorization": f"Bearer {token}"}, timeout=3)
+        except Exception as e:
+            logger.debug(f"Latido fallido (Ignorado para no frenar la cola): {e}")
             
+        # 2. Bloque EXCLUSIVO para procesar la cola
+        try:
             procesar_cola(negocio_id, token)
         except KeyboardInterrupt:
             logger.info("🛑 Agente detenido por el usuario.")
             break
         except Exception as e:
-            logger.debug(f"Ciclo silencioso: {e}")
+            logger.error(f"Error crítico en el ciclo de impresión: {e}")
             
         time.sleep(3)
 
