@@ -27,14 +27,15 @@ jobs:
 
     - name: Build with PyInstaller
       run: |
-        pyinstaller --onefile --noconsole --name "Agente_Impresion_Baboons" baboons_print_router.py
+        $ESC_PATH = python -c "import escpos, os; print(os.path.dirname(escpos.__file__))"
+        pyinstaller --onefile --noconsole --name "Agente_Impresion_Baboons" --add-data "$($ESC_PATH)\capabilities.json;escpos" baboons_print_router.py
 
     - name: Create or Update Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: latest-agent
         name: "Latest Agent Build"
-        body: "Versión automatizada del agente de impresión (v2.2+). Actualizado el ${{ github.event.head_commit.timestamp }}"
+        body: "Versión automatizada v2.2 (Fix: capabilities.json incluido). Actualizado el ${{ github.event.head_commit.timestamp }}"
         files: dist/Agente_Impresion_Baboons.exe
         draft: false
         prerelease: false
