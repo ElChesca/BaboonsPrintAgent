@@ -1,4 +1,4 @@
-# Agente Local de Impresión - Versión 2.4 (Debug Pack + Single Instance Lock)
+# Agente Local de Impresión - Versión 2.5 (Self-Hiding Console + Single Instance)
 import requests
 import time
 import json
@@ -10,6 +10,16 @@ import socket
 import io
 import tempfile
 from PIL import Image
+
+# --- BLOQUEO DE INSTANCIA ÚNICA ---
+# --- OCULTAR CONSOLA (WINDOWS) ---
+if os.name == 'nt':
+    try:
+        import ctypes
+        # SW_HIDE = 0
+        ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+    except:
+        pass
 
 # --- BLOQUEO DE INSTANCIA ÚNICA ---
 def lock_instance():
