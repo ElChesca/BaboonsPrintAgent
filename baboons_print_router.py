@@ -195,7 +195,7 @@ def run_agent():
             
             # 1. Heartbeat
             requests.post(f"{API_URL}/negocios/{negocio_id}/agente/heartbeat", 
-                         headers={"X-API-Key": api_key}, timeout=3)
+                         headers={"X-API-Key": api_key}, timeout=10)
             
             # 2. Procesar cola
             procesar_cola(negocio_id, api_key)
