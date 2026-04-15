@@ -1,5 +1,5 @@
 # baboons_print_router.py
-# Agente Local de Impresión - Versión 2.2 (Soporte Mejorado RED + USB + M2M)
+# Agente Local de Impresión - Versión 2.3 (Debug Pack + API Key Support)
 import requests
 import time
 import json
@@ -25,12 +25,13 @@ except:
 
 # --- CONFIGURACIÓN DE RUTAS ABSOLUTAS ---
 if getattr(sys, 'frozen', False):
+    # Si está corriendo como un .exe compilado
     BASE_DIR = os.path.dirname(sys.executable)
 else:
+    # Si está corriendo como un script .py
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# URL por defecto si el JSON falla (Sin /api)
-API_URL = "https://multinegocio.baboons.com.ar"
+API_URL = "https://multinegocio.baboons.com.ar/api"
 CONFIG_FILE = os.path.join(BASE_DIR, 'agent_config.json')
 
 logging.basicConfig(
@@ -61,19 +62,20 @@ def format_receipt(p, data):
         lines = content.split('\n')
         for line in lines:
             line = line.strip('\r')
-            if line.startswith('[S2]'):
+            # Interpretar etiquetas de comando
+            if line.startswith('[S2]'): # Grande centrado
                 p.set(align='center', width=2, height=2, bold=True)
                 p.text(line[4:] + '\n')
-            elif line.startswith('[S1]'):
+            elif line.startswith('[S1]'): # Negrita centrado
                 p.set(align='center', width=1, height=1, bold=True)
                 p.text(line[4:] + '\n')
-            elif line.startswith('[QR]'):
+            elif line.startswith('[QR]'): # Código QR
                 qr_data = line[4:].strip()
                 logger.info(f"📲 Imprimiendo QR: {qr_data[:30]}...")
                 p.set(align='center')
                 p.qr(qr_data, size=8, model=2)
                 p.text('\n')
-            elif line.startswith('[LOGOCENTER]'):
+            elif line.startswith('[LOGOCENTER]'): # Logo desde URL
                 try:
                     url = line[12:].strip()
                     logger.info(f"🖼️ Descargando logo: {url}")
@@ -86,10 +88,10 @@ def format_receipt(p, data):
                     p.text('\n')
                 except Exception as e_img:
                     logger.error(f"❌ Error cargando logo: {e_img}")
-            elif line.startswith('[C]'):
+            elif line.startswith('[C]'): # Centrado normal
                 p.set(align='center', width=1, height=1, bold=False)
                 p.text(line[3:] + '\n')
-            else:
+            else: # Texto normal
                 p.set(align='left', width=1, height=1, bold=False)
                 p.text(line + '\n')
         
@@ -101,53 +103,82 @@ def format_receipt(p, data):
 def procesar_cola(negocio_id, api_key):
     headers = { "X-API-Key": api_key }
     try:
-        # Nota: Usamos impresion-cola (con guion) para coincidir con rutas estándar
-        url_pendientes = f"{API_URL}/negocios/{negocio_id}/impresion-cola/pendientes"
+        # 1. Armamos la URL (Ojo con el guion en impresion-cola)
+        # Probá cambiar 'impresioncola' por 'impresion-cola' si sigue dando error
+        url_pendientes = f"{API_URL}/negocios/{negocio_id}/impresioncola/pendientes"
         response = requests.get(url_pendientes, headers=headers, timeout=10)
         
+        # 2. Si no es 200, imprimimos el código y salimos sin romper nada
         if response.status_code != 200:
+            if response.status_code == 404:
+                logger.error(f"❌ Error 404: La ruta de la cola no existe en {url_pendientes}")
+            elif response.status_code == 401:
+                logger.error("❌ API Key inválida en la cola.")
+            else:
+                logger.error(f"⚠️ Servidor respondió con código {response.status_code}")
             return
             
-        jobs = response.json()
-        if not jobs or not isinstance(jobs, list): return
+        # 3. Intentamos parsear el JSON con cuidado
+        content_type = response.headers.get('Content-Type', '')
+        if 'application/json' not in content_type.lower():
+            logger.error(f"❌ Respuesta NO es JSON (Recibido: {content_type}).")
+            logger.error(f"📑 Contenido inicial: {response.text[:200]}...")
+            return
+
+        try:
+            jobs = response.json()
+        except Exception as e_json:
+            logger.error(f"❌ Error parseando JSON: {e_json}")
+            logger.error(f"📑 Cuerpo de respuesta: {response.text[:200]}...")
+            return
+
+        if not jobs or not isinstance(jobs, list): 
+            return
         
         logger.info(f"📂 {len(jobs)} trabajos pendientes encontrados.")
         
         for job in jobs:
             try:
                 payload = job.get('payload', {})
-                if isinstance(payload, str): payload = json.loads(payload)
+                if isinstance(payload, str): 
+                    payload = json.loads(payload)
                     
                 target_ip = payload.get('ip_destino')
                 usb_name = payload.get('impresora_usb')
                 destino = target_ip if is_valid_ip(target_ip) else usb_name
                 
                 if not destino:
-                    requests.post(f"{API_URL}/negocios/{negocio_id}/impresion-cola/{job['id']}/listo", headers=headers, timeout=5)
+                    logger.warning(f"⚠️ Trabajo {job['id']} sin destino.")
+                    requests.post(f"{API_URL}/negocios/{negocio_id}/impresioncola/{job['id']}/listo", headers=headers, timeout=5)
                     continue
                 
                 printer = None
                 try:
                     if is_valid_ip(destino):
-                        logger.info(f"📡 Conectando a RED: {destino}")
+                        logger.info(f"📡 RED: {destino}")
                         printer = Network(destino, timeout=5)
                     elif Win32Raw:
-                        logger.info(f"🔌 Conectando a USB: {destino}")
+                        logger.info(f"🔌 USB: {destino}")
                         printer = Win32Raw(destino)
-                    
+                    else:
+                        continue
+
                     if printer:
+                        logger.info(f"🖨️ Imprimiendo {job['id']}...")
                         format_receipt(printer, payload)
                         printer.close()
-                        requests.post(f"{API_URL}/negocios/{negocio_id}/impresion-cola/{job['id']}/listo", headers=headers, timeout=5)
-                        logger.info(f"✅ Trabajo {job['id']} OK.")
+                        
+                        # Confirmar éxito
+                        requests.post(f"{API_URL}/negocios/{negocio_id}/impresioncola/{job['id']}/listo", headers=headers, timeout=5)
+                        logger.info(f"✅ Éxito {job['id']}")
                         time.sleep(1)
                     
                 except Exception as e_print:
-                    logger.error(f"❌ ERROR FÍSICO: {e_print}")
+                    logger.error(f"❌ ERROR FÍSICO en {destino}: {e_print}")
             except Exception as e_job:
-                logger.error(f"❌ Error Job: {e_job}")
+                logger.error(f"❌ Error procesando job {job.get('id')}: {e_job}")
     except Exception as e:
-        logger.error(f"🌐 Error Comunicación: {e}")
+        logger.error(f"🌐 Error de comunicación: {e}")
 
 def run_agent():
     global API_URL
@@ -161,34 +192,39 @@ def run_agent():
                 api_key = cfg.get('api_key') or cfg.get('token')
                 server_url = cfg.get('url', API_URL)
         except Exception as e:
-            logger.error(f"Error config: {e}")
+            logger.error(f"Error leyendo config: {e}")
     
     if not negocio_id or not api_key:
-        logger.error("❌ CONFIGURACIÓN INCOMPLETA.")
+        logger.error("❌ CONFIGURACIÓN INCOMPLETA. Revisa 'agent_config.json'.")
+        print("\nFormato esperado en agent_config.json:\n" + 
+              json.dumps({"negocio_id": 13, "api_key": "LA_CLAVE_QUE_Pusiste_EN_FLY_IO", "url": "https://multinegocio.baboons.com.ar"}, indent=2))
         return
 
-    # IMPORTANTE: Ya no forzamos /api. Usamos lo que diga el JSON exactamente.
-    API_URL = server_url.rstrip('/')
-    
-    logger.info(f"🚀 Baboons Agent 2.2 INICIADO")
-    logger.info(f"📍 Negocio: {negocio_id} | 🌍 API: {API_URL}")
+    API_URL = server_url if server_url.endswith('/api') else f"{server_url}/api"
+    logger.info(f"🚀 Baboons Print Agent 2.2 INICIADO (M2M Mode & Modo Silencioso)")
+    logger.info(f"📍 Negocio ID: {negocio_id}")
+    logger.info(f"🌍 API: {API_URL}")
+    logger.info(f"📁 Directorio Base: {BASE_DIR}")
 
     while True:
+        # 1. Bloque EXCLUSIVO para el Heartbeat
         try:
-            ahora = datetime.datetime.now().strftime("%H:%M:%S")
-            print(f"[{ahora}] 💓 Enviando latido...", end="\r")
-            
-            # Heartbeat
             requests.post(f"{API_URL}/negocios/{negocio_id}/agente/heartbeat", 
-                         headers={"X-API-Key": api_key}, timeout=10)
-            
-            # Cola
-            procesar_cola(negocio_id, api_key)
-            
+                         headers={"X-API-Key": api_key}, timeout=3)
         except Exception as e:
-            print(f"\n❌ Error en bucle: {e}")
+            logger.debug(f"Latido fallido (Ignorado): {e}")
+            
+        # 2. Bloque EXCLUSIVO para procesar la cola
+        try:
+            procesar_cola(negocio_id, api_key)
+        except KeyboardInterrupt:
+            logger.info("🛑 Agente detenido por el usuario.")
+            break
+        except Exception as e:
+            logger.error(f"Error crítico en cola: {e}")
             
         time.sleep(3)
 
 if __name__ == "__main__":
     run_agent()
+
