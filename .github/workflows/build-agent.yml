@@ -25,10 +25,10 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
 
-    - name: Build with PyInstaller
+    - name: Build with PyInstaller     
       run: |
         $ESC_PATH = python -c "import escpos, os; print(os.path.dirname(escpos.__file__))"
-        pyinstaller --onefile --noconsole --name "Agente_Impresion_Baboons" --add-data "$($ESC_PATH)\capabilities.json;escpos" baboons_print_router.py
+        pyinstaller --onefile --name "Agente_Impresion_Baboons" --add-data "$($ESC_PATH)\capabilities.json;escpos" baboons_print_router.py
 
     - name: Create or Update Release
       uses: softprops/action-gh-release@v2
