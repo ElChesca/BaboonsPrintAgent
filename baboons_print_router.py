@@ -188,21 +188,20 @@ def run_agent():
     logger.info(f"📁 Directorio Base: {BASE_DIR}")
 
     while True:
-        # 1. Bloque EXCLUSIVO para el Heartbeat
         try:
+            # Imprimimos en la consola para saber que está vivo
+            ahora = datetime.datetime.now().strftime("%H:%M:%S")
+            print(f"[{ahora}] 💓 Enviando latido...", end="\r")
+            
+            # 1. Heartbeat
             requests.post(f"{API_URL}/negocios/{negocio_id}/agente/heartbeat", 
                          headers={"X-API-Key": api_key}, timeout=3)
-        except Exception as e:
-            logger.debug(f"Latido fallido (Ignorado): {e}")
             
-        # 2. Bloque EXCLUSIVO para procesar la cola
-        try:
+            # 2. Procesar cola
             procesar_cola(negocio_id, api_key)
-        except KeyboardInterrupt:
-            logger.info("🛑 Agente detenido por el usuario.")
-            break
+            
         except Exception as e:
-            logger.error(f"Error crítico en cola: {e}")
+            print(f"\n❌ Error: {e}")
             
         time.sleep(3)
 
