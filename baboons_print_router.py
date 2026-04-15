@@ -1,5 +1,5 @@
 # baboons_print_router.py
-# Agente Local de Impresión - Versión 2.2 (Soporte Mejorado RED + USB + Resiliencia)
+# Agente Local de Impresión - Versión 2.2 (Soporte Mejorado RED + USB + M2M)
 import requests
 import time
 import json
@@ -23,23 +23,22 @@ try:
 except:
     Win32Raw = None
 
-# --- CONFIGURACIÓN DE RUTAS ABSOLUTAS (Para el .exe fantasma) ---
+# --- CONFIGURACIÓN DE RUTAS ABSOLUTAS ---
 if getattr(sys, 'frozen', False):
-    # Si está corriendo como un .exe compilado por PyInstaller
+    # Si está corriendo como un .exe compilado
     BASE_DIR = os.path.dirname(sys.executable)
 else:
-    # Si está corriendo como un script .py normal
+    # Si está corriendo como un script .py
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 API_URL = "https://multinegocio.baboons.com.ar/api"
 CONFIG_FILE = os.path.join(BASE_DIR, 'agent_config.json')
-LOG_FILE = os.path.join(BASE_DIR, 'agent_log.txt')
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
-        logging.FileHandler(LOG_FILE, encoding='utf-8'),
+        logging.FileHandler(os.path.join(BASE_DIR, "agent_log.txt"), encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -101,14 +100,14 @@ def format_receipt(p, data):
     except Exception as e:
         logger.error(f"💥 Error en formateo: {e}")
 
-def procesar_cola(negocio_id, token):
-    headers = { "Authorization": f"Bearer {token}" }
+def procesar_cola(negocio_id, api_key):
+    headers = { "X-API-Key": api_key }
     try:
         url_pendientes = f"{API_URL}/negocios/{negocio_id}/impresioncola/pendientes"
         response = requests.get(url_pendientes, headers=headers, timeout=10)
         
         if response.status_code != 200:
-            if response.status_code == 401: logger.error("Token inválido o expirado.")
+            if response.status_code == 401: logger.error("API Key inválida o expirada.")
             return
             
         jobs = response.json()
@@ -130,7 +129,7 @@ def procesar_cola(negocio_id, token):
                 if not destino:
                     logger.warning(f"⚠️ Trabajo {job['id']} sin destino válido. Payload: {payload.keys()}")
                     # Marcar como listo para que no trabe la cola si no tiene destino
-                    requests.post(f"{API_URL}/impresioncola/{job['id']}/listo", headers=headers, timeout=5)
+                    requests.post(f"{API_URL}/negocios/{negocio_id}/impresioncola/{job['id']}/listo", headers=headers, timeout=5)
                     continue
                 
                 printer = None
@@ -151,7 +150,7 @@ def procesar_cola(negocio_id, token):
                         printer.close()
                         
                         # Confirmar éxito
-                        requests.post(f"{API_URL}/impresioncola/{job['id']}/listo", headers=headers, timeout=5)
+                        requests.post(f"{API_URL}/negocios/{negocio_id}/impresioncola/{job['id']}/listo", headers=headers, timeout=5)
                         logger.info(f"✅ Trabajo {job['id']} completado exitosamente.")
                         time.sleep(1) # Pequeña pausa entre trabajos
                     
@@ -164,26 +163,26 @@ def procesar_cola(negocio_id, token):
 
 def run_agent():
     global API_URL
-    negocio_id, token, server_url = None, None, API_URL
+    negocio_id, api_key, server_url = None, None, API_URL
     
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, 'r') as f:
                 cfg = json.load(f)
                 negocio_id = cfg.get('negocio_id')
-                token = cfg.get('token')
+                api_key = cfg.get('api_key') or cfg.get('token')
                 server_url = cfg.get('url', API_URL)
         except Exception as e:
             logger.error(f"Error leyendo config: {e}")
     
-    if not negocio_id or not token:
+    if not negocio_id or not api_key:
         logger.error("❌ CONFIGURACIÓN INCOMPLETA. Revisa 'agent_config.json'.")
         print("\nFormato esperado en agent_config.json:\n" + 
-              json.dumps({"negocio_id": 13, "token": "TU_TOKEN", "url": "https://multinegocio.baboons.com.ar"}, indent=2))
+              json.dumps({"negocio_id": 13, "api_key": "LA_CLAVE_QUE_Pusiste_EN_FLY_IO", "url": "https://multinegocio.baboons.com.ar"}, indent=2))
         return
 
     API_URL = server_url if server_url.endswith('/api') else f"{server_url}/api"
-    logger.info(f"🚀 Baboons Print Agent 2.2 INICIADO (Modo Silencioso Listo)")
+    logger.info(f"🚀 Baboons Print Agent 2.2 INICIADO (M2M Mode & Modo Silencioso)")
     logger.info(f"📍 Negocio ID: {negocio_id}")
     logger.info(f"🌍 API: {API_URL}")
     logger.info(f"📁 Directorio Base: {BASE_DIR}")
@@ -192,18 +191,18 @@ def run_agent():
         # 1. Bloque EXCLUSIVO para el Heartbeat
         try:
             requests.post(f"{API_URL}/negocios/{negocio_id}/agente/heartbeat", 
-                         headers={"Authorization": f"Bearer {token}"}, timeout=3)
+                         headers={"X-API-Key": api_key}, timeout=3)
         except Exception as e:
-            logger.debug(f"Latido fallido (Ignorado para no frenar la cola): {e}")
+            logger.debug(f"Latido fallido (Ignorado): {e}")
             
         # 2. Bloque EXCLUSIVO para procesar la cola
         try:
-            procesar_cola(negocio_id, token)
+            procesar_cola(negocio_id, api_key)
         except KeyboardInterrupt:
             logger.info("🛑 Agente detenido por el usuario.")
             break
         except Exception as e:
-            logger.error(f"Error crítico en el ciclo de impresión: {e}")
+            logger.error(f"Error crítico en cola: {e}")
             
         time.sleep(3)
 
