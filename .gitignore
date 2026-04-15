@@ -1,0 +1,14 @@
+# Configuración privada
+agent_config.json
+agent_log.txt
+
+# Carpetas de compilación local
+build/
+dist/
+*.spec
+
+# Entornos virtuales y caché
+__pycache__/
+venv/
+.venv/
+.env
