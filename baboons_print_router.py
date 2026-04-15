@@ -1,5 +1,4 @@
-# baboons_print_router.py
-# Agente Local de Impresión - Versión 2.3 (Debug Pack + API Key Support)
+# Agente Local de Impresión - Versión 2.4 (Debug Pack + Single Instance Lock)
 import requests
 import time
 import json
@@ -9,7 +8,24 @@ import os
 import sys
 import socket
 import io
+import tempfile
 from PIL import Image
+
+# --- BLOQUEO DE INSTANCIA ÚNICA ---
+def lock_instance():
+    """Evita que dos instancias del agente corran al mismo tiempo."""
+    try:
+        # Usamos un socket en un puerto específico para el bloqueo
+        # Esto es más limpio que un archivo temporal porque el SO lo libera al cerrar el proceso
+        instance_lock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        instance_lock.bind(("127.0.0.1", 45999)) # Puerto arbitrario para Baboons Agent
+        return instance_lock
+    except socket.error:
+        print("❌ ERROR: El Agente ya está en ejecución (Instancia Duplicada Detectada).")
+        sys.exit(0)
+
+# Mantener la referencia viva mientras corra el programa
+_lock_socket = lock_instance()
 
 # Intentar importar drivers de escpos
 try:
