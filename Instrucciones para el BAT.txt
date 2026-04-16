@@ -1,0 +1,29 @@
+1. Preparación
+Copiá la carpeta del agente a C:\Baboons (o la ruta que prefieras).
+
+Asegurate de que adentro estén el agente_impresion.exe y el archivo instalar_agente.bat.
+
+2. Ejecución (La magia)
+Hacé clic derecho sobre el archivo instalar_agente.bat.
+
+Elegí "Ejecutar como administrador".
+
+Si Windows te tira un cartel azul de "Protegió su PC", dale a "Más información" y luego a "Ejecutar de todas formas".
+
+3. Verificación final
+Esperá a que la ventanita negra diga: ¡Servicio instalado y corriendo!.
+
+Presioná cualquier tecla para cerrar.
+
+¡Listo! Ya podés tirar una impresión de prueba desde el sistema.
+
+🛠️ Comandos de Emergencia (Solo si algo falla)
+Si alguna vez necesitás tocar algo, abrí una terminal como administrador y tirá estos:
+
+¿Está vivo?: nssm status AgenteImpresion
+
+Frenarlo: nssm stop AgenteImpresion
+
+Revivirlo: nssm start AgenteImpresion
+
+Borrarlo para reinstalar: nssm remove AgenteImpresion confirm

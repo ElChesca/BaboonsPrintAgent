@@ -88,8 +88,19 @@ def format_receipt(p, data):
         lines = content.split('\n')
         for line in lines:
             line = line.strip('\r')
+            if not line:
+                p.text('\n')
+                continue
+
+            # Detectar NEGRITA por tag [B] en cualquier parte de la línea
+            force_bold = '[B]' in line
+            line = line.replace('[B]', '')
+
             # Interpretar etiquetas de comando
-            if line.startswith('[S2]'): # Grande centrado
+            if line.startswith('[S3]'): # Extra Grande (Ideal para ítems en cocina)
+                p.set(align='left', width=3, height=3, bold=True)
+                p.text(line[4:] + '\n')
+            elif line.startswith('[S2]'): # Grande centrado (Ideal para Mesa)
                 p.set(align='center', width=2, height=2, bold=True)
                 p.text(line[4:] + '\n')
             elif line.startswith('[S1]'): # Negrita centrado
@@ -115,10 +126,10 @@ def format_receipt(p, data):
                 except Exception as e_img:
                     logger.error(f"❌ Error cargando logo: {e_img}")
             elif line.startswith('[C]'): # Centrado normal
-                p.set(align='center', width=1, height=1, bold=False)
+                p.set(align='center', width=1, height=1, bold=force_bold)
                 p.text(line[3:] + '\n')
             else: # Texto normal
-                p.set(align='left', width=1, height=1, bold=False)
+                p.set(align='left', width=1, height=1, bold=force_bold)
                 p.text(line + '\n')
         
         p.text('\n\n')
@@ -227,29 +238,36 @@ def run_agent():
         return
 
     API_URL = server_url if server_url.endswith('/api') else f"{server_url}/api"
-    logger.info(f"🚀 Baboons Print Agent 2.2 INICIADO (M2M Mode & Modo Silencioso)")
-    logger.info(f"📍 Negocio ID: {negocio_id}")
-    logger.info(f"🌍 API: {API_URL}")
-    logger.info(f"📁 Directorio Base: {BASE_DIR}")
+    logger.info(f"🚀 Baboons Print Agent INICIADO")
+    logger.info(f"📍 Negocio ID: {negocio_id} | 🌍 API: {API_URL}")
 
+    retry_delay = 3
     while True:
-        # 1. Bloque EXCLUSIVO para el Heartbeat
         try:
-            requests.post(f"{API_URL}/negocios/{negocio_id}/agente/heartbeat", 
-                         headers={"X-API-Key": api_key}, timeout=3)
-        except Exception as e:
-            logger.debug(f"Latido fallido (Ignorado): {e}")
-            
-        # 2. Bloque EXCLUSIVO para procesar la cola
-        try:
+            # 1. Heartbeat
+            try:
+                hb = requests.post(f"{API_URL}/negocios/{negocio_id}/agente/heartbeat", 
+                                 headers={"X-API-Key": api_key}, timeout=5)
+                if hb.status_code == 200:
+                    retry_delay = 3 # Reset delay on success
+                else:
+                    logger.warning(f"⚠️ Heartbeat respondió con status {hb.status_code}")
+            except Exception as e:
+                logger.debug(f"💔 Error de red en Heartbeat (Posible Deploy): {e}")
+                
+            # 2. Procesar Cola
             procesar_cola(negocio_id, api_key)
+            
+            time.sleep(retry_delay)
+            
         except KeyboardInterrupt:
             logger.info("🛑 Agente detenido por el usuario.")
             break
         except Exception as e:
-            logger.error(f"Error crítico en cola: {e}")
-            
-        time.sleep(3)
+            logger.error(f"🔥 Error crítico en loop principal: {e}")
+            logger.info(f"⏳ Reintentando en {retry_delay*2}s...")
+            time.sleep(retry_delay * 2)
+            # No salimos del loop, seguimos intentando
 
 if __name__ == "__main__":
     run_agent()
