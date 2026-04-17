@@ -87,7 +87,7 @@ def format_receipt(p, data):
 
         lines = content.split('\n')
         for line in lines:
-            line = line.strip('\r')
+            line = line.strip() # Limpiamos espacios y \r\n al inicio/final
             if not line:
                 p.text('\n')
                 continue
@@ -97,7 +97,16 @@ def format_receipt(p, data):
             line = line.replace('[B]', '')
 
             # Interpretar etiquetas de comando
-            if line.startswith('[S3]'): # Extra Grande (Ideal para ítems en cocina)
+            if line.startswith('[S6]'): # MEGA GIGANTE
+                p.set(align='left', width=6, height=6, bold=True)
+                p.text(line[4:] + '\n')
+            elif line.startswith('[S5]'): # SUPER GIGANTE
+                p.set(align='left', width=5, height=5, bold=True)
+                p.text(line[4:] + '\n')
+            elif line.startswith('[S4]'): # GIGANTE (Para máxima visibilidad)
+                p.set(align='left', width=4, height=4, bold=True)
+                p.text(line[4:] + '\n')
+            elif line.startswith('[S3]'): # Extra Grande (Ideal para ítems en cocina)
                 p.set(align='left', width=3, height=3, bold=True)
                 p.text(line[4:] + '\n')
             elif line.startswith('[S2]'): # Grande centrado (Ideal para Mesa)
