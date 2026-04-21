@@ -4,12 +4,18 @@ import time
 import json
 import logging
 import datetime
+from logging.handlers import RotatingFileHandler
 import os
 import sys
 import socket
 import io
 import tempfile
+import hashlib
 from PIL import Image
+
+# --- CACHÉ DE IMÁGENES LOCAL ---
+CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo_cache')
+os.makedirs(CACHE_DIR, exist_ok=True)
 
 # --- BLOQUEO DE INSTANCIA ÚNICA ---
 # --- OCULTAR CONSOLA (WINDOWS) ---
@@ -64,7 +70,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
-        logging.FileHandler(os.path.join(BASE_DIR, "agent_log.txt"), encoding='utf-8'),
+        RotatingFileHandler(os.path.join(BASE_DIR, "agent_log.txt"), maxBytes=5*1024*1024, backupCount=3, encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -124,16 +130,32 @@ def format_receipt(p, data):
             elif line.startswith('[LOGOCENTER]'): # Logo desde URL
                 try:
                     url = line[12:].strip()
-                    logger.info(f"🖼️ Descargando logo: {url}")
-                    resp = requests.get(url, timeout=10)
-                    img = Image.open(io.BytesIO(resp.content))
+                    
+                    # Generar un nombre único para este logo basado en la URL
+                    url_hash = hashlib.md5(url.encode()).hexdigest()
+                    ext = url.split('.')[-1]
+                    if len(ext) > 4 or not ext.isalnum(): ext = "png"
+                    cached_path = os.path.join(CACHE_DIR, f"{url_hash}.{ext}")
+
+                    # Si NO está en el caché, lo descargamos
+                    if not os.path.exists(cached_path):
+                        logger.info(f"⬇️ Descargando logo al caché: {url}")
+                        resp = requests.get(url, timeout=10)
+                        if resp.status_code == 200:
+                            with open(cached_path, 'wb') as f:
+                                f.write(resp.content)
+                        else:
+                            raise Exception(f"HTTP {resp.status_code}")
+                    
+                    # Cargamos la imagen desde el disco rígido (Instantáneo)
+                    img = Image.open(cached_path)
                     if img.width > 350:
                         h = int((350 / img.width) * img.height)
                         img = img.resize((350, h))
                     p.image(img, center=True)
                     p.text('\n')
                 except Exception as e_img:
-                    logger.error(f"❌ Error cargando logo: {e_img}")
+                    logger.error(f"❌ Error procesando logo: {e_img}")
             elif line.startswith('[C]'): # Centrado normal
                 p.set(align='center', width=1, height=1, bold=force_bold)
                 p.text(line[3:] + '\n')
