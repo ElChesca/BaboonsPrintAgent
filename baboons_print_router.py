@@ -243,6 +243,10 @@ def procesar_cola(negocio_id, api_key):
                     
                 except Exception as e_print:
                     logger.error(f"❌ ERROR FÍSICO en {destino}: {e_print}")
+                    try:
+                        requests.post(f"{API_URL}/negocios/{negocio_id}/impresioncola/{job['id']}/error", headers=headers, timeout=5)
+                    except:
+                        pass
             except Exception as e_job:
                 logger.error(f"❌ Error procesando job {job.get('id')}: {e_job}")
     except Exception as e:
