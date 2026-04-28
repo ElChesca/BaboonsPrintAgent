@@ -115,6 +115,12 @@ def format_receipt(p, data):
                 p._raw(b'\x1b\x21\x18')
                 p.text(line[4:] + '\n')
                 p._raw(b'\x1b\x21\x00')
+
+            elif line.startswith('[S2.5]'): 
+                # INTERMEDIO: \x1b\x21\x28 = Doble Ancho + Negrita (Ideal ítems de cocina)
+                p._raw(b'\x1b\x21\x28')
+                p.text(line[6:] + '\n') # Es [6:] porque "[S2.5]" tiene 6 caracteres
+                p._raw(b'\x1b\x21\x00')
                 
             elif line.startswith('[S2]'): 
                 # GIGANTE CENTRADO (Ideal Número de Mesa)
