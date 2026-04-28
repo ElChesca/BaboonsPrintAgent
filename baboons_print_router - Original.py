@@ -17,6 +17,7 @@ from PIL import Image
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo_cache')
 os.makedirs(CACHE_DIR, exist_ok=True)
 
+# --- BLOQUEO DE INSTANCIA ÚNICA ---
 # --- OCULTAR CONSOLA (WINDOWS) ---
 if os.name == 'nt':
     try:
@@ -101,47 +102,31 @@ def format_receipt(p, data):
             force_bold = '[B]' in line
             line = line.replace('[B]', '')
 
-            # --- NUEVA LÓGICA DE TAMAÑOS CRUDA (HEXADECIMAL ESC/POS) ---
-            
-            if line.startswith('[S6]') or line.startswith('[S5]') or line.startswith('[S4]'):
-                # GIGANTE: \x1b\x21\x38 = Doble Alto + Doble Ancho + Negrita
-                p._raw(b'\x1b\x21\x38')
+            # Interpretar etiquetas de comando
+            if line.startswith('[S6]'): # MEGA GIGANTE
+                p.set(align='left', width=6, height=6, bold=True)
                 p.text(line[4:] + '\n')
-                # Reset a tamaño normal
-                p._raw(b'\x1b\x21\x00')
-                
-            elif line.startswith('[S3]'): 
-                # GRANDE: \x1b\x21\x18 = Doble Alto + Negrita (Ideal Notas/Tiempos)
-                p._raw(b'\x1b\x21\x18')
+            elif line.startswith('[S5]'): # SUPER GIGANTE
+                p.set(align='left', width=5, height=5, bold=True)
                 p.text(line[4:] + '\n')
-                p._raw(b'\x1b\x21\x00')
-                
-            elif line.startswith('[S2]'): 
-                # GIGANTE CENTRADO (Ideal Número de Mesa)
-                p.set(align='center')
-                p._raw(b'\x1b\x21\x38')
+            elif line.startswith('[S4]'): # GIGANTE (Para máxima visibilidad)
+                p.set(align='left', width=4, height=4, bold=True)
                 p.text(line[4:] + '\n')
-                p._raw(b'\x1b\x21\x00')
-                p.set(align='left')
-                
-            elif line.startswith('[S1]'): 
-                # NORMAL NEGRITA CENTRADO
-                p.set(align='center')
-                p._raw(b'\x1b\x21\x08') # Solo Negrita
+            elif line.startswith('[S3]'): # Extra Grande (Ideal para ítems en cocina)
+                p.set(align='left', width=3, height=3, bold=True)
                 p.text(line[4:] + '\n')
-                p._raw(b'\x1b\x21\x00')
-                p.set(align='left')
-                
-            # --- FIN DE LÓGICA DE TAMAÑOS ---
-            
+            elif line.startswith('[S2]'): # Grande centrado (Ideal para Mesa)
+                p.set(align='center', width=2, height=2, bold=True)
+                p.text(line[4:] + '\n')
+            elif line.startswith('[S1]'): # Negrita centrado
+                p.set(align='center', width=1, height=1, bold=True)
+                p.text(line[4:] + '\n')
             elif line.startswith('[QR]'): # Código QR
                 qr_data = line[4:].strip()
                 logger.info(f"📲 Imprimiendo QR: {qr_data[:30]}...")
                 p.set(align='center')
                 p.qr(qr_data, size=8, model=2)
                 p.text('\n')
-                p.set(align='left')
-                
             elif line.startswith('[LOGOCENTER]'): # Logo desde URL
                 try:
                     url = line[12:].strip()
@@ -171,12 +156,9 @@ def format_receipt(p, data):
                     p.text('\n')
                 except Exception as e_img:
                     logger.error(f"❌ Error procesando logo: {e_img}")
-                    
             elif line.startswith('[C]'): # Centrado normal
                 p.set(align='center', width=1, height=1, bold=force_bold)
                 p.text(line[3:] + '\n')
-                p.set(align='left') # Reset a la izquierda por las dudas
-                
             else: # Texto normal
                 p.set(align='left', width=1, height=1, bold=force_bold)
                 p.text(line + '\n')
@@ -189,7 +171,8 @@ def format_receipt(p, data):
 def procesar_cola(negocio_id, api_key):
     headers = { "X-API-Key": api_key }
     try:
-        # 1. Armamos la URL
+        # 1. Armamos la URL (Ojo con el guion en impresion-cola)
+        # Probá cambiar 'impresioncola' por 'impresion-cola' si sigue dando error
         url_pendientes = f"{API_URL}/negocios/{negocio_id}/impresioncola/pendientes"
         response = requests.get(url_pendientes, headers=headers, timeout=10)
         
@@ -323,3 +306,4 @@ def run_agent():
 
 if __name__ == "__main__":
     run_agent()
+
