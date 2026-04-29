@@ -116,8 +116,9 @@ def format_receipt(p, data):
                 p._raw(b'\x1b\x21\x00')
 
             elif line.startswith('[S2.5]'): 
-                # ÍTEMS: \x1b\x21\x08 = Negrita Normal (No se aplasta y es legible)
-                p._raw(b'\x1b\x21\x08')
+                # 🚀 PLATOS ALTOS: Doble Alto + Negrita
+                # Código Hexa: \x1b\x21\x18 (Este es el que se ve bien en la DPOS)
+                p._raw(b'\x1b\x21\x18')
                 p.text(line[6:] + '\n') 
                 p._raw(b'\x1b\x21\x00')
                 
