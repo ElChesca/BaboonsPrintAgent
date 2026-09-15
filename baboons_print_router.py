@@ -272,7 +272,7 @@ def procesar_cola(negocio_id, api_key):
 def procesar_cola_fiscal(negocio_id, controlador_id, api_key):
     headers = { "X-API-Key": api_key, "Content-Type": "application/json" }
     try:
-        url_pendientes = f"{API_URL}/negocios/{negocio_id}/fiscal-cola/pendientes?caja_id={caja_id}"
+        url_pendientes = f"{API_URL}/negocios/{negocio_id}/fiscal-cola/pendientes?caja_id={controlador_id}"
         response = requests.get(url_pendientes, headers=headers, timeout=10)
         
         if response.status_code != 200:
