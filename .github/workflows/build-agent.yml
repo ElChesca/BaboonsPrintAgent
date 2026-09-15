@@ -1,4 +1,4 @@
-name: Build and Release Agent
+﻿name: Build and Release Agent
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
     - name: Build with PyInstaller     
       run: |
         $ESC_PATH = python -c "import escpos, os; print(os.path.dirname(escpos.__file__))"
-        pyinstaller --onefile --name "Agente_Impresion_Baboons" --add-data "$($ESC_PATH)\capabilities.json;escpos" baboons_print_router.py
+        pyinstaller --onefile --name "Agente_Impresion_Baboons" --hidden-import fiscal_epson --hidden-import pyserial --add-data "$($ESC_PATH)\capabilities.json;escpos" baboons_print_router.py
 
     - name: Create or Update Release
       uses: softprops/action-gh-release@v2
