@@ -106,9 +106,9 @@ class FiscalEpson:
         Devuelve el nro de comprobante asignado por el equipo.
         """
         tipo = (job.get('tipo_comprobante') or 'B').upper()
-        if tipo == 'P':
-            return "TEST OK: " + str(self.info())
         payload = job.get('payload') or {}
+        if payload.get('is_ping'):
+            return "TEST OK: " + str(self.info())
         items = payload.get('items') or []
         if not items:
             raise FiscalError("El comprobante no tiene ítems")
