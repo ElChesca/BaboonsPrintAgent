@@ -269,7 +269,7 @@ def procesar_cola(negocio_id, api_key):
     except Exception as e:
         logger.error(f"Ã°Å¸Å’Â Error de comunicaciÃƒÂ³n en cola tÃƒÂ©rmica: {e}")
 
-def procesar_cola_fiscal(negocio_id, controlador_id, api_key):
+def procesar_cola_fiscal(negocio_id, controlador_id, api_key, dispositivo_fiscal="COM1"):
     headers = { "X-API-Key": api_key, "Content-Type": "application/json" }
     try:
         url_pendientes = f"{API_URL}/negocios/{negocio_id}/fiscal-cola/pendientes?caja_id={controlador_id}"
@@ -288,7 +288,7 @@ def procesar_cola_fiscal(negocio_id, controlador_id, api_key):
         for job in jobs:
             jid = job['id']
             try:
-                cfg_job = {'conexion': 'usb', 'dispositivo': 'USB'}
+                cfg_job = {'conexion': 'usb', 'dispositivo': dispositivo_fiscal}
                 
                 logger.info(f"Ã°Å¸â€“Â¨Ã¯Â¸Â [FISCAL] Emitiendo comprobante {jid}...")
                 nro = emitir_job(cfg_job, job)
@@ -309,7 +309,7 @@ def procesar_cola_fiscal(negocio_id, controlador_id, api_key):
 
 def run_agent():
     global API_URL
-    negocio_id, api_key, server_url, caja_id, controlador_id = None, None, API_URL, None, None
+    negocio_id, api_key, server_url, caja_id, controlador_id, dispositivo_fiscal = None, None, API_URL, None, None, "COM1"
     
     if os.path.exists(CONFIG_FILE):
         try:
@@ -318,6 +318,7 @@ def run_agent():
                 negocio_id = cfg.get('negocio_id')
                 caja_id = cfg.get('caja_id')
                 controlador_id = cfg.get('controlador_id', caja_id)
+                dispositivo_fiscal = cfg.get('dispositivo_fiscal', 'COM1')
                 api_key = cfg.get('api_key') or cfg.get('token')
                 server_url = cfg.get('url', API_URL)
         except Exception as e:
@@ -345,7 +346,7 @@ def run_agent():
                 
             # 2. Procesar Colas
             procesar_cola(negocio_id, api_key) # TÃƒÂ©rmica
-            procesar_cola_fiscal(negocio_id, controlador_id, api_key) # Fiscal
+            procesar_cola_fiscal(negocio_id, controlador_id, api_key, dispositivo_fiscal) # Fiscal
             
             time.sleep(retry_delay)
             
