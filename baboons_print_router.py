@@ -1,4 +1,4 @@
-# Agente Local de Impresión - Versión 2.5 (Self-Hiding Console + Single Instance)
+﻿# Agente Local de Impresión - Versión 2.5 (Self-Hiding Console + Single Instance)
 # CON LOGICA ORIGINAL INTACTA - SOLO AJUSTE DE HEXA
 import requests
 import time
@@ -13,6 +13,13 @@ import io
 import tempfile
 import hashlib
 from PIL import Image
+
+# Importaciones Fiscales Epson
+try:
+    from fiscal_epson import emitir_job, FiscalError
+except ImportError:
+    print("No se encontraron los módulos fiscales (fiscal_epson/fiscal_frame).")
+    sys.exit(1)
 
 # --- CACHÉ DE IMÁGENES LOCAL ---
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo_cache')
@@ -258,31 +265,72 @@ def procesar_cola(negocio_id, api_key):
                     except:
                         pass
             except Exception as e_job:
-                logger.error(f"❌ Error procesando job {job.get('id')}: {e_job}")
+                logger.error(f"❌ Error procesando job térmico {job.get('id')}: {e_job}")
     except Exception as e:
-        logger.error(f"🌐 Error de comunicación: {e}")
+        logger.error(f"🌐 Error de comunicación en cola térmica: {e}")
+
+def procesar_cola_fiscal(negocio_id, caja_id, api_key):
+    headers = { "X-API-Key": api_key, "Content-Type": "application/json" }
+    try:
+        url_pendientes = f"{API_URL}/negocios/{negocio_id}/fiscal-cola/pendientes?caja_id={caja_id}"
+        response = requests.get(url_pendientes, headers=headers, timeout=10)
+        
+        if response.status_code != 200:
+            if response.status_code not in (404, 401):
+                logger.error(f"⚠️ Servidor respondió {response.status_code} en cola FISCAL")
+            return
+            
+        jobs = response.json()
+        if not jobs or not isinstance(jobs, list): return
+        
+        logger.info(f"🧾 {len(jobs)} trabajos FISCALES pendientes.")
+        
+        for job in jobs:
+            jid = job['id']
+            try:
+                cfg_job = {'conexion': 'usb', 'dispositivo': 'USB'}
+                
+                logger.info(f"🖨️ [FISCAL] Emitiendo comprobante {jid}...")
+                nro = emitir_job(cfg_job, job)
+                
+                requests.post(f"{API_URL}/negocios/{negocio_id}/fiscal-cola/{jid}/listo", 
+                              headers=headers, json={'nro_comprobante': nro}, timeout=5)
+                logger.info(f"✅ [FISCAL] Éxito {jid} -> {nro}")
+                time.sleep(1)
+            except Exception as e_print:
+                logger.error(f"❌ [FISCAL] ERROR en {jid}: {e_print}")
+                try:
+                    requests.post(f"{API_URL}/negocios/{negocio_id}/fiscal-cola/{jid}/error", 
+                                  headers=headers, json={'error': str(e_print)}, timeout=5)
+                except:
+                    pass
+    except Exception as e:
+        logger.error(f"🌐 Error de comunicación en cola FISCAL: {e}")
 
 def run_agent():
     global API_URL
-    negocio_id, api_key, server_url = None, None, API_URL
+    negocio_id, api_key, server_url, caja_id = None, None, API_URL, None
     
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, 'r') as f:
                 cfg = json.load(f)
                 negocio_id = cfg.get('negocio_id')
+                caja_id = cfg.get('caja_id')
                 api_key = cfg.get('api_key') or cfg.get('token')
                 server_url = cfg.get('url', API_URL)
         except Exception as e:
             logger.error(f"Error leyendo config: {e}")
     
-    if not negocio_id or not api_key:
+    if not negocio_id or not api_key or not caja_id:
         logger.error("❌ CONFIGURACIÓN INCOMPLETA. Revisa 'agent_config.json'.")
+        print("\nFormato esperado en agent_config.json:\n" + 
+              json.dumps({"negocio_id": 13, "caja_id": 13, "api_key": "LA_CLAVE", "url": "https://..."}, indent=2))
         return
 
     API_URL = server_url if server_url.endswith('/api') else f"{server_url}/api"
-    logger.info(f"🚀 Baboons Print Agent INICIADO")
-    logger.info(f"📍 Negocio ID: {negocio_id} | 🌍 API: {API_URL}")
+    logger.info(f"🚀 Baboons SÚPER Agent INICIADO")
+    logger.info(f"📍 Negocio ID: {negocio_id} | 📦 Caja: {caja_id} | 🌍 API: {API_URL}")
 
     retry_delay = 3
     while True:
@@ -294,8 +342,10 @@ def run_agent():
             except Exception as e:
                 logger.debug(f"💔 Error de red en Heartbeat: {e}")
                 
-            # 2. Procesar Cola
-            procesar_cola(negocio_id, api_key)
+            # 2. Procesar Colas
+            procesar_cola(negocio_id, api_key) # Térmica
+            procesar_cola_fiscal(negocio_id, caja_id, api_key) # Fiscal
+            
             time.sleep(retry_delay)
             
         except KeyboardInterrupt:
