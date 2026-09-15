@@ -1,4 +1,4 @@
-# Agente Local de Impresión - Versión 2.5 (Self-Hiding Console + Single Instance)
+# Agente Local de ImpresiÃ³n - VersiÃ³n 2.5 (Self-Hiding Console + Single Instance)
 # CON LOGICA ORIGINAL INTACTA - SOLO AJUSTE DE HEXA
 import requests
 import time
@@ -18,10 +18,10 @@ from PIL import Image
 try:
     from fiscal_epson import emitir_job, FiscalError
 except ImportError:
-    print("No se encontraron los módulos fiscales (fiscal_epson/fiscal_frame).")
+    print("No se encontraron los mÃ³dulos fiscales (fiscal_epson/fiscal_frame).")
     sys.exit(1)
 
-# --- CACHÉ DE IMÁGENES LOCAL ---
+# --- CACHÃ‰ DE IMÃGENES LOCAL ---
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo_cache')
 os.makedirs(CACHE_DIR, exist_ok=True)
 
@@ -33,7 +33,7 @@ if os.name == 'nt':
     except:
         pass
 
-# --- BLOQUEO DE INSTANCIA ÚNICA ---
+# --- BLOQUEO DE INSTANCIA ÃšNICA ---
 def lock_instance():
     """Evita que dos instancias del agente corran al mismo tiempo."""
     try:
@@ -41,7 +41,7 @@ def lock_instance():
         instance_lock.bind(("127.0.0.1", 45999)) 
         return instance_lock
     except socket.error:
-        print("❌ ERROR: El Agente ya está en ejecución (Instancia Duplicada Detectada).")
+        print("âŒ ERROR: El Agente ya estÃ¡ en ejecuciÃ³n (Instancia Duplicada Detectada).")
         sys.exit(0)
 
 _lock_socket = lock_instance()
@@ -50,7 +50,7 @@ _lock_socket = lock_instance()
 try:
     from escpos.printer import Network
 except ImportError:
-    print("CRÍTICO: No se encuentra la librería 'python-escpos'. Instálala con: pip install python-escpos")
+    print("CRÃTICO: No se encuentra la librerÃ­a 'python-escpos'. InstÃ¡lala con: pip install python-escpos")
     sys.exit(1)
 
 try:
@@ -58,7 +58,7 @@ try:
 except:
     Win32Raw = None
 
-# --- CONFIGURACIÓN DE RUTAS ABSOLUTAS ---
+# --- CONFIGURACIÃ“N DE RUTAS ABSOLUTAS ---
 if getattr(sys, 'frozen', False):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
@@ -89,7 +89,7 @@ def format_receipt(p, data):
     try:
         content = data.get('content')
         if not content:
-            logger.warning("⚠️ Trabajo sin contenido, saltando.")
+            logger.warning("âš ï¸ Trabajo sin contenido, saltando.")
             return
 
         lines = content.split('\n')
@@ -102,7 +102,7 @@ def format_receipt(p, data):
             force_bold = '[B]' in line
             line = line.replace('[B]', '')
 
-            # --- NUEVA LÓGICA DE TAMAÑOS CRUDA (HEXADECIMAL ESC/POS) ---
+            # --- NUEVA LÃ“GICA DE TAMAÃ‘OS CRUDA (HEXADECIMAL ESC/POS) ---
             
             if line.startswith('[S6]') or line.startswith('[S5]'):
                 # GIGANTE: \x1b\x21\x38 = Doble Alto + Doble Ancho + Negrita
@@ -111,7 +111,7 @@ def format_receipt(p, data):
                 p._raw(b'\x1b\x21\x00')
                 
             elif line.startswith('[S4]'): 
-                # CATEGORÍAS: \x1b\x21\x18 = Doble Alto + Negrita (Para que sea proporcional)
+                # CATEGORÃAS: \x1b\x21\x18 = Doble Alto + Negrita (Para que sea proporcional)
                 p._raw(b'\x1b\x21\x18')
                 p.text(line[4:] + '\n')
                 p._raw(b'\x1b\x21\x00')
@@ -123,8 +123,8 @@ def format_receipt(p, data):
                 p._raw(b'\x1b\x21\x00')
 
             elif line.startswith('[S2.5]'): 
-                # 🚀 PLATOS ALTOS: Doble Alto + Negrita
-                # Código Hexa: \x1b\x21\x18 (Este es el que se ve bien en la DPOS)
+                # ðŸš€ PLATOS ALTOS: Doble Alto + Negrita
+                # CÃ³digo Hexa: \x1b\x21\x18 (Este es el que se ve bien en la DPOS)
                 p._raw(b'\x1b\x21\x18')
                 p.text(line[6:] + '\n') 
                 p._raw(b'\x1b\x21\x00')
@@ -143,11 +143,11 @@ def format_receipt(p, data):
                 p._raw(b'\x1b\x21\x00')
                 p.set(align='left')
                 
-            # --- FIN DE LÓGICA DE TAMAÑOS ---
+            # --- FIN DE LÃ“GICA DE TAMAÃ‘OS ---
             
-            elif line.startswith('[QR]'): # Código QR
+            elif line.startswith('[QR]'): # CÃ³digo QR
                 qr_data = line[4:].strip()
-                logger.info(f"📲 Imprimiendo QR: {qr_data[:30]}...")
+                logger.info(f"ðŸ“² Imprimiendo QR: {qr_data[:30]}...")
                 p.set(align='center')
                 p.qr(qr_data, size=8, model=2)
                 p.text('\n')
@@ -162,7 +162,7 @@ def format_receipt(p, data):
                     cached_path = os.path.join(CACHE_DIR, f"{url_hash}.{ext}")
 
                     if not os.path.exists(cached_path):
-                        logger.info(f"⬇️ Descargando logo al caché: {url}")
+                        logger.info(f"â¬‡ï¸ Descargando logo al cachÃ©: {url}")
                         resp = requests.get(url, timeout=10)
                         if resp.status_code == 200:
                             with open(cached_path, 'wb') as f:
@@ -177,7 +177,7 @@ def format_receipt(p, data):
                     p.image(img, center=True)
                     p.text('\n')
                 except Exception as e_img:
-                    logger.error(f"❌ Error procesando logo: {e_img}")
+                    logger.error(f"âŒ Error procesando logo: {e_img}")
                     
             elif line.startswith('[C]'): 
                 p.set(align='center', width=1, height=1, bold=force_bold)
@@ -191,7 +191,7 @@ def format_receipt(p, data):
         p.text('\n\n')
         p.cut()
     except Exception as e:
-        logger.error(f"💥 Error en formateo: {e}")
+        logger.error(f"ðŸ’¥ Error en formateo: {e}")
 
 def procesar_cola(negocio_id, api_key):
     headers = { "X-API-Key": api_key }
@@ -201,28 +201,28 @@ def procesar_cola(negocio_id, api_key):
         
         if response.status_code != 200:
             if response.status_code == 404:
-                logger.error(f"❌ Error 404: La ruta de la cola no existe en {url_pendientes}")
+                logger.error(f"âŒ Error 404: La ruta de la cola no existe en {url_pendientes}")
             elif response.status_code == 401:
-                logger.error("❌ API Key inválida en la cola.")
+                logger.error("âŒ API Key invÃ¡lida en la cola.")
             else:
-                logger.error(f"⚠️ Servidor respondió con código {response.status_code}")
+                logger.error(f"âš ï¸ Servidor respondiÃ³ con cÃ³digo {response.status_code}")
             return
             
         content_type = response.headers.get('Content-Type', '')
         if 'application/json' not in content_type.lower():
-            logger.error(f"❌ Respuesta NO es JSON (Recibido: {content_type}).")
+            logger.error(f"âŒ Respuesta NO es JSON (Recibido: {content_type}).")
             return
 
         try:
             jobs = response.json()
         except Exception as e_json:
-            logger.error(f"❌ Error parseando JSON: {e_json}")
+            logger.error(f"âŒ Error parseando JSON: {e_json}")
             return
 
         if not jobs or not isinstance(jobs, list): 
             return
         
-        logger.info(f"📂 {len(jobs)} trabajos pendientes encontrados.")
+        logger.info(f"ðŸ“‚ {len(jobs)} trabajos pendientes encontrados.")
         
         for job in jobs:
             try:
@@ -235,39 +235,39 @@ def procesar_cola(negocio_id, api_key):
                 destino = target_ip if is_valid_ip(target_ip) else usb_name
                 
                 if not destino:
-                    logger.warning(f"⚠️ Trabajo {job['id']} sin destino.")
+                    logger.warning(f"âš ï¸ Trabajo {job['id']} sin destino.")
                     requests.post(f"{API_URL}/negocios/{negocio_id}/impresioncola/{job['id']}/listo", headers=headers, timeout=5)
                     continue
                 
                 printer = None
                 try:
                     if is_valid_ip(destino):
-                        logger.info(f"📡 RED: {destino}")
+                        logger.info(f"ðŸ“¡ RED: {destino}")
                         printer = Network(destino, timeout=5)
                     elif Win32Raw:
-                        logger.info(f"🔌 USB: {destino}")
+                        logger.info(f"ðŸ”Œ USB: {destino}")
                         printer = Win32Raw(destino)
                     else:
                         continue
 
                     if printer:
-                        logger.info(f"🖨️ Imprimiendo {job['id']}...")
+                        logger.info(f"ðŸ–¨ï¸ Imprimiendo {job['id']}...")
                         format_receipt(printer, payload)
                         printer.close()
                         requests.post(f"{API_URL}/negocios/{negocio_id}/impresioncola/{job['id']}/listo", headers=headers, timeout=5)
-                        logger.info(f"✅ Éxito {job['id']}")
+                        logger.info(f"âœ… Ã‰xito {job['id']}")
                         time.sleep(1)
                     
                 except Exception as e_print:
-                    logger.error(f"❌ ERROR FÍSICO en {destino}: {e_print}")
+                    logger.error(f"âŒ ERROR FÃSICO en {destino}: {e_print}")
                     try:
                         requests.post(f"{API_URL}/negocios/{negocio_id}/impresioncola/{job['id']}/error", headers=headers, timeout=5)
                     except:
                         pass
             except Exception as e_job:
-                logger.error(f"❌ Error procesando job térmico {job.get('id')}: {e_job}")
+                logger.error(f"âŒ Error procesando job tÃ©rmico {job.get('id')}: {e_job}")
     except Exception as e:
-        logger.error(f"🌐 Error de comunicación en cola térmica: {e}")
+        logger.error(f"ðŸŒ Error de comunicaciÃ³n en cola tÃ©rmica: {e}")
 
 def procesar_cola_fiscal(negocio_id, caja_id, api_key):
     headers = { "X-API-Key": api_key, "Content-Type": "application/json" }
@@ -277,35 +277,35 @@ def procesar_cola_fiscal(negocio_id, caja_id, api_key):
         
         if response.status_code != 200:
             if response.status_code not in (404, 401):
-                logger.error(f"⚠️ Servidor respondió {response.status_code} en cola FISCAL")
+                logger.error(f"âš ï¸ Servidor respondiÃ³ {response.status_code} en cola FISCAL")
             return
             
         jobs = response.json()
         if not jobs or not isinstance(jobs, list): return
         
-        logger.info(f"🧾 {len(jobs)} trabajos FISCALES pendientes.")
+        logger.info(f"ðŸ§¾ {len(jobs)} trabajos FISCALES pendientes.")
         
         for job in jobs:
             jid = job['id']
             try:
                 cfg_job = {'conexion': 'usb', 'dispositivo': 'USB'}
                 
-                logger.info(f"🖨️ [FISCAL] Emitiendo comprobante {jid}...")
+                logger.info(f"ðŸ–¨ï¸ [FISCAL] Emitiendo comprobante {jid}...")
                 nro = emitir_job(cfg_job, job)
                 
                 requests.post(f"{API_URL}/negocios/{negocio_id}/fiscal-cola/{jid}/listo", 
                               headers=headers, json={'nro_comprobante': nro}, timeout=5)
-                logger.info(f"✅ [FISCAL] Éxito {jid} -> {nro}")
+                logger.info(f"âœ… [FISCAL] Ã‰xito {jid} -> {nro}")
                 time.sleep(1)
             except Exception as e_print:
-                logger.error(f"❌ [FISCAL] ERROR en {jid}: {e_print}")
+                logger.error(f"âŒ [FISCAL] ERROR en {jid}: {e_print}")
                 try:
                     requests.post(f"{API_URL}/negocios/{negocio_id}/fiscal-cola/{jid}/error", 
                                   headers=headers, json={'error': str(e_print)}, timeout=5)
                 except:
                     pass
     except Exception as e:
-        logger.error(f"🌐 Error de comunicación en cola FISCAL: {e}")
+        logger.error(f"ðŸŒ Error de comunicaciÃ³n en cola FISCAL: {e}")
 
 def run_agent():
     global API_URL
@@ -316,21 +316,22 @@ def run_agent():
             with open(CONFIG_FILE, 'r') as f:
                 cfg = json.load(f)
                 negocio_id = cfg.get('negocio_id')
-                caja_id = cfg.get('caja_id')`n                controlador_id = cfg.get('controlador_id', caja_id)
+                caja_id = cfg.get('caja_id')
+                controlador_id = cfg.get('controlador_id', caja_id)
                 api_key = cfg.get('api_key') or cfg.get('token')
                 server_url = cfg.get('url', API_URL)
         except Exception as e:
             logger.error(f"Error leyendo config: {e}")
     
     if not negocio_id or not api_key or not caja_id:
-        logger.error("❌ CONFIGURACIÓN INCOMPLETA. Revisa 'agent_config.json'.")
+        logger.error("âŒ CONFIGURACIÃ“N INCOMPLETA. Revisa 'agent_config.json'.")
         print("\nFormato esperado en agent_config.json:\n" + 
               json.dumps({"negocio_id": 13, "caja_id": 13, "api_key": "LA_CLAVE", "url": "https://..."}, indent=2))
         return
 
     API_URL = server_url if server_url.endswith('/api') else f"{server_url}/api"
-    logger.info(f"🚀 Baboons SÚPER Agent INICIADO")
-    logger.info(f"📍 Negocio ID: {negocio_id} | 📦 Caja: {caja_id} | 🌍 API: {API_URL}")
+    logger.info(f"ðŸš€ Baboons SÃšPER Agent INICIADO")
+    logger.info(f"ðŸ“ Negocio ID: {negocio_id} | ðŸ“¦ Caja: {caja_id} | ðŸŒ API: {API_URL}")
 
     retry_delay = 3
     while True:
@@ -340,19 +341,19 @@ def run_agent():
                 hb = requests.post(f"{API_URL}/negocios/{negocio_id}/agente/heartbeat", 
                                  headers={"X-API-Key": api_key}, timeout=5)
             except Exception as e:
-                logger.debug(f"💔 Error de red en Heartbeat: {e}")
+                logger.debug(f"ðŸ’” Error de red en Heartbeat: {e}")
                 
             # 2. Procesar Colas
-            procesar_cola(negocio_id, api_key) # Térmica
+            procesar_cola(negocio_id, api_key) # TÃ©rmica
             procesar_cola_fiscal(negocio_id, caja_id, api_key) # Fiscal
             
             time.sleep(retry_delay)
             
         except KeyboardInterrupt:
-            logger.info("🛑 Agente detenido por el usuario.")
+            logger.info("ðŸ›‘ Agente detenido por el usuario.")
             break
         except Exception as e:
-            logger.error(f"🔥 Error crítico en loop principal: {e}")
+            logger.error(f"ðŸ”¥ Error crÃ­tico en loop principal: {e}")
             time.sleep(retry_delay * 2)
 
 if __name__ == "__main__":
