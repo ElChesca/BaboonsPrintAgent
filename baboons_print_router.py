@@ -1,4 +1,4 @@
-﻿# Agente Local de Impresión - Versión 2.5 (Self-Hiding Console + Single Instance)
+# Agente Local de Impresión - Versión 2.5 (Self-Hiding Console + Single Instance)
 # CON LOGICA ORIGINAL INTACTA - SOLO AJUSTE DE HEXA
 import requests
 import time
@@ -309,14 +309,14 @@ def procesar_cola_fiscal(negocio_id, caja_id, api_key):
 
 def run_agent():
     global API_URL
-    negocio_id, api_key, server_url, caja_id = None, None, API_URL, None
+    negocio_id, api_key, server_url, caja_id, controlador_id = None, None, API_URL, None, None
     
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, 'r') as f:
                 cfg = json.load(f)
                 negocio_id = cfg.get('negocio_id')
-                caja_id = cfg.get('caja_id')
+                caja_id = cfg.get('caja_id')`n                controlador_id = cfg.get('controlador_id', caja_id)
                 api_key = cfg.get('api_key') or cfg.get('token')
                 server_url = cfg.get('url', API_URL)
         except Exception as e:
