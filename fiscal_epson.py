@@ -1,4 +1,4 @@
-# tools/fiscal_simulator/fiscal_epson.py
+﻿# tools/fiscal_simulator/fiscal_epson.py
 """
 Driver del controlador fiscal EPSON TM-T900FA para el AGENTE LOCAL (Fase 2).
 Emite un comprobante a partir de un 'job' de la cola fiscal y devuelve el Nº
@@ -106,6 +106,8 @@ class FiscalEpson:
         Devuelve el nro de comprobante asignado por el equipo.
         """
         tipo = (job.get('tipo_comprobante') or 'B').upper()
+        if tipo == 'P':
+            return "TEST OK: " + str(self.info())
         payload = job.get('payload') or {}
         items = payload.get('items') or []
         if not items:
