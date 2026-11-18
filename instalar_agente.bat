@@ -118,11 +118,16 @@ echo [5/5] Instalando y arrancando servicio %SERVICE_NAME%...
 
 echo.
 set "USAR_CUENTA=N"
-set /p "USAR_CUENTA=Es impresora USB y queres asignarle tu usuario de Windows al servicio? (S/N, Enter=N): "
+set /p "USAR_CUENTA=Cambiar usuario del servicio (solo si usas USB Y tu Windows tiene contrasena)? (S/N, Enter=N): "
 if /i not "%USAR_CUENTA%"=="S" goto INICIAR_SERVICIO
 set "WIN_USER=%USERDOMAIN%\%USERNAME%"
 set /p "WIN_USER=Usuario de Windows (Enter para %USERDOMAIN%\%USERNAME%): "
+set "WIN_PASS="
 set /p "WIN_PASS=Contrasena de Windows: "
+if "%WIN_PASS%"=="" (
+    echo [AVISO] Windows no permite iniciar servicios con contrasena vacia. Se usara Sistema Local.
+    goto INICIAR_SERVICIO
+)
 "%NSSM_EXE%" set %SERVICE_NAME% ObjectName "%WIN_USER%" "%WIN_PASS%"
 
 :INICIAR_SERVICIO
