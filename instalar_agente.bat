@@ -34,10 +34,9 @@ if not exist "%EXE_PATH%" (
 
 :CHECK_CONFIG
 echo.
-set "RECONFIG=S"
-if exist "%CFG_PATH%" (
-    set /p "RECONFIG=Ya existe agent_config.json. Queres reconfigurarlo? (S/N, Enter=N): "
-)
+if not exist "%CFG_PATH%" goto PEDIR_DATOS
+set "RECONFIG=N"
+set /p "RECONFIG=Ya existe agent_config.json. Queres reconfigurarlo? (S/N, Enter=N): "
 if /i "%RECONFIG%"=="S" goto PEDIR_DATOS
 goto BUSCAR_NSSM
 
