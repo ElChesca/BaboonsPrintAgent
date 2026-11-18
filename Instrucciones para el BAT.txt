@@ -1,13 +1,13 @@
 === Instalacion en PC Nueva ===
 
-1. Copia el archivo instalar_agente.bat en cualquier carpeta (o directamente en C:\Baboons).
-2. Hace clic derecho sobre instalar_agente.bat -> "Ejecutar como administrador".
+1. Descarga Agente_Impresion_Baboons.exe desde GitHub / modulo #resto_impresoras y copialo en C:\Baboons\Agente_Impresion_Baboons.exe.
+2. Copia instalar_agente.bat en cualquier carpeta (o en C:\Baboons) y hace clic derecho -> "Ejecutar como administrador".
 3. Si Windows muestra el aviso azul de SmartScreen ("Windows protegio su PC"), clic en "Mas informacion" y luego "Ejecutar de todas formas".
 4. Ingresa cuando te lo pida:
    - ID del Negocio (ej: 13)
    - ID de la Caja (Enter para usar 1)
    - API Key del negocio
-   *(El script crea C:\Baboons, descarga Agente_Impresion_Baboons.exe si falta, genera agent_config.json sin BOM, instala NSSM y deja corriendo el servicio AgenteImpresionBaboons con logs en C:\Baboons\nssm_out.log y nssm_err.log).*
+   *(El script genera agent_config.json sin BOM, descarga nssm.exe portable en C:\Baboons si falta, y deja corriendo el servicio AgenteImpresionBaboons con logs en C:\Baboons\nssm_out.log y nssm_err.log).*
 5. Entra a #resto_impresoras en el ERP, apreta F5 y verifica que el badge este en Verde.
 
 === Desinstalacion / Limpieza en una PC ===

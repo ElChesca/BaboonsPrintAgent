@@ -13,7 +13,6 @@ set "DIR_APP=C:\Baboons"
 set "EXE_PATH=%DIR_APP%\Agente_Impresion_Baboons.exe"
 set "CFG_PATH=%DIR_APP%\agent_config.json"
 set "SERVICE_NAME=AgenteImpresionBaboons"
-set "URL_EXE=https://github.com/ElChesca/BaboonsPrintAgent/releases/download/latest-agent/Agente_Impresion_Baboons.exe"
 
 echo ==================================================
 echo   INSTALADOR AGENTE DE IMPRESION - BABOONS ERP
@@ -22,15 +21,13 @@ echo.
 
 if not exist "%DIR_APP%" mkdir "%DIR_APP%"
 
-:: 1. Descargar ejecutable si no existe
+:: 1. Verificar que el ejecutable ya este copiado en C:\Baboons
 if exist "%EXE_PATH%" goto CHECK_CONFIG
-echo [1/5] Descargando Agente_Impresion_Baboons.exe...
-curl.exe -L --fail -o "%EXE_PATH%" "%URL_EXE%"
-if not exist "%EXE_PATH%" (
-    echo [ERROR] No se pudo descargar el ejecutable. Descargalo manual en %EXE_PATH%
-    pause
-    exit /b 1
-)
+echo [ERROR] No se encontro %EXE_PATH%.
+echo Descarga Agente_Impresion_Baboons.exe desde GitHub / modulo #resto_impresoras,
+echo copialo dentro de %DIR_APP% y volve a ejecutar este instalador.
+pause
+exit /b 1
 
 :CHECK_CONFIG
 echo.
@@ -77,7 +74,14 @@ if not defined NSSM_EXE (
 )
 if defined NSSM_EXE goto LIMPIAR_ANTERIOR
 
-echo Instalando NSSM mediante winget...
+echo Descargando NSSM portable en %DIR_APP%\nssm.exe...
+curl.exe -sL --fail --max-time 25 -o "%TEMP%\nssm_pkg.zip" "https://community.chocolatey.org/api/v2/package/NSSM/2.24.101"
+if exist "%TEMP%\nssm_pkg.zip" powershell -NoProfile -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $o=[System.IO.Compression.ZipFile]::OpenRead('%TEMP%\nssm_pkg.zip'); $e=$o.Entries|?{$_.FullName -like 'tools/nssm-*.zip'}|Select -First 1; $ms=New-Object System.IO.MemoryStream; $s=$e.Open(); $s.CopyTo($ms); $s.Close(); $o.Dispose(); $ms.Position=0; $i=New-Object System.IO.Compression.ZipArchive($ms); $n=$i.Entries|?{$_.FullName -like '*win64/nssm.exe'}|Select -First 1; [System.IO.Compression.ZipFileExtensions]::ExtractToFile($n,'%DIR_APP%\nssm.exe',$true); $i.Dispose(); $ms.Dispose()"
+del /f /q "%TEMP%\nssm_pkg.zip" >nul 2>&1
+if exist "%DIR_APP%\nssm.exe" set "NSSM_EXE=%DIR_APP%\nssm.exe"
+if defined NSSM_EXE goto LIMPIAR_ANTERIOR
+
+echo Intentando instalar NSSM mediante winget...
 winget install -e --id NSSM.NSSM --accept-source-agreements --accept-package-agreements
 for /f "delims=" %%I in ('where nssm 2^>nul') do if not defined NSSM_EXE set "NSSM_EXE=%%I"
 if not defined NSSM_EXE if exist "%LOCALAPPDATA%\Microsoft\WinGet\Links\nssm.exe" set "NSSM_EXE=%LOCALAPPDATA%\Microsoft\WinGet\Links\nssm.exe"
@@ -85,7 +89,7 @@ if not defined NSSM_EXE (
     for /f "delims=" %%I in ('dir /b /s "%LOCALAPPDATA%\Microsoft\WinGet\Packages\nssm.exe" 2^>nul') do if not defined NSSM_EXE set "NSSM_EXE=%%I"
 )
 if not defined NSSM_EXE (
-    echo [ERROR] No se encontro NSSM despues de instalar. Cerra esta ventana y ejecuta el .bat de nuevo.
+    echo [ERROR] No se pudo descargar ni instalar NSSM. Copia nssm.exe en %DIR_APP%\nssm.exe y reintenta.
     pause
     exit /b 1
 )
