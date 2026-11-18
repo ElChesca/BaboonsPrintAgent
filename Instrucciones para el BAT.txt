@@ -1,29 +1,23 @@
-1. Preparación
-Copiá la carpeta del agente a C:\Baboons (o la ruta que prefieras).
+=== Instalacion en PC Nueva ===
 
-Asegurate de que adentro estén el agente_impresion.exe y el archivo instalar_agente.bat.
+1. Copia el archivo instalar_agente.bat en cualquier carpeta (o directamente en C:\Baboons).
+2. Hace clic derecho sobre instalar_agente.bat -> "Ejecutar como administrador".
+3. Si Windows muestra el aviso azul de SmartScreen ("Windows protegio su PC"), clic en "Mas informacion" y luego "Ejecutar de todas formas".
+4. Ingresa cuando te lo pida:
+   - ID del Negocio (ej: 13)
+   - ID de la Caja (Enter para usar 1)
+   - API Key del negocio
+   *(El script crea C:\Baboons, descarga Agente_Impresion_Baboons.exe si falta, genera agent_config.json sin BOM, instala NSSM y deja corriendo el servicio AgenteImpresionBaboons con logs en C:\Baboons\nssm_out.log y nssm_err.log).*
+5. Entra a #resto_impresoras en el ERP, apreta F5 y verifica que el badge este en Verde.
 
-2. Ejecución (La magia)
-Hacé clic derecho sobre el archivo instalar_agente.bat.
+=== Desinstalacion / Limpieza en una PC ===
 
-Elegí "Ejecutar como administrador".
+1. Hace clic derecho sobre desinstalar_agente.bat -> "Ejecutar como administrador".
+2. Detiene y elimina el servicio AgenteImpresionBaboons, elimina cualquier tarea programada previa en schtasks, cierra procesos en memoria y opcionalmente borra la carpeta C:\Baboons.
 
-Si Windows te tira un cartel azul de "Protegió su PC", dale a "Más información" y luego a "Ejecutar de todas formas".
+=== Comandos de Emergencia ===
 
-3. Verificación final
-Esperá a que la ventanita negra diga: ¡Servicio instalado y corriendo!.
-
-Presioná cualquier tecla para cerrar.
-
-¡Listo! Ya podés tirar una impresión de prueba desde el sistema.
-
-🛠️ Comandos de Emergencia (Solo si algo falla)
-Si alguna vez necesitás tocar algo, abrí una terminal como administrador y tirá estos:
-
-¿Está vivo?: nssm status AgenteImpresion
-
-Frenarlo: nssm stop AgenteImpresion
-
-Revivirlo: nssm start AgenteImpresion
-
-Borrarlo para reinstalar: nssm remove AgenteImpresion confirm
+- Ver estado: nssm status AgenteImpresionBaboons
+- Frenar: nssm stop AgenteImpresionBaboons
+- Arrancar: nssm start AgenteImpresionBaboons
+- Ver logs: C:\Baboons\nssm_out.log / C:\Baboons\nssm_err.log / C:\Baboons\agent_log.txt
